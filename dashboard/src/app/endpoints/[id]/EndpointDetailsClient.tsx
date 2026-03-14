@@ -1,12 +1,41 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Activity, Box, Copy, Globe, MoreVertical, Play, Power, RotateCcw, Server, Terminal, Lock, Plug } from 'lucide-react';
 import { Endpoint } from '../EndpointsList';
+import { NeoNodeService } from '@/services/neo/NeoNodeService';
 
 export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint | null }) {
   const [activeTab, setActiveTab] = useState('overview');
+  const [blockHeight, setBlockHeight] = useState<number | string>('Syncing...');
+  const [peerCount, setPeerCount] = useState<number | string>('Syncing...');
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    const fetchNodeStats = async () => {
+      if (endpoint?.url && endpoint.status.toLowerCase() === 'active') {
+        const height = await NeoNodeService.getBlockCount(endpoint.url);
+        if (height !== null) setBlockHeight(height.toLocaleString());
+
+        const peers = await NeoNodeService.getPeersCount(endpoint.url);
+        if (peers !== null) setPeerCount(peers);
+      } else if (endpoint?.status.toLowerCase() !== 'active') {
+        setBlockHeight(endpoint?.status || 'Unknown');
+        setPeerCount('-');
+      }
+    };
+
+    fetchNodeStats();
+    
+    // Poll every 15 seconds if active
+    if (endpoint?.status.toLowerCase() === 'active') {
+      interval = setInterval(fetchNodeStats, 15000);
+    }
+
+    return () => clearInterval(interval);
+  }, [endpoint]);
 
   const tabs = [
     { id: 'overview', name: 'Overview' },
@@ -17,6 +46,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
   ];
 
   const wssUrl = endpoint?.url ? endpoint.url.replace('https://', 'wss://').replace('/v1', '/ws') : 'wss://node-tokyo-01.neonexus.io/ws/xyz';
+
 
   return (
     <div className="space-y-6">
@@ -120,15 +150,15 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div>
                   <div className="text-sm text-gray-400 mb-1 flex items-center gap-1"><Box className="w-3 h-3"/> Block Height</div>
-                  <div className="text-2xl font-bold text-white">5,342,109</div>
+                  <div className="text-2xl font-bold text-white">{blockHeight}</div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-400 mb-1 flex items-center gap-1"><Globe className="w-3 h-3"/> Peers Connected</div>
-                  <div className="text-2xl font-bold text-white">42</div>
+                  <div className="text-2xl font-bold text-white">{peerCount}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-gray-400 mb-1 flex items-center gap-1"><Terminal className="w-3 h-3"/> Client Version</div>
-                  <div className="text-2xl font-bold text-white">neo-go v0.106.0</div>
+                  <div className="text-sm text-gray-400 mb-1 flex items-center gap-1"><Terminal className="w-3 h-3"/> Client Engine</div>
+                  <div className="text-2xl font-bold text-white">{endpoint?.clientEngine || 'neo-go'}</div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-400 mb-1 flex items-center gap-1"><Activity className="w-3 h-3"/> Uptime</div>

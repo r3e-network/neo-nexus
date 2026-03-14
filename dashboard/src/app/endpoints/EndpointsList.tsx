@@ -11,6 +11,7 @@ export type Endpoint = {
   url: string;
   status: string;
   requests: string | number;
+  clientEngine?: string;
 };
 
 export default function EndpointsList({ endpoints }: { endpoints: Endpoint[] }) {
