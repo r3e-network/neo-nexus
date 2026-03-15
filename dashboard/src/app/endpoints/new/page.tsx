@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, ChevronRight, Cloud, Globe, HardDrive, Info, Layers, Server, Shield, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { createEndpointAction } from '../actions';
+import toast from 'react-hot-toast';
 
 export default function CreateEndpoint() {
   const router = useRouter();
@@ -55,13 +56,15 @@ export default function CreateEndpoint() {
       });
 
       if (result.success) {
+        toast.success('Node deployed successfully!');
         router.push(`/endpoints/${result.id}`);
       } else {
-        alert('Failed to deploy node: ' + result.error);
+        toast.error(result.error || 'Failed to deploy node');
         setIsDeploying(false);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      toast.error('An unexpected error occurred');
       setIsDeploying(false);
     }
   };

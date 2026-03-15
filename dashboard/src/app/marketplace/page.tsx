@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Blocks, Box, Code, Database, Eye, Search, ShieldCheck, Sparkles, Zap, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
+import { Blocks, Box, Code, Database, Eye, Search, ShieldCheck, Sparkles, Zap } from 'lucide-react';
 
 const categories = ['All', 'Developer Tools', 'Indexing & Data', 'Security & Oracles'];
 
@@ -180,18 +181,19 @@ export default function Marketplace() {
                   <div className="text-xs text-gray-500">{plugin.type}</div>
                 </div>
                 
-                <button 
-                  className={`px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 ${
-                    plugin.status === 'Installed' 
-                      ? 'bg-[#333333] text-[#00E599] cursor-default'
-                      : plugin.status === 'Coming Soon'
-                      ? 'bg-transparent border border-[#333333] text-gray-500 cursor-not-allowed'
-                      : 'bg-[#111111] border border-[#333333] text-white hover:bg-[#00E599] hover:text-black hover:border-[#00E599]'
-                  }`}
-                  disabled={plugin.status !== 'Available'}
-                >
-                  {plugin.status === 'Installed' ? 'Installed' : plugin.status === 'Coming Soon' ? 'Coming Soon' : 'Add to Node'}
-                </button>
+                {plugin.status === 'Installed' ? (
+                   <button className="px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 bg-[#333333] text-[#00E599] cursor-default">
+                     Installed
+                   </button>
+                ) : plugin.status === 'Coming Soon' ? (
+                   <button className="px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 bg-transparent border border-[#333333] text-gray-500 cursor-not-allowed">
+                     Coming Soon
+                   </button>
+                ) : (
+                   <Link href="/billing" className="px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 bg-[#111111] border border-[#333333] text-white hover:bg-[#00E599] hover:text-black hover:border-[#00E599]">
+                     Upgrade to Add
+                   </Link>
+                )}
               </div>
             </div>
           </div>
