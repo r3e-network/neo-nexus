@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Blocks, Box, Code, Database, Eye, Search, ShieldCheck, Sparkles, Zap } from 'lucide-react';
+import { Blocks, Box, Code, Database, Eye, Search, ShieldCheck, Sparkles, Zap, HardDrive, Bell, Cloud } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const categories = ['All', 'Developer Tools', 'Indexing & Data', 'Security & Oracles'];
+const categories = ['All', 'Developer Tools', 'Indexing & Data', 'Security & Oracles', 'Infrastructure'];
 
 const plugins = [
   {
@@ -51,6 +51,62 @@ const plugins = [
     featured: false,
   },
   {
+    id: 'rpc-cache',
+    name: 'Redis RPC Cache',
+    provider: 'NeoNexus Official',
+    category: 'Infrastructure',
+    description: 'Deploys a local Redis sidecar container to intelligently cache stateless RPC responses, massively boosting your node\'s QPS limits.',
+    icon: Database,
+    color: 'from-red-400/20 to-red-600/20',
+    iconColor: 'text-red-400',
+    price: '$29/mo',
+    type: 'Subscription',
+    status: 'Available',
+    featured: false,
+  },
+  {
+    id: 'neofs-gateway',
+    name: 'NeoFS HTTP Gateway',
+    provider: 'NeoSPCC',
+    category: 'Infrastructure',
+    description: 'Mount a local NeoFS gateway directly to your cluster. Fetch and host decentralized assets on the NeoFS network seamlessly.',
+    icon: Cloud,
+    color: 'from-green-400/20 to-green-600/20',
+    iconColor: 'text-green-400',
+    price: '$39/mo',
+    type: 'Subscription',
+    status: 'Available',
+    featured: false,
+  },
+  {
+    id: 'state-service',
+    name: 'State Service (MPT)',
+    provider: 'NeoNexus Official',
+    category: 'Indexing & Data',
+    description: 'Enables MPT (Merkle Patricia Trie) state proof generation. Required for running cross-chain bridges and trustless clients.',
+    icon: HardDrive,
+    color: 'from-teal-400/20 to-teal-600/20',
+    iconColor: 'text-teal-400',
+    price: '$19/mo',
+    type: 'Subscription',
+    status: 'Available',
+    featured: false,
+  },
+  {
+    id: 'webhook-notifier',
+    name: 'Event Webhook Router',
+    provider: 'NeoNexus Official',
+    category: 'Developer Tools',
+    description: 'Listen to specific on-chain smart contract events (Notify) and automatically forward them to your HTTPS webhooks with guaranteed delivery.',
+    icon: Bell,
+    color: 'from-orange-400/20 to-orange-600/20',
+    iconColor: 'text-orange-400',
+    price: 'Free',
+    type: 'Included',
+    status: 'Available',
+    featured: false,
+  },
+  {
     id: 'mempool-watcher',
     name: 'Mempool Streamer',
     provider: 'NeoNexus Official',
@@ -62,20 +118,6 @@ const plugins = [
     price: '$19/mo',
     type: 'Subscription',
     status: 'Coming Soon',
-    featured: false,
-  },
-  {
-    id: 'sql-sync',
-    name: 'PostgreSQL Sync',
-    provider: 'ChainDB',
-    category: 'Indexing & Data',
-    description: 'Continuously syncs blockchain state directly into a managed PostgreSQL database for complex custom queries.',
-    icon: Database,
-    color: 'from-orange-400/20 to-orange-600/20',
-    iconColor: 'text-orange-400',
-    price: 'Usage Based',
-    type: 'Pay-as-you-go',
-    status: 'Available',
     featured: false,
   },
   {

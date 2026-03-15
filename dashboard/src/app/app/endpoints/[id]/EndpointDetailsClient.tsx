@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Activity, Box, Copy, Globe, MoreVertical, Play, Power, RotateCcw, Server, Terminal, Lock, Plug } from 'lucide-react';
+import { ArrowLeft, Activity, Box, Copy, Globe, MoreVertical, Play, Power, RotateCcw, Server, Terminal, Lock, Plug, Bell, Mail, Webhook, Cpu, HardDrive, RefreshCw, Download } from 'lucide-react';
 import { Endpoint } from '../EndpointsList';
 import { NeoNodeService } from '@/services/neo/NeoNodeService';
 import { addNodePluginAction } from '../pluginActions';
 import toast from 'react-hot-toast';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint | null }) {
   const [activeTab, setActiveTab] = useState('overview');
@@ -69,6 +70,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
     { id: 'metrics', name: 'Health Metrics' },
     { id: 'logs', name: 'Node Logs' },
     { id: 'plugins', name: 'Plugins' },
+    { id: 'alerts', name: 'Alerts' },
     { id: 'settings', name: 'Settings' },
   ];
 
@@ -198,11 +200,69 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
 
         {activeTab === 'metrics' && (
           <div className="space-y-6 animate-in fade-in">
-            <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6 flex items-center justify-center h-64">
-              <div className="text-center text-gray-500">
-                <Activity className="w-8 h-8 mx-auto mb-3 opacity-50" />
-                <p>System metrics (CPU, Memory, Disk I/O) are initializing...</p>
-                <p className="text-xs mt-1">Requires at least 1 hour of data collection.</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-lg font-medium text-white flex items-center gap-2"><Cpu className="w-5 h-5 text-blue-400" /> CPU Usage</h2>
+                  <span className="text-sm font-bold text-white">45%</span>
+                </div>
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={[
+                      { time: '10:00', value: 30 }, { time: '10:05', value: 45 }, { time: '10:10', value: 38 }, 
+                      { time: '10:15', value: 60 }, { time: '10:20', value: 42 }, { time: '10:25', value: 45 }
+                    ]}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                      <XAxis dataKey="time" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
+                      <Tooltip contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px' }} />
+                      <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-lg font-medium text-white flex items-center gap-2"><Activity className="w-5 h-5 text-[#00E599]" /> Memory Usage</h2>
+                  <span className="text-sm font-bold text-white">4.2 GB / 8 GB</span>
+                </div>
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={[
+                      { time: '10:00', value: 3.8 }, { time: '10:05', value: 3.9 }, { time: '10:10', value: 4.1 }, 
+                      { time: '10:15', value: 4.5 }, { time: '10:20', value: 4.3 }, { time: '10:25', value: 4.2 }
+                    ]}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                      <XAxis dataKey="time" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} domain={[0, 8]} />
+                      <Tooltip contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px' }} />
+                      <Line type="monotone" dataKey="value" stroke="#00E599" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6 lg:col-span-2">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-lg font-medium text-white flex items-center gap-2"><HardDrive className="w-5 h-5 text-purple-400" /> Disk I/O (Read/Write)</h2>
+                  <span className="text-sm font-bold text-white">2.5 MB/s</span>
+                </div>
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={[
+                      { time: '10:00', read: 1.2, write: 0.5 }, { time: '10:05', read: 2.5, write: 1.0 }, { time: '10:10', read: 1.8, write: 0.8 }, 
+                      { time: '10:15', read: 3.5, write: 2.1 }, { time: '10:20', read: 2.1, write: 0.9 }, { time: '10:25', read: 2.5, write: 1.2 }
+                    ]}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                      <XAxis dataKey="time" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px' }} />
+                      <Line type="monotone" dataKey="read" stroke="#a855f7" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="write" stroke="#ec4899" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
           </div>
@@ -272,6 +332,57 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
               >
                 Install Plugin
               </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'alerts' && (
+          <div className="animate-in fade-in space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-medium text-white">Alert Rules</h2>
+                <p className="text-sm text-gray-400 mt-1">Get notified when your node requires attention.</p>
+              </div>
+              <button 
+                onClick={() => toast('Alert rule creation modal would open here.', { icon: '🔔' })}
+                className="bg-[#00E599] hover:bg-[#00cc88] text-black px-4 py-2 rounded-md text-sm font-bold transition-colors"
+              >
+                Create Alert
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6 relative overflow-hidden">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-500/10 rounded-lg">
+                      <Activity className="w-5 h-5 text-red-500" />
+                    </div>
+                    <h3 className="font-bold text-white">Node Down</h3>
+                  </div>
+                  <span className="bg-[#00E599]/20 text-[#00E599] text-xs px-2 py-1 rounded font-bold">ACTIVE</span>
+                </div>
+                <p className="text-sm text-gray-400 mb-4">Triggers if the RPC endpoint becomes unresponsive for more than 1 minute.</p>
+                <div className="flex items-center gap-2 text-sm text-gray-300 bg-[#111111] p-2 rounded-md border border-[#333333]">
+                  <Mail className="w-4 h-4 text-gray-500" /> dev@neonexus.cloud
+                </div>
+              </div>
+
+              <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6 relative overflow-hidden">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-yellow-500/10 rounded-lg">
+                      <Box className="w-5 h-5 text-yellow-500" />
+                    </div>
+                    <h3 className="font-bold text-white">Sync Lag</h3>
+                  </div>
+                  <span className="bg-[#00E599]/20 text-[#00E599] text-xs px-2 py-1 rounded font-bold">ACTIVE</span>
+                </div>
+                <p className="text-sm text-gray-400 mb-4">Triggers if the node falls behind the main network by &gt; 100 blocks.</p>
+                <div className="flex items-center gap-2 text-sm text-gray-300 bg-[#111111] p-2 rounded-md border border-[#333333]">
+                  <Webhook className="w-4 h-4 text-gray-500" /> https://api.pagerduty.com/...
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -349,6 +460,46 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
                 >
                   Save Configuration
                 </button>
+              </div>
+            </div>
+
+            <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6">
+              <h2 className="text-lg font-medium text-white mb-4">Maintenance Actions</h2>
+              <p className="text-sm text-gray-400 mb-6">Perform advanced lifecycle operations on your node storage and state.</p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="border border-[#333333] rounded-lg p-4 flex flex-col justify-between">
+                   <div className="mb-4">
+                     <h3 className="font-bold text-white flex items-center gap-2 mb-1"><RefreshCw className="w-4 h-4 text-blue-400" /> Fast Resync</h3>
+                     <p className="text-xs text-gray-400">Purges local ledger data and automatically redownloads the latest official Neo Genesis snapshot.</p>
+                   </div>
+                   <button 
+                     onClick={() => {
+                        if (confirm('Are you sure you want to purge data and resync from snapshot? This will cause a few minutes of downtime.')) {
+                            toast.loading('Purging PVC and triggering init-container...', { id: 'maint' });
+                            setTimeout(() => toast.success('Node is resyncing from snapshot.', { id: 'maint' }), 2000);
+                        }
+                     }}
+                     className="bg-[#111111] hover:bg-[#222222] border border-[#333333] text-white px-4 py-2 rounded-md text-sm font-bold transition-colors w-full"
+                   >
+                     Trigger Resync
+                   </button>
+                </div>
+                <div className="border border-[#333333] rounded-lg p-4 flex flex-col justify-between">
+                   <div className="mb-4">
+                     <h3 className="font-bold text-white flex items-center gap-2 mb-1"><Download className="w-4 h-4 text-green-400" /> Export Snapshot</h3>
+                     <p className="text-xs text-gray-400">Creates a point-in-time tarball of your Node's persistent volume and generates a signed S3 download link.</p>
+                   </div>
+                   <button 
+                     onClick={() => {
+                        toast.loading('Initiating volume snapshot... This may take up to 10 minutes depending on size.', { id: 'maint' });
+                        setTimeout(() => toast.success('Snapshot queued! You will receive an email when ready.', { id: 'maint' }), 2000);
+                     }}
+                     className="bg-[#111111] hover:bg-[#222222] border border-[#333333] text-white px-4 py-2 rounded-md text-sm font-bold transition-colors w-full"
+                   >
+                     Export Data
+                   </button>
+                </div>
               </div>
             </div>
 

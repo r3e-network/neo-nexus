@@ -91,6 +91,7 @@ model Endpoint {
   firewalls         Firewall[]
   plugins           NodePlugin[]
   secrets           NodeSecret[]
+  alertRules        AlertRule[]
 }
 
 model NodePlugin {
@@ -114,6 +115,18 @@ model NodeSecret {
   endpoint    Endpoint  @relation(fields: [endpointId], references: [id], onDelete: Cascade)
 
   @@unique([endpointId, name])
+}
+
+model AlertRule {
+  id          Int       @id @default(autoincrement())
+  endpointId  Int
+  name        String
+  condition   String    // e.g., "status == 'Error'", "cpu > 80", "sync_lag > 100"
+  actionType  String    // e.g., "email", "webhook"
+  target      String    // Email address or Webhook URL
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  endpoint    Endpoint  @relation(fields: [endpointId], references: [id], onDelete: Cascade)
 }
 
 model ApiKey {
