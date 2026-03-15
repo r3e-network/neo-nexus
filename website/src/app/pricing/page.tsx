@@ -30,7 +30,7 @@ export default function Pricing() {
               <div className="text-sm font-medium text-white mb-4 uppercase tracking-wider">Includes:</div>
               <Feature text="1 Shared API Endpoint" />
               <Feature text="5,000,000 requests / month" />
-              <Feature text="N3 Mainnet & Testnet" />
+              <Feature text="N3 & Neo X Networks" />
               <Feature text="Community Discord Support" />
               <Feature text="Basic Analytics" />
             </div>
@@ -62,7 +62,7 @@ export default function Pricing() {
           {/* Dedicated Tier */}
           <div className="bg-[#111111] border border-[#333333] rounded-3xl p-8 flex flex-col">
             <h3 className="text-xl font-bold text-white mb-2">Dedicated</h3>
-            <p className="text-sm text-gray-400 mb-6">Your private Neo N3 instance. Zero rate limits.</p>
+            <p className="text-sm text-gray-400 mb-6">Your private Neo N3 / Neo X instance. Zero rate limits.</p>
             <div className="mb-6">
               <span className="text-4xl font-bold text-white">$99</span>
               <span className="text-gray-500"> / month</span>
@@ -75,7 +75,7 @@ export default function Pricing() {
               <div className="text-sm font-medium text-white mb-4 uppercase tracking-wider">Features:</div>
               <Feature text="Private K8s deployment" />
               <Feature text="Unlimited requests" />
-              <Feature text="Choose neo-go or neo-cli" />
+              <Feature text="Client engines: neo-go, neo-cli, neo-x-geth" />
               <Feature text="Choose AWS or GCP regions" />
               <Feature text="WSS (WebSocket) Support" />
               <Feature text="Custom Node Configuration" />

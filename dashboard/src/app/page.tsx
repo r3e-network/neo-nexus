@@ -185,6 +185,11 @@ export default function Overview() {
                 <p className="text-xs text-gray-400 mt-1">Operational. Syncing normally.</p>
               </div>
               <div className="relative pl-4 border-l-2 border-[#333333]">
+                <div className="absolute w-2.5 h-2.5 bg-purple-500 rounded-full -left-[6px] top-1"></div>
+                <h4 className="text-sm font-bold text-white">Neo X Mainnet</h4>
+                <p className="text-xs text-gray-400 mt-1">Operational. EVM bridge active.</p>
+              </div>
+              <div className="relative pl-4 border-l-2 border-[#333333]">
                 <div className="absolute w-2.5 h-2.5 bg-[#00E599] rounded-full -left-[6px] top-1"></div>
                 <h4 className="text-sm font-bold text-white">Neo N3 Testnet</h4>
                 <p className="text-xs text-gray-400 mt-1">Operational. Syncing normally.</p>
