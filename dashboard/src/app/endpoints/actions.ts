@@ -51,6 +51,23 @@ export async function createEndpointAction(formData: {
     return { success: false, error: 'Billing Plan Error: You must upgrade to Growth or Dedicated plan to deploy Dedicated Nodes.' };
   }
 
+  // Enforce Endpoint Limits based on Billing Plan
+  const currentSharedCount = await prisma.endpoint.count({
+    where: { 
+        organizationId: orgId, 
+        type: 'Shared' 
+    }
+  });
+
+  if (formData.type === 'shared') {
+      if (billingPlan === 'developer' && currentSharedCount >= 1) {
+          return { success: false, error: 'Plan Limit Reached: Developer plan is limited to 1 Shared Endpoint. Please upgrade your plan.' };
+      }
+      if (billingPlan === 'growth' && currentSharedCount >= 3) {
+          return { success: false, error: 'Plan Limit Reached: Growth plan is limited to 3 Shared Endpoints.' };
+      }
+  }
+
   // 1. Simulate Control Plane Deployment
   const k8sConfig: DeploymentConfig = {
     name: formData.name,
