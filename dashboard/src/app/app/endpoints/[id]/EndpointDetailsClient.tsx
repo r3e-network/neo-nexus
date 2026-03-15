@@ -102,13 +102,13 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
           </div>
           
           <div className="flex items-center gap-3">
-            <button className="bg-[#1A1A1A] border border-[#333333] hover:bg-[#252525] text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2">
+            <button className="bg-[#23252E] border border-[#2E313D] hover:bg-[#252525] text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2">
               <RotateCcw className="w-4 h-4" /> Restart
             </button>
-            <button className="bg-[#1A1A1A] border border-[#333333] hover:bg-[#252525] text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2">
+            <button className="bg-[#23252E] border border-[#2E313D] hover:bg-[#252525] text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2">
               <Power className="w-4 h-4" /> Stop
             </button>
-            <button className="bg-[#1A1A1A] border border-[#333333] hover:bg-[#252525] text-gray-400 p-2 rounded-md transition-colors">
+            <button className="bg-[#23252E] border border-[#2E313D] hover:bg-[#252525] text-gray-400 p-2 rounded-md transition-colors">
               <MoreVertical className="w-4 h-4" />
             </button>
           </div>
@@ -116,7 +116,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-[#333333]">
+      <div className="border-b border-[#2E313D]">
         <nav className="flex space-x-8">
           {tabs.map((tab) => (
             <button
@@ -140,32 +140,32 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
           <div className="space-y-6 animate-in fade-in">
             {/* Connection URLs */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6">
+              <div className="bg-[#23252E] border border-[#2E313D] rounded-xl p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Globe className="w-5 h-5 text-blue-400" />
                   <h2 className="text-lg font-medium text-white">HTTPS Endpoint</h2>
                 </div>
-                <div className="bg-[#111111] border border-[#333333] p-3 rounded-lg flex items-center justify-between group">
+                <div className="bg-[#1A1C23] border border-[#2E313D] p-3 rounded-lg flex items-center justify-between group">
                   <code className="text-sm text-[#00E599] truncate">{endpoint?.url || 'https://node-tokyo-01.neonexus.cloud/v1/xyz'}</code>
                   <button 
                     onClick={() => navigator.clipboard.writeText(endpoint?.url || '')}
-                    className="text-gray-500 hover:text-white p-1 rounded transition-colors bg-[#1A1A1A] opacity-0 group-hover:opacity-100"
+                    className="text-gray-500 hover:text-white p-1 rounded transition-colors bg-[#23252E] opacity-0 group-hover:opacity-100"
                   >
                     <Copy className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
-              <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6">
+              <div className="bg-[#23252E] border border-[#2E313D] rounded-xl p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Activity className="w-5 h-5 text-purple-400" />
                   <h2 className="text-lg font-medium text-white">WSS Endpoint (WebSocket)</h2>
                 </div>
-                <div className="bg-[#111111] border border-[#333333] p-3 rounded-lg flex items-center justify-between group">
+                <div className="bg-[#1A1C23] border border-[#2E313D] p-3 rounded-lg flex items-center justify-between group">
                   <code className="text-sm text-purple-400 truncate">{wssUrl}</code>
                   <button 
                     onClick={() => navigator.clipboard.writeText(wssUrl)}
-                    className="text-gray-500 hover:text-white p-1 rounded transition-colors bg-[#1A1A1A] opacity-0 group-hover:opacity-100"
+                    className="text-gray-500 hover:text-white p-1 rounded transition-colors bg-[#23252E] opacity-0 group-hover:opacity-100"
                   >
                     <Copy className="w-4 h-4" />
                   </button>
@@ -174,7 +174,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
             </div>
 
             {/* Quick Stats */}
-            <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6">
+            <div className="bg-[#23252E] border border-[#2E313D] rounded-xl p-6">
               <h2 className="text-lg font-medium text-white mb-6">Node Status</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div>
@@ -201,7 +201,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
         {activeTab === 'metrics' && (
           <div className="space-y-6 animate-in fade-in">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6">
+              <div className="bg-[#23252E] border border-[#2E313D] rounded-xl p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-lg font-medium text-white flex items-center gap-2"><Cpu className="w-5 h-5 text-blue-400" /> CPU Usage</h2>
                   <span className="text-sm font-bold text-white">45%</span>
@@ -222,7 +222,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
                 </div>
               </div>
 
-              <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6">
+              <div className="bg-[#23252E] border border-[#2E313D] rounded-xl p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-lg font-medium text-white flex items-center gap-2"><Activity className="w-5 h-5 text-[#00E599]" /> Memory Usage</h2>
                   <span className="text-sm font-bold text-white">4.2 GB / 8 GB</span>
@@ -243,7 +243,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
                 </div>
               </div>
 
-              <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6 lg:col-span-2">
+              <div className="bg-[#23252E] border border-[#2E313D] rounded-xl p-6 lg:col-span-2">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-lg font-medium text-white flex items-center gap-2"><HardDrive className="w-5 h-5 text-purple-400" /> Disk I/O (Read/Write)</h2>
                   <span className="text-sm font-bold text-white">2.5 MB/s</span>
@@ -270,8 +270,8 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
 
         {activeTab === 'logs' && (
           <div className="animate-in fade-in">
-            <div className="bg-[#111111] border border-[#333333] rounded-xl overflow-hidden font-mono text-sm">
-              <div className="bg-[#1A1A1A] border-b border-[#333333] px-4 py-2 flex justify-between items-center">
+            <div className="bg-[#1A1C23] border border-[#2E313D] rounded-xl overflow-hidden font-mono text-sm">
+              <div className="bg-[#23252E] border-b border-[#2E313D] px-4 py-2 flex justify-between items-center">
                 <div className="flex space-x-2">
                   <div className="w-3 h-3 rounded-full bg-red-500"></div>
                   <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
@@ -295,7 +295,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
 
         {activeTab === 'plugins' && (
           <div className="animate-in fade-in space-y-4">
-            <div className="bg-[#1A1A1A] border border-[#00E599]/30 rounded-xl p-6 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
+            <div className="bg-[#23252E] border border-[#00E599]/30 rounded-xl p-6 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
               <div className="flex gap-4">
                 <div className="p-3 bg-[#00E599]/10 rounded-lg shrink-0">
                   <Lock className="w-6 h-6 text-[#00E599]" />
@@ -310,13 +310,13 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
               </div>
               <button 
                 onClick={() => setInstallPluginModal('tee-oracle')}
-                className="bg-[#111111] border border-[#333333] hover:bg-[#252525] px-4 py-2 rounded text-sm text-white transition-colors"
+                className="bg-[#1A1C23] border border-[#2E313D] hover:bg-[#252525] px-4 py-2 rounded text-sm text-white transition-colors"
               >
                 Configure
               </button>
             </div>
 
-            <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center opacity-70 hover:opacity-100 transition-opacity">
+            <div className="bg-[#23252E] border border-[#2E313D] rounded-xl p-6 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center opacity-70 hover:opacity-100 transition-opacity">
               <div className="flex gap-4">
                 <div className="p-3 bg-gray-800 rounded-lg shrink-0">
                   <Plug className="w-6 h-6 text-gray-400" />
@@ -352,7 +352,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6 relative overflow-hidden">
+              <div className="bg-[#23252E] border border-[#2E313D] rounded-xl p-6 relative overflow-hidden">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-red-500/10 rounded-lg">
@@ -363,12 +363,12 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
                   <span className="bg-[#00E599]/20 text-[#00E599] text-xs px-2 py-1 rounded font-bold">ACTIVE</span>
                 </div>
                 <p className="text-sm text-gray-400 mb-4">Triggers if the RPC endpoint becomes unresponsive for more than 1 minute.</p>
-                <div className="flex items-center gap-2 text-sm text-gray-300 bg-[#111111] p-2 rounded-md border border-[#333333]">
+                <div className="flex items-center gap-2 text-sm text-gray-300 bg-[#1A1C23] p-2 rounded-md border border-[#2E313D]">
                   <Mail className="w-4 h-4 text-gray-500" /> dev@neonexus.cloud
                 </div>
               </div>
 
-              <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6 relative overflow-hidden">
+              <div className="bg-[#23252E] border border-[#2E313D] rounded-xl p-6 relative overflow-hidden">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-yellow-500/10 rounded-lg">
@@ -379,7 +379,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
                   <span className="bg-[#00E599]/20 text-[#00E599] text-xs px-2 py-1 rounded font-bold">ACTIVE</span>
                 </div>
                 <p className="text-sm text-gray-400 mb-4">Triggers if the node falls behind the main network by &gt; 100 blocks.</p>
-                <div className="flex items-center gap-2 text-sm text-gray-300 bg-[#111111] p-2 rounded-md border border-[#333333]">
+                <div className="flex items-center gap-2 text-sm text-gray-300 bg-[#1A1C23] p-2 rounded-md border border-[#2E313D]">
                   <Webhook className="w-4 h-4 text-gray-500" /> https://api.pagerduty.com/...
                 </div>
               </div>
@@ -389,7 +389,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
 
         {activeTab === 'settings' && (
           <div className="animate-in fade-in space-y-6">
-            <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6">
+            <div className="bg-[#23252E] border border-[#2E313D] rounded-xl p-6">
               <div className="flex items-center gap-3 mb-4">
                  <h2 className="text-lg font-medium text-white">Node Configuration</h2>
                  <span className="bg-gray-800 text-gray-300 text-xs px-2 py-0.5 rounded font-mono">{endpoint?.clientEngine || 'neo-go'}</span>
@@ -400,20 +400,20 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
                  <div className="space-y-5">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Max Connected Peers (--maxpeers)</label>
-                    <input type="number" defaultValue={50} className="w-full md:w-1/3 bg-[#111111] border border-[#333333] rounded-md px-4 py-2 text-white focus:outline-none focus:border-[#00E599]" />
+                    <input type="number" defaultValue={50} className="w-full md:w-1/3 bg-[#1A1C23] border border-[#2E313D] rounded-md px-4 py-2 text-white focus:outline-none focus:border-[#00E599]" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">EVM Cache Size (--cache)</label>
-                    <input type="number" defaultValue={4096} className="w-full md:w-1/3 bg-[#111111] border border-[#333333] rounded-md px-4 py-2 text-white focus:outline-none focus:border-[#00E599]" />
+                    <input type="number" defaultValue={4096} className="w-full md:w-1/3 bg-[#1A1C23] border border-[#2E313D] rounded-md px-4 py-2 text-white focus:outline-none focus:border-[#00E599]" />
                     <p className="text-xs text-gray-500 mt-1">Megabytes of memory allocated to internal caching (default: 4096).</p>
                   </div>
                   <div className="pt-4 space-y-4">
                     <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-[#333333] bg-[#111111] text-[#00E599] focus:ring-[#00E599]" />
+                      <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-[#2E313D] bg-[#1A1C23] text-[#00E599] focus:ring-[#00E599]" />
                       <span className="text-sm text-gray-300">Enable WebSocket API (--ws)</span>
                     </label>
                     <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" className="w-4 h-4 rounded border-[#333333] bg-[#111111] text-[#00E599] focus:ring-[#00E599]" />
+                      <input type="checkbox" className="w-4 h-4 rounded border-[#2E313D] bg-[#1A1C23] text-[#00E599] focus:ring-[#00E599]" />
                       <span className="text-sm text-gray-300">Enable GraphQL API (--graphql)</span>
                     </label>
                   </div>
@@ -422,27 +422,27 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
                 <div className="space-y-5">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Max Connected Peers</label>
-                    <input type="number" defaultValue={100} className="w-full md:w-1/3 bg-[#111111] border border-[#333333] rounded-md px-4 py-2 text-white focus:outline-none focus:border-[#00E599]" />
+                    <input type="number" defaultValue={100} className="w-full md:w-1/3 bg-[#1A1C23] border border-[#2E313D] rounded-md px-4 py-2 text-white focus:outline-none focus:border-[#00E599]" />
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">RPC.MaxGasInvoke</label>
-                    <input type="number" defaultValue={10} className="w-full md:w-1/3 bg-[#111111] border border-[#333333] rounded-md px-4 py-2 text-white focus:outline-none focus:border-[#00E599]" />
+                    <input type="number" defaultValue={10} className="w-full md:w-1/3 bg-[#1A1C23] border border-[#2E313D] rounded-md px-4 py-2 text-white focus:outline-none focus:border-[#00E599]" />
                     <p className="text-xs text-gray-500 mt-1">Maximum GAS allowed for test invocations (invokefunction).</p>
                   </div>
                   
                   <div className="pt-4 space-y-4">
                     <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-[#333333] bg-[#111111] text-[#00E599] focus:ring-[#00E599]" />
+                      <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-[#2E313D] bg-[#1A1C23] text-[#00E599] focus:ring-[#00E599]" />
                       <span className="text-sm text-gray-300">Enable P2P Notary Request Payload</span>
                     </label>
                     <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-[#333333] bg-[#111111] text-[#00E599] focus:ring-[#00E599]" />
+                      <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-[#2E313D] bg-[#1A1C23] text-[#00E599] focus:ring-[#00E599]" />
                       <span className="text-sm text-gray-300">Enable Extensible Payload (State Root)</span>
                     </label>
                     {endpoint?.clientEngine === 'neo-cli' && (
                         <label className="flex items-center gap-3 cursor-pointer">
-                        <input type="checkbox" className="w-4 h-4 rounded border-[#333333] bg-[#111111] text-[#00E599] focus:ring-[#00E599]" />
+                        <input type="checkbox" className="w-4 h-4 rounded border-[#2E313D] bg-[#1A1C23] text-[#00E599] focus:ring-[#00E599]" />
                         <span className="text-sm text-gray-300">Enable DBFT Consensus Logging</span>
                         </label>
                     )}
@@ -450,7 +450,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
                 </div>
               )}
 
-              <div className="pt-6 mt-6 border-t border-[#333333]">
+              <div className="pt-6 mt-6 border-t border-[#2E313D]">
                 <button 
                   onClick={() => {
                     toast.loading('Applying configuration to cluster ConfigMap...', { id: 'config' });
@@ -463,12 +463,12 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
               </div>
             </div>
 
-            <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6">
+            <div className="bg-[#23252E] border border-[#2E313D] rounded-xl p-6">
               <h2 className="text-lg font-medium text-white mb-4">Maintenance Actions</h2>
               <p className="text-sm text-gray-400 mb-6">Perform advanced lifecycle operations on your node storage and state.</p>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="border border-[#333333] rounded-lg p-4 flex flex-col justify-between">
+                <div className="border border-[#2E313D] rounded-lg p-4 flex flex-col justify-between">
                    <div className="mb-4">
                      <h3 className="font-bold text-white flex items-center gap-2 mb-1"><RefreshCw className="w-4 h-4 text-blue-400" /> Fast Resync</h3>
                      <p className="text-xs text-gray-400">Purges local ledger data and automatically redownloads the latest official Neo Genesis snapshot.</p>
@@ -480,12 +480,12 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
                             setTimeout(() => toast.success('Node is resyncing from snapshot.', { id: 'maint' }), 2000);
                         }
                      }}
-                     className="bg-[#111111] hover:bg-[#222222] border border-[#333333] text-white px-4 py-2 rounded-md text-sm font-bold transition-colors w-full"
+                     className="bg-[#1A1C23] hover:bg-[#222222] border border-[#2E313D] text-white px-4 py-2 rounded-md text-sm font-bold transition-colors w-full"
                    >
                      Trigger Resync
                    </button>
                 </div>
-                <div className="border border-[#333333] rounded-lg p-4 flex flex-col justify-between">
+                <div className="border border-[#2E313D] rounded-lg p-4 flex flex-col justify-between">
                    <div className="mb-4">
                      <h3 className="font-bold text-white flex items-center gap-2 mb-1"><Download className="w-4 h-4 text-green-400" /> Export Snapshot</h3>
                      <p className="text-xs text-gray-400">Creates a point-in-time tarball of your Node's persistent volume and generates a signed S3 download link.</p>
@@ -495,7 +495,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
                         toast.loading('Initiating volume snapshot... This may take up to 10 minutes depending on size.', { id: 'maint' });
                         setTimeout(() => toast.success('Snapshot queued! You will receive an email when ready.', { id: 'maint' }), 2000);
                      }}
-                     className="bg-[#111111] hover:bg-[#222222] border border-[#333333] text-white px-4 py-2 rounded-md text-sm font-bold transition-colors w-full"
+                     className="bg-[#1A1C23] hover:bg-[#222222] border border-[#2E313D] text-white px-4 py-2 rounded-md text-sm font-bold transition-colors w-full"
                    >
                      Export Data
                    </button>
@@ -527,7 +527,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
 
       {installPluginModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#111111] border border-[#333333] rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+          <div className="bg-[#1A1C23] border border-[#2E313D] rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
             <button onClick={() => { setInstallPluginModal(null); setPrivateKey(''); }} className="absolute top-4 right-4 text-gray-500 hover:text-white">✕</button>
             <h3 className="text-xl font-bold text-white mb-2">
               Configure {installPluginModal === 'tee-oracle' ? 'TEE Oracle' : 'AA Bundler'}
@@ -544,7 +544,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
                   value={privateKey}
                   onChange={(e) => setPrivateKey(e.target.value)}
                   placeholder="L1K..." 
-                  className="w-full bg-[#0A0A0A] border border-[#333333] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00E599] transition-colors"
+                  className="w-full bg-[#0F111A] border border-[#2E313D] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00E599] transition-colors"
                 />
               </div>
             </div>
