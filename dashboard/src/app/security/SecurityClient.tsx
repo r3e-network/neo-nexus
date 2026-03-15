@@ -175,7 +175,7 @@ export default function SecurityClient({ initialKeys }: { initialKeys: ApiKeyTyp
             </div>
             
             <div className="p-6">
-              <p className="text-sm text-gray-400 mb-6">Select which Neo N3 RPC methods are allowed on your public endpoints. Prevents abuse of heavy state queries.</p>
+              <p className="text-sm text-gray-400 mb-6">Select which RPC methods are allowed on your public endpoints. Prevents abuse of heavy state queries.</p>
               
               <div className="space-y-5">
                 <label className="flex items-start gap-3 cursor-pointer group">

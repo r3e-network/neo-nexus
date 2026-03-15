@@ -9,7 +9,7 @@ export default function Developers() {
         <div className="max-w-7xl mx-auto px-6 pt-32 pb-16">
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white mb-6">Developer Hub</h1>
           <p className="text-xl text-gray-400 max-w-2xl">
-            Everything you need to build, deploy, and scale your Neo N3 applications.
+            Everything you need to build, deploy, and scale your Neo applications.
           </p>
         </div>
       </div>
@@ -31,7 +31,7 @@ export default function Developers() {
               <Code2 className="w-6 h-6" />
             </div>
             <h3 className="text-2xl font-bold text-white mb-3">API Reference</h3>
-            <p className="text-gray-400 mb-6">Explore the full Neo N3 RPC specification. Test requests directly from the browser.</p>
+            <p className="text-gray-400 mb-6">Explore the full Neo N3 and Neo X RPC specifications. Test requests directly from the browser.</p>
             <span className="text-[#00E599] font-medium">View API →</span>
           </a>
 

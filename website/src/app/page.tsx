@@ -14,7 +14,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#111111] border border-[#333333] text-sm text-gray-300 mb-8 hover:border-[#00E599] transition-colors cursor-pointer">
             <span className="w-2 h-2 rounded-full bg-[#00E599] animate-pulse"></span>
-            Neo N3 Mainnet is fully supported
+            Neo N3 and Neo X are fully supported
             <ArrowRight className="w-3 h-3" />
           </div>
           
@@ -188,7 +188,7 @@ async function getBlockCount() {
       {/* CTA Section */}
       <section className="py-32 relative">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">Ready to scale on Neo N3?</h2>
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">Ready to scale on Neo?</h2>
           <p className="text-xl text-gray-400 mb-10">Join the best teams building the future of the Neo ecosystem. Deploy your infrastructure in seconds.</p>
           <Link href="/login?signup=true" className="bg-white text-black hover:bg-gray-200 px-10 py-5 rounded-full font-bold text-lg transition-colors shadow-xl">
             Create Free Account

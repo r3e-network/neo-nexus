@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "NeoNexus | The Ultimate N3 Web3 Infrastructure",
-  description: "Enterprise-grade Neo N3 node infrastructure. Build, scale, and monitor your DApps with ease.",
+  description: "Enterprise-grade Neo N3 & Neo X node infrastructure. Build, scale, and monitor your DApps with ease.",
 };
 
 export default function RootLayout({

@@ -54,7 +54,7 @@ export default function Analytics() {
             Metrics & Analytics
             {isLoading && <span className="w-2 h-2 rounded-full bg-[#00E599] animate-pulse"></span>}
           </h1>
-          <p className="text-gray-400 text-lg">Deep insight into your Neo N3 infrastructure health.</p>
+          <p className="text-gray-400 text-lg">Deep insight into your Neo infrastructure health.</p>
         </div>
         <div className="bg-[#1A1A1A] border border-[#333333] p-1 rounded-lg flex text-sm">
           <button className="px-4 py-1.5 rounded-md text-gray-400 hover:text-white transition-colors">24H</button>
