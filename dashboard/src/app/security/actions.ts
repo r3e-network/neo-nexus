@@ -3,6 +3,7 @@
 import { prisma } from '@/utils/prisma';
 import { revalidatePath } from 'next/cache';
 import crypto from 'crypto';
+import { ApisixService } from '@/services/apisix/ApisixService';
 
 export async function createApiKeyAction(name: string) {
   if (!process.env.DATABASE_URL) {
@@ -16,13 +17,22 @@ export async function createApiKeyAction(name: string) {
     // In production, you'd only store the hash
     const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
 
+    // Default to a mock organization for demo if none exists
+    let orgId = 'default-org';
+    const orgs = await prisma.organization.findMany({ take: 1 });
+    if (orgs.length > 0) orgId = orgs[0].id;
+
     await prisma.apiKey.create({
       data: {
         name: name,
         keyHash: keyHash,
         isActive: true,
+        organizationId: orgId !== 'default-org' ? orgId : null
       }
     });
+
+    // Register with APISIX API Gateway
+    await ApisixService.createConsumer(orgId, rawKey, orgs[0]?.billingPlan as any || 'developer');
 
     revalidatePath('/security');
     

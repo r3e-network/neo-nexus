@@ -3,6 +3,7 @@
 import { prisma } from '@/utils/prisma';
 import { revalidatePath } from 'next/cache';
 import { KubernetesDeployer, DeploymentConfig } from '@/services/KubernetesDeployer';
+import { ApisixService } from '@/services/apisix/ApisixService';
 
 export async function createEndpointAction(formData: {
   name: string;
@@ -56,6 +57,11 @@ export async function createEndpointAction(formData: {
           k8sDeploymentName: k8sResult.releaseName
         }
       });
+
+      // 3. Register route with APISIX Gateway
+      // The internal hostname in K8s: <service-name>.<namespace>.svc.cluster.local
+      const internalHost = `${k8sResult.releaseName}.${k8sResult.namespace}.svc.cluster.local`;
+      await ApisixService.createRoute(randomId, internalHost, 10332);
 
       revalidatePath('/endpoints');
       return { success: true, id: endpoint.id };

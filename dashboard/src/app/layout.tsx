@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
+import AuthCheck from "@/components/AuthCheck";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -21,7 +22,9 @@ export default function RootLayout({
         <Sidebar />
         <main className="flex-1 overflow-y-auto bg-[#111111]">
           <div className="mx-auto max-w-7xl px-8 py-8">
-            {children}
+            <AuthCheck>
+              {children}
+            </AuthCheck>
           </div>
         </main>
       </body>
