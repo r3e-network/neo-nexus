@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import { normalizeBillingPlan } from '@/server/organization';
 import { prisma } from '@/utils/prisma';
 
 export class StripeService {
@@ -14,7 +15,12 @@ export class StripeService {
     /**
      * Creates a Stripe Checkout Session for a subscription upgrade.
      */
-    static async createCheckoutSession(organizationId: string, plan: 'growth' | 'dedicated', successUrl: string, cancelUrl: string) {
+    static async createCheckoutSession(
+        organizationId: string,
+        plan: 'growth' | 'dedicated',
+        successUrl: string,
+        cancelUrl: string,
+    ): Promise<{ url: string }> {
         const priceIdGrowth = process.env.STRIPE_PRICE_ID_GROWTH;
         const priceIdDedicated = process.env.STRIPE_PRICE_ID_DEDICATED;
 
@@ -39,7 +45,14 @@ export class StripeService {
             success_url: successUrl,
             cancel_url: cancelUrl,
             client_reference_id: organizationId,
+            metadata: {
+                plan,
+            },
         });
+
+        if (!session.url) {
+            throw new Error('Stripe did not return a checkout URL.');
+        }
 
         return { url: session.url };
     }
@@ -51,18 +64,15 @@ export class StripeService {
         if (event.type === 'checkout.session.completed') {
             const session = event.data.object as Stripe.Checkout.Session;
             const organizationId = session.client_reference_id;
-            const customerId = session.customer as string;
+            const customerId = typeof session.customer === 'string' ? session.customer : null;
+            const plan = normalizeBillingPlan(session.metadata?.plan);
 
             if (organizationId) {
-                // Determine the plan based on the amount paid or line item
-                // For simplicity, we just mark them as upgraded. In real env, check line_items.
                 await prisma.organization.update({
                     where: { id: organizationId },
                     data: {
-                        stripeCustomerId: customerId,
-                        // billingPlan is updated based on logic (hardcoded here to 'growth' for demonstration, 
-                        // a real integration queries the session line items)
-                        billingPlan: 'growth' 
+                        stripeCustomerId: customerId ?? undefined,
+                        billingPlan: plan === 'developer' ? 'growth' : plan,
                     }
                 });
                 console.log(`[Stripe Webhook] Organization ${organizationId} upgraded successfully.`);

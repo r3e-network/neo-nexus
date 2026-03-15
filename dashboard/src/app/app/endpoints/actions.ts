@@ -4,7 +4,11 @@ import { prisma } from '@/utils/prisma';
 import { revalidatePath } from 'next/cache';
 import { KubernetesDeployer, DeploymentConfig } from '@/services/KubernetesDeployer';
 import { ApisixService } from '@/services/apisix/ApisixService';
-import { auth } from '@/auth';
+import { getErrorMessage } from '@/server/errors';
+import {
+  assertDatabaseConfigured,
+  requireCurrentOrganizationContext,
+} from '@/server/organization';
 
 export async function createEndpointAction(formData: {
   name: string;
@@ -16,35 +20,21 @@ export async function createEndpointAction(formData: {
   region: string;
   syncMode: string;
 }) {
-  const isDatabaseConfigured = !!process.env.DATABASE_URL;
-
-  if (!isDatabaseConfigured) {
-    throw new Error('Database is not configured for production deployment.');
+  try {
+    assertDatabaseConfigured();
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
   }
 
-  // Auth & Billing Verification
-  const session = await auth();
-  if (!session?.user) {
-    return { success: false, error: 'Unauthorized: You must be logged in.' };
-  }
+  let orgId: string;
+  let billingPlan: string;
 
-  let orgId = (session.user as any).organizationId;
-  let billingPlan = 'developer';
-
-  if (!orgId) {
-    const userDb = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { organization: true }
-    });
-    if (userDb?.organization) {
-      orgId = userDb.organization.id;
-      billingPlan = userDb.organization.billingPlan;
-    } else {
-      return { success: false, error: 'User does not belong to an organization.' };
-    }
-  } else {
-      const org = await prisma.organization.findUnique({ where: { id: orgId } });
-      if (org) billingPlan = org.billingPlan;
+  try {
+    const context = await requireCurrentOrganizationContext();
+    orgId = context.organizationId;
+    billingPlan = context.billingPlan;
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
   }
 
   if (formData.type === 'dedicated' && billingPlan === 'developer') {
@@ -54,28 +44,28 @@ export async function createEndpointAction(formData: {
   // Enforce Endpoint Limits based on Billing Plan
   const currentSharedCount = await prisma.endpoint.count({
     where: { 
-        organizationId: orgId, 
-        type: 'Shared' 
-    }
+      organizationId: orgId, 
+      type: 'Shared' 
+    },
   });
 
   if (formData.type === 'shared') {
-      if (billingPlan === 'developer' && currentSharedCount >= 1) {
-          return { success: false, error: 'Plan Limit Reached: Developer plan is limited to 1 Shared Endpoint. Please upgrade your plan.' };
-      }
-      if (billingPlan === 'growth' && currentSharedCount >= 3) {
-          return { success: false, error: 'Plan Limit Reached: Growth plan is limited to 3 Shared Endpoints.' };
-      }
+    if (billingPlan === 'developer' && currentSharedCount >= 1) {
+      return { success: false, error: 'Plan Limit Reached: Developer plan is limited to 1 Shared Endpoint. Please upgrade your plan.' };
+    }
+    if (billingPlan === 'growth' && currentSharedCount >= 3) {
+      return { success: false, error: 'Plan Limit Reached: Growth plan is limited to 3 Shared Endpoints.' };
+    }
   }
 
   // 1. Simulate Control Plane Deployment
   const k8sConfig: DeploymentConfig = {
     name: formData.name,
     protocol: formData.protocol as 'neo-n3' | 'neo-x',
-    network: formData.network as 'mainnet' | 'testnet',
+    network: formData.network as 'mainnet' | 'testnet' | 'private',
     type: formData.type as 'shared' | 'dedicated',
     clientEngine: formData.clientEngine as 'neo-go' | 'neo-cli' | 'neo-x-geth',
-    provider: formData.provider as 'aws' | 'gcp',
+    provider: formData.provider as 'aws' | 'gcp' | 'digitalocean',
     region: formData.region,
     syncMode: formData.syncMode as 'full' | 'archive'
   };
@@ -123,10 +113,10 @@ export async function createEndpointAction(formData: {
     const internalHost = `${k8sResult.releaseName}.${k8sResult.namespace}.svc.cluster.local`;
     await ApisixService.createRoute(randomId, internalHost, formData.protocol === 'neo-x' ? 8545 : 10332);
 
-    revalidatePath('/endpoints');
+    revalidatePath('/app/endpoints');
     return { success: true, id: endpoint.id };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating endpoint:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: getErrorMessage(error) };
   }
 }

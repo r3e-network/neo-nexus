@@ -63,7 +63,7 @@ export default function EndpointsList({ endpoints }: { endpoints: Endpoint[] }) 
                   <Copy className="w-4 h-4" />
                 </button>
               </div>
-              <Link href={`/endpoints/${ep.id}`} className="bg-[#333333] hover:bg-[#444444] text-white p-2 rounded-md transition-colors">
+              <Link href={`/app/endpoints/${ep.id}`} className="bg-[#333333] hover:bg-[#444444] text-white p-2 rounded-md transition-colors">
                 <Settings className="w-4 h-4" />
               </Link>
             </div>
@@ -74,7 +74,7 @@ export default function EndpointsList({ endpoints }: { endpoints: Endpoint[] }) 
           <div className="text-center py-12 bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-xl">
             <Server className="w-12 h-12 text-gray-600 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-white mb-2">No endpoints found</h3>
-            <p className="text-gray-400 mb-6">You haven't deployed any nodes yet.</p>
+            <p className="text-gray-400 mb-6">You haven&apos;t deployed any nodes yet.</p>
             <Link href="/app/endpoints/new" className="inline-flex bg-[#00E599] hover:bg-[#00cc88] text-black px-6 py-2 rounded-md text-sm font-bold transition-colors items-center gap-2">
               <Plus className="w-4 h-4" /> Deploy your first node
             </Link>

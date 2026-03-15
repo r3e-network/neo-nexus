@@ -4,45 +4,29 @@ import { prisma } from '@/utils/prisma';
 import { revalidatePath } from 'next/cache';
 import crypto from 'crypto';
 import { ApisixService } from '@/services/apisix/ApisixService';
-import { auth } from '@/auth';
+import { getErrorMessage } from '@/server/errors';
+import {
+  assertDatabaseConfigured,
+  requireCurrentOrganizationContext,
+} from '@/server/organization';
 
 export async function createApiKeyAction(name: string) {
-  if (!process.env.DATABASE_URL) {
-    return { success: false, error: 'Database not configured' };
+  try {
+    assertDatabaseConfigured();
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
   }
 
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: 'Unauthorized: You must be logged in.' };
-    }
-
-    let orgId = (session.user as any).organizationId;
-    let billingPlan = 'developer';
-
-    if (!orgId) {
-      const userDb = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        include: { organization: true }
-      });
-      if (userDb?.organization) {
-        orgId = userDb.organization.id;
-        billingPlan = userDb.organization.billingPlan;
-      } else {
-        return { success: false, error: 'User does not belong to an organization.' };
-      }
-    } else {
-      const org = await prisma.organization.findUnique({ where: { id: orgId } });
-      if (org) billingPlan = org.billingPlan;
-    }
+    const { organizationId: orgId, billingPlan } = await requireCurrentOrganizationContext();
 
     // Check API Key limits based on plan
     const keyCount = await prisma.apiKey.count({ where: { organizationId: orgId } });
     if (billingPlan === 'developer' && keyCount >= 2) {
-        return { success: false, error: 'Developer plan is limited to 2 API keys. Please upgrade to Growth.' };
+      return { success: false, error: 'Developer plan is limited to 2 API keys. Please upgrade to Growth.' };
     }
     if (billingPlan === 'growth' && keyCount >= 10) {
-        return { success: false, error: 'Growth plan is limited to 10 API keys.' };
+      return { success: false, error: 'Growth plan is limited to 10 API keys.' };
     }
 
     // Generate a secure API key
@@ -61,28 +45,42 @@ export async function createApiKeyAction(name: string) {
     });
 
     // Register with APISIX API Gateway
-    await ApisixService.createConsumer(orgId, rawKey, billingPlan as any);
+    await ApisixService.createConsumer(orgId, rawKey, billingPlan);
 
-    revalidatePath('/security');
+    revalidatePath('/app/security');
     
     // We return the raw key ONLY once so the user can copy it
     return { success: true, key: rawKey };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Failed to create API key:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: getErrorMessage(error) };
   }
 }
 
 export async function deleteApiKeyAction(id: string) {
-  if (!process.env.DATABASE_URL) return { success: false };
+  try {
+    assertDatabaseConfigured();
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
 
   try {
-    await prisma.apiKey.delete({
-      where: { id }
+    const { organizationId } = await requireCurrentOrganizationContext();
+
+    const deleted = await prisma.apiKey.deleteMany({
+      where: {
+        id,
+        organizationId,
+      },
     });
-    revalidatePath('/security');
+
+    if (!deleted.count) {
+      return { success: false, error: 'API key not found or permission denied.' };
+    }
+
+    revalidatePath('/app/security');
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
   }
 }

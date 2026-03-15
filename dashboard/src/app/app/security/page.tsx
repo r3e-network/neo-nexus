@@ -1,6 +1,8 @@
 import { prisma } from '@/utils/prisma';
 import SecurityClient, { ApiKeyType } from './SecurityClient';
-import { auth } from '@/auth';
+import { getCurrentUserContext } from '@/server/organization';
+
+export const dynamic = 'force-dynamic';
 
 export default async function SecurityPage() {
   let keys: ApiKeyType[] = [];
@@ -8,40 +10,30 @@ export default async function SecurityPage() {
 
   if (process.env.DATABASE_URL) {
     try {
-      const session = await auth();
-      let orgId = session?.user ? (session.user as any).organizationId : null;
+      const userContext = await getCurrentUserContext();
+      const orgId = userContext?.organizationId ?? null;
 
-      if (!orgId && session?.user?.id) {
-        const userDb = await prisma.user.findUnique({
-          where: { id: session.user.id },
-          include: { organization: true }
-        });
-        if (userDb?.organization) {
-          orgId = userDb.organization.id;
-          billingPlan = userDb.organization.billingPlan;
-        }
-      } else if (orgId) {
-          const org = await prisma.organization.findUnique({ where: { id: orgId } });
-          if (org) billingPlan = org.billingPlan;
+      if (userContext) {
+        billingPlan = userContext.billingPlan;
       }
 
       if (orgId) {
         const data = await prisma.apiKey.findMany({
-            where: { organizationId: orgId },
-            orderBy: { createdAt: 'asc' }
+          where: { organizationId: orgId },
+          orderBy: { createdAt: 'asc' },
         });
         if (data && data.length > 0) {
-            keys = data.map(k => ({
-            id: k.id,
-            name: k.name,
-            keyHash: k.keyHash,
-            createdAt: k.createdAt,
-            isActive: k.isActive
-            }));
+          keys = data.map((key) => ({
+            id: key.id,
+            name: key.name,
+            keyHash: key.keyHash,
+            createdAt: key.createdAt,
+            isActive: key.isActive,
+          }));
         }
       }
-    } catch (e) {
-      console.warn("Failed to fetch API keys from DB", e);
+    } catch (error) {
+      console.warn('Failed to fetch API keys from DB', error);
     }
   }
 

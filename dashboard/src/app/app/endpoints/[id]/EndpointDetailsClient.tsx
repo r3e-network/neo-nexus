@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Activity, Box, Copy, Globe, MoreVertical, Play, Power, RotateCcw, Server, Terminal, Lock, Plug, Bell, Mail, Webhook, Cpu, HardDrive, RefreshCw, Download } from 'lucide-react';
+import { ArrowLeft, Activity, Box, Copy, Globe, MoreVertical, Power, RotateCcw, Server, Terminal, Lock, Plug, Mail, Webhook, Cpu, HardDrive, RefreshCw, Download } from 'lucide-react';
 import { Endpoint } from '../EndpointsList';
 import { NeoNodeService } from '@/services/neo/NeoNodeService';
 import { addNodePluginAction } from '../pluginActions';
@@ -488,7 +488,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
                 <div className="border border-[var(--color-dark-border)] rounded-lg p-4 flex flex-col justify-between">
                    <div className="mb-4">
                      <h3 className="font-bold text-white flex items-center gap-2 mb-1"><Download className="w-4 h-4 text-green-400" /> Export Snapshot</h3>
-                     <p className="text-xs text-gray-400">Creates a point-in-time tarball of your Node's persistent volume and generates a signed S3 download link.</p>
+                     <p className="text-xs text-gray-400">Creates a point-in-time tarball of your Node&apos;s persistent volume and generates a signed S3 download link.</p>
                    </div>
                    <button 
                      onClick={() => {

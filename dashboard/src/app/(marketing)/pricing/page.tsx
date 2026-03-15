@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Check, Info, Server, Zap } from 'lucide-react';
+import { Check, Server, Zap } from 'lucide-react';
 
 export default function Pricing() {
   return (

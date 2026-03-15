@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Blocks, Cloud, Code, Globe, Lock, Server, ShieldCheck, Zap, Database } from 'lucide-react';
+import { ArrowRight, Blocks, Code, Globe, Server, ShieldCheck } from 'lucide-react';
 
 export default function Home() {
   return (
@@ -128,7 +128,7 @@ export default function Home() {
             </div>
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Powerful dashboard. Deep insights.</h2>
             <p className="text-gray-400 text-lg leading-relaxed mb-8">
-              Monitor your DApp's health in real-time. Our console provides granular metrics on RPC calls, latency, bandwidth, and errors. Configure advanced firewalls to protect your endpoints from abuse.
+              Monitor your DApp&apos;s health in real-time. Our console provides granular metrics on RPC calls, latency, bandwidth, and errors. Configure advanced firewalls to protect your endpoints from abuse.
             </p>
             
             <ul className="space-y-4 mb-8">
