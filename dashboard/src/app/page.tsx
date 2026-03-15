@@ -1,33 +1,42 @@
 'use client';
 
-import { Activity, ArrowRight, CheckCircle2, ChevronRight, Copy, CreditCard, ExternalLink, Plus, Server, ShieldCheck, Zap } from 'lucide-react';
-import { AreaChart, Area, ResponsiveContainer, XAxis, Tooltip } from 'recharts';
+import { Activity, ChevronRight, Copy, Plus, Server, ShieldCheck, Zap } from 'lucide-react';
+import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
 import Link from 'next/link';
+import useSWR from 'swr';
+import toast from 'react-hot-toast';
 
-const mockChartData = [
-  { time: 'Mon', requests: 120000 },
-  { time: 'Tue', requests: 250000 },
-  { time: 'Wed', requests: 180000 },
-  { time: 'Thu', requests: 380000 },
-  { time: 'Fri', requests: 290000 },
-  { time: 'Sat', requests: 420000 },
-  { time: 'Sun', requests: 310000 },
-];
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function Overview() {
+  const { data: metrics, isLoading: isMetricsLoading } = useSWR('/api/metrics', fetcher, { 
+    refreshInterval: 15000,
+    fallbackData: {
+      stats: { totalRequests: '0', successRate: '0%', avgLatency: 0, bandwidth: '0' },
+      latencyData: []
+    }
+  });
+
+  const { data: endpoints, isLoading: isEndpointsLoading } = useSWR('/api/endpoints', fetcher, { fallbackData: [] });
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Copied to clipboard!');
+  };
+
   return (
     <div className="min-h-screen pb-12 space-y-8">
       {/* Welcome Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Welcome back, Neo Dev.</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Welcome back.</h1>
           <p className="text-gray-400 text-lg">Here's what's happening with your infrastructure today.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="bg-[#1A1A1A] border border-[#333333] px-4 py-2 rounded-lg flex items-center gap-3">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-[#00E599] animate-pulse"></div>
-              <span className="text-sm text-gray-300 font-medium">N3 Mainnet</span>
+              <span className="text-sm text-gray-300 font-medium">System</span>
             </div>
             <span className="text-gray-600">|</span>
             <span className="text-sm text-[#00E599] font-medium">Operational</span>
@@ -48,7 +57,9 @@ export default function Overview() {
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h3 className="text-gray-400 font-medium mb-1">Total RPC Requests</h3>
-                  <div className="text-3xl font-bold text-white">1,950,000</div>
+                  <div className="text-3xl font-bold text-white">
+                    {isMetricsLoading ? '...' : metrics.stats.totalRequests}
+                  </div>
                 </div>
                 <div className="p-3 bg-blue-500/10 rounded-xl text-blue-400">
                   <Activity className="w-6 h-6" />
@@ -56,7 +67,7 @@ export default function Overview() {
               </div>
               <div className="h-16 w-full -ml-2">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={mockChartData}>
+                  <AreaChart data={metrics.latencyData}>
                     <defs>
                       <linearGradient id="colorReq" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
@@ -77,23 +88,18 @@ export default function Overview() {
             <div className="bg-[#1A1A1A] border border-[#333333] p-6 rounded-2xl flex flex-col justify-between">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h3 className="text-gray-400 font-medium mb-1">Shared Plan Usage</h3>
-                  <div className="text-3xl font-bold text-white">39%</div>
+                  <h3 className="text-gray-400 font-medium mb-1">Active Endpoints</h3>
+                  <div className="text-3xl font-bold text-white">
+                    {isEndpointsLoading ? '...' : (endpoints?.length || 0)}
+                  </div>
                 </div>
                 <div className="p-3 bg-[#00E599]/10 rounded-xl text-[#00E599]">
-                  <Zap className="w-6 h-6" />
+                  <Server className="w-6 h-6" />
                 </div>
               </div>
               <div>
-                <div className="flex justify-between text-sm text-gray-400 mb-2">
-                  <span>1.95M requests</span>
-                  <span>5M limit</span>
-                </div>
-                <div className="w-full bg-[#111111] rounded-full h-2.5 overflow-hidden border border-[#333333]">
-                  <div className="bg-[#00E599] h-2.5 rounded-full" style={{ width: '39%' }}></div>
-                </div>
-                <p className="text-xs text-gray-500 mt-3 flex items-center gap-1">
-                  Resets in 12 days <CreditCard className="w-3 h-3" />
+                <p className="text-sm text-gray-500 mt-3 flex items-center gap-1">
+                  Manage your infrastructure from the endpoints tab.
                 </p>
               </div>
             </div>
@@ -108,53 +114,37 @@ export default function Overview() {
               </Link>
             </div>
             <div className="divide-y divide-[#333333]">
-              <div className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-[#111111]/30 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#00E599]/10 border border-[#00E599]/20 flex items-center justify-center text-[#00E599]">
-                    <Server className="w-5 h-5" />
+              {isEndpointsLoading ? (
+                <div className="p-6 text-center text-gray-500">Loading endpoints...</div>
+              ) : !endpoints || endpoints.length === 0 ? (
+                <div className="p-6 text-center text-gray-500">No active endpoints. Create one to get started.</div>
+              ) : (
+                endpoints.slice(0, 3).map((ep: any) => (
+                  <div key={ep.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-[#111111]/30 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-lg border flex items-center justify-center ${ep.type.toLowerCase() === 'dedicated' ? 'bg-[#00E599]/10 border-[#00E599]/20 text-[#00E599]' : 'bg-blue-500/10 border-blue-500/20 text-blue-400'}`}>
+                        {ep.type.toLowerCase() === 'dedicated' ? <Server className="w-5 h-5" /> : <Zap className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-white flex items-center gap-2">
+                          <Link href={`/endpoints/${ep.id}`} className="hover:underline">{ep.name}</Link>
+                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${ep.type.toLowerCase() === 'dedicated' ? 'bg-[#00E599]/20 text-[#00E599]' : 'bg-blue-500/20 text-blue-400'}`}>{ep.type.toUpperCase()}</span>
+                        </h3>
+                        <p className="text-xs text-gray-400 mt-1">{ep.cloudProvider || 'Global'} {ep.region && `• ${ep.region}`} • {ep.clientEngine} • {ep.network}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                      <div className="bg-[#111111] border border-[#333333] px-3 py-1.5 rounded flex items-center gap-2 max-w-[200px] overflow-hidden">
+                        <div className={`w-2 h-2 rounded-full ${ep.status === 'Active' ? 'bg-[#00E599]' : 'bg-yellow-500'}`}></div>
+                        <code className="text-xs text-gray-300 truncate">{ep.url}</code>
+                      </div>
+                      <button onClick={() => copyToClipboard(ep.url)} className="p-1.5 text-gray-500 hover:text-white bg-[#111111] border border-[#333333] rounded transition-colors" title="Copy URL">
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-white flex items-center gap-2">
-                      GameFi Indexer Node
-                      <span className="px-2 py-0.5 text-[10px] font-bold bg-[#00E599]/20 text-[#00E599] rounded">DEDICATED</span>
-                    </h3>
-                    <p className="text-xs text-gray-400 mt-1">AWS Tokyo • Full Node • N3 Mainnet</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                  <div className="bg-[#111111] border border-[#333333] px-3 py-1.5 rounded flex items-center gap-2 max-w-[200px] overflow-hidden">
-                    <div className="w-2 h-2 rounded-full bg-[#00E599]"></div>
-                    <code className="text-xs text-gray-300 truncate">https://node-tokyo-01.neonexus.io/v1</code>
-                  </div>
-                  <button className="p-1.5 text-gray-500 hover:text-white bg-[#111111] border border-[#333333] rounded transition-colors">
-                    <Copy className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-[#111111]/30 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-                    <Zap className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-white flex items-center gap-2">
-                      Default Shared Endpoint
-                      <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-500/20 text-blue-400 rounded">SHARED</span>
-                    </h3>
-                    <p className="text-xs text-gray-400 mt-1">Global Routing • N3 Mainnet</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                  <div className="bg-[#111111] border border-[#333333] px-3 py-1.5 rounded flex items-center gap-2 max-w-[200px] overflow-hidden">
-                    <div className="w-2 h-2 rounded-full bg-[#00E599]"></div>
-                    <code className="text-xs text-gray-300 truncate">https://mainnet.neonexus.io/v1/a8f...</code>
-                  </div>
-                  <button className="p-1.5 text-gray-500 hover:text-white bg-[#111111] border border-[#333333] rounded transition-colors">
-                    <Copy className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -167,16 +157,16 @@ export default function Overview() {
             <h2 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-[#00E599]" /> Security Firewall
             </h2>
-            <p className="text-sm text-gray-400 mb-6">Your endpoints are currently protected by IP Allowlist.</p>
+            <p className="text-sm text-gray-400 mb-6">Your endpoints are currently protected by APISIX Gateway.</p>
             
             <div className="space-y-3 mb-6">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">Allowed IPs</span>
-                <span className="font-medium text-white">2 rules active</span>
+                <span className="text-gray-400">Rate Limiting</span>
+                <span className="font-medium text-white">Active</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">Method Blocklist</span>
-                <span className="font-medium text-yellow-500">Not configured</span>
+                <span className="text-gray-400">API Keys</span>
+                <span className="font-medium text-[#00E599]">Enforced</span>
               </div>
             </div>
 
@@ -187,30 +177,24 @@ export default function Overview() {
 
           {/* Changelog & Updates */}
           <div className="bg-[#1A1A1A] border border-[#333333] rounded-2xl p-6">
-            <h2 className="text-lg font-bold text-white mb-6">Latest Updates</h2>
+            <h2 className="text-lg font-bold text-white mb-6">System Status</h2>
             <div className="space-y-6">
               <div className="relative pl-4 border-l-2 border-[#333333]">
                 <div className="absolute w-2.5 h-2.5 bg-[#00E599] rounded-full -left-[6px] top-1"></div>
-                <h4 className="text-sm font-bold text-white">Neo-Go v0.106.0 Deployed</h4>
-                <p className="text-xs text-gray-400 mt-1">All dedicated nodes have been patched with the latest RPC optimizations.</p>
-                <span className="text-[10px] text-gray-500 mt-2 block">2 days ago</span>
+                <h4 className="text-sm font-bold text-white">Neo N3 Mainnet</h4>
+                <p className="text-xs text-gray-400 mt-1">Operational. Syncing normally.</p>
               </div>
               <div className="relative pl-4 border-l-2 border-[#333333]">
-                <div className="absolute w-2.5 h-2.5 bg-blue-500 rounded-full -left-[6px] top-1"></div>
-                <h4 className="text-sm font-bold text-white">New TEE Oracle Plugin</h4>
-                <p className="text-xs text-gray-400 mt-1">You can now bind Phala CVM to your dedicated nodes natively.</p>
-                <span className="text-[10px] text-gray-500 mt-2 block">1 week ago</span>
+                <div className="absolute w-2.5 h-2.5 bg-[#00E599] rounded-full -left-[6px] top-1"></div>
+                <h4 className="text-sm font-bold text-white">Neo N3 Testnet</h4>
+                <p className="text-xs text-gray-400 mt-1">Operational. Syncing normally.</p>
               </div>
               <div className="relative pl-4 border-l-2 border-transparent">
-                <div className="absolute w-2.5 h-2.5 bg-gray-500 rounded-full -left-[6px] top-1"></div>
-                <h4 className="text-sm font-bold text-white">Frankfurt Region Added</h4>
-                <p className="text-xs text-gray-400 mt-1">EU-Central-1 is now available for AWS dedicated deployments.</p>
-                <span className="text-[10px] text-gray-500 mt-2 block">2 weeks ago</span>
+                <div className="absolute w-2.5 h-2.5 bg-[#00E599] rounded-full -left-[6px] top-1"></div>
+                <h4 className="text-sm font-bold text-white">APISIX Gateway</h4>
+                <p className="text-xs text-gray-400 mt-1">All traffic routing normally.</p>
               </div>
             </div>
-            <button className="mt-6 text-sm text-[#00E599] flex items-center gap-1 hover:underline font-medium">
-              Read full changelog <ExternalLink className="w-3 h-3" />
-            </button>
           </div>
         </div>
 

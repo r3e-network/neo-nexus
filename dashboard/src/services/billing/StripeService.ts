@@ -2,22 +2,29 @@ import Stripe from 'stripe';
 import { prisma } from '@/utils/prisma';
 
 export class StripeService {
-    private static stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
-        apiVersion: '2026-02-25.clover', // Latest Stripe API version
-    });
+    private static get stripe() {
+        if (!process.env.STRIPE_SECRET_KEY) {
+            throw new Error('STRIPE_SECRET_KEY is not defined in the environment.');
+        }
+        return new Stripe(process.env.STRIPE_SECRET_KEY, {
+            apiVersion: '2026-02-25.clover', // Latest Stripe API version
+        });
+    }
 
     /**
      * Creates a Stripe Checkout Session for a subscription upgrade.
      */
     static async createCheckoutSession(organizationId: string, plan: 'growth' | 'dedicated', successUrl: string, cancelUrl: string) {
-        if (!process.env.STRIPE_SECRET_KEY) {
-            console.log('[Stripe Mock] Simulating checkout session creation.');
-            return { url: `${successUrl}?mock_session=true` };
+        const priceIdGrowth = process.env.STRIPE_PRICE_ID_GROWTH;
+        const priceIdDedicated = process.env.STRIPE_PRICE_ID_DEDICATED;
+
+        if (!priceIdGrowth || !priceIdDedicated) {
+            throw new Error('Stripe Price IDs are not configured in the environment.');
         }
 
         const prices = {
-            'growth': process.env.STRIPE_PRICE_ID_GROWTH || 'price_growth_mock',
-            'dedicated': process.env.STRIPE_PRICE_ID_DEDICATED || 'price_dedicated_mock',
+            'growth': priceIdGrowth,
+            'dedicated': priceIdDedicated,
         };
 
         const session = await this.stripe.checkout.sessions.create({

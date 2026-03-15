@@ -72,16 +72,15 @@ export class ApisixService {
     }
 
     private static async sendRequest(path: string, method: string, data: any) {
-        if (!process.env.APISIX_ADMIN_URL) {
-            console.log(`[APISIX Mock] ${method} ${path}`, data);
-            return true;
+        if (!process.env.APISIX_ADMIN_URL || !process.env.APISIX_ADMIN_KEY) {
+            throw new Error('[APISIX] APISIX_ADMIN_URL and APISIX_ADMIN_KEY must be configured in production.');
         }
 
         try {
-            const response = await fetch(`${this.baseUrl}${path}`, {
+            const response = await fetch(`${process.env.APISIX_ADMIN_URL}${path}`, {
                 method,
                 headers: {
-                    'X-API-KEY': this.apiKey,
+                    'X-API-KEY': process.env.APISIX_ADMIN_KEY,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(data)

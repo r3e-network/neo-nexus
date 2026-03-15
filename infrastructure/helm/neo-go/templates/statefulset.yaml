@@ -15,6 +15,27 @@ spec:
       labels:
         app: neo-go
     spec:
+      {{- if .Values.snapshot.enabled }}
+      initContainers:
+        - name: init-snapshot
+          image: alpine:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              if [ ! -d "/data/chains" ]; then
+                echo "Downloading snapshot from {{ .Values.snapshot.url }}..."
+                wget -O /tmp/snapshot.tar.gz {{ .Values.snapshot.url }}
+                echo "Extracting snapshot..."
+                tar -xzf /tmp/snapshot.tar.gz -C /data
+                rm /tmp/snapshot.tar.gz
+                echo "Snapshot initialized."
+              else
+                echo "Data directory already initialized, skipping snapshot."
+              fi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      {{- end }}
       containers:
         - name: neo-go
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

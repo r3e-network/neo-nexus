@@ -50,10 +50,9 @@ export class KubernetesDeployer {
         const releaseName = `neo-${config.clientEngine}-${uniqueId}`;
         const namespace = `tenant-${uniqueId}`;
 
-        // If no valid KubeConfig, return a successful mock for local dev
+        // In a true production environment, we enforce Kubernetes configuration.
         if (!this.kc.getCurrentCluster()) {
-            console.log('[Control Plane] Mock deployment successful (No K8s cluster configured).');
-            return { success: true, namespace, releaseName };
+            throw new Error('[Control Plane] Kubernetes cluster configuration is missing or invalid.');
         }
 
         try {
@@ -68,6 +67,10 @@ export class KubernetesDeployer {
             const storageClass = config.provider === 'aws' ? 'gp3' : 'premium-rwo';
             const storageSize = config.syncMode === 'archive' ? '2Ti' : '200Gi';
             
+            // Example official snapshot URL - in a real production environment, this should point to a regional S3 bucket
+            const snapshotUrl = 'https://sync.ngd.network/mainnet/chain.acc.tar.gz';
+            const dataPath = isNeoGo ? '/data' : '/app/Data_LevelDB';
+
             const statefulSetSpec: k8s.V1StatefulSet = {
                 metadata: {
                     name: releaseName,
@@ -81,6 +84,26 @@ export class KubernetesDeployer {
                     template: {
                         metadata: { labels: { app: releaseName } },
                         spec: {
+                            initContainers: [
+                                {
+                                    name: 'init-snapshot',
+                                    image: 'alpine:latest',
+                                    command: ['/bin/sh', '-c'],
+                                    args: [
+                                        `if [ ! -d "${dataPath}/chains" ] && [ ! -d "${dataPath}/Data_LevelDB" ]; then
+                                            echo "Downloading snapshot from ${snapshotUrl}..."
+                                            wget -O /tmp/snapshot.tar.gz ${snapshotUrl}
+                                            echo "Extracting snapshot..."
+                                            tar -xzf /tmp/snapshot.tar.gz -C ${dataPath}
+                                            rm /tmp/snapshot.tar.gz
+                                            echo "Snapshot initialized."
+                                        else
+                                            echo "Data directory already initialized, skipping snapshot."
+                                        fi`
+                                    ],
+                                    volumeMounts: [{ name: 'data', mountPath: dataPath }]
+                                }
+                            ],
                             containers: [{
                                 name: config.clientEngine,
                                 image: isNeoGo ? 'nspccdev/neo-go:0.106.0' : 'neo-project/neo-cli:3.7.4',
