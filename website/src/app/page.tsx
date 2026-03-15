@@ -27,7 +27,7 @@ export default function Home() {
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/login?signup=true" className="w-full sm:w-auto bg-[#00E599] hover:bg-[#00cc88] text-black px-8 py-4 rounded-xl font-bold transition-all hover:shadow-[0_0_20px_rgba(0,229,153,0.4)] text-lg">
+            <Link href="/app/login?signup=true" className="w-full sm:w-auto bg-[#00E599] hover:bg-[#00cc88] text-black px-8 py-4 rounded-xl font-bold transition-all hover:shadow-[0_0_20px_rgba(0,229,153,0.4)] text-lg">
               Deploy a Node for Free
             </Link>
             <Link href="/docs" className="w-full sm:w-auto bg-[#111111] hover:bg-[#1A1A1A] border border-[#333333] text-white px-8 py-4 rounded-xl font-bold transition-colors text-lg flex items-center justify-center gap-2">
@@ -145,7 +145,7 @@ export default function Home() {
               ))}
             </ul>
             
-            <Link href="/login?signup=true" className="text-white font-bold underline decoration-[#00E599] decoration-2 underline-offset-4 hover:text-[#00E599] transition-colors">
+            <Link href="/app/login?signup=true" className="text-white font-bold underline decoration-[#00E599] decoration-2 underline-offset-4 hover:text-[#00E599] transition-colors">
               Go to Console →
             </Link>
           </div>
@@ -190,7 +190,7 @@ async function getBlockCount() {
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">Ready to scale on Neo?</h2>
           <p className="text-xl text-gray-400 mb-10">Join the best teams building the future of the Neo ecosystem. Deploy your infrastructure in seconds.</p>
-          <Link href="/login?signup=true" className="bg-white text-black hover:bg-gray-200 px-10 py-5 rounded-full font-bold text-lg transition-colors shadow-xl">
+          <Link href="/app/login?signup=true" className="bg-white text-black hover:bg-gray-200 px-10 py-5 rounded-full font-bold text-lg transition-colors shadow-xl">
             Create Free Account
           </Link>
         </div>
