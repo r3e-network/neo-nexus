@@ -4,6 +4,7 @@ import { prisma } from '@/utils/prisma';
 import { revalidatePath } from 'next/cache';
 import crypto from 'crypto';
 import { ApisixService } from '@/services/apisix/ApisixService';
+import { auth } from '@/auth';
 
 export async function createApiKeyAction(name: string) {
   if (!process.env.DATABASE_URL) {
@@ -11,28 +12,56 @@ export async function createApiKeyAction(name: string) {
   }
 
   try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: 'Unauthorized: You must be logged in.' };
+    }
+
+    let orgId = (session.user as any).organizationId;
+    let billingPlan = 'developer';
+
+    if (!orgId) {
+      const userDb = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        include: { organization: true }
+      });
+      if (userDb?.organization) {
+        orgId = userDb.organization.id;
+        billingPlan = userDb.organization.billingPlan;
+      } else {
+        return { success: false, error: 'User does not belong to an organization.' };
+      }
+    } else {
+      const org = await prisma.organization.findUnique({ where: { id: orgId } });
+      if (org) billingPlan = org.billingPlan;
+    }
+
+    // Check API Key limits based on plan
+    const keyCount = await prisma.apiKey.count({ where: { organizationId: orgId } });
+    if (billingPlan === 'developer' && keyCount >= 2) {
+        return { success: false, error: 'Developer plan is limited to 2 API keys. Please upgrade to Growth.' };
+    }
+    if (billingPlan === 'growth' && keyCount >= 10) {
+        return { success: false, error: 'Growth plan is limited to 10 API keys.' };
+    }
+
     // Generate a secure API key
     const rawKey = 'nk_live_' + crypto.randomBytes(16).toString('hex');
     
     // In production, you'd only store the hash
     const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
 
-    // Default to a mock organization for demo if none exists
-    let orgId = 'default-org';
-    const orgs = await prisma.organization.findMany({ take: 1 });
-    if (orgs.length > 0) orgId = orgs[0].id;
-
     await prisma.apiKey.create({
       data: {
         name: name,
         keyHash: keyHash,
         isActive: true,
-        organizationId: orgId !== 'default-org' ? orgId : null
+        organizationId: orgId
       }
     });
 
     // Register with APISIX API Gateway
-    await ApisixService.createConsumer(orgId, rawKey, orgs[0]?.billingPlan as any || 'developer');
+    await ApisixService.createConsumer(orgId, rawKey, billingPlan as any);
 
     revalidatePath('/security');
     

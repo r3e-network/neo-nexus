@@ -12,7 +12,7 @@ export type ApiKeyType = {
   isActive: boolean;
 };
 
-export default function SecurityClient({ initialKeys }: { initialKeys: ApiKeyType[] }) {
+export default function SecurityClient({ initialKeys, billingPlan }: { initialKeys: ApiKeyType[], billingPlan: string }) {
   const [keys, setKeys] = useState<ApiKeyType[]>(initialKeys);
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({});
   const [isCreating, setIsCreating] = useState(false);
@@ -177,7 +177,13 @@ export default function SecurityClient({ initialKeys }: { initialKeys: ApiKeyTyp
             <div className="p-6">
               <p className="text-sm text-gray-400 mb-6">Select which RPC methods are allowed on your public endpoints. Prevents abuse of heavy state queries.</p>
               
-              <div className="space-y-5">
+              {billingPlan === 'developer' && (
+                <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-xs p-3 rounded-lg mb-6">
+                  Method Firewall requires the Growth or Dedicated plan. <a href="/billing" className="underline font-bold">Upgrade now</a>.
+                </div>
+              )}
+
+              <div className={`space-y-5 ${billingPlan === 'developer' ? 'opacity-50 pointer-events-none' : ''}`}>
                 <label className="flex items-start gap-3 cursor-pointer group">
                   <div className="relative flex items-center justify-center mt-0.5">
                     <input type="checkbox" defaultChecked className="peer appearance-none w-5 h-5 rounded border border-[#555] bg-[#111111] checked:bg-[#00E599] checked:border-[#00E599] transition-all cursor-pointer" />
@@ -213,7 +219,10 @@ export default function SecurityClient({ initialKeys }: { initialKeys: ApiKeyTyp
               </div>
 
               <div className="mt-8 pt-6 border-t border-[#333333]">
-                <button className="w-full bg-[#333333] hover:bg-[#444444] text-white py-3 rounded-xl text-sm font-bold transition-colors">
+                <button 
+                  disabled={billingPlan === 'developer'}
+                  className="w-full bg-[#333333] hover:bg-[#444444] disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-xl text-sm font-bold transition-colors"
+                >
                   Save Firewall Rules
                 </button>
               </div>
