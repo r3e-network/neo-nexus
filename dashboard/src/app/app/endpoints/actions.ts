@@ -94,9 +94,13 @@ export async function createEndpointAction(formData: {
     : `https://${formData.network}.neonexus.cloud/v1/${randomId}`;
 
   try {
-    const networkString = formData.protocol === 'neo-x' 
+    let networkString = formData.protocol === 'neo-x' 
         ? (formData.network === 'mainnet' ? 'Neo X Mainnet' : 'Neo X Testnet')
         : (formData.network === 'mainnet' ? 'N3 Mainnet' : 'N3 Testnet');
+    
+    if (formData.network === 'private') {
+        networkString = formData.protocol === 'neo-x' ? 'Neo X Private Net' : 'Neo N3 Private Net';
+    }
 
     const endpoint = await prisma.endpoint.create({
       data: {
