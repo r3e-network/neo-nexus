@@ -5,12 +5,12 @@ import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Server, BarChart3, Puzzle, Shield, CreditCard } from 'lucide-react';
 
 const navigation = [
-  { name: 'Overview', href: '/', icon: LayoutDashboard },
-  { name: 'Endpoints', href: '/endpoints', icon: Server },
-  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { name: 'Marketplace', href: '/marketplace', icon: Puzzle },
-  { name: 'Security', href: '/security', icon: Shield },
-  { name: 'Billing', href: '/billing', icon: CreditCard },
+  { name: 'Overview', href: '/app', icon: LayoutDashboard },
+  { name: 'Endpoints', href: '/app/endpoints', icon: Server },
+  { name: 'Analytics', href: '/app/analytics', icon: BarChart3 },
+  { name: 'Marketplace', href: '/app/marketplace', icon: Puzzle },
+  { name: 'Security', href: '/app/security', icon: Shield },
+  { name: 'Billing', href: '/app/billing', icon: CreditCard },
 ];
 
 export default function Sidebar() {
