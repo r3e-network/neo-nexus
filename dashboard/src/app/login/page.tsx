@@ -9,7 +9,7 @@ import { signIn } from 'next-auth/react';
 function LoginContent() {
   const searchParams = useSearchParams();
   const isSignup = searchParams.get('signup') === 'true';
-  const callbackUrl = searchParams.get('callbackUrl') || '/';
+  const callbackUrl = searchParams.get('callbackUrl') || '/app';
   const [isLoading, setIsLoading] = useState<string | null>(null);
 
   const handleLogin = async (provider: string) => {

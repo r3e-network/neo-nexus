@@ -4,11 +4,9 @@
   "description": "**The Ultimate Industrial-grade Neo N3 Infrastructure Platform.**",
   "main": "index.js",
   "scripts": {
-    "dev:dashboard": "npm run dev --workspace=dashboard",
-    "dev:website": "npm run dev --workspace=website",
-    "build": "npm run build --workspaces",
-    "build:all": "npm run build --workspaces",
-    "vercel-build": "npm run build --workspaces",
+    "dev": "npm run dev --workspace=dashboard",
+    "build": "npm run build --workspace=dashboard",
+    "vercel-build": "npm run build --workspace=dashboard",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -24,7 +22,6 @@
   },
   "homepage": "https://github.com/r3e-network/neonexus#readme",
   "workspaces": [
-    "dashboard",
-    "website"
+    "dashboard"
   ]
 }

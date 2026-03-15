@@ -6,48 +6,35 @@ NeoNexus is a comprehensive Node-as-a-Service (NaaS) and Web3 cloud infrastructu
 
 ---
 
-## 🌟 Project Architecture (Monorepo)
+## 🌟 Project Architecture
 
-The repository is structured into three main layers:
+The repository is structured into two main layers:
 
-1. **`/website` (Marketing & Documentation)**
-   - Built with Next.js 15 (App Router), Tailwind CSS, and Framer Motion.
-   - Fully static generation for maximum SEO performance.
-   - Includes Pricing, Developer Hub, Documentation, and Auth flows.
+1. **`/dashboard` (Unified Frontend & Control Console)**
+   - Built with Next.js 16 (App Router), Tailwind CSS, and Framer Motion.
+   - Contains both the public Marketing Website (`/(marketing)`) and the authenticated Control Console (`/app`).
+   - Connected to **Neon Serverless Postgres** via Prisma ORM and NextAuth.
+   - Includes: Endpoint creation wizard, real-time Analytics (SWR), Firewall security settings, and Marketplace add-ons.
 
-2. **`/dashboard` (Control Console)**
-   - The core NaaS interface built with Next.js 15, Tailwind, and Recharts.
-   - Connected to **Supabase** via Server Components and Actions.
-   - Includes: Endpoint creation wizard, real-time Analytics, Firewall security settings, and Marketplace add-ons.
-
-3. **`/infrastructure` (DevOps & Control Plane)**
-   - **Helm Charts (`/helm`)**: Production-ready Kubernetes manifests to deploy `neo-go` and `neo-cli` stateful nodes with persistent volumes.
-   - **Database (`/database`)**: Complete PostgreSQL schema with Row-Level Security (RLS) for Supabase integration.
+2. **`/infrastructure` (DevOps & Control Plane)**
+   - **Helm Charts (`/helm`)**: Production-ready Kubernetes manifests to deploy `neo-go`, `neo-cli`, and `neo-x-geth` stateful nodes with persistent volumes.
+   - **Database (`/database`)**: Complete PostgreSQL schema.
    - **Docker (`/docker`)**: Local observability stack (neo-go + Prometheus + Grafana) for testing metrics.
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Launch the Marketing Website
+### 1. Launch the Platform
 ```bash
-cd website
 npm install
 npm run dev
 # Visit: http://localhost:3000
 ```
 
-### 2. Launch the Dashboard
-```bash
-cd dashboard
-npm install
-npm run dev
-# Visit: http://localhost:3001
-```
+*(Note: The Dashboard uses a graceful fallback. If you don't provide Prisma environment variables, it will prompt you or safely disable features.)*
 
-*(Note: The Dashboard uses a graceful fallback. If you don't provide Supabase environment variables, it will render using high-quality mock data automatically.)*
-
-### 3. Deploy a Local Observability Stack
+### 2. Deploy a Local Observability Stack
 Want to see the metrics engine in action? You can spin up a local Neo N3 node alongside Prometheus and Grafana:
 ```bash
 cd infrastructure/docker
