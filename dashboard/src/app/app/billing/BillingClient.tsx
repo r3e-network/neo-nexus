@@ -63,7 +63,7 @@ export default function BillingClient({ billingPlan }: { billingPlan: string }) 
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-[#23252E] border border-[#00E599]/30 rounded-xl p-6 relative overflow-hidden">
+          <div className="bg-[var(--color-dark-panel)] border border-[#00E599]/30 rounded-xl p-6 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-[#00E599]/10 rounded-full blur-3xl"></div>
             <h2 className="text-sm font-bold text-[#00E599] uppercase tracking-wider mb-2">Current Plan</h2>
             <div className="flex items-baseline gap-2 mb-4">
@@ -116,8 +116,8 @@ export default function BillingClient({ billingPlan }: { billingPlan: string }) 
             )}
           </div>
 
-          <div className="bg-[#23252E] border border-[#2E313D] rounded-xl overflow-hidden">
-            <div className="p-6 border-b border-[#2E313D]">
+          <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-xl overflow-hidden">
+            <div className="p-6 border-b border-[var(--color-dark-border)]">
               <h2 className="text-lg font-medium text-white">Invoices</h2>
             </div>
             <div className="divide-y divide-[#333333] p-6 text-sm text-gray-400">
@@ -127,10 +127,10 @@ export default function BillingClient({ billingPlan }: { billingPlan: string }) 
         </div>
 
         <div>
-          <div className="bg-[#23252E] border border-[#2E313D] rounded-xl p-6 sticky top-6">
+          <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-xl p-6 sticky top-6">
             <h2 className="text-lg font-medium text-white mb-6">Payment Method</h2>
             
-            <div className="bg-[#1A1C23] border border-[#2E313D] rounded-lg p-4 flex items-center gap-4 mb-4">
+            <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-lg p-4 flex items-center gap-4 mb-4">
               <div className="bg-gray-800 p-2 rounded">
                 <CreditCard className="w-6 h-6 text-gray-400" />
               </div>
@@ -143,7 +143,7 @@ export default function BillingClient({ billingPlan }: { billingPlan: string }) 
               Add Card via Stripe
             </button>
 
-            <div className="pt-6 border-t border-[#2E313D]">
+            <div className="pt-6 border-t border-[var(--color-dark-border)]">
               <h3 className="text-sm font-medium text-white mb-4">Web3 Native Payment</h3>
               <p className="text-sm text-gray-400 mb-6">Pay pseudo-anonymously using Neo N3 GAS tokens via WalletConnect.</p>
               
@@ -168,7 +168,7 @@ export default function BillingClient({ billingPlan }: { billingPlan: string }) 
       {/* Crypto Payment Modal */}
       {isCryptoModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#1A1C23] border border-[#2E313D] rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+          <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
             <button onClick={() => setIsCryptoModalOpen(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white">✕</button>
             <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-[#00E599] flex items-center justify-center text-black text-xs font-bold">N</div>
@@ -177,7 +177,7 @@ export default function BillingClient({ billingPlan }: { billingPlan: string }) 
             
             <div className="space-y-4 mb-6">
               {billingPlan === 'developer' && (
-                <label className={`block border rounded-xl p-4 cursor-pointer transition-colors ${cryptoPlanSelected === 'growth' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#2E313D] hover:border-gray-500'}`}>
+                <label className={`block border rounded-xl p-4 cursor-pointer transition-colors ${cryptoPlanSelected === 'growth' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500'}`}>
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-3">
                       <input type="radio" checked={cryptoPlanSelected === 'growth'} onChange={() => setCryptoPlanSelected('growth')} className="accent-[#00E599] w-4 h-4" />
@@ -189,7 +189,7 @@ export default function BillingClient({ billingPlan }: { billingPlan: string }) 
                 </label>
               )}
 
-              <label className={`block border rounded-xl p-4 cursor-pointer transition-colors ${cryptoPlanSelected === 'dedicated' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#2E313D] hover:border-gray-500'}`}>
+              <label className={`block border rounded-xl p-4 cursor-pointer transition-colors ${cryptoPlanSelected === 'dedicated' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500'}`}>
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-3">
                     <input type="radio" checked={cryptoPlanSelected === 'dedicated'} onChange={() => setCryptoPlanSelected('dedicated')} className="accent-[#00E599] w-4 h-4" />

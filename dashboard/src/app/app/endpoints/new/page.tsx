@@ -86,19 +86,19 @@ export default function CreateEndpoint() {
         <div className="flex-1 space-y-8 w-full">
           
           {/* Section 0: Node Name */}
-          <section className="bg-[#23252E] border border-[#2E313D] rounded-2xl p-8 shadow-sm">
+          <section className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-8 shadow-sm">
             <h2 className="text-xl font-bold text-white mb-4">Node Name</h2>
             <input 
               type="text" 
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Production Mainnet Node"
-              className="w-full bg-[#1A1C23] border border-[#2E313D] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00E599] focus:ring-1 focus:ring-[#00E599] transition-all"
+              className="w-full bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00E599] focus:ring-1 focus:ring-[#00E599] transition-all"
             />
           </section>
 
           {/* Section 0.5: Protocol */}
-          <section className="bg-[#23252E] border border-[#2E313D] rounded-2xl p-8 shadow-sm">
+          <section className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">1</div>
               <h2 className="text-xl font-bold text-white">Select Protocol</h2>
@@ -108,7 +108,7 @@ export default function CreateEndpoint() {
               <div 
                 onClick={() => handleProtocolChange('neo-n3')}
                 className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
-                  protocol === 'neo-n3' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#2E313D] hover:border-gray-500 bg-[#1A1C23]'
+                  protocol === 'neo-n3' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)]'
                 }`}
               >
                 {protocol === 'neo-n3' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
@@ -122,7 +122,7 @@ export default function CreateEndpoint() {
               <div 
                 onClick={() => handleProtocolChange('neo-x')}
                 className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
-                  protocol === 'neo-x' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#2E313D] hover:border-gray-500 bg-[#1A1C23]'
+                  protocol === 'neo-x' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)]'
                 }`}
               >
                 {protocol === 'neo-x' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
@@ -136,7 +136,7 @@ export default function CreateEndpoint() {
           </section>
 
           {/* Section 1: Network */}
-          <section className="bg-[#23252E] border border-[#2E313D] rounded-2xl p-8 shadow-sm">
+          <section className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">2</div>
               <h2 className="text-xl font-bold text-white">Select Network</h2>
@@ -146,7 +146,7 @@ export default function CreateEndpoint() {
               <div 
                 onClick={() => setNetwork('mainnet')}
                 className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
-                  network === 'mainnet' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#2E313D] hover:border-gray-500 bg-[#1A1C23]'
+                  network === 'mainnet' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)]'
                 }`}
               >
                 {network === 'mainnet' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
@@ -160,7 +160,7 @@ export default function CreateEndpoint() {
               <div 
                 onClick={() => setNetwork('testnet')}
                 className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
-                  network === 'testnet' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#2E313D] hover:border-gray-500 bg-[#1A1C23]'
+                  network === 'testnet' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)]'
                 }`}
               >
                 {network === 'testnet' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
@@ -174,7 +174,7 @@ export default function CreateEndpoint() {
               <div 
                 onClick={() => setNetwork('private')}
                 className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
-                  network === 'private' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#2E313D] hover:border-gray-500 bg-[#1A1C23]'
+                  network === 'private' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)]'
                 }`}
               >
                 {network === 'private' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
@@ -188,7 +188,7 @@ export default function CreateEndpoint() {
           </section>
 
           {/* Section 2: Client Engine */}
-          <section className="bg-[#23252E] border border-[#2E313D] rounded-2xl p-8 shadow-sm">
+          <section className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">3</div>
               <h2 className="text-xl font-bold text-white">Client Engine</h2>
@@ -200,7 +200,7 @@ export default function CreateEndpoint() {
                   <div 
                     onClick={() => setClientEngine('neo-go')}
                     className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
-                      clientEngine === 'neo-go' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#2E313D] hover:border-gray-500 bg-[#1A1C23]'
+                      clientEngine === 'neo-go' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)]'
                     }`}
                   >
                     {clientEngine === 'neo-go' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
@@ -217,7 +217,7 @@ export default function CreateEndpoint() {
                   <div 
                     onClick={() => setClientEngine('neo-cli')}
                     className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
-                      clientEngine === 'neo-cli' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#2E313D] hover:border-gray-500 bg-[#1A1C23]'
+                      clientEngine === 'neo-cli' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)]'
                     }`}
                   >
                     {clientEngine === 'neo-cli' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
@@ -251,7 +251,7 @@ export default function CreateEndpoint() {
           </section>
 
           {/* Section 3: Node Type */}
-          <section className="bg-[#23252E] border border-[#2E313D] rounded-2xl p-8 shadow-sm">
+          <section className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">3</div>
               <h2 className="text-xl font-bold text-white">Node Type</h2>
@@ -261,7 +261,7 @@ export default function CreateEndpoint() {
               <div 
                 onClick={() => setNodeType('shared')}
                 className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
-                  nodeType === 'shared' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#2E313D] hover:border-gray-500 bg-[#1A1C23]'
+                  nodeType === 'shared' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)]'
                 }`}
               >
                 {nodeType === 'shared' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
@@ -277,7 +277,7 @@ export default function CreateEndpoint() {
               <div 
                 onClick={() => setNodeType('dedicated')}
                 className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 overflow-hidden ${
-                  nodeType === 'dedicated' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#2E313D] hover:border-gray-500 bg-[#1A1C23]'
+                  nodeType === 'dedicated' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)]'
                 }`}
               >
                 <div className="absolute top-0 right-0 bg-gradient-to-r from-[#00E599] to-blue-500 text-black text-xs font-bold px-4 py-1.5 rounded-bl-xl shadow-md">RECOMMENDED</div>
@@ -295,7 +295,7 @@ export default function CreateEndpoint() {
 
           {/* Section 4: Cloud Provider & Region (Only if Dedicated) */}
           <div className={`transition-all duration-500 overflow-hidden ${nodeType === 'dedicated' ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-            <section className="bg-[#23252E] border border-[#2E313D] rounded-2xl p-8 shadow-sm">
+            <section className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">4</div>
                 <h2 className="text-xl font-bold text-white">Hosting Configuration</h2>
@@ -309,7 +309,7 @@ export default function CreateEndpoint() {
                     <div 
                       onClick={() => setProvider('aws')}
                       className={`cursor-pointer rounded-xl p-4 border-2 flex items-center gap-4 transition-all ${
-                        provider === 'aws' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#2E313D] hover:border-gray-500 bg-[#1A1C23]'
+                        provider === 'aws' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)]'
                       }`}
                     >
                       <div className="w-12 h-12 rounded bg-gray-800 flex items-center justify-center">
@@ -325,7 +325,7 @@ export default function CreateEndpoint() {
                     <div 
                       onClick={() => setProvider('gcp')}
                       className={`cursor-pointer rounded-xl p-4 border-2 flex items-center gap-4 transition-all ${
-                        provider === 'gcp' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#2E313D] hover:border-gray-500 bg-[#1A1C23]'
+                        provider === 'gcp' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)]'
                       }`}
                     >
                       <div className="w-12 h-12 rounded bg-gray-800 flex items-center justify-center">
@@ -356,7 +356,7 @@ export default function CreateEndpoint() {
                         key={r.id}
                         onClick={() => setRegion(r.id)}
                         className={`cursor-pointer rounded-lg p-3 border text-center transition-all ${
-                          region === r.id ? 'border-[#00E599] bg-[#00E599]/5 text-white' : 'border-[#2E313D] hover:border-gray-500 bg-[#1A1C23] text-gray-400'
+                          region === r.id ? 'border-[#00E599] bg-[#00E599]/5 text-white' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)] text-gray-400'
                         }`}
                       >
                         <div className="text-xl mb-1">{r.flag}</div>
@@ -371,7 +371,7 @@ export default function CreateEndpoint() {
           </div>
 
           {/* Section 5: Node Configuration */}
-          <section className="bg-[#23252E] border border-[#2E313D] rounded-2xl p-8 shadow-sm">
+          <section className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">
                 {nodeType === 'dedicated' ? '5' : '4'}
@@ -383,7 +383,7 @@ export default function CreateEndpoint() {
               <div 
                 onClick={() => setSyncMode('full')}
                 className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
-                  syncMode === 'full' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#2E313D] hover:border-gray-500 bg-[#1A1C23]'
+                  syncMode === 'full' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)]'
                 }`}
               >
                 {syncMode === 'full' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
@@ -396,7 +396,7 @@ export default function CreateEndpoint() {
               <div 
                 onClick={() => setSyncMode('archive')}
                 className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
-                  syncMode === 'archive' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#2E313D] hover:border-gray-500 bg-[#1A1C23]'
+                  syncMode === 'archive' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)]'
                 }`}
               >
                 {syncMode === 'archive' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
@@ -415,9 +415,9 @@ export default function CreateEndpoint() {
 
         {/* Right Column - Order Summary Fixed Panel */}
         <div className="w-full xl:w-96 xl:sticky xl:top-8 shrink-0">
-          <div className="bg-[#23252E] border border-[#2E313D] rounded-2xl shadow-xl overflow-hidden flex flex-col">
+          <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl shadow-xl overflow-hidden flex flex-col">
             
-            <div className="p-6 bg-[#1A1C23] border-b border-[#2E313D]">
+            <div className="p-6 bg-[var(--color-dark-panel)] border-b border-[var(--color-dark-border)]">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 Deployment Summary
               </h2>
@@ -474,7 +474,7 @@ export default function CreateEndpoint() {
               </ul>
             </div>
 
-            <div className="p-6 bg-[#1A1C23] border-t border-[#2E313D]">
+            <div className="p-6 bg-[var(--color-dark-panel)] border-t border-[var(--color-dark-border)]">
               <div className="flex justify-between items-end mb-6">
                 <div>
                   <div className="text-sm text-gray-400 mb-1">Estimated Cost</div>

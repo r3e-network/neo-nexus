@@ -56,7 +56,7 @@ export default function Analytics() {
           </h1>
           <p className="text-gray-400 text-lg">Deep insight into your Neo infrastructure health.</p>
         </div>
-        <div className="bg-[#23252E] border border-[#2E313D] p-1 rounded-lg flex text-sm">
+        <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] p-1 rounded-lg flex text-sm">
           <button className="px-4 py-1.5 rounded-md text-gray-400 hover:text-white transition-colors">24H</button>
           <button className="px-4 py-1.5 rounded-md bg-[#333333] text-white shadow font-medium">7D</button>
           <button className="px-4 py-1.5 rounded-md text-gray-400 hover:text-white transition-colors">30D</button>
@@ -65,7 +65,7 @@ export default function Analytics() {
 
       {/* Top Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-[#23252E] border border-[#2E313D] p-6 rounded-2xl">
+        <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] p-6 rounded-2xl">
           <div className="flex justify-between items-start mb-4">
             <span className="text-sm font-medium text-gray-400">Total Requests</span>
             <div className="p-2 bg-blue-500/10 rounded-lg"><Activity className="w-4 h-4 text-blue-400" /></div>
@@ -76,7 +76,7 @@ export default function Analytics() {
           </div>
         </div>
 
-        <div className="bg-[#23252E] border border-[#2E313D] p-6 rounded-2xl">
+        <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] p-6 rounded-2xl">
           <div className="flex justify-between items-start mb-4">
             <span className="text-sm font-medium text-gray-400">Success Rate</span>
             <div className="p-2 bg-[#00E599]/10 rounded-lg"><ShieldAlert className="w-4 h-4 text-[#00E599]" /></div>
@@ -87,7 +87,7 @@ export default function Analytics() {
           </div>
         </div>
 
-        <div className="bg-[#23252E] border border-[#2E313D] p-6 rounded-2xl">
+        <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] p-6 rounded-2xl">
           <div className="flex justify-between items-start mb-4">
             <span className="text-sm font-medium text-gray-400">Avg. Latency</span>
             <div className="p-2 bg-yellow-500/10 rounded-lg"><Clock className="w-4 h-4 text-yellow-500" /></div>
@@ -98,7 +98,7 @@ export default function Analytics() {
           </div>
         </div>
 
-        <div className="bg-[#23252E] border border-[#2E313D] p-6 rounded-2xl">
+        <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] p-6 rounded-2xl">
           <div className="flex justify-between items-start mb-4">
             <span className="text-sm font-medium text-gray-400">Bandwidth</span>
             <div className="p-2 bg-purple-500/10 rounded-lg"><ServerCrash className="w-4 h-4 text-purple-400" /></div>
@@ -114,7 +114,7 @@ export default function Analytics() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Large Area Chart: Volume & Latency */}
-        <div className="lg:col-span-2 bg-[#23252E] border border-[#2E313D] rounded-2xl p-6">
+        <div className="lg:col-span-2 bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-6">
           <h2 className="text-lg font-bold text-white mb-6">Request Volume & Latency</h2>
           <div className="h-80 w-full">
             <RCLine width="100%" height="100%">
@@ -160,7 +160,7 @@ export default function Analytics() {
         </div>
 
         {/* Bar Chart: RPC Methods */}
-        <div className="bg-[#23252E] border border-[#2E313D] rounded-2xl p-6 flex flex-col">
+        <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-6 flex flex-col">
           <h2 className="text-lg font-bold text-white mb-6">Top RPC Methods</h2>
           <div className="flex-1 w-full min-h-[250px]">
             <RCBar width="100%" height="100%">
@@ -183,14 +183,14 @@ export default function Analytics() {
       </div>
 
       {/* Error Logs Table */}
-      <div className="bg-[#23252E] border border-[#2E313D] rounded-2xl overflow-hidden">
-        <div className="px-6 py-5 border-b border-[#2E313D] flex justify-between items-center">
+      <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl overflow-hidden">
+        <div className="px-6 py-5 border-b border-[var(--color-dark-border)] flex justify-between items-center">
           <h2 className="text-lg font-bold text-white">Recent Errors</h2>
           <button className="text-sm text-[#00E599] hover:text-[#00cc88] font-medium">View All Logs</button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-[#1A1C23] text-gray-400">
+            <thead className="bg-[var(--color-dark-panel)] text-gray-400">
               <tr>
                 <th className="px-6 py-3 font-medium">Time</th>
                 <th className="px-6 py-3 font-medium">RPC Method</th>

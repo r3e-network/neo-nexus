@@ -12,7 +12,7 @@ export default function Home() {
         <div className="absolute top-40 right-0 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[120px] -z-10"></div>
 
         <div className="max-w-7xl mx-auto px-6 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1A1C23] border border-[#2E313D] text-sm text-gray-300 mb-8 hover:border-[#00E599] transition-colors cursor-pointer">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] text-sm text-gray-300 mb-8 hover:border-[#00E599] transition-colors cursor-pointer">
             <span className="w-2 h-2 rounded-full bg-[#00E599] animate-pulse"></span>
             Neo N3 and Neo X are fully supported
             <ArrowRight className="w-3 h-3" />
@@ -30,7 +30,7 @@ export default function Home() {
             <Link href="/login?signup=true" className="w-full sm:w-auto bg-[#00E599] hover:bg-[#00cc88] text-black px-8 py-4 rounded-xl font-bold transition-all hover:shadow-[0_0_20px_rgba(0,229,153,0.4)] text-lg">
               Deploy a Node for Free
             </Link>
-            <Link href="/docs" className="w-full sm:w-auto bg-[#1A1C23] hover:bg-[#23252E] border border-[#2E313D] text-white px-8 py-4 rounded-xl font-bold transition-colors text-lg flex items-center justify-center gap-2">
+            <Link href="/docs" className="w-full sm:w-auto bg-[var(--color-dark-panel)] hover:bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] text-white px-8 py-4 rounded-xl font-bold transition-colors text-lg flex items-center justify-center gap-2">
               Read Docs
             </Link>
           </div>
@@ -72,7 +72,7 @@ export default function Home() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Feature 1 */}
-            <div className="bg-[#1A1C23] border border-[#2E313D] hover:border-[#00E599]/50 rounded-2xl p-8 transition-all group">
+            <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] hover:border-[#00E599]/50 rounded-2xl p-8 transition-all group">
               <div className="w-14 h-14 rounded-xl bg-[#00E599]/10 text-[#00E599] flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Globe className="w-7 h-7" />
               </div>
@@ -86,7 +86,7 @@ export default function Home() {
             </div>
 
             {/* Feature 2 */}
-            <div className="bg-[#1A1C23] border border-[#2E313D] hover:border-blue-500/50 rounded-2xl p-8 transition-all group relative overflow-hidden">
+            <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] hover:border-blue-500/50 rounded-2xl p-8 transition-all group relative overflow-hidden">
               <div className="absolute top-0 right-0 bg-blue-500 text-black text-xs font-bold px-3 py-1 rounded-bl-lg">POPULAR</div>
               <div className="w-14 h-14 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Server className="w-7 h-7" />
@@ -101,7 +101,7 @@ export default function Home() {
             </div>
 
             {/* Feature 3 */}
-            <div className="bg-[#1A1C23] border border-[#2E313D] hover:border-purple-500/50 rounded-2xl p-8 transition-all group">
+            <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] hover:border-purple-500/50 rounded-2xl p-8 transition-all group">
               <div className="w-14 h-14 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Blocks className="w-7 h-7" />
               </div>
@@ -123,7 +123,7 @@ export default function Home() {
         
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1A1C23] border border-[#2E313D] text-sm text-[#00E599] font-medium mb-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] text-sm text-[#00E599] font-medium mb-6">
               <Code className="w-4 h-4" /> Developer First
             </div>
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Powerful dashboard. Deep insights.</h2>
@@ -152,7 +152,7 @@ export default function Home() {
           
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-tr from-[#00E599] to-blue-500 rounded-2xl blur-2xl opacity-20"></div>
-            <div className="relative bg-[#1A1C23] border border-[#2E313D] rounded-2xl p-6 shadow-2xl">
+            <div className="relative bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-6 shadow-2xl">
               <div className="flex gap-2 mb-4">
                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
                 <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
