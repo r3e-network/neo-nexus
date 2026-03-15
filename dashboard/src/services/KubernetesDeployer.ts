@@ -29,7 +29,7 @@ export class KubernetesDeployer {
                 try {
                     this.kc.loadFromDefault();
                 } catch (err) {
-                    console.warn('[KubernetesDeployer] Kubernetes config not found. Will run in mock/dry-run mode.');
+                    console.warn('[KubernetesDeployer] Kubernetes config not found. Will run in dev/dry-run mode.');
                 }
             }
             this.k8sApi = this.kc.makeApiClient(k8s.CoreV1Api);

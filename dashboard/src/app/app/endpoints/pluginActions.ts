@@ -12,7 +12,7 @@ export async function addNodePluginAction(endpointId: number, pluginId: string, 
     }
 
     // 1. Verify ownership of the endpoint
-    let orgId = (session.user as any).organizationId;
+    const orgId = (session.user as any).organizationId;
     if (!orgId) {
         return { success: false, error: 'No organization linked to user.' };
     }
