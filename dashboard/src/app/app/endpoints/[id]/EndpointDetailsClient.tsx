@@ -5,12 +5,16 @@ import Link from 'next/link';
 import { ArrowLeft, Activity, Box, Copy, Globe, MoreVertical, Play, Power, RotateCcw, Server, Terminal, Lock, Plug } from 'lucide-react';
 import { Endpoint } from '../EndpointsList';
 import { NeoNodeService } from '@/services/neo/NeoNodeService';
+import { addNodePluginAction } from '../pluginActions';
 import toast from 'react-hot-toast';
 
 export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint | null }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [blockHeight, setBlockHeight] = useState<number | string>('Syncing...');
   const [peerCount, setPeerCount] = useState<number | string>('Syncing...');
+  const [installPluginModal, setInstallPluginModal] = useState<string | null>(null);
+  const [privateKey, setPrivateKey] = useState('');
+  const [isInstalling, setIsInstalling] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -37,6 +41,28 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
 
     return () => clearInterval(interval);
   }, [endpoint]);
+
+  const handleInstallPlugin = async () => {
+    if (!installPluginModal) return;
+    if (!privateKey) {
+        toast.error('A private key is required to configure this plugin.');
+        return;
+    }
+
+    setIsInstalling(true);
+    toast.loading(`Deploying ${installPluginModal} sidecar...`, { id: 'plugin' });
+
+    const result = await addNodePluginAction(endpoint?.id as number, installPluginModal, {}, privateKey);
+
+    if (result.success) {
+        toast.success(`${installPluginModal} installed and configured securely! Node is restarting.`, { id: 'plugin' });
+        setInstallPluginModal(null);
+        setPrivateKey('');
+    } else {
+        toast.error(result.error || 'Failed to install plugin.', { id: 'plugin' });
+    }
+    setIsInstalling(false);
+  };
 
   const tabs = [
     { id: 'overview', name: 'Overview' },
@@ -223,7 +249,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
                 </div>
               </div>
               <button 
-                onClick={() => toast.success('TEE Oracle configuration panel opened. Settings saved to cluster.')}
+                onClick={() => setInstallPluginModal('tee-oracle')}
                 className="bg-[#111111] border border-[#333333] hover:bg-[#252525] px-4 py-2 rounded text-sm text-white transition-colors"
               >
                 Configure
@@ -241,10 +267,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
                 </div>
               </div>
               <button 
-                onClick={() => {
-                  toast.loading('Deploying AA Bundler sidecar container to cluster...', { id: 'plugin' });
-                  setTimeout(() => toast.success('AA Bundler installed successfully.', { id: 'plugin' }), 2000);
-                }}
+                onClick={() => setInstallPluginModal('aa-bundler')}
                 className="text-[#00E599] bg-[#00E599]/10 border border-[#00E599]/20 hover:bg-[#00E599]/20 px-4 py-2 rounded text-sm font-medium transition-colors"
               >
                 Install Plugin
@@ -304,6 +327,44 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
           </div>
         )}
       </div>
+
+      {installPluginModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#111111] border border-[#333333] rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <button onClick={() => { setInstallPluginModal(null); setPrivateKey(''); }} className="absolute top-4 right-4 text-gray-500 hover:text-white">✕</button>
+            <h3 className="text-xl font-bold text-white mb-2">
+              Configure {installPluginModal === 'tee-oracle' ? 'TEE Oracle' : 'AA Bundler'}
+            </h3>
+            <p className="text-sm text-gray-400 mb-6">
+              This plugin requires a wallet to sign transactions on-chain. Please provide the private key. It will be securely stored in our vault and mounted to your cluster.
+            </p>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Neo N3 Private Key (WIF)</label>
+                <input 
+                  type="password" 
+                  value={privateKey}
+                  onChange={(e) => setPrivateKey(e.target.value)}
+                  placeholder="L1K..." 
+                  className="w-full bg-[#0A0A0A] border border-[#333333] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00E599] transition-colors"
+                />
+              </div>
+            </div>
+
+            <button 
+              onClick={handleInstallPlugin}
+              disabled={isInstalling || !privateKey}
+              className="w-full bg-[#00E599] hover:bg-[#00cc88] disabled:opacity-50 text-black py-3 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(0,229,153,0.2)]"
+            >
+              {isInstalling ? 'Installing...' : 'Save securely & Deploy'}
+            </button>
+            <p className="text-xs text-center text-gray-500 mt-4 flex items-center justify-center gap-1">
+              <Lock className="w-3 h-3" /> Encrypted and stored via AWS KMS
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
