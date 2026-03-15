@@ -164,7 +164,7 @@ export default function Home() {
 import { rpc } from '@cityofzion/neon-js';
 
 const node = new rpc.RPCClient(
-  'https://mainnet.neonexus.io/v1/your-api-key'
+  'https://mainnet.neonexus.com/v1/your-api-key'
 );
 
 // Query Neo N3 Blockchain

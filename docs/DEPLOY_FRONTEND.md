@@ -59,7 +59,7 @@ openssl rand -base64 32
    - `KUBECONFIG_BASE64` (Optional: If querying K8s from Vercel edge)
    - `APISIX_ADMIN_URL`
    - `APISIX_ADMIN_KEY`
-7. Click **Deploy**. Assign your custom domain (e.g., `neonexus.io`).
+7. Click **Deploy**. Assign your custom domain (e.g., `neonexus.com`).
 
 You now have a fully functional frontend architecture connected to a database and payment processor!
 
