@@ -8,7 +8,7 @@ import { upgradePlanAction, verifyCryptoPaymentAction } from './actions';
 export default function BillingClient({ billingPlan }: { billingPlan: string }) {
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [isCryptoModalOpen, setIsCryptoModalOpen] = useState(false);
-  const [cryptoPlanSelected, setCryptoPlanSelected] = useState<'growth' | 'dedicated'>('growth');
+  const [cryptoPlanSelected, setCryptoPlanSelected] = useState<'growth' | 'dedicated'>(billingPlan === 'developer' ? 'growth' : 'dedicated');
 
   const handleStripeUpgrade = async (plan: 'growth' | 'dedicated') => {
     setIsProcessing(plan);
@@ -89,15 +89,17 @@ export default function BillingClient({ billingPlan }: { billingPlan: string }) 
               )}
             </div>
 
-            {billingPlan === 'developer' && (
+            {billingPlan !== 'dedicated' && (
               <div className="flex flex-col sm:flex-row gap-4">
-                <button 
-                  onClick={() => handleStripeUpgrade('growth')}
-                  disabled={!!isProcessing}
-                  className="bg-[#00E599] hover:bg-[#00cc88] disabled:opacity-50 text-black px-4 py-2 rounded-md font-bold transition-colors flex items-center justify-center gap-2"
-                >
-                  {isProcessing === 'growth' ? 'Loading...' : 'Upgrade to Growth ($49/mo)'}
-                </button>
+                {billingPlan === 'developer' && (
+                  <button 
+                    onClick={() => handleStripeUpgrade('growth')}
+                    disabled={!!isProcessing}
+                    className="bg-[#00E599] hover:bg-[#00cc88] disabled:opacity-50 text-black px-4 py-2 rounded-md font-bold transition-colors flex items-center justify-center gap-2"
+                  >
+                    {isProcessing === 'growth' ? 'Loading...' : 'Upgrade to Growth ($49/mo)'}
+                  </button>
+                )}
                 <button 
                   onClick={() => handleStripeUpgrade('dedicated')}
                   disabled={!!isProcessing}
@@ -108,7 +110,7 @@ export default function BillingClient({ billingPlan }: { billingPlan: string }) 
               </div>
             )}
             {billingPlan !== 'developer' && (
-              <button className="text-red-400 hover:text-red-300 px-4 py-2 rounded-md font-medium transition-colors border border-red-500/30 bg-red-500/10">
+              <button className={`text-red-400 hover:text-red-300 px-4 py-2 rounded-md font-medium transition-colors border border-red-500/30 bg-red-500/10 ${billingPlan !== 'dedicated' ? 'mt-4' : ''}`}>
                 Cancel Subscription
               </button>
             )}
@@ -145,13 +147,13 @@ export default function BillingClient({ billingPlan }: { billingPlan: string }) 
               <h3 className="text-sm font-medium text-white mb-4">Web3 Native Payment</h3>
               <p className="text-sm text-gray-400 mb-6">Pay pseudo-anonymously using Neo N3 GAS tokens via WalletConnect.</p>
               
-              {billingPlan === 'developer' ? (
+              {billingPlan !== 'dedicated' ? (
                   <button 
                     onClick={() => setIsCryptoModalOpen(true)}
                     className="w-full bg-[#00E599]/10 hover:bg-[#00E599]/20 text-[#00E599] border border-[#00E599]/30 py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
                   >
                     <div className="w-4 h-4 rounded-full bg-[#00E599] flex items-center justify-center text-black text-[10px] font-bold">N</div>
-                    Pay with GAS
+                    {billingPlan === 'developer' ? 'Pay with GAS' : 'Upgrade to Dedicated with GAS'}
                   </button>
               ) : (
                   <div className="text-sm text-green-400 border border-green-400/30 bg-green-400/10 p-3 rounded-lg text-center">
@@ -174,16 +176,18 @@ export default function BillingClient({ billingPlan }: { billingPlan: string }) 
             </h3>
             
             <div className="space-y-4 mb-6">
-              <label className={`block border rounded-xl p-4 cursor-pointer transition-colors ${cryptoPlanSelected === 'growth' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#333333] hover:border-gray-500'}`}>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-3">
-                    <input type="radio" checked={cryptoPlanSelected === 'growth'} onChange={() => setCryptoPlanSelected('growth')} className="accent-[#00E599] w-4 h-4" />
-                    <span className="font-bold text-white">Growth Plan</span>
+              {billingPlan === 'developer' && (
+                <label className={`block border rounded-xl p-4 cursor-pointer transition-colors ${cryptoPlanSelected === 'growth' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#333333] hover:border-gray-500'}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-3">
+                      <input type="radio" checked={cryptoPlanSelected === 'growth'} onChange={() => setCryptoPlanSelected('growth')} className="accent-[#00E599] w-4 h-4" />
+                      <span className="font-bold text-white">Growth Plan</span>
+                    </div>
+                    <span className="text-[#00E599] font-medium">~15 GAS / mo</span>
                   </div>
-                  <span className="text-[#00E599] font-medium">~15 GAS / mo</span>
-                </div>
-                <div className="pl-7 text-xs text-gray-400">Equivalent to $49 USD</div>
-              </label>
+                  <div className="pl-7 text-xs text-gray-400">Equivalent to $49 USD</div>
+                </label>
+              )}
 
               <label className={`block border rounded-xl p-4 cursor-pointer transition-colors ${cryptoPlanSelected === 'dedicated' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#333333] hover:border-gray-500'}`}>
                 <div className="flex items-center justify-between mb-1">

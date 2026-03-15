@@ -3,13 +3,17 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { StripeService } from '@/services/billing/StripeService';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
-  apiVersion: '2026-02-25.clover',
-});
-
-const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
 export async function POST(req: Request) {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return NextResponse.json({ error: 'Stripe is not configured in this environment' }, { status: 500 });
+  }
+
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2026-02-25.clover',
+  });
+
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
   const body = await req.text();
   const signature = (await headers()).get('stripe-signature');
 

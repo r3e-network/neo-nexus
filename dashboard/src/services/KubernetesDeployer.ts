@@ -213,7 +213,10 @@ export class KubernetesDeployer {
      */
     static async getNodeStatus(namespace: string, releaseName: string): Promise<'Syncing' | 'Active' | 'Error' | 'Unknown'> {
         this.init();
-        if (!this.kc.getCurrentCluster()) return 'Active'; // Mock fallback
+        if (!this.kc.getCurrentCluster()) {
+            console.error('[Control Plane] Kubernetes cluster configuration is missing or invalid.');
+            return 'Unknown';
+        }
 
         try {
             const res = await this.k8sAppsApi.readNamespacedStatefulSet({ name: releaseName, namespace });

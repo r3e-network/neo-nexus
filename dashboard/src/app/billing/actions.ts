@@ -11,12 +11,9 @@ export async function upgradePlanAction(plan: 'growth' | 'dedicated') {
         throw new Error('Unauthorized');
     }
 
-    // Default to a mock organization for demo if none exists
     let orgId = (session.user as any).organizationId;
     if (!orgId) {
-        const orgs = await prisma.organization.findMany({ take: 1 });
-        if (orgs.length > 0) orgId = orgs[0].id;
-        else throw new Error("No organization found");
+        throw new Error("No organization found for this user. Please complete onboarding.");
     }
 
     // In a real Next.js app, we pass the absolute URL for Stripe redirects
@@ -56,9 +53,7 @@ export async function verifyCryptoPaymentAction(plan: 'growth' | 'dedicated', tx
 
         let orgId = (session.user as any).organizationId;
         if (!orgId) {
-            const orgs = await prisma.organization.findMany({ take: 1 });
-            if (orgs.length > 0) orgId = orgs[0].id;
-            else throw new Error("No organization found");
+            throw new Error("No organization found for this user. Please complete onboarding.");
         }
 
         // Upgrade the plan
