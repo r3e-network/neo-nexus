@@ -24,5 +24,9 @@ persistence:
   size: 200Gi
   storageClass: "gp3"
 
+snapshot:
+  enabled: true
+  url: "https://sync.ngd.network/mainnet/chain.acc.tar.gz"
+
 service:
   type: ClusterIP

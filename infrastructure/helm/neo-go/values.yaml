@@ -27,6 +27,10 @@ persistence:
   size: 200Gi # Increase to 2Ti for archive
   storageClass: "gp3" # Or premium-rwo for GCP
 
+snapshot:
+  enabled: true
+  url: "https://sync.ngd.network/mainnet/chain.acc.tar.gz" # Example official snapshot URL
+
 service:
   type: ClusterIP
   annotations: {}
