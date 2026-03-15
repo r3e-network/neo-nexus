@@ -7,7 +7,7 @@ export default async function BillingPage() {
   let billingPlan = 'developer'; // default
 
   if (session?.user?.id && process.env.DATABASE_URL) {
-    let orgId = (session.user as any).organizationId;
+    const orgId = (session.user as any).organizationId;
     
     if (!orgId) {
       const userDb = await prisma.user.findUnique({

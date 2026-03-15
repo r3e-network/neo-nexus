@@ -11,7 +11,7 @@ export async function upgradePlanAction(plan: 'growth' | 'dedicated') {
         throw new Error('Unauthorized');
     }
 
-    let orgId = (session.user as any).organizationId;
+    const orgId = (session.user as any).organizationId;
     if (!orgId) {
         throw new Error("No organization found for this user. Please complete onboarding.");
     }
@@ -51,7 +51,7 @@ export async function verifyCryptoPaymentAction(plan: 'growth' | 'dedicated', tx
         // For this implementation, we simulate a successful blockchain verification
         console.log(`[Crypto Billing] Verifying TX ${txHash} for plan ${plan}...`);
 
-        let orgId = (session.user as any).organizationId;
+        const orgId = (session.user as any).organizationId;
         if (!orgId) {
             throw new Error("No organization found for this user. Please complete onboarding.");
         }
