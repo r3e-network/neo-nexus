@@ -4,7 +4,7 @@ import * as yaml from 'js-yaml';
 export interface DeploymentConfig {
     name: string;
     protocol: 'neo-n3' | 'neo-x';
-    network: 'mainnet' | 'testnet';
+    network: 'mainnet' | 'testnet' | 'private';
     type: 'shared' | 'dedicated';
     clientEngine: 'neo-go' | 'neo-cli' | 'neo-x-geth';
     provider: 'aws' | 'gcp';

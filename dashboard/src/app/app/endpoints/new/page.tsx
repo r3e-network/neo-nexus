@@ -142,7 +142,7 @@ export default function CreateEndpoint() {
               <h2 className="text-xl font-bold text-white">Select Network</h2>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <div 
                 onClick={() => setNetwork('mainnet')}
                 className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
@@ -151,10 +151,10 @@ export default function CreateEndpoint() {
               >
                 {network === 'mainnet' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
                 <div className="flex items-center gap-4 mb-3">
-                  <div className="w-12 h-12 rounded-lg bg-[#00E599] flex items-center justify-center text-black font-bold text-2xl shadow-[0_0_15px_rgba(0,229,153,0.3)]">M</div>
+                  <div className="w-10 h-10 rounded-lg bg-[#00E599] flex items-center justify-center text-black font-bold text-xl shadow-[0_0_15px_rgba(0,229,153,0.3)]">M</div>
                   <h3 className="text-lg font-bold text-white">Mainnet</h3>
                 </div>
-                <p className="text-sm text-gray-400 leading-relaxed">Production environment. Real assets, contracts, and state. Requires strict security.</p>
+                <p className="text-sm text-gray-400 leading-relaxed">Production environment. Real assets and state.</p>
               </div>
 
               <div 
@@ -165,10 +165,24 @@ export default function CreateEndpoint() {
               >
                 {network === 'testnet' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
                 <div className="flex items-center gap-4 mb-3">
-                  <div className="w-12 h-12 rounded-lg bg-[#333333] border border-gray-600 flex items-center justify-center text-white font-bold text-2xl">T</div>
+                  <div className="w-10 h-10 rounded-lg bg-[#333333] border border-gray-600 flex items-center justify-center text-white font-bold text-xl">T</div>
                   <h3 className="text-lg font-bold text-white">Testnet</h3>
                 </div>
-                <p className="text-sm text-gray-400 leading-relaxed">Development environment. Free GAS for smart contract deployment and testing.</p>
+                <p className="text-sm text-gray-400 leading-relaxed">Development. Free GAS for testing smart contracts.</p>
+              </div>
+
+              <div 
+                onClick={() => setNetwork('private')}
+                className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
+                  network === 'private' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#333333] hover:border-gray-500 bg-[#111111]'
+                }`}
+              >
+                {network === 'private' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
+                <div className="flex items-center gap-4 mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-yellow-500/20 border border-yellow-500/30 flex items-center justify-center text-yellow-500 font-bold text-xl">P</div>
+                  <h3 className="text-lg font-bold text-white">Private Net</h3>
+                </div>
+                <p className="text-sm text-gray-400 leading-relaxed">Your own isolated Neo Genesis block. Perfect for CI/CD.</p>
               </div>
             </div>
           </section>

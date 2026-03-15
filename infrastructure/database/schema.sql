@@ -14,7 +14,7 @@ create table public.endpoints (
     id bigint generated always as identity primary key,
     user_id uuid references public.organizations(id),
     name text not null,
-    network text not null check (network in ('N3 Mainnet', 'N3 Testnet', 'Neo X Mainnet', 'Neo X Testnet')),
+    network text not null check (network in ('N3 Mainnet', 'N3 Testnet', 'Neo X Mainnet', 'Neo X Testnet', 'Neo N3 Private Net', 'Neo X Private Net')),
     type text not null check (type in ('Shared', 'Dedicated')),
     client_engine text default 'neo-go' check (client_engine in ('neo-go', 'neo-cli', 'neo-x-geth')),
     url text not null,
