@@ -11,7 +11,7 @@ export default function Footer() {
               <span className="text-xl font-bold tracking-tight text-white">NeoNexus</span>
             </Link>
             <p className="text-gray-400 text-sm leading-relaxed mb-6 max-w-sm">
-              The leading Web3 infrastructure provider for the Neo N3 ecosystem. Scalable, reliable, and developer-friendly.
+              The leading Web3 infrastructure provider for the Neo ecosystem. Scalable, reliable, and developer-friendly.
             </p>
           </div>
           

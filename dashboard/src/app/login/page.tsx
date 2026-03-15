@@ -31,7 +31,7 @@ function LoginContent() {
           {isSignup ? 'Create an account' : 'Welcome back'}
         </h1>
         <p className="text-gray-400">
-          {isSignup ? 'Start building on Neo N3 in seconds.' : 'Sign in to your NeoNexus console.'}
+          {isSignup ? 'Start building on Neo in seconds.' : 'Sign in to your NeoNexus console.'}
         </p>
       </div>
 

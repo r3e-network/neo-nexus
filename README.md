@@ -1,8 +1,8 @@
 # NeoNexus
 
-**The Ultimate Industrial-grade Neo N3 Infrastructure Platform.**
+**The Ultimate Industrial-grade Neo N3 & Neo X Infrastructure Platform.**
 
-NeoNexus is a comprehensive Node-as-a-Service (NaaS) and Web3 cloud infrastructure provider exclusively built for the Neo N3 ecosystem. It combines the seamless developer experience of platforms like Vercel with the robust, enterprise-grade scalability of Chainstack and QuickNode.
+NeoNexus is a comprehensive Node-as-a-Service (NaaS) and Web3 cloud infrastructure provider exclusively built for the Neo ecosystem. It combines the seamless developer experience of platforms like Vercel with the robust, enterprise-grade scalability of Chainstack and QuickNode.
 
 ---
 
@@ -64,4 +64,4 @@ docker-compose up -d
 * **Marketplace Integrations**: Architected to support sidecar containers for Phala TEE Oracles and Account Abstraction Bundlers.
 
 ## 🤝 Open Source
-NeoNexus is designed to accelerate the growth of the Neo N3 blockchain by removing infrastructure hurdles.
+NeoNexus is designed to accelerate the growth of the Neo N3 and Neo X blockchains by removing infrastructure hurdles.

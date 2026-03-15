@@ -20,7 +20,7 @@ export default function EndpointsList({ endpoints }: { endpoints: Endpoint[] }) 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Endpoints</h1>
-          <p className="text-gray-400 mt-1">Manage your Neo N3 shared and dedicated RPC nodes.</p>
+          <p className="text-gray-400 mt-1">Manage your Neo N3 and Neo X shared and dedicated RPC nodes.</p>
         </div>
         <Link href="/endpoints/new" className="bg-[#00E599] hover:bg-[#00cc88] text-black px-4 py-2 rounded-md text-sm font-bold transition-colors flex items-center gap-2">
           <Plus className="w-4 h-4" />
@@ -74,7 +74,7 @@ export default function EndpointsList({ endpoints }: { endpoints: Endpoint[] }) 
           <div className="text-center py-12 bg-[#1A1A1A] border border-[#333333] rounded-xl">
             <Server className="w-12 h-12 text-gray-600 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-white mb-2">No endpoints found</h3>
-            <p className="text-gray-400 mb-6">You haven't deployed any Neo N3 nodes yet.</p>
+            <p className="text-gray-400 mb-6">You haven't deployed any nodes yet.</p>
             <Link href="/endpoints/new" className="inline-flex bg-[#00E599] hover:bg-[#00cc88] text-black px-6 py-2 rounded-md text-sm font-bold transition-colors items-center gap-2">
               <Plus className="w-4 h-4" /> Deploy your first node
             </Link>
