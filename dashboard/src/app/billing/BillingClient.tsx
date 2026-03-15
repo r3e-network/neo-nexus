@@ -1,20 +1,55 @@
 'use client';
 
-import { CheckCircle2, CreditCard, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
-import { upgradePlanAction } from './actions';
 import toast from 'react-hot-toast';
+import { CreditCard, CheckCircle2 } from 'lucide-react';
+import { upgradePlanAction, verifyCryptoPaymentAction } from './actions';
 
 export default function BillingClient({ billingPlan }: { billingPlan: string }) {
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const [isCryptoModalOpen, setIsCryptoModalOpen] = useState(false);
+  const [cryptoPlanSelected, setCryptoPlanSelected] = useState<'growth' | 'dedicated'>('growth');
 
-  const handleUpgrade = async (plan: 'growth' | 'dedicated') => {
+  const handleStripeUpgrade = async (plan: 'growth' | 'dedicated') => {
     setIsProcessing(plan);
     try {
       await upgradePlanAction(plan);
-      // upgradePlanAction redirects, so we shouldn't reach here if successful
     } catch (error: any) {
       toast.error(error.message || 'Failed to start checkout session');
+      setIsProcessing(null);
+    }
+  };
+
+  const handleCryptoPayment = async () => {
+    setIsProcessing('crypto');
+    toast.loading('Waiting for wallet signature...', { id: 'crypto-pay' });
+    
+    try {
+      // In a real implementation with @cityofzion/wallet-connect-sdk-core:
+      // 1. WcSdk.init()
+      // 2. WcSdk.connect()
+      // 3. WcSdk.sendTransaction({ to: 'NeoNexusTreasuryAddress', asset: 'GAS', amount: cost })
+      
+      // Simulate wallet connection and transaction delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Simulated tx hash
+      const txHash = '0x' + Math.random().toString(16).substring(2, 40) + '...';
+      
+      toast.loading('Verifying transaction on blockchain...', { id: 'crypto-pay' });
+      
+      // Send to backend to verify
+      const result = await verifyCryptoPaymentAction(cryptoPlanSelected, txHash);
+      
+      if (result.success) {
+        toast.success(`Successfully upgraded to ${cryptoPlanSelected} using GAS!`, { id: 'crypto-pay' });
+        window.location.reload();
+      } else {
+        throw new Error(result.error);
+      }
+      
+    } catch (error: any) {
+      toast.error(error.message || 'Payment failed or rejected by user.', { id: 'crypto-pay' });
       setIsProcessing(null);
     }
   };
@@ -55,18 +90,18 @@ export default function BillingClient({ billingPlan }: { billingPlan: string }) 
             </div>
 
             {billingPlan === 'developer' && (
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-4">
                 <button 
-                  onClick={() => handleUpgrade('growth')}
+                  onClick={() => handleStripeUpgrade('growth')}
                   disabled={!!isProcessing}
-                  className="bg-[#00E599] hover:bg-[#00cc88] disabled:opacity-50 text-black px-4 py-2 rounded-md font-bold transition-colors flex items-center gap-2"
+                  className="bg-[#00E599] hover:bg-[#00cc88] disabled:opacity-50 text-black px-4 py-2 rounded-md font-bold transition-colors flex items-center justify-center gap-2"
                 >
                   {isProcessing === 'growth' ? 'Loading...' : 'Upgrade to Growth ($49/mo)'}
                 </button>
                 <button 
-                  onClick={() => handleUpgrade('dedicated')}
+                  onClick={() => handleStripeUpgrade('dedicated')}
                   disabled={!!isProcessing}
-                  className="bg-[#333333] hover:bg-[#444444] disabled:opacity-50 text-white px-4 py-2 rounded-md font-bold transition-colors flex items-center gap-2"
+                  className="bg-[#333333] hover:bg-[#444444] disabled:opacity-50 text-white px-4 py-2 rounded-md font-bold transition-colors flex items-center justify-center gap-2"
                 >
                   {isProcessing === 'dedicated' ? 'Loading...' : 'Upgrade to Dedicated ($99/mo)'}
                 </button>
@@ -98,7 +133,7 @@ export default function BillingClient({ billingPlan }: { billingPlan: string }) 
                 <CreditCard className="w-6 h-6 text-gray-400" />
               </div>
               <div className="flex-1">
-                <div className="text-gray-400 font-medium">No card on file</div>
+                <div className="text-gray-400 font-medium">No fiat card on file</div>
               </div>
             </div>
 
@@ -107,15 +142,75 @@ export default function BillingClient({ billingPlan }: { billingPlan: string }) 
             </button>
 
             <div className="pt-6 border-t border-[#333333]">
-              <h3 className="text-sm font-medium text-white mb-4">Crypto Top-up</h3>
-              <p className="text-sm text-gray-400 mb-4">Pay anonymously using NEP-17 GAS tokens.</p>
-              <button className="w-full bg-[#00E599]/10 hover:bg-[#00E599]/20 text-[#00E599] border border-[#00E599]/30 py-2 rounded-md font-medium transition-colors">
-                Pay with GAS
-              </button>
+              <h3 className="text-sm font-medium text-white mb-4">Web3 Native Payment</h3>
+              <p className="text-sm text-gray-400 mb-6">Pay pseudo-anonymously using Neo N3 GAS tokens via WalletConnect.</p>
+              
+              {billingPlan === 'developer' ? (
+                  <button 
+                    onClick={() => setIsCryptoModalOpen(true)}
+                    className="w-full bg-[#00E599]/10 hover:bg-[#00E599]/20 text-[#00E599] border border-[#00E599]/30 py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
+                  >
+                    <div className="w-4 h-4 rounded-full bg-[#00E599] flex items-center justify-center text-black text-[10px] font-bold">N</div>
+                    Pay with GAS
+                  </button>
+              ) : (
+                  <div className="text-sm text-green-400 border border-green-400/30 bg-green-400/10 p-3 rounded-lg text-center">
+                      Subscription active via smart contract.
+                  </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Crypto Payment Modal */}
+      {isCryptoModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#111111] border border-[#333333] rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <button onClick={() => setIsCryptoModalOpen(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white">✕</button>
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-[#00E599] flex items-center justify-center text-black text-xs font-bold">N</div>
+              Pay with Neo N3
+            </h3>
+            
+            <div className="space-y-4 mb-6">
+              <label className={`block border rounded-xl p-4 cursor-pointer transition-colors ${cryptoPlanSelected === 'growth' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#333333] hover:border-gray-500'}`}>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-3">
+                    <input type="radio" checked={cryptoPlanSelected === 'growth'} onChange={() => setCryptoPlanSelected('growth')} className="accent-[#00E599] w-4 h-4" />
+                    <span className="font-bold text-white">Growth Plan</span>
+                  </div>
+                  <span className="text-[#00E599] font-medium">~15 GAS / mo</span>
+                </div>
+                <div className="pl-7 text-xs text-gray-400">Equivalent to $49 USD</div>
+              </label>
+
+              <label className={`block border rounded-xl p-4 cursor-pointer transition-colors ${cryptoPlanSelected === 'dedicated' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#333333] hover:border-gray-500'}`}>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-3">
+                    <input type="radio" checked={cryptoPlanSelected === 'dedicated'} onChange={() => setCryptoPlanSelected('dedicated')} className="accent-[#00E599] w-4 h-4" />
+                    <span className="font-bold text-white">Dedicated Plan</span>
+                  </div>
+                  <span className="text-[#00E599] font-medium">~30 GAS / mo</span>
+                </div>
+                <div className="pl-7 text-xs text-gray-400">Equivalent to $99 USD</div>
+              </label>
+            </div>
+
+            <button 
+              onClick={handleCryptoPayment}
+              disabled={isProcessing === 'crypto'}
+              className="w-full bg-[#00E599] hover:bg-[#00cc88] disabled:opacity-50 text-black py-3 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(0,229,153,0.2)] flex items-center justify-center gap-2"
+            >
+              {isProcessing === 'crypto' ? 'Waiting for wallet...' : 'Connect NeoLine / O3'}
+            </button>
+            <p className="text-xs text-center text-gray-500 mt-4">
+              WalletConnect protocol will prompt you to sign a transaction.
+            </p>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

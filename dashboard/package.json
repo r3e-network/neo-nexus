@@ -10,9 +10,12 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
+    "@cityofzion/neon-js": "^5.8.1",
+    "@cityofzion/wallet-connect-sdk-core": "^3.3.4",
     "@kubernetes/client-node": "^1.4.0",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.99.1",
+    "@walletconnect/modal": "^2.7.0",
     "clsx": "^2.1.1",
     "js-yaml": "^4.1.1",
     "lucide-react": "^0.577.0",
