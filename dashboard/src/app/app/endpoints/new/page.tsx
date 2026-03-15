@@ -17,8 +17,8 @@ export default function CreateEndpoint() {
   const [network, setNetwork] = useState('mainnet');
   const [clientEngine, setClientEngine] = useState('neo-go');
   const [nodeType, setNodeType] = useState('dedicated');
-  const [provider, setProvider] = useState('aws');
-  const [region, setRegion] = useState('ap-northeast-1');
+  const [provider, setProvider] = useState('digitalocean');
+  const [region, setRegion] = useState('nyc3');
   const [syncMode, setSyncMode] = useState('full');
 
   // Ensure valid client engine when protocol changes

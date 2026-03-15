@@ -7,7 +7,7 @@ export interface DeploymentConfig {
     network: 'mainnet' | 'testnet' | 'private';
     type: 'shared' | 'dedicated';
     clientEngine: 'neo-go' | 'neo-cli' | 'neo-x-geth';
-    provider: 'aws' | 'gcp';
+    provider: 'aws' | 'gcp' | 'digitalocean';
     region: string;
     syncMode: 'full' | 'archive';
 }
@@ -67,7 +67,10 @@ export class KubernetesDeployer {
             const isNeoGo = config.clientEngine === 'neo-go';
             const isNeoX = config.protocol === 'neo-x';
             
-            const storageClass = config.provider === 'aws' ? 'gp3' : 'premium-rwo';
+            let storageClass = 'do-block-storage'; // Default to DigitalOcean Block Storage
+            if (config.provider === 'aws') storageClass = 'gp3';
+            if (config.provider === 'gcp') storageClass = 'premium-rwo';
+
             const storageSize = config.syncMode === 'archive' ? '2Ti' : (isNeoX ? '500Gi' : '200Gi');
             
             // Example official snapshot URL - in a real production environment, this should point to a regional S3 bucket
