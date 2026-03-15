@@ -1,4 +1,4 @@
-import { Search, ChevronRight, FileText } from 'lucide-react';
+import { Search, ChevronRight } from 'lucide-react';
 
 export default function Docs() {
   return (

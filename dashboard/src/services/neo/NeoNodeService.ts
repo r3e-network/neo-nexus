@@ -53,7 +53,7 @@ export class NeoNodeService {
             if (!response.ok) return null;
             const data = await response.json();
             return typeof data.result === 'number' ? data.result : null;
-        } catch (error) {
+        } catch {
             return null;
         }
     }
@@ -81,7 +81,7 @@ export class NeoNodeService {
                 return data.result.connected.length;
             }
             return null;
-        } catch (error) {
+        } catch {
             return null;
         }
     }

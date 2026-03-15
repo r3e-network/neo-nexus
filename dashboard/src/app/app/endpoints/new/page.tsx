@@ -2,10 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, ChevronRight, Cloud, Globe, HardDrive, Info, Layers, Server, Shield, Zap } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ChevronRight, Cloud, HardDrive, Info, Layers, Server, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { createEndpointAction } from '../actions';
 import toast from 'react-hot-toast';
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
 
 export default function CreateEndpoint() {
   const router = useRouter();
@@ -57,14 +60,14 @@ export default function CreateEndpoint() {
 
       if (result.success) {
         toast.success('Node deployed successfully!');
-        router.push(`/endpoints/${result.id}`);
+        router.push(`/app/endpoints/${result.id}`);
       } else {
         toast.error(result.error || 'Failed to deploy node');
         setIsDeploying(false);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      toast.error('An unexpected error occurred');
+      toast.error(getErrorMessage(error, 'An unexpected error occurred'));
       setIsDeploying(false);
     }
   };

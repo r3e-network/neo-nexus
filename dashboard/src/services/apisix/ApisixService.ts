@@ -6,8 +6,8 @@
  */
 
 export class ApisixService {
-    private static baseUrl = process.env.APISIX_ADMIN_URL || 'http://apisix-admin:9180/apisix/admin';
-    private static apiKey = process.env.APISIX_ADMIN_KEY || 'edd1c9f034335f136f87ad84b625c8f1'; // Default APISIX dev key
+    private static baseUrl = process.env.APISIX_ADMIN_URL;
+    private static apiKey = process.env.APISIX_ADMIN_KEY;
 
     /**
      * Creates a route mapping a public URL path to an internal Kubernetes Service.
@@ -71,16 +71,19 @@ export class ApisixService {
         return this.sendRequest(`/consumers`, 'PUT', payload);
     }
 
-    private static async sendRequest(path: string, method: string, data: any) {
-        if (!process.env.APISIX_ADMIN_URL || !process.env.APISIX_ADMIN_KEY) {
+    private static async sendRequest(path: string, method: string, data: Record<string, unknown>) {
+        if (!this.baseUrl || !this.apiKey) {
             throw new Error('[APISIX] APISIX_ADMIN_URL and APISIX_ADMIN_KEY must be configured in production.');
         }
 
+        const baseUrl = this.baseUrl;
+        const apiKey = this.apiKey;
+
         try {
-            const response = await fetch(`${process.env.APISIX_ADMIN_URL}${path}`, {
+            const response = await fetch(`${baseUrl}${path}`, {
                 method,
                 headers: {
-                    'X-API-KEY': process.env.APISIX_ADMIN_KEY,
+                    'X-API-KEY': apiKey,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(data)

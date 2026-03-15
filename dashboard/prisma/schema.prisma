@@ -69,6 +69,7 @@ model Organization {
   users              User[]
   endpoints          Endpoint[]
   apiKeys            ApiKey[]
+  billingTransactions BillingTransaction[]
 }
 
 model Endpoint {
@@ -137,6 +138,16 @@ model ApiKey {
   isActive       Boolean      @default(true)
   createdAt      DateTime     @default(now())
   organization   Organization? @relation(fields: [organizationId], references: [id])
+}
+
+model BillingTransaction {
+  id             Int          @id @default(autoincrement())
+  organizationId String
+  txHash         String       @unique
+  plan           String
+  amountAtomic   BigInt
+  verifiedAt     DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 model Firewall {

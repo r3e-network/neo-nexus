@@ -1,13 +1,12 @@
 /**
  * Secret Management Service
  * 
- * Simulates integration with a secure Key Management Service (KMS) or HashiCorp Vault.
- * In a real production environment, Private Keys should NEVER be stored as plain text
- * in the database.
+ * Encrypts secrets before they are persisted so raw private keys are never stored
+ * directly in the database.
  */
 
 import { prisma } from '@/utils/prisma';
-import crypto from 'crypto';
+import { decryptSecret, encryptSecret } from './VaultCrypto';
 
 export class VaultService {
     /**
@@ -17,10 +16,7 @@ export class VaultService {
      * @param plainTextKey The raw private key (e.g. WIF format)
      */
     static async storeNodeSecret(endpointId: number, secretName: string, plainTextKey: string) {
-        // In production: await KMS.encrypt({ KeyId: process.env.KMS_KEY, Plaintext: plainTextKey })
-        // Here we simulate encryption with a simple hash for demonstration.
-        // A real system would store the ciphertext.
-        const simulatedCiphertext = `kms_enc_${crypto.createHash('sha256').update(plainTextKey).digest('hex')}`;
+        const ciphertext = encryptSecret(plainTextKey);
 
         return await prisma.nodeSecret.upsert({
             where: {
@@ -30,12 +26,12 @@ export class VaultService {
                 }
             },
             update: {
-                secretHash: simulatedCiphertext
+                secretHash: ciphertext
             },
             create: {
                 endpointId,
                 name: secretName,
-                secretHash: simulatedCiphertext
+                secretHash: ciphertext
             }
         });
     }
@@ -53,5 +49,22 @@ export class VaultService {
             }
         });
         return !!secret;
+    }
+
+    static async readNodeSecret(endpointId: number, secretName: string): Promise<string | null> {
+        const secret = await prisma.nodeSecret.findUnique({
+            where: {
+                endpointId_name: {
+                    endpointId,
+                    name: secretName
+                }
+            }
+        });
+
+        if (!secret) {
+            return null;
+        }
+
+        return decryptSecret(secret.secretHash);
     }
 }

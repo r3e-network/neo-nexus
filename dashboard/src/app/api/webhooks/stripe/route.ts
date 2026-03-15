@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { StripeService } from '@/services/billing/StripeService';
+import { getErrorMessage } from '@/server/errors';
 
 export async function POST(req: Request) {
   if (!process.env.STRIPE_SECRET_KEY) {
@@ -25,16 +26,17 @@ export async function POST(req: Request) {
 
   try {
     event = stripe.webhooks.constructEvent(body, signature, endpointSecret);
-  } catch (err: any) {
-    console.error(`Webhook Error: ${err.message}`);
-    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
+  } catch (error) {
+    const message = getErrorMessage(error, 'Invalid webhook signature');
+    console.error(`Webhook Error: ${message}`);
+    return NextResponse.json({ error: `Webhook Error: ${message}` }, { status: 400 });
   }
 
   try {
     await StripeService.handleWebhook(event);
     return NextResponse.json({ received: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error handling webhook', error);
-    return NextResponse.json({ error: 'Handler failed' }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(error, 'Handler failed') }, { status: 500 });
   }
 }

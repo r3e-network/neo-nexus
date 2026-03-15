@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { BookOpen, Code2, Terminal, Wrench } from 'lucide-react';
 
 export default function Developers() {

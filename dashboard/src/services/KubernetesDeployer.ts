@@ -1,5 +1,5 @@
 import * as k8s from '@kubernetes/client-node';
-import * as yaml from 'js-yaml';
+import { getErrorMessage, getKubernetesErrorMessage } from '@/server/errors';
 
 export interface DeploymentConfig {
     name: string;
@@ -17,6 +17,7 @@ export class KubernetesDeployer {
     private static k8sApi: k8s.CoreV1Api;
     private static k8sAppsApi: k8s.AppsV1Api;
     private static initialized = false;
+    private static configured = false;
 
     private static init() {
         if (!this.initialized) {
@@ -24,16 +25,20 @@ export class KubernetesDeployer {
             try {
                 // In production (inside a pod), this will load the service account token
                 this.kc.loadFromCluster();
-            } catch (e) {
+                this.configured = true;
+            } catch {
                 // Fallback to local kubeconfig for development
                 try {
                     this.kc.loadFromDefault();
-                } catch (err) {
+                    this.configured = true;
+                } catch {
                     console.warn('[KubernetesDeployer] Kubernetes config not found. Will run in dev/dry-run mode.');
                 }
             }
-            this.k8sApi = this.kc.makeApiClient(k8s.CoreV1Api);
-            this.k8sAppsApi = this.kc.makeApiClient(k8s.AppsV1Api);
+            if (this.configured) {
+                this.k8sApi = this.kc.makeApiClient(k8s.CoreV1Api);
+                this.k8sAppsApi = this.kc.makeApiClient(k8s.AppsV1Api);
+            }
             this.initialized = true;
         }
     }
@@ -52,7 +57,7 @@ export class KubernetesDeployer {
         const namespace = `tenant-${uniqueId}`;
 
         // In a true production environment, we enforce Kubernetes configuration.
-        if (!this.kc.getCurrentCluster()) {
+        if (!this.configured || !this.kc.getCurrentCluster()) {
             throw new Error('[Control Plane] Kubernetes cluster configuration is missing or invalid.');
         }
 
@@ -200,13 +205,13 @@ export class KubernetesDeployer {
 
             return { success: true, namespace, releaseName };
 
-        } catch (error: any) {
-            console.error(`[Control Plane] Deployment failed:`, error.response?.body || error.message);
+        } catch (error) {
+            console.error('[Control Plane] Deployment failed:', error);
             return { 
                 success: false, 
                 namespace, 
                 releaseName, 
-                error: error.response?.body?.message || error.message 
+                error: getKubernetesErrorMessage(error) 
             };
         }
     }
@@ -216,7 +221,7 @@ export class KubernetesDeployer {
      */
     static async getNodeStatus(namespace: string, releaseName: string): Promise<'Syncing' | 'Active' | 'Error' | 'Unknown'> {
         this.init();
-        if (!this.kc.getCurrentCluster()) {
+        if (!this.configured || !this.kc.getCurrentCluster()) {
             console.error('[Control Plane] Kubernetes cluster configuration is missing or invalid.');
             return 'Unknown';
         }
@@ -234,7 +239,7 @@ export class KubernetesDeployer {
             }
             return 'Error';
         } catch (error) {
-            console.error(`[Control Plane] Error fetching status for ${releaseName}:`, error);
+            console.error(`[Control Plane] Error fetching status for ${releaseName}:`, getErrorMessage(error));
             return 'Error';
         }
     }

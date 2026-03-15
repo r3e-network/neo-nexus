@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2, Eye, EyeOff, Globe, Key, Lock, Plus, RefreshCw, Shield, Trash2, Copy } from 'lucide-react';
+import { CheckCircle2, Eye, EyeOff, Globe, Key, Lock, Plus, Shield, Trash2, Copy } from 'lucide-react';
 import { useState } from 'react';
 import { createApiKeyAction, deleteApiKeyAction } from './actions';
 

@@ -8,16 +8,44 @@ import toast from 'react-hot-toast';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
+type DashboardMetrics = {
+  stats: {
+    totalRequests: string;
+    successRate: string;
+    avgLatency: number;
+    bandwidth: string;
+  };
+  latencyData: Array<{
+    requests: number;
+  }>;
+};
+
+type DashboardEndpoint = {
+  id: number | string;
+  name: string;
+  type: string;
+  cloudProvider?: string | null;
+  region?: string | null;
+  clientEngine?: string | null;
+  network: string;
+  status: string;
+  url: string;
+};
+
+const fallbackMetrics: DashboardMetrics = {
+  stats: { totalRequests: '0', successRate: '0%', avgLatency: 0, bandwidth: '0' },
+  latencyData: [],
+};
+
 export default function Overview() {
-  const { data: metrics, isLoading: isMetricsLoading } = useSWR('/api/metrics', fetcher, { 
+  const { data: metrics = fallbackMetrics, isLoading: isMetricsLoading } = useSWR<DashboardMetrics>('/api/metrics', fetcher, {
     refreshInterval: 15000,
-    fallbackData: {
-      stats: { totalRequests: '0', successRate: '0%', avgLatency: 0, bandwidth: '0' },
-      latencyData: []
-    }
+    fallbackData: fallbackMetrics,
   });
 
-  const { data: endpoints, isLoading: isEndpointsLoading } = useSWR('/api/endpoints', fetcher, { fallbackData: [] });
+  const { data: endpoints = [], isLoading: isEndpointsLoading } = useSWR<DashboardEndpoint[]>('/api/endpoints', fetcher, {
+    fallbackData: [],
+  });
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -30,7 +58,7 @@ export default function Overview() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Welcome back.</h1>
-          <p className="text-gray-400 text-lg">Here's what's happening with your infrastructure today.</p>
+          <p className="text-gray-400 text-lg">Here&apos;s what&apos;s happening with your infrastructure today.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] px-4 py-2 rounded-lg flex items-center gap-3">
@@ -119,7 +147,7 @@ export default function Overview() {
               ) : !endpoints || endpoints.length === 0 ? (
                 <div className="p-6 text-center text-gray-500">No active endpoints. Create one to get started.</div>
               ) : (
-                endpoints.slice(0, 3).map((ep: any) => (
+                endpoints.slice(0, 3).map((ep) => (
                   <div key={ep.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-[var(--color-dark-panel)]/30 transition-colors">
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-lg border flex items-center justify-center ${ep.type.toLowerCase() === 'dedicated' ? 'bg-[#00E599]/10 border-[#00E599]/20 text-[#00E599]' : 'bg-blue-500/10 border-blue-500/20 text-blue-400'}`}>
@@ -127,7 +155,7 @@ export default function Overview() {
                       </div>
                       <div>
                         <h3 className="font-bold text-white flex items-center gap-2">
-                          <Link href={`/endpoints/${ep.id}`} className="hover:underline">{ep.name}</Link>
+                          <Link href={`/app/endpoints/${ep.id}`} className="hover:underline">{ep.name}</Link>
                           <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${ep.type.toLowerCase() === 'dedicated' ? 'bg-[#00E599]/20 text-[#00E599]' : 'bg-blue-500/20 text-blue-400'}`}>{ep.type.toUpperCase()}</span>
                         </h3>
                         <p className="text-xs text-gray-400 mt-1">{ep.cloudProvider || 'Global'} {ep.region && `• ${ep.region}`} • {ep.clientEngine} • {ep.network}</p>
