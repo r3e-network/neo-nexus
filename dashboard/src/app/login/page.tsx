@@ -18,7 +18,7 @@ function LoginContent() {
   };
 
   return (
-    <div className="w-full max-w-md bg-[#111111] border border-[#333333] rounded-3xl p-8 md:p-12 shadow-2xl relative overflow-hidden">
+    <div className="w-full max-w-md bg-[#1A1C23] border border-[#2E313D] rounded-3xl p-8 md:p-12 shadow-2xl relative overflow-hidden">
       
       {/* Glow effect */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-[#00E599]/10 rounded-full blur-[50px]"></div>
@@ -48,7 +48,7 @@ function LoginContent() {
         <button 
           onClick={() => handleLogin('google')}
           disabled={!!isLoading}
-          className="w-full bg-[#1A1A1A] border border-[#333333] hover:border-gray-500 disabled:opacity-50 text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-3"
+          className="w-full bg-[#23252E] border border-[#2E313D] hover:border-gray-500 disabled:opacity-50 text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-3"
         >
           {isLoading === 'google' ? (
             <span className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></span>
@@ -65,10 +65,10 @@ function LoginContent() {
 
         <div className="relative py-4">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-[#333333]"></div>
+            <div className="w-full border-t border-[#2E313D]"></div>
           </div>
           <div className="relative flex justify-center text-xs">
-            <span className="bg-[#111111] px-4 text-gray-500">Or</span>
+            <span className="bg-[#1A1C23] px-4 text-gray-500">Or</span>
           </div>
         </div>
 
@@ -78,7 +78,7 @@ function LoginContent() {
             <input 
               type="email" 
               placeholder="you@company.com" 
-              className="w-full bg-[#0A0A0A] border border-[#333333] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00E599] transition-colors"
+              className="w-full bg-[#0F111A] border border-[#2E313D] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00E599] transition-colors"
             />
           </div>
           <button className="w-full bg-[#00E599] hover:bg-[#00cc88] text-black py-3 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(0,229,153,0.2)]">
@@ -100,7 +100,7 @@ function LoginContent() {
 
 export default function Login() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A] py-20 px-6 w-full absolute top-0 left-0 z-50">
+    <div className="min-h-screen flex items-center justify-center bg-[#0F111A] py-20 px-6 w-full absolute top-0 left-0 z-50">
       <Suspense fallback={<div className="text-white">Loading...</div>}>
         <LoginContent />
       </Suspense>

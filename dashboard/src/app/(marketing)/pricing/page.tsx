@@ -16,7 +16,7 @@ export default function Pricing() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
           
           {/* Developer Tier */}
-          <div className="bg-[#111111] border border-[#333333] rounded-3xl p-8 flex flex-col">
+          <div className="bg-[#1A1C23] border border-[#2E313D] rounded-3xl p-8 flex flex-col">
             <h3 className="text-xl font-bold text-white mb-2">Developer</h3>
             <p className="text-sm text-gray-400 mb-6">Perfect for learning, prototyping, and hackathons.</p>
             <div className="mb-6">
@@ -37,7 +37,7 @@ export default function Pricing() {
           </div>
 
           {/* Growth Tier */}
-          <div className="bg-[#111111] border-2 border-[#00E599] rounded-3xl p-8 flex flex-col relative transform md:-translate-y-4 shadow-[0_0_40px_rgba(0,229,153,0.1)]">
+          <div className="bg-[#1A1C23] border-2 border-[#00E599] rounded-3xl p-8 flex flex-col relative transform md:-translate-y-4 shadow-[0_0_40px_rgba(0,229,153,0.1)]">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-[#00E599] text-black text-xs font-bold px-4 py-1 rounded-b-lg">MOST POPULAR</div>
             <h3 className="text-xl font-bold text-white mb-2 mt-2">Growth</h3>
             <p className="text-sm text-gray-400 mb-6">For production DApps requiring higher limits and speed.</p>
@@ -60,7 +60,7 @@ export default function Pricing() {
           </div>
 
           {/* Dedicated Tier */}
-          <div className="bg-[#111111] border border-[#333333] rounded-3xl p-8 flex flex-col">
+          <div className="bg-[#1A1C23] border border-[#2E313D] rounded-3xl p-8 flex flex-col">
             <h3 className="text-xl font-bold text-white mb-2">Dedicated</h3>
             <p className="text-sm text-gray-400 mb-6">Your private Neo N3 / Neo X instance. Zero rate limits.</p>
             <div className="mb-6">
@@ -86,17 +86,17 @@ export default function Pricing() {
         </div>
 
         {/* Add-ons Section */}
-        <div className="mt-24 pt-16 border-t border-[#222222] max-w-5xl mx-auto">
+        <div className="mt-24 pt-16 border-t border-[#2E313D] max-w-5xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-bold text-white mb-8 text-center">Marketplace Add-ons</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="bg-[#111111] border border-[#333333] p-6 rounded-2xl flex justify-between items-center">
+            <div className="bg-[#1A1C23] border border-[#2E313D] p-6 rounded-2xl flex justify-between items-center">
               <div>
                 <h4 className="font-bold text-white flex items-center gap-2"><Zap className="w-4 h-4 text-yellow-400"/> Account Abstraction Bundler</h4>
                 <p className="text-sm text-gray-400 mt-1">Native AA relay services.</p>
               </div>
               <div className="font-bold text-white">$49<span className="text-sm text-gray-500 font-normal">/mo</span></div>
             </div>
-            <div className="bg-[#111111] border border-[#333333] p-6 rounded-2xl flex justify-between items-center">
+            <div className="bg-[#1A1C23] border border-[#2E313D] p-6 rounded-2xl flex justify-between items-center">
               <div>
                 <h4 className="font-bold text-white flex items-center gap-2"><Server className="w-4 h-4 text-[#00E599]"/> Archive Node Sync</h4>
                 <p className="text-sm text-gray-400 mt-1">Access full historical state.</p>

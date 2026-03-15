@@ -33,7 +33,7 @@ export default function Overview() {
           <p className="text-gray-400 text-lg">Here's what's happening with your infrastructure today.</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="bg-[#1A1A1A] border border-[#333333] px-4 py-2 rounded-lg flex items-center gap-3">
+          <div className="bg-[#23252E] border border-[#2E313D] px-4 py-2 rounded-lg flex items-center gap-3">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-[#00E599] animate-pulse"></div>
               <span className="text-sm text-gray-300 font-medium">System</span>
@@ -53,7 +53,7 @@ export default function Overview() {
           
           {/* Quick Stats & Usage */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="bg-[#1A1A1A] border border-[#333333] p-6 rounded-2xl flex flex-col justify-between">
+            <div className="bg-[#23252E] border border-[#2E313D] p-6 rounded-2xl flex flex-col justify-between">
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h3 className="text-gray-400 font-medium mb-1">Total RPC Requests</h3>
@@ -85,7 +85,7 @@ export default function Overview() {
               </div>
             </div>
 
-            <div className="bg-[#1A1A1A] border border-[#333333] p-6 rounded-2xl flex flex-col justify-between">
+            <div className="bg-[#23252E] border border-[#2E313D] p-6 rounded-2xl flex flex-col justify-between">
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h3 className="text-gray-400 font-medium mb-1">Active Endpoints</h3>
@@ -106,8 +106,8 @@ export default function Overview() {
           </div>
 
           {/* Active Endpoints Quick View */}
-          <div className="bg-[#1A1A1A] border border-[#333333] rounded-2xl overflow-hidden">
-            <div className="px-6 py-5 border-b border-[#333333] flex justify-between items-center bg-[#111111]/50">
+          <div className="bg-[#23252E] border border-[#2E313D] rounded-2xl overflow-hidden">
+            <div className="px-6 py-5 border-b border-[#2E313D] flex justify-between items-center bg-[#1A1C23]/50">
               <h2 className="text-lg font-bold text-white">Your Endpoints</h2>
               <Link href="/app/endpoints" className="text-sm text-[#00E599] hover:text-[#00cc88] font-medium flex items-center">
                 View All <ChevronRight className="w-4 h-4" />
@@ -120,7 +120,7 @@ export default function Overview() {
                 <div className="p-6 text-center text-gray-500">No active endpoints. Create one to get started.</div>
               ) : (
                 endpoints.slice(0, 3).map((ep: any) => (
-                  <div key={ep.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-[#111111]/30 transition-colors">
+                  <div key={ep.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-[#1A1C23]/30 transition-colors">
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-lg border flex items-center justify-center ${ep.type.toLowerCase() === 'dedicated' ? 'bg-[#00E599]/10 border-[#00E599]/20 text-[#00E599]' : 'bg-blue-500/10 border-blue-500/20 text-blue-400'}`}>
                         {ep.type.toLowerCase() === 'dedicated' ? <Server className="w-5 h-5" /> : <Zap className="w-5 h-5" />}
@@ -134,11 +134,11 @@ export default function Overview() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3 w-full sm:w-auto">
-                      <div className="bg-[#111111] border border-[#333333] px-3 py-1.5 rounded flex items-center gap-2 max-w-[200px] overflow-hidden">
+                      <div className="bg-[#1A1C23] border border-[#2E313D] px-3 py-1.5 rounded flex items-center gap-2 max-w-[200px] overflow-hidden">
                         <div className={`w-2 h-2 rounded-full ${ep.status === 'Active' ? 'bg-[#00E599]' : 'bg-yellow-500'}`}></div>
                         <code className="text-xs text-gray-300 truncate">{ep.url}</code>
                       </div>
-                      <button onClick={() => copyToClipboard(ep.url)} className="p-1.5 text-gray-500 hover:text-white bg-[#111111] border border-[#333333] rounded transition-colors" title="Copy URL">
+                      <button onClick={() => copyToClipboard(ep.url)} className="p-1.5 text-gray-500 hover:text-white bg-[#1A1C23] border border-[#2E313D] rounded transition-colors" title="Copy URL">
                         <Copy className="w-4 h-4" />
                       </button>
                     </div>
@@ -152,7 +152,7 @@ export default function Overview() {
         {/* Right Column (Sidebar) */}
         <div className="space-y-6">
           {/* Security & Firewall Box */}
-          <div className="bg-gradient-to-br from-[#1A1A1A] to-[#111111] border border-[#333333] rounded-2xl p-6 relative overflow-hidden">
+          <div className="bg-gradient-to-br from-[#1A1A1A] to-[#111111] border border-[#2E313D] rounded-2xl p-6 relative overflow-hidden">
             <ShieldCheck className="absolute -bottom-4 -right-4 w-32 h-32 text-white/[0.02]" />
             <h2 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-[#00E599]" /> Security Firewall
@@ -176,20 +176,20 @@ export default function Overview() {
           </div>
 
           {/* Changelog & Updates */}
-          <div className="bg-[#1A1A1A] border border-[#333333] rounded-2xl p-6">
+          <div className="bg-[#23252E] border border-[#2E313D] rounded-2xl p-6">
             <h2 className="text-lg font-bold text-white mb-6">System Status</h2>
             <div className="space-y-6">
-              <div className="relative pl-4 border-l-2 border-[#333333]">
+              <div className="relative pl-4 border-l-2 border-[#2E313D]">
                 <div className="absolute w-2.5 h-2.5 bg-[#00E599] rounded-full -left-[6px] top-1"></div>
                 <h4 className="text-sm font-bold text-white">Neo N3 Mainnet</h4>
                 <p className="text-xs text-gray-400 mt-1">Operational. Syncing normally.</p>
               </div>
-              <div className="relative pl-4 border-l-2 border-[#333333]">
+              <div className="relative pl-4 border-l-2 border-[#2E313D]">
                 <div className="absolute w-2.5 h-2.5 bg-purple-500 rounded-full -left-[6px] top-1"></div>
                 <h4 className="text-sm font-bold text-white">Neo X Mainnet</h4>
                 <p className="text-xs text-gray-400 mt-1">Operational. EVM bridge active.</p>
               </div>
-              <div className="relative pl-4 border-l-2 border-[#333333]">
+              <div className="relative pl-4 border-l-2 border-[#2E313D]">
                 <div className="absolute w-2.5 h-2.5 bg-[#00E599] rounded-full -left-[6px] top-1"></div>
                 <h4 className="text-sm font-bold text-white">Neo N3 Testnet</h4>
                 <p className="text-xs text-gray-400 mt-1">Operational. Syncing normally.</p>

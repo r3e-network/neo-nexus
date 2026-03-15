@@ -150,7 +150,7 @@ export default function MarketplaceClient({ billingPlan }: { billingPlan: string
   return (
     <div className="min-h-screen pb-12 space-y-8">
       {/* Hero Section */}
-      <div className="relative bg-[#1A1A1A] border border-[#333333] rounded-2xl p-8 md:p-12 overflow-hidden">
+      <div className="relative bg-[#23252E] border border-[#2E313D] rounded-2xl p-8 md:p-12 overflow-hidden">
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#00E599]/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3"></div>
         <div className="relative z-10 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00E599]/10 border border-[#00E599]/20 text-[#00E599] text-sm font-medium mb-6">
@@ -167,7 +167,7 @@ export default function MarketplaceClient({ billingPlan }: { billingPlan: string
               placeholder="Search plugins, indexers, oracles..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#111111] border border-[#333333] rounded-xl pl-12 pr-4 py-3 text-white focus:outline-none focus:border-[#00E599] focus:ring-1 focus:ring-[#00E599] transition-all"
+              className="w-full bg-[#1A1C23] border border-[#2E313D] rounded-xl pl-12 pr-4 py-3 text-white focus:outline-none focus:border-[#00E599] focus:ring-1 focus:ring-[#00E599] transition-all"
             />
           </div>
         </div>
@@ -182,7 +182,7 @@ export default function MarketplaceClient({ billingPlan }: { billingPlan: string
             className={`whitespace-nowrap px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
               activeCategory === category 
                 ? 'bg-[#00E599] text-black shadow-[0_0_15px_rgba(0,229,153,0.3)]' 
-                : 'bg-[#1A1A1A] border border-[#333333] text-gray-400 hover:text-white hover:border-gray-500'
+                : 'bg-[#23252E] border border-[#2E313D] text-gray-400 hover:text-white hover:border-gray-500'
             }`}
           >
             {category}
@@ -193,7 +193,7 @@ export default function MarketplaceClient({ billingPlan }: { billingPlan: string
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredPlugins.map((plugin) => (
-          <div key={plugin.id} className="group flex flex-col bg-[#1A1A1A] border border-[#333333] hover:border-[#555555] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+          <div key={plugin.id} className="group flex flex-col bg-[#23252E] border border-[#2E313D] hover:border-[#555555] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
             {/* Card Header */}
             <div className={`h-2 w-full bg-gradient-to-r ${plugin.color}`}></div>
             <div className="p-6 flex-1 flex flex-col">
@@ -218,7 +218,7 @@ export default function MarketplaceClient({ billingPlan }: { billingPlan: string
               </p>
               
               {/* Card Footer */}
-              <div className="pt-4 border-t border-[#333333] flex items-center justify-between mt-auto">
+              <div className="pt-4 border-t border-[#2E313D] flex items-center justify-between mt-auto">
                 <div>
                   <div className="text-lg font-bold text-white">{plugin.price}</div>
                   <div className="text-xs text-gray-500">{plugin.type}</div>
@@ -229,17 +229,17 @@ export default function MarketplaceClient({ billingPlan }: { billingPlan: string
                      Installed
                    </button>
                 ) : plugin.status === 'Coming Soon' ? (
-                   <button className="px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 bg-transparent border border-[#333333] text-gray-500 cursor-not-allowed">
+                   <button className="px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 bg-transparent border border-[#2E313D] text-gray-500 cursor-not-allowed">
                      Coming Soon
                    </button>
                 ) : billingPlan === 'developer' && plugin.price !== 'Free' ? (
-                   <Link href="/app/billing" className="px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 bg-[#111111] border border-[#333333] text-white hover:bg-[#00E599] hover:text-black hover:border-[#00E599]">
+                   <Link href="/app/billing" className="px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 bg-[#1A1C23] border border-[#2E313D] text-white hover:bg-[#00E599] hover:text-black hover:border-[#00E599]">
                      Upgrade to Add
                    </Link>
                 ) : (
                    <button 
                      onClick={() => toast.success(`To install ${plugin.name}, go to the Plugins tab of your Dedicated Node.`)}
-                     className="px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 bg-[#111111] border border-[#333333] text-white hover:bg-[#00E599] hover:text-black hover:border-[#00E599]"
+                     className="px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 bg-[#1A1C23] border border-[#2E313D] text-white hover:bg-[#00E599] hover:text-black hover:border-[#00E599]"
                    >
                      Install
                    </button>

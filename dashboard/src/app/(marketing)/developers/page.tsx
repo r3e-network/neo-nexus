@@ -5,7 +5,7 @@ export default function Developers() {
   return (
     <div className="min-h-screen pb-24">
       {/* Header */}
-      <div className="bg-[#111111] border-b border-[#222222]">
+      <div className="bg-[#1A1C23] border-b border-[#2E313D]">
         <div className="max-w-7xl mx-auto px-6 pt-32 pb-16">
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white mb-6">Developer Hub</h1>
           <p className="text-xl text-gray-400 max-w-2xl">
@@ -17,7 +17,7 @@ export default function Developers() {
       <div className="max-w-7xl mx-auto px-6 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           
-          <a href="/docs" className="bg-[#111111] border border-[#333333] hover:border-[#00E599]/50 p-8 rounded-3xl transition-all group">
+          <a href="/docs" className="bg-[#1A1C23] border border-[#2E313D] hover:border-[#00E599]/50 p-8 rounded-3xl transition-all group">
             <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <BookOpen className="w-6 h-6" />
             </div>
@@ -26,7 +26,7 @@ export default function Developers() {
             <span className="text-[#00E599] font-medium">Read Docs →</span>
           </a>
 
-          <a href="#" className="bg-[#111111] border border-[#333333] hover:border-[#00E599]/50 p-8 rounded-3xl transition-all group">
+          <a href="#" className="bg-[#1A1C23] border border-[#2E313D] hover:border-[#00E599]/50 p-8 rounded-3xl transition-all group">
             <div className="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <Code2 className="w-6 h-6" />
             </div>
@@ -35,7 +35,7 @@ export default function Developers() {
             <span className="text-[#00E599] font-medium">View API →</span>
           </a>
 
-          <a href="#" className="bg-[#111111] border border-[#333333] hover:border-[#00E599]/50 p-8 rounded-3xl transition-all group">
+          <a href="#" className="bg-[#1A1C23] border border-[#2E313D] hover:border-[#00E599]/50 p-8 rounded-3xl transition-all group">
             <div className="w-12 h-12 rounded-xl bg-yellow-500/10 text-yellow-400 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <Wrench className="w-6 h-6" />
             </div>
@@ -44,7 +44,7 @@ export default function Developers() {
             <span className="text-[#00E599] font-medium">Explore Tools →</span>
           </a>
 
-          <a href="#" className="bg-[#111111] border border-[#333333] hover:border-[#00E599]/50 p-8 rounded-3xl transition-all group">
+          <a href="#" className="bg-[#1A1C23] border border-[#2E313D] hover:border-[#00E599]/50 p-8 rounded-3xl transition-all group">
             <div className="w-12 h-12 rounded-xl bg-green-500/10 text-green-400 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <Terminal className="w-6 h-6" />
             </div>
@@ -55,7 +55,7 @@ export default function Developers() {
 
         </div>
 
-        <div className="mt-16 bg-gradient-to-r from-[#111111] to-[#1A1A1A] border border-[#333333] rounded-3xl p-10 flex flex-col md:flex-row items-center justify-between gap-8">
+        <div className="mt-16 bg-gradient-to-r from-[#111111] to-[#1A1A1A] border border-[#2E313D] rounded-3xl p-10 flex flex-col md:flex-row items-center justify-between gap-8">
           <div>
             <h3 className="text-2xl font-bold text-white mb-2">Need help?</h3>
             <p className="text-gray-400">Join our Discord community or open a ticket. We are here to help you build.</p>

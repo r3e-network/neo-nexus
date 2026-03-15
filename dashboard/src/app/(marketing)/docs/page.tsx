@@ -2,16 +2,16 @@ import { Search, ChevronRight, FileText } from 'lucide-react';
 
 export default function Docs() {
   return (
-    <div className="min-h-screen flex bg-[#0A0A0A]">
+    <div className="min-h-screen flex bg-[#0F111A]">
       {/* Sidebar */}
-      <aside className="w-64 border-r border-[#222222] hidden md:flex flex-col h-[calc(100vh-80px)] sticky top-20 overflow-y-auto">
+      <aside className="w-64 border-r border-[#2E313D] hidden md:flex flex-col h-[calc(100vh-80px)] sticky top-20 overflow-y-auto">
         <div className="p-6">
           <div className="relative mb-6">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <input 
               type="text" 
               placeholder="Search docs..." 
-              className="w-full bg-[#111111] border border-[#333333] rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-[#00E599]"
+              className="w-full bg-[#1A1C23] border border-[#2E313D] rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-[#00E599]"
             />
           </div>
           
@@ -58,7 +58,7 @@ export default function Docs() {
             NeoNexus is the industrial-grade Web3 infrastructure platform specifically built for the Neo ecosystem. We provide highly available RPC endpoints, dedicated node hosting, and advanced indexing tools for both <strong>Neo N3</strong> and <strong>Neo X</strong> (EVM compatible).
           </p>
           
-          <h2 className="text-2xl font-bold text-white mt-10 mb-4 border-b border-[#222222] pb-2">Why NeoNexus?</h2>
+          <h2 className="text-2xl font-bold text-white mt-10 mb-4 border-b border-[#2E313D] pb-2">Why NeoNexus?</h2>
           <p className="text-gray-400 mb-4">
             Building on Neo requires a stable connection to the blockchain. Running your own node (neo-go, neo-cli, or neo-x-geth) requires significant devops overhead, server costs, and constant maintenance to ensure synchronization. NeoNexus solves this by providing:
           </p>
@@ -70,8 +70,8 @@ export default function Docs() {
             <li><strong className="text-white">Enterprise Security:</strong> IP allowlists and RPC method firewalls out of the box.</li>
           </ul>
 
-          <h2 className="text-2xl font-bold text-white mt-10 mb-4 border-b border-[#222222] pb-2">Quick Start</h2>
-          <div className="bg-[#111111] border border-[#333333] rounded-lg p-4 mb-6">
+          <h2 className="text-2xl font-bold text-white mt-10 mb-4 border-b border-[#2E313D] pb-2">Quick Start</h2>
+          <div className="bg-[#1A1C23] border border-[#2E313D] rounded-lg p-4 mb-6">
             <pre className="text-sm text-gray-300 font-mono">
               <code>{`curl -X POST https://mainnet.neonexus.cloud/v1/your-api-key \\
   -H "Content-Type: application/json" \\
@@ -79,7 +79,7 @@ export default function Docs() {
             </pre>
           </div>
 
-          <div className="flex justify-between items-center mt-16 pt-8 border-t border-[#222222]">
+          <div className="flex justify-between items-center mt-16 pt-8 border-t border-[#2E313D]">
             <div></div>
             <a href="#" className="flex flex-col items-end group">
               <span className="text-xs text-gray-500 mb-1">Next</span>

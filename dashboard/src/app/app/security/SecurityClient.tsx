@@ -66,7 +66,7 @@ export default function SecurityClient({ initialKeys, billingPlan }: { initialKe
              <div className="bg-[#00E599]/10 border border-[#00E599]/30 rounded-xl p-6 relative overflow-hidden">
                 <h3 className="text-lg font-bold text-[#00E599] mb-2">New API Key Created!</h3>
                 <p className="text-sm text-gray-300 mb-4">Please copy this key now. You will not be able to see it again.</p>
-                <div className="bg-[#111111] p-3 rounded-lg flex items-center justify-between border border-[#333333]">
+                <div className="bg-[#1A1C23] p-3 rounded-lg flex items-center justify-between border border-[#2E313D]">
                   <code className="text-[#00E599] font-mono break-all">{newKey}</code>
                   <button onClick={() => navigator.clipboard.writeText(newKey)} className="text-gray-400 hover:text-white ml-4">
                     <Copy className="w-5 h-5" />
@@ -76,8 +76,8 @@ export default function SecurityClient({ initialKeys, billingPlan }: { initialKe
              </div>
           )}
 
-          <div className="bg-[#1A1A1A] border border-[#333333] rounded-2xl overflow-hidden shadow-sm">
-            <div className="px-6 py-5 border-b border-[#333333] bg-[#111111]/50 flex items-center gap-3">
+          <div className="bg-[#23252E] border border-[#2E313D] rounded-2xl overflow-hidden shadow-sm">
+            <div className="px-6 py-5 border-b border-[#2E313D] bg-[#1A1C23]/50 flex items-center gap-3">
               <Key className="w-5 h-5 text-[#00E599]" />
               <h2 className="text-lg font-bold text-white">Active API Keys</h2>
             </div>
@@ -87,7 +87,7 @@ export default function SecurityClient({ initialKeys, billingPlan }: { initialKe
                  <div className="text-center py-8 text-gray-500 text-sm">No API keys found. Create one to authenticate your requests.</div>
               ) : (
                 keys.map((key, index) => (
-                  <div key={key.id} className="border border-[#333333] rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-gray-500 transition-colors">
+                  <div key={key.id} className="border border-[#2E313D] rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-gray-500 transition-colors">
                     <div>
                       <h3 className="text-base font-bold text-white flex items-center gap-2">
                         {key.name}
@@ -97,7 +97,7 @@ export default function SecurityClient({ initialKeys, billingPlan }: { initialKe
                     </div>
                     
                     <div className="flex items-center gap-3 w-full sm:w-auto">
-                      <div className="bg-[#111111] border border-[#333333] rounded-lg px-3 py-2 flex items-center gap-3 flex-1">
+                      <div className="bg-[#1A1C23] border border-[#2E313D] rounded-lg px-3 py-2 flex items-center gap-3 flex-1">
                         <code className="text-sm font-mono text-gray-300 w-48 truncate">
                           {visibleKeys[key.id] ? `nk_live_...${key.keyHash.substring(0, 8)}` : 'nk_live_••••••••••••••••••••••••'}
                         </code>
@@ -115,8 +115,8 @@ export default function SecurityClient({ initialKeys, billingPlan }: { initialKe
             </div>
           </div>
 
-          <div className="bg-[#1A1A1A] border border-[#333333] rounded-2xl overflow-hidden shadow-sm">
-            <div className="px-6 py-5 border-b border-[#333333] bg-[#111111]/50 flex items-center gap-3">
+          <div className="bg-[#23252E] border border-[#2E313D] rounded-2xl overflow-hidden shadow-sm">
+            <div className="px-6 py-5 border-b border-[#2E313D] bg-[#1A1C23]/50 flex items-center gap-3">
               <Globe className="w-5 h-5 text-blue-400" />
               <div>
                 <h2 className="text-lg font-bold text-white">IP & Origin Allowlist</h2>
@@ -129,16 +129,16 @@ export default function SecurityClient({ initialKeys, billingPlan }: { initialKe
                 <input 
                   type="text" 
                   placeholder="e.g. 192.168.1.1 or https://mydapp.com" 
-                  className="flex-1 bg-[#111111] border border-[#333333] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                  className="flex-1 bg-[#1A1C23] border border-[#2E313D] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                 />
                 <button className="bg-[#333333] hover:bg-[#444444] text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-colors">
                   Add Rule
                 </button>
               </div>
 
-              <div className="border border-[#333333] rounded-xl overflow-hidden">
+              <div className="border border-[#2E313D] rounded-xl overflow-hidden">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-[#111111] text-gray-400">
+                  <thead className="bg-[#1A1C23] text-gray-400">
                     <tr>
                       <th className="px-4 py-3 font-medium">Value</th>
                       <th className="px-4 py-3 font-medium">Type</th>
@@ -166,8 +166,8 @@ export default function SecurityClient({ initialKeys, billingPlan }: { initialKe
 
         {/* Right Column: Advanced Firewall */}
         <div className="space-y-6">
-          <div className="bg-[#1A1A1A] border border-[#333333] rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-6 py-5 border-b border-[#333333] bg-[#111111]/50 flex items-center gap-3">
+          <div className="bg-[#23252E] border border-[#2E313D] rounded-2xl shadow-sm overflow-hidden">
+            <div className="px-6 py-5 border-b border-[#2E313D] bg-[#1A1C23]/50 flex items-center gap-3">
               <Lock className="w-5 h-5 text-yellow-500" />
               <div>
                 <h2 className="text-lg font-bold text-white">Method Firewall</h2>
@@ -186,7 +186,7 @@ export default function SecurityClient({ initialKeys, billingPlan }: { initialKe
               <div className={`space-y-5 ${billingPlan === 'developer' ? 'opacity-50 pointer-events-none' : ''}`}>
                 <label className="flex items-start gap-3 cursor-pointer group">
                   <div className="relative flex items-center justify-center mt-0.5">
-                    <input type="checkbox" defaultChecked className="peer appearance-none w-5 h-5 rounded border border-[#555] bg-[#111111] checked:bg-[#00E599] checked:border-[#00E599] transition-all cursor-pointer" />
+                    <input type="checkbox" defaultChecked className="peer appearance-none w-5 h-5 rounded border border-[#555] bg-[#1A1C23] checked:bg-[#00E599] checked:border-[#00E599] transition-all cursor-pointer" />
                     <CheckCircle2 className="w-3.5 h-3.5 text-black absolute opacity-0 peer-checked:opacity-100 pointer-events-none" />
                   </div>
                   <div>
@@ -197,7 +197,7 @@ export default function SecurityClient({ initialKeys, billingPlan }: { initialKe
                 
                 <label className="flex items-start gap-3 cursor-pointer group">
                   <div className="relative flex items-center justify-center mt-0.5">
-                    <input type="checkbox" className="peer appearance-none w-5 h-5 rounded border border-[#555] bg-[#111111] checked:bg-[#00E599] checked:border-[#00E599] transition-all cursor-pointer" />
+                    <input type="checkbox" className="peer appearance-none w-5 h-5 rounded border border-[#555] bg-[#1A1C23] checked:bg-[#00E599] checked:border-[#00E599] transition-all cursor-pointer" />
                     <CheckCircle2 className="w-3.5 h-3.5 text-black absolute opacity-0 peer-checked:opacity-100 pointer-events-none" />
                   </div>
                   <div>
@@ -208,7 +208,7 @@ export default function SecurityClient({ initialKeys, billingPlan }: { initialKe
 
                 <label className="flex items-start gap-3 cursor-pointer group">
                   <div className="relative flex items-center justify-center mt-0.5">
-                    <input type="checkbox" defaultChecked className="peer appearance-none w-5 h-5 rounded border border-[#555] bg-[#111111] checked:bg-[#00E599] checked:border-[#00E599] transition-all cursor-pointer" />
+                    <input type="checkbox" defaultChecked className="peer appearance-none w-5 h-5 rounded border border-[#555] bg-[#1A1C23] checked:bg-[#00E599] checked:border-[#00E599] transition-all cursor-pointer" />
                     <CheckCircle2 className="w-3.5 h-3.5 text-black absolute opacity-0 peer-checked:opacity-100 pointer-events-none" />
                   </div>
                   <div>
@@ -218,7 +218,7 @@ export default function SecurityClient({ initialKeys, billingPlan }: { initialKe
                 </label>
               </div>
 
-              <div className="mt-8 pt-6 border-t border-[#333333]">
+              <div className="mt-8 pt-6 border-t border-[#2E313D]">
                 <button 
                   disabled={billingPlan === 'developer'}
                   className="w-full bg-[#333333] hover:bg-[#444444] disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-xl text-sm font-bold transition-colors"

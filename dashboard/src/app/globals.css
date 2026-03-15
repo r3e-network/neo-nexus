@@ -3,9 +3,9 @@
 @theme {
   --color-neo-green: #00E599;
   --color-neo-green-dark: #00cc88;
-  --color-dark-bg: #111111;
-  --color-dark-panel: #1A1A1A;
-  --color-dark-border: #333333;
+  --color-dark-bg: #1A1C23;
+  --color-dark-panel: #23252E;
+  --color-dark-border: #2E313D;
 }
 
 body {
