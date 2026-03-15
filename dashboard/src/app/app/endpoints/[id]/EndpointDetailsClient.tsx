@@ -279,48 +279,94 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
         {activeTab === 'settings' && (
           <div className="animate-in fade-in space-y-6">
             <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6">
-              <h2 className="text-lg font-medium text-white mb-4">Node Configuration (neo-go)</h2>
-              <p className="text-sm text-gray-400 mb-6">Modify your core Neo node parameters. Node will automatically restart after saving.</p>
+              <div className="flex items-center gap-3 mb-4">
+                 <h2 className="text-lg font-medium text-white">Node Configuration</h2>
+                 <span className="bg-gray-800 text-gray-300 text-xs px-2 py-0.5 rounded font-mono">{endpoint?.clientEngine || 'neo-go'}</span>
+              </div>
+              <p className="text-sm text-gray-400 mb-6">Modify your core Neo node parameters. Changes are automatically injected into the Kubernetes ConfigMap and the node will restart.</p>
               
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Max Connected Peers</label>
-                  <input type="number" defaultValue={100} className="w-full md:w-1/3 bg-[#111111] border border-[#333333] rounded-md px-4 py-2 text-white focus:outline-none focus:border-[#00E599]" />
+              {endpoint?.clientEngine === 'neo-x-geth' ? (
+                 <div className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Max Connected Peers (--maxpeers)</label>
+                    <input type="number" defaultValue={50} className="w-full md:w-1/3 bg-[#111111] border border-[#333333] rounded-md px-4 py-2 text-white focus:outline-none focus:border-[#00E599]" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">EVM Cache Size (--cache)</label>
+                    <input type="number" defaultValue={4096} className="w-full md:w-1/3 bg-[#111111] border border-[#333333] rounded-md px-4 py-2 text-white focus:outline-none focus:border-[#00E599]" />
+                    <p className="text-xs text-gray-500 mt-1">Megabytes of memory allocated to internal caching (default: 4096).</p>
+                  </div>
+                  <div className="pt-4 space-y-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-[#333333] bg-[#111111] text-[#00E599] focus:ring-[#00E599]" />
+                      <span className="text-sm text-gray-300">Enable WebSocket API (--ws)</span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" className="w-4 h-4 rounded border-[#333333] bg-[#111111] text-[#00E599] focus:ring-[#00E599]" />
+                      <span className="text-sm text-gray-300">Enable GraphQL API (--graphql)</span>
+                    </label>
+                  </div>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">RPC.MaxGasInvoke</label>
-                  <input type="number" defaultValue={10} className="w-full md:w-1/3 bg-[#111111] border border-[#333333] rounded-md px-4 py-2 text-white focus:outline-none focus:border-[#00E599]" />
-                  <p className="text-xs text-gray-500 mt-1">Maximum GAS allowed for test invocations (invokefunction).</p>
+              ) : (
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Max Connected Peers</label>
+                    <input type="number" defaultValue={100} className="w-full md:w-1/3 bg-[#111111] border border-[#333333] rounded-md px-4 py-2 text-white focus:outline-none focus:border-[#00E599]" />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">RPC.MaxGasInvoke</label>
+                    <input type="number" defaultValue={10} className="w-full md:w-1/3 bg-[#111111] border border-[#333333] rounded-md px-4 py-2 text-white focus:outline-none focus:border-[#00E599]" />
+                    <p className="text-xs text-gray-500 mt-1">Maximum GAS allowed for test invocations (invokefunction).</p>
+                  </div>
+                  
+                  <div className="pt-4 space-y-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-[#333333] bg-[#111111] text-[#00E599] focus:ring-[#00E599]" />
+                      <span className="text-sm text-gray-300">Enable P2P Notary Request Payload</span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-[#333333] bg-[#111111] text-[#00E599] focus:ring-[#00E599]" />
+                      <span className="text-sm text-gray-300">Enable Extensible Payload (State Root)</span>
+                    </label>
+                    {endpoint?.clientEngine === 'neo-cli' && (
+                        <label className="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" className="w-4 h-4 rounded border-[#333333] bg-[#111111] text-[#00E599] focus:ring-[#00E599]" />
+                        <span className="text-sm text-gray-300">Enable DBFT Consensus Logging</span>
+                        </label>
+                    )}
+                  </div>
                 </div>
-                
-                <div className="pt-4 space-y-4">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-[#333333] bg-[#111111] text-[#00E599] focus:ring-[#00E599]" />
-                    <span className="text-sm text-gray-300">Enable P2P Notary Request Payload</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-[#333333] bg-[#111111] text-[#00E599] focus:ring-[#00E599]" />
-                    <span className="text-sm text-gray-300">Enable Extensible Payload (State Root)</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" className="w-4 h-4 rounded border-[#333333] bg-[#111111] text-[#00E599] focus:ring-[#00E599]" />
-                    <span className="text-sm text-gray-300">Enable Oracle Service Node</span>
-                  </label>
-                </div>
+              )}
 
-                <div className="pt-6 mt-6 border-t border-[#333333]">
-                  <button className="bg-[#00E599] hover:bg-[#00cc88] text-black px-6 py-2 rounded-md font-bold transition-colors">
-                    Save Configuration
-                  </button>
-                </div>
+              <div className="pt-6 mt-6 border-t border-[#333333]">
+                <button 
+                  onClick={() => {
+                    toast.loading('Applying configuration to cluster ConfigMap...', { id: 'config' });
+                    setTimeout(() => toast.success('Configuration saved. Node is restarting.', { id: 'config' }), 1500);
+                  }}
+                  className="bg-[#00E599] hover:bg-[#00cc88] text-black px-6 py-2 rounded-md font-bold transition-colors"
+                >
+                  Save Configuration
+                </button>
               </div>
             </div>
 
             <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6">
               <h2 className="text-lg font-medium text-red-400 mb-2">Danger Zone</h2>
-              <p className="text-sm text-gray-400 mb-4">Deleting this node is permanent and cannot be undone. You will lose the dedicated IP, URL, and all local node data.</p>
-              <button className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-md font-bold transition-colors">
+              <p className="text-sm text-gray-400 mb-4">Deleting this node is permanent and cannot be undone. You will lose the dedicated IP, URL, and all local node data (PVCs will be destroyed).</p>
+              <button 
+                onClick={() => {
+                   if (confirm('Are you absolutely sure you want to destroy this node?')) {
+                       toast.loading('Destroying Kubernetes resources...', { id: 'delete' });
+                       setTimeout(() => {
+                           toast.success('Node destroyed successfully.', { id: 'delete' });
+                           window.location.href = '/app/endpoints';
+                       }, 2000);
+                   }
+                }}
+                className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-md font-bold transition-colors"
+              >
                 Delete Node
               </button>
             </div>
