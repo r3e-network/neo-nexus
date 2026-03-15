@@ -89,6 +89,31 @@ model Endpoint {
   createdAt         DateTime  @default(now())
   organization      Organization? @relation(fields: [organizationId], references: [id])
   firewalls         Firewall[]
+  plugins           NodePlugin[]
+  secrets           NodeSecret[]
+}
+
+model NodePlugin {
+  id          Int       @id @default(autoincrement())
+  endpointId  Int
+  pluginId    String    // e.g., "aa-bundler", "tee-oracle", "oracleService"
+  status      String    @default("Installing") // Installing, Active, Error
+  config      Json?     // Store plugin-specific configuration like wallet addresses
+  createdAt   DateTime  @default(now())
+  endpoint    Endpoint  @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  
+  @@unique([endpointId, pluginId])
+}
+
+model NodeSecret {
+  id          Int       @id @default(autoincrement())
+  endpointId  Int
+  name        String    // e.g., "OraclePrivateKey", "BundlerKey"
+  secretHash  String    // In production, this would be an AWS KMS ciphertext or HashiCorp Vault reference
+  createdAt   DateTime  @default(now())
+  endpoint    Endpoint  @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@unique([endpointId, name])
 }
 
 model ApiKey {
