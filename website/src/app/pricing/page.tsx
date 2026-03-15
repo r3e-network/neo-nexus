@@ -23,7 +23,7 @@ export default function Pricing() {
               <span className="text-4xl font-bold text-white">$0</span>
               <span className="text-gray-500"> / month</span>
             </div>
-            <Link href="/login?signup=true" className="w-full bg-[#222222] hover:bg-[#333333] text-white text-center py-3 rounded-xl font-bold transition-colors mb-8">
+            <Link href="/app/login?signup=true" className="w-full bg-[#222222] hover:bg-[#333333] text-white text-center py-3 rounded-xl font-bold transition-colors mb-8">
               Start for Free
             </Link>
             <div className="space-y-4 flex-1">
@@ -45,7 +45,7 @@ export default function Pricing() {
               <span className="text-4xl font-bold text-white">$49</span>
               <span className="text-gray-500"> / month</span>
             </div>
-            <Link href="/login?signup=true" className="w-full bg-[#00E599] hover:bg-[#00cc88] text-black text-center py-3 rounded-xl font-bold transition-colors mb-8 shadow-lg">
+            <Link href="/app/login?signup=true" className="w-full bg-[#00E599] hover:bg-[#00cc88] text-black text-center py-3 rounded-xl font-bold transition-colors mb-8 shadow-lg">
               Get Started
             </Link>
             <div className="space-y-4 flex-1">
@@ -68,7 +68,7 @@ export default function Pricing() {
               <span className="text-gray-500"> / month</span>
               <span className="text-xs text-gray-500 block mt-1">Starting price per node</span>
             </div>
-            <Link href="/login?signup=true" className="w-full bg-[#222222] hover:bg-[#333333] text-white text-center py-3 rounded-xl font-bold transition-colors mb-8">
+            <Link href="/app/login?signup=true" className="w-full bg-[#222222] hover:bg-[#333333] text-white text-center py-3 rounded-xl font-bold transition-colors mb-8">
               Deploy Dedicated Node
             </Link>
             <div className="space-y-4 flex-1">

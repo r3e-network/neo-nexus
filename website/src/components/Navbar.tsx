@@ -49,10 +49,10 @@ export default function Navbar() {
 
         {/* Auth Buttons */}
         <div className="hidden md:flex items-center gap-4">
-          <Link href="/login" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
+          <Link href="/app/login" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
             Log in
           </Link>
-          <Link href="/login?signup=true" className="bg-[#00E599] hover:bg-[#00cc88] text-black px-5 py-2 rounded-full text-sm font-bold transition-all hover:shadow-[0_0_15px_rgba(0,229,153,0.3)] flex items-center gap-1">
+          <Link href="/app/login?signup=true" className="bg-[#00E599] hover:bg-[#00cc88] text-black px-5 py-2 rounded-full text-sm font-bold transition-all hover:shadow-[0_0_15px_rgba(0,229,153,0.3)] flex items-center gap-1">
             Start for free <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
@@ -77,10 +77,10 @@ export default function Navbar() {
             </Link>
           ))}
           <div className="h-px bg-white/10 my-2"></div>
-          <Link href="/login" className="text-base font-medium text-gray-300 hover:text-white" onClick={() => setMobileMenuOpen(false)}>
+          <Link href="/app/login" className="text-base font-medium text-gray-300 hover:text-white" onClick={() => setMobileMenuOpen(false)}>
             Log in
           </Link>
-          <Link href="/login?signup=true" className="bg-[#00E599] text-black px-5 py-3 rounded-lg text-center font-bold" onClick={() => setMobileMenuOpen(false)}>
+          <Link href="/app/login?signup=true" className="bg-[#00E599] text-black px-5 py-3 rounded-lg text-center font-bold" onClick={() => setMobileMenuOpen(false)}>
             Start for free
           </Link>
         </div>
