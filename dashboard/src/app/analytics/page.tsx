@@ -5,38 +5,55 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip as LineTooltip, ResponsiveContainer as RCLine, CartesianGrid,
   BarChart, Bar, ResponsiveContainer as RCBar, Cell
 } from 'recharts';
+import useSWR from 'swr';
 
-const latencyData = [
-  { time: '00:00', ms: 45, requests: 2100 },
-  { time: '04:00', ms: 52, requests: 4300 },
-  { time: '08:00', ms: 48, requests: 8500 },
-  { time: '12:00', ms: 120, requests: 12400 }, // Spike
-  { time: '16:00', ms: 65, requests: 9400 },
-  { time: '20:00', ms: 43, requests: 6200 },
-  { time: '24:00', ms: 40, requests: 3100 },
-];
-
-const methodData = [
-  { name: 'invokefunction', value: 125000 },
-  { name: 'getapplicationlog', value: 85000 },
-  { name: 'getnep17balances', value: 45000 },
-  { name: 'getblock', value: 25000 },
-  { name: 'getversion', value: 5000 },
-];
-
-const errorLog = [
-  { time: '10 mins ago', method: 'invokefunction', error: '-500: Invalid parameters', ip: '45.22.11.X' },
-  { time: '1 hour ago', method: 'getapplicationlog', error: '-100: Unknown transaction', ip: '192.168.1.X' },
-  { time: '3 hours ago', method: 'sendrawtransaction', error: '-501: Insufficient GAS', ip: '8.8.4.X' },
-];
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function Analytics() {
+  // In a real production app, this would fetch from a Next.js API route that queries 
+  // Prometheus/Grafana or an APISIX logging endpoint. We'll use SWR for automatic polling.
+  const { data, error, isLoading } = useSWR('/api/metrics', fetcher, { 
+    refreshInterval: 10000,
+    fallbackData: {
+      latencyData: [
+        { time: '00:00', ms: 45, requests: 2100 },
+        { time: '04:00', ms: 52, requests: 4300 },
+        { time: '08:00', ms: 48, requests: 8500 },
+        { time: '12:00', ms: 120, requests: 12400 },
+        { time: '16:00', ms: 65, requests: 9400 },
+        { time: '20:00', ms: 43, requests: 6200 },
+        { time: '24:00', ms: 40, requests: 3100 },
+      ],
+      methodData: [
+        { name: 'invokefunction', value: 125000 },
+        { name: 'getapplicationlog', value: 85000 },
+        { name: 'getnep17balances', value: 45000 },
+        { name: 'getblock', value: 25000 },
+        { name: 'getversion', value: 5000 },
+      ],
+      stats: {
+        totalRequests: '1.24M',
+        successRate: '99.8%',
+        avgLatency: 48,
+        bandwidth: '42.5'
+      },
+      errorLog: [
+        { time: '10 mins ago', method: 'invokefunction', error: '-500: Invalid parameters', ip: '45.22.11.X' },
+        { time: '1 hour ago', method: 'getapplicationlog', error: '-100: Unknown transaction', ip: '192.168.1.X' },
+        { time: '3 hours ago', method: 'sendrawtransaction', error: '-501: Insufficient GAS', ip: '8.8.4.X' },
+      ]
+    }
+  });
+
   return (
     <div className="min-h-screen pb-12 space-y-8">
       {/* Header & Filters */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Metrics & Analytics</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-white mb-2 flex items-center gap-3">
+            Metrics & Analytics
+            {isLoading && <span className="w-2 h-2 rounded-full bg-[#00E599] animate-pulse"></span>}
+          </h1>
           <p className="text-gray-400 text-lg">Deep insight into your Neo N3 infrastructure health.</p>
         </div>
         <div className="bg-[#1A1A1A] border border-[#333333] p-1 rounded-lg flex text-sm">
@@ -53,7 +70,7 @@ export default function Analytics() {
             <span className="text-sm font-medium text-gray-400">Total Requests</span>
             <div className="p-2 bg-blue-500/10 rounded-lg"><Activity className="w-4 h-4 text-blue-400" /></div>
           </div>
-          <div className="text-3xl font-bold text-white mb-2">1.24M</div>
+          <div className="text-3xl font-bold text-white mb-2">{data.stats.totalRequests}</div>
           <div className="flex items-center text-sm text-[#00E599]">
             <ArrowUpRight className="w-4 h-4 mr-1" /> 12.5% vs last week
           </div>
@@ -64,7 +81,7 @@ export default function Analytics() {
             <span className="text-sm font-medium text-gray-400">Success Rate</span>
             <div className="p-2 bg-[#00E599]/10 rounded-lg"><ShieldAlert className="w-4 h-4 text-[#00E599]" /></div>
           </div>
-          <div className="text-3xl font-bold text-white mb-2">99.8%</div>
+          <div className="text-3xl font-bold text-white mb-2">{data.stats.successRate}</div>
           <div className="flex items-center text-sm text-gray-500">
             0.2% error rate (mostly 4xx)
           </div>
@@ -75,7 +92,7 @@ export default function Analytics() {
             <span className="text-sm font-medium text-gray-400">Avg. Latency</span>
             <div className="p-2 bg-yellow-500/10 rounded-lg"><Clock className="w-4 h-4 text-yellow-500" /></div>
           </div>
-          <div className="text-3xl font-bold text-white mb-2">48<span className="text-lg text-gray-400 ml-1">ms</span></div>
+          <div className="text-3xl font-bold text-white mb-2">{data.stats.avgLatency}<span className="text-lg text-gray-400 ml-1">ms</span></div>
           <div className="flex items-center text-sm text-red-400">
             <ArrowDownRight className="w-4 h-4 mr-1" /> Spike at 12:00
           </div>
@@ -86,7 +103,7 @@ export default function Analytics() {
             <span className="text-sm font-medium text-gray-400">Bandwidth</span>
             <div className="p-2 bg-purple-500/10 rounded-lg"><ServerCrash className="w-4 h-4 text-purple-400" /></div>
           </div>
-          <div className="text-3xl font-bold text-white mb-2">42.5<span className="text-lg text-gray-400 ml-1">GB</span></div>
+          <div className="text-3xl font-bold text-white mb-2">{data.stats.bandwidth}<span className="text-lg text-gray-400 ml-1">GB</span></div>
           <div className="flex items-center text-sm text-[#00E599]">
             <ArrowUpRight className="w-4 h-4 mr-1" /> 5.2% vs last week
           </div>
@@ -101,7 +118,7 @@ export default function Analytics() {
           <h2 className="text-lg font-bold text-white mb-6">Request Volume & Latency</h2>
           <div className="h-80 w-full">
             <RCLine width="100%" height="100%">
-              <AreaChart data={latencyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={data.latencyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorRequests" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#00E599" stopOpacity={0.3}/>
@@ -125,6 +142,7 @@ export default function Analytics() {
                   strokeWidth={3}
                   fillOpacity={1} 
                   fill="url(#colorRequests)" 
+                  animationDuration={500}
                 />
                 <Area 
                   yAxisId="right"
@@ -134,6 +152,7 @@ export default function Analytics() {
                   strokeWidth={2}
                   fill="none" 
                   strokeDasharray="5 5"
+                  animationDuration={500}
                 />
               </AreaChart>
             </RCLine>
@@ -145,15 +164,15 @@ export default function Analytics() {
           <h2 className="text-lg font-bold text-white mb-6">Top RPC Methods</h2>
           <div className="flex-1 w-full min-h-[250px]">
             <RCBar width="100%" height="100%">
-              <BarChart data={methodData} layout="vertical" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+              <BarChart data={data.methodData} layout="vertical" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                 <XAxis type="number" hide />
                 <YAxis dataKey="name" type="category" width={120} stroke="#888" fontSize={11} tickLine={false} axisLine={false} />
                 <LineTooltip 
                   cursor={{fill: '#222'}}
                   contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px' }}
                 />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
-                  {methodData.map((entry, index) => (
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20} animationDuration={500}>
+                  {data.methodData.map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={index === 0 ? '#00E599' : '#334155'} />
                   ))}
                 </Bar>
@@ -180,7 +199,7 @@ export default function Analytics() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#333333] text-gray-300">
-              {errorLog.map((log, i) => (
+              {data.errorLog.map((log: any, i: number) => (
                 <tr key={i} className="hover:bg-[#222222] transition-colors">
                   <td className="px-6 py-4 text-gray-500">{log.time}</td>
                   <td className="px-6 py-4 font-mono text-xs">{log.method}</td>
