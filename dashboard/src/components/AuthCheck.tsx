@@ -11,7 +11,7 @@ export default async function AuthCheck({
   // Disable auth check for local development if NEXTAUTH_SECRET is missing,
   // to prevent blocking the user from seeing the beautiful UI.
   if (!session && process.env.NEXTAUTH_SECRET) {
-    redirect('/api/auth/signin')
+    redirect('/login')
   }
 
   return <>{children}</>
