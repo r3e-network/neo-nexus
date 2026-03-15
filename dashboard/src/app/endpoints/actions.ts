@@ -7,6 +7,7 @@ import { ApisixService } from '@/services/apisix/ApisixService';
 
 export async function createEndpointAction(formData: {
   name: string;
+  protocol: string;
   network: string;
   type: string;
   clientEngine: string;
@@ -19,9 +20,10 @@ export async function createEndpointAction(formData: {
   // 1. Simulate Control Plane Deployment
   const k8sConfig: DeploymentConfig = {
     name: formData.name,
+    protocol: formData.protocol as 'neo-n3' | 'neo-x',
     network: formData.network as 'mainnet' | 'testnet',
     type: formData.type as 'shared' | 'dedicated',
-    clientEngine: formData.clientEngine as 'neo-go' | 'neo-cli',
+    clientEngine: formData.clientEngine as 'neo-go' | 'neo-cli' | 'neo-x-geth',
     provider: formData.provider as 'aws' | 'gcp',
     region: formData.region,
     syncMode: formData.syncMode as 'full' | 'archive'
@@ -45,10 +47,14 @@ export async function createEndpointAction(formData: {
     : `https://${formData.network}.neonexus.io/v1/${randomId}`;
 
   try {
+    const networkString = formData.protocol === 'neo-x' 
+        ? (formData.network === 'mainnet' ? 'Neo X Mainnet' : 'Neo X Testnet')
+        : (formData.network === 'mainnet' ? 'N3 Mainnet' : 'N3 Testnet');
+
     const endpoint = await prisma.endpoint.create({
       data: {
         name: formData.name,
-        network: formData.network === 'mainnet' ? 'N3 Mainnet' : 'N3 Testnet',
+        network: networkString,
         type: formData.type.charAt(0).toUpperCase() + formData.type.slice(1),
         clientEngine: formData.clientEngine,
         cloudProvider: formData.type === 'dedicated' ? formData.provider : null,

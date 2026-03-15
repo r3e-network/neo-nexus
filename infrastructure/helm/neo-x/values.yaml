@@ -1,0 +1,35 @@
+replicaCount: 1
+
+image:
+  repository: neofoundation/neo-x-geth
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+network: "mainnet" # mainnet or testnet
+syncMode: "full" # full or archive
+
+node:
+  p2pPort: 30303
+  rpcPort: 8545
+  wsPort: 8546
+
+resources:
+  requests:
+    cpu: "4"
+    memory: "8Gi"
+  limits:
+    cpu: "8"
+    memory: "16Gi"
+
+persistence:
+  enabled: true
+  size: 500Gi # Increase to 2Ti for archive
+  storageClass: "gp3" # Or premium-rwo for GCP
+
+snapshot:
+  enabled: true
+  url: "https://sync.neox.network/mainnet/geth-chain.tar.gz" # Example official Neo X snapshot URL
+
+service:
+  type: ClusterIP
+  annotations: {}

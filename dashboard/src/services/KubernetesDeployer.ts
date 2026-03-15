@@ -3,9 +3,10 @@ import * as yaml from 'js-yaml';
 
 export interface DeploymentConfig {
     name: string;
+    protocol: 'neo-n3' | 'neo-x';
     network: 'mainnet' | 'testnet';
     type: 'shared' | 'dedicated';
-    clientEngine: 'neo-go' | 'neo-cli';
+    clientEngine: 'neo-go' | 'neo-cli' | 'neo-x-geth';
     provider: 'aws' | 'gcp';
     region: string;
     syncMode: 'full' | 'archive';
@@ -47,7 +48,7 @@ export class KubernetesDeployer {
         console.log(`[Control Plane] Initiating production deployment for ${config.name}...`);
         
         const uniqueId = Math.random().toString(36).substring(2, 8);
-        const releaseName = `neo-${config.clientEngine}-${uniqueId}`;
+        const releaseName = `${config.protocol}-${config.clientEngine}-${uniqueId}`;
         const namespace = `tenant-${uniqueId}`;
 
         // In a true production environment, we enforce Kubernetes configuration.
@@ -64,12 +65,50 @@ export class KubernetesDeployer {
 
             // 2. Define StatefulSet Spec
             const isNeoGo = config.clientEngine === 'neo-go';
+            const isNeoX = config.protocol === 'neo-x';
+            
             const storageClass = config.provider === 'aws' ? 'gp3' : 'premium-rwo';
-            const storageSize = config.syncMode === 'archive' ? '2Ti' : '200Gi';
+            const storageSize = config.syncMode === 'archive' ? '2Ti' : (isNeoX ? '500Gi' : '200Gi');
             
             // Example official snapshot URL - in a real production environment, this should point to a regional S3 bucket
-            const snapshotUrl = 'https://sync.ngd.network/mainnet/chain.acc.tar.gz';
-            const dataPath = isNeoGo ? '/data' : '/app/Data_LevelDB';
+            const snapshotUrl = isNeoX 
+                ? 'https://sync.neox.network/mainnet/geth-chain.tar.gz' 
+                : 'https://sync.ngd.network/mainnet/chain.acc.tar.gz';
+                
+            const dataPath = isNeoX ? '/data/geth' : (isNeoGo ? '/data' : '/app/Data_LevelDB');
+
+            let containerImage = '';
+            let containerCommand: string[] = [];
+            let containerPorts: k8s.V1ContainerPort[] = [];
+            let cpuReq = '2000m', memReq = '4Gi', cpuLim = '4000m', memLim = '8Gi';
+
+            if (isNeoX) {
+                containerImage = 'neofoundation/neo-x-geth:latest';
+                containerCommand = ["geth", "--http", "--http.addr", "0.0.0.0", "--http.port", "8545", "--ws", "--ws.addr", "0.0.0.0", "--ws.port", "8546", "--datadir", dataPath];
+                containerPorts = [
+                    { containerPort: 8545, name: 'rpc' },
+                    { containerPort: 8546, name: 'ws' },
+                    { containerPort: 30303, name: 'p2p' }
+                ];
+                cpuReq = '4000m'; memReq = '8Gi'; cpuLim = '8000m'; memLim = '16Gi'; // EVM needs more juice
+            } else if (isNeoGo) {
+                containerImage = 'nspccdev/neo-go:0.106.0';
+                containerCommand = ["neo-go", "node", "--config-path", "/config", "--relative-path"];
+                containerPorts = [
+                    { containerPort: 10332, name: 'rpc' },
+                    { containerPort: 10333, name: 'p2p' },
+                    { containerPort: 2112, name: 'metrics' }
+                ];
+            } else {
+                // neo-cli
+                containerImage = 'neo-project/neo-cli:3.7.4';
+                containerCommand = ["dotnet", "neo-cli.dll", "--rpc"];
+                containerPorts = [
+                    { containerPort: 10332, name: 'rpc' },
+                    { containerPort: 10333, name: 'p2p' }
+                ];
+                cpuReq = '4000m'; memReq = '6Gi'; cpuLim = '8000m'; memLim = '12Gi';
+            }
 
             const statefulSetSpec: k8s.V1StatefulSet = {
                 metadata: {
@@ -90,7 +129,7 @@ export class KubernetesDeployer {
                                     image: 'alpine:latest',
                                     command: ['/bin/sh', '-c'],
                                     args: [
-                                        `if [ ! -d "${dataPath}/chains" ] && [ ! -d "${dataPath}/Data_LevelDB" ]; then
+                                        `if [ ! -d "${dataPath}/chains" ] && [ ! -d "${dataPath}/Data_LevelDB" ] && [ ! -d "${dataPath}/chaindata" ]; then
                                             echo "Downloading snapshot from ${snapshotUrl}..."
                                             wget -O /tmp/snapshot.tar.gz ${snapshotUrl}
                                             echo "Extracting snapshot..."
@@ -101,32 +140,20 @@ export class KubernetesDeployer {
                                             echo "Data directory already initialized, skipping snapshot."
                                         fi`
                                     ],
-                                    volumeMounts: [{ name: 'data', mountPath: dataPath }]
+                                    volumeMounts: [{ name: 'data', mountPath: isNeoX ? '/data' : dataPath }]
                                 }
                             ],
                             containers: [{
                                 name: config.clientEngine,
-                                image: isNeoGo ? 'nspccdev/neo-go:0.106.0' : 'neo-project/neo-cli:3.7.4',
-                                command: isNeoGo 
-                                    ? ["neo-go", "node", "--config-path", "/config", "--relative-path"]
-                                    : ["dotnet", "neo-cli.dll", "--rpc"],
-                                ports: [
-                                    { containerPort: 10332, name: 'rpc' },
-                                    { containerPort: 10333, name: 'p2p' },
-                                    ...(isNeoGo ? [{ containerPort: 2112, name: 'metrics' }] : [])
-                                ],
+                                image: containerImage,
+                                command: containerCommand,
+                                ports: containerPorts,
                                 resources: {
-                                    requests: {
-                                        cpu: isNeoGo ? '2000m' : '4000m',
-                                        memory: isNeoGo ? '4Gi' : '6Gi'
-                                    },
-                                    limits: {
-                                        cpu: isNeoGo ? '4000m' : '8000m',
-                                        memory: isNeoGo ? '8Gi' : '12Gi'
-                                    }
+                                    requests: { cpu: cpuReq, memory: memReq },
+                                    limits: { cpu: cpuLim, memory: memLim }
                                 },
                                 volumeMounts: [
-                                    { name: 'data', mountPath: isNeoGo ? '/data' : '/app/Data_LevelDB' }
+                                    { name: 'data', mountPath: isNeoX ? '/data' : dataPath }
                                 ]
                             }]
                         }
@@ -150,7 +177,11 @@ export class KubernetesDeployer {
                 },
                 spec: {
                     selector: { app: releaseName },
-                    ports: [
+                    ports: isNeoX ? [
+                        { port: 8545, targetPort: 8545, name: 'rpc' },
+                        { port: 8546, targetPort: 8546, name: 'ws' },
+                        { port: 30303, targetPort: 30303, name: 'p2p' }
+                    ] : [
                         { port: 10332, targetPort: 10332, name: 'rpc' },
                         { port: 10333, targetPort: 10333, name: 'p2p' }
                     ],

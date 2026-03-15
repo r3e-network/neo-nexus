@@ -19,7 +19,7 @@ export default function Home() {
           </div>
           
           <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-white mb-8 max-w-4xl mx-auto leading-tight">
-            The Ultimate Web3 Cloud for <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00E599] to-blue-400">Neo N3</span>
+            The Ultimate Web3 Cloud for <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00E599] to-blue-400">Neo N3</span> & <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">Neo X</span>
           </h1>
           
           <p className="text-lg md:text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
@@ -78,7 +78,7 @@ export default function Home() {
               </div>
               <h3 className="text-xl font-bold text-white mb-3">Global Shared APIs</h3>
               <p className="text-gray-400 leading-relaxed mb-6">
-                Connect instantly to our globally load-balanced pool of Neo N3 Mainnet and Testnet nodes. Perfect for quick queries and small apps.
+                Connect instantly to our globally load-balanced pool of Neo N3 and Neo X nodes. Perfect for quick queries and small apps.
               </p>
               <Link href="/pricing" className="text-[#00E599] font-medium flex items-center gap-1 hover:gap-2 transition-all">
                 Get free API key <ArrowRight className="w-4 h-4" />

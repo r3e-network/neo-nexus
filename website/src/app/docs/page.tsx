@@ -55,16 +55,17 @@ export default function Docs() {
         
         <div className="prose prose-invert prose-neo max-w-none">
           <p className="text-lg text-gray-300 leading-relaxed mb-8">
-            NeoNexus is the industrial-grade Web3 infrastructure platform specifically built for the Neo N3 ecosystem. We provide highly available RPC endpoints, dedicated node hosting, and advanced indexing tools.
+            NeoNexus is the industrial-grade Web3 infrastructure platform specifically built for the Neo ecosystem. We provide highly available RPC endpoints, dedicated node hosting, and advanced indexing tools for both <strong>Neo N3</strong> and <strong>Neo X</strong> (EVM compatible).
           </p>
           
           <h2 className="text-2xl font-bold text-white mt-10 mb-4 border-b border-[#222222] pb-2">Why NeoNexus?</h2>
           <p className="text-gray-400 mb-4">
-            Building on Neo requires a stable connection to the blockchain. Running your own node (neo-go or neo-cli) requires significant devops overhead, server costs, and constant maintenance to ensure synchronization. NeoNexus solves this by providing:
+            Building on Neo requires a stable connection to the blockchain. Running your own node (neo-go, neo-cli, or neo-x-geth) requires significant devops overhead, server costs, and constant maintenance to ensure synchronization. NeoNexus solves this by providing:
           </p>
           <ul className="list-disc list-inside text-gray-400 space-y-2 mb-8 ml-4">
             <li><strong className="text-white">Instant Setup:</strong> Get an API key in seconds and start building.</li>
-            <li><strong className="text-white">Elastic Scaling:</strong> Our shared tier handles traffic spikes seamlessly.</li>
+            <li><strong className="text-white">Fast Snapshot Sync:</strong> Launch dedicated nodes that sync in minutes using official snapshots.</li>
+            <li><strong className="text-white">Multi-Protocol Support:</strong> Native support for both the powerful Neo N3 engine and the EVM-compatible Neo X network.</li>
             <li><strong className="text-white">Dedicated Performance:</strong> For production DApps, deploy a dedicated node in Tokyo, Frankfurt, or Virginia.</li>
             <li><strong className="text-white">Enterprise Security:</strong> IP allowlists and RPC method firewalls out of the box.</li>
           </ul>

@@ -11,13 +11,24 @@ export default function CreateEndpoint() {
   const [isDeploying, setIsDeploying] = useState(false);
 
   // Form State
-  const [name, setName] = useState('My N3 Node');
+  const [name, setName] = useState('My Node');
+  const [protocol, setProtocol] = useState<'neo-n3' | 'neo-x'>('neo-n3');
   const [network, setNetwork] = useState('mainnet');
   const [clientEngine, setClientEngine] = useState('neo-go');
   const [nodeType, setNodeType] = useState('dedicated');
   const [provider, setProvider] = useState('aws');
   const [region, setRegion] = useState('ap-northeast-1');
   const [syncMode, setSyncMode] = useState('full');
+
+  // Ensure valid client engine when protocol changes
+  const handleProtocolChange = (newProtocol: 'neo-n3' | 'neo-x') => {
+    setProtocol(newProtocol);
+    if (newProtocol === 'neo-x') {
+      setClientEngine('neo-x-geth');
+    } else {
+      setClientEngine('neo-go');
+    }
+  };
 
   const pricing = {
     shared: { full: 0, archive: 49 },
@@ -34,6 +45,7 @@ export default function CreateEndpoint() {
     try {
       const result = await createEndpointAction({
         name,
+        protocol,
         network,
         type: nodeType,
         clientEngine,
@@ -61,7 +73,7 @@ export default function CreateEndpoint() {
         <Link href="/endpoints" className="inline-flex items-center text-sm text-gray-400 hover:text-white mb-6 transition-colors">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Endpoints
         </Link>
-        <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Deploy Neo N3 Node</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Deploy Node</h1>
         <p className="text-gray-400 text-lg">Configure and launch your enterprise-grade infrastructure.</p>
       </div>
 
@@ -82,10 +94,48 @@ export default function CreateEndpoint() {
             />
           </section>
 
-          {/* Section 1: Network */}
+          {/* Section 0.5: Protocol */}
           <section className="bg-[#1A1A1A] border border-[#333333] rounded-2xl p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">1</div>
+              <h2 className="text-xl font-bold text-white">Select Protocol</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div 
+                onClick={() => handleProtocolChange('neo-n3')}
+                className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
+                  protocol === 'neo-n3' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#333333] hover:border-gray-500 bg-[#111111]'
+                }`}
+              >
+                {protocol === 'neo-n3' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
+                <div className="flex items-center gap-4 mb-3">
+                  <div className="w-12 h-12 rounded-lg bg-[#00E599] flex items-center justify-center text-black font-bold text-xl shadow-[0_0_15px_rgba(0,229,153,0.3)]">N3</div>
+                  <h3 className="text-lg font-bold text-white">Neo N3</h3>
+                </div>
+                <p className="text-sm text-gray-400 leading-relaxed">The powerful, feature-rich core blockchain. Native smart contracts in multiple languages.</p>
+              </div>
+
+              <div 
+                onClick={() => handleProtocolChange('neo-x')}
+                className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
+                  protocol === 'neo-x' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#333333] hover:border-gray-500 bg-[#111111]'
+                }`}
+              >
+                {protocol === 'neo-x' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
+                <div className="flex items-center gap-4 mb-3">
+                  <div className="w-12 h-12 rounded-lg bg-purple-500 flex items-center justify-center text-white font-bold text-xl shadow-[0_0_15px_rgba(168,85,247,0.3)]">X</div>
+                  <h3 className="text-lg font-bold text-white">Neo X</h3>
+                </div>
+                <p className="text-sm text-gray-400 leading-relaxed">EVM-compatible sidechain. Deploy Solidity contracts and access the Ethereum ecosystem.</p>
+              </div>
+            </div>
+          </section>
+
+          {/* Section 1: Network */}
+          <section className="bg-[#1A1A1A] border border-[#333333] rounded-2xl p-8 shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">2</div>
               <h2 className="text-xl font-bold text-white">Select Network</h2>
             </div>
             
@@ -98,7 +148,7 @@ export default function CreateEndpoint() {
               >
                 {network === 'mainnet' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
                 <div className="flex items-center gap-4 mb-3">
-                  <div className="w-12 h-12 rounded-lg bg-[#00E599] flex items-center justify-center text-black font-bold text-2xl shadow-[0_0_15px_rgba(0,229,153,0.3)]">N</div>
+                  <div className="w-12 h-12 rounded-lg bg-[#00E599] flex items-center justify-center text-black font-bold text-2xl shadow-[0_0_15px_rgba(0,229,153,0.3)]">M</div>
                   <h3 className="text-lg font-bold text-white">Mainnet</h3>
                 </div>
                 <p className="text-sm text-gray-400 leading-relaxed">Production environment. Real assets, contracts, and state. Requires strict security.</p>
@@ -115,7 +165,7 @@ export default function CreateEndpoint() {
                   <div className="w-12 h-12 rounded-lg bg-[#333333] border border-gray-600 flex items-center justify-center text-white font-bold text-2xl">T</div>
                   <h3 className="text-lg font-bold text-white">Testnet</h3>
                 </div>
-                <p className="text-sm text-gray-400 leading-relaxed">T5 Testnet environment. Free GAS for smart contract deployment and testing.</p>
+                <p className="text-sm text-gray-400 leading-relaxed">Development environment. Free GAS for smart contract deployment and testing.</p>
               </div>
             </div>
           </section>
@@ -123,50 +173,63 @@ export default function CreateEndpoint() {
           {/* Section 2: Client Engine */}
           <section className="bg-[#1A1A1A] border border-[#333333] rounded-2xl p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">2</div>
+              <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">3</div>
               <h2 className="text-xl font-bold text-white">Client Engine</h2>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div 
-                onClick={() => setClientEngine('neo-go')}
-                className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
-                  clientEngine === 'neo-go' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#333333] hover:border-gray-500 bg-[#111111]'
-                }`}
-              >
-                {clientEngine === 'neo-go' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="text-2xl">🐹</span>
-                  <h3 className="text-lg font-bold text-white">neo-go</h3>
-                  <span className="bg-[#00E599]/20 text-[#00E599] text-[10px] px-2 py-0.5 rounded font-bold">RECOMMENDED</span>
-                </div>
-                <p className="text-sm text-gray-400 leading-relaxed">
-                  Written in Go. Highest performance, lowest memory footprint, and blazing fast RPC responses. Default for heavy infrastructure.
-                </p>
-                <div className="mt-4 flex gap-2">
-                  <span className="text-xs bg-[#111111] border border-[#333333] px-2 py-1 rounded text-gray-300">v0.106.0</span>
-                </div>
-              </div>
+              {protocol === 'neo-n3' ? (
+                <>
+                  <div 
+                    onClick={() => setClientEngine('neo-go')}
+                    className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
+                      clientEngine === 'neo-go' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#333333] hover:border-gray-500 bg-[#111111]'
+                    }`}
+                  >
+                    {clientEngine === 'neo-go' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="text-2xl">🐹</span>
+                      <h3 className="text-lg font-bold text-white">neo-go</h3>
+                      <span className="bg-[#00E599]/20 text-[#00E599] text-[10px] px-2 py-0.5 rounded font-bold">RECOMMENDED</span>
+                    </div>
+                    <p className="text-sm text-gray-400 leading-relaxed">
+                      Written in Go. Highest performance, lowest memory footprint, and blazing fast RPC responses. Default for heavy infrastructure.
+                    </p>
+                  </div>
 
-              <div 
-                onClick={() => setClientEngine('neo-cli')}
-                className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
-                  clientEngine === 'neo-cli' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#333333] hover:border-gray-500 bg-[#111111]'
-                }`}
-              >
-                {clientEngine === 'neo-cli' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="text-2xl">💎</span>
-                  <h3 className="text-lg font-bold text-white">neo-cli (C#)</h3>
-                  <span className="bg-blue-500/20 text-blue-400 text-[10px] px-2 py-0.5 rounded font-bold">OFFICIAL</span>
+                  <div 
+                    onClick={() => setClientEngine('neo-cli')}
+                    className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 ${
+                      clientEngine === 'neo-cli' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[#333333] hover:border-gray-500 bg-[#111111]'
+                    }`}
+                  >
+                    {clientEngine === 'neo-cli' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="text-2xl">💎</span>
+                      <h3 className="text-lg font-bold text-white">neo-cli (C#)</h3>
+                      <span className="bg-blue-500/20 text-blue-400 text-[10px] px-2 py-0.5 rounded font-bold">OFFICIAL</span>
+                    </div>
+                    <p className="text-sm text-gray-400 leading-relaxed">
+                      The official reference implementation developed by Neo Foundation. 100% consensus compatibility and native plugin support.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div 
+                  onClick={() => setClientEngine('neo-x-geth')}
+                  className={`group relative cursor-pointer rounded-xl p-6 border-2 transition-all duration-200 border-[#00E599] bg-[#00E599]/5`}
+                >
+                  <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-2xl">⚡</span>
+                    <h3 className="text-lg font-bold text-white">neo-x-geth</h3>
+                    <span className="bg-[#00E599]/20 text-[#00E599] text-[10px] px-2 py-0.5 rounded font-bold">EVM</span>
+                  </div>
+                  <p className="text-sm text-gray-400 leading-relaxed">
+                    Official execution client for Neo X. Fully compatible with Ethereum tooling like Hardhat, Truffle, and Metamask.
+                  </p>
                 </div>
-                <p className="text-sm text-gray-400 leading-relaxed">
-                  The official reference implementation developed by Neo Foundation. 100% consensus compatibility and native plugin support.
-                </p>
-                <div className="mt-4 flex gap-2">
-                  <span className="text-xs bg-[#111111] border border-[#333333] px-2 py-1 rounded text-gray-300">v3.7.4</span>
-                </div>
-              </div>
+              )}
             </div>
           </section>
 
@@ -347,11 +410,13 @@ export default function CreateEndpoint() {
               {/* Protocol info */}
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-lg bg-[#00E599]/20 flex items-center justify-center">
-                  <div className="w-6 h-6 rounded bg-[#00E599] text-black font-bold flex items-center justify-center text-sm">N</div>
+                  <div className={`w-6 h-6 rounded flex items-center justify-center text-sm font-bold ${protocol === 'neo-n3' ? 'bg-[#00E599] text-black' : 'bg-purple-500 text-white'}`}>
+                    {protocol === 'neo-n3' ? 'N3' : 'X'}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-400 font-medium">Protocol</div>
-                  <div className="text-base font-bold text-white">Neo N3 {network === 'mainnet' ? 'Mainnet' : 'Testnet'}</div>
+                  <div className="text-base font-bold text-white">Neo {protocol === 'neo-n3' ? 'N3' : 'X'} {network === 'mainnet' ? 'Mainnet' : 'Testnet'}</div>
                 </div>
               </div>
 
@@ -375,7 +440,7 @@ export default function CreateEndpoint() {
                 <li className="flex justify-between items-center">
                   <span className="text-sm text-gray-400">Client Engine</span>
                   <span className="text-sm font-medium text-white bg-gray-800 px-2 py-0.5 rounded">
-                    {clientEngine === 'neo-go' ? 'neo-go v0.106.0' : 'neo-cli v3.7.4'}
+                    {clientEngine === 'neo-go' ? 'neo-go v0.106.0' : (clientEngine === 'neo-cli' ? 'neo-cli v3.7.4' : 'neo-x-geth latest')}
                   </span>
                 </li>
                 <li className="flex justify-between items-center">
