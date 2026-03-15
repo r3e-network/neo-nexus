@@ -530,7 +530,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
           <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
             <button onClick={() => { setInstallPluginModal(null); setPrivateKey(''); }} className="absolute top-4 right-4 text-gray-500 hover:text-white">✕</button>
             <h3 className="text-xl font-bold text-white mb-2">
-              Configure {installPluginModal === 'tee-oracle' ? 'TEE Oracle' : 'AA Bundler'}
+              Configure {installPluginModal === 'tee-oracle' ? 'TEE Oracle' : (installPluginModal === 'tee-mempool' ? 'TEE Protected Mempool' : 'AA Bundler')}
             </h3>
             <p className="text-sm text-gray-400 mb-6">
               This plugin requires a wallet to sign transactions on-chain. Please provide the private key. It will be securely stored in our vault and mounted to your cluster.

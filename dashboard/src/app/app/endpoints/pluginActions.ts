@@ -26,7 +26,7 @@ export async function addNodePluginAction(endpointId: number, pluginId: string, 
     }
 
     // 2. Validate Plugin Prerequisites
-    if (pluginId === 'oracleService' || pluginId === 'tee-oracle' || pluginId === 'aa-bundler') {
+    if (pluginId === 'oracleService' || pluginId === 'tee-oracle' || pluginId === 'aa-bundler' || pluginId === 'tee-mempool') {
         if (!privateKey) {
             return { success: false, error: 'A private key is required to operate this plugin securely.' };
         }
