@@ -38,8 +38,8 @@ chmod +x infrastructure/scripts/setup_k8s.sh
    ```
 2. Note the `EXTERNAL-IP` (an AWS ELB address).
 3. In your DNS provider (e.g., Route53, Cloudflare), create a wildcard CNAME record pointing to this Load Balancer:
-   - `*.node.neonexus.com` -> `[EXTERNAL-IP]`
-   - `mainnet.neonexus.com` -> `[EXTERNAL-IP]`
+   - `*.node.neonexus.cloud` -> `[EXTERNAL-IP]`
+   - `mainnet.neonexus.cloud` -> `[EXTERNAL-IP]`
 
 ## 4. Connect the Dashboard to the Cluster
 

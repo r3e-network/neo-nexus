@@ -73,4 +73,4 @@ Before you begin the deployment process, ensure you have accounts and access to 
 - **GitHub/Google Developer Console:** For OAuth credentials.
 - **Stripe Account:** For handling subscriptions and payments.
 - **Cloud Provider (AWS/GCP):** For creating the Kubernetes cluster (EKS/GKE).
-- **Domain Name:** To configure DNS records (e.g., `neonexus.com`).
+- **Domain Name:** To configure DNS records (e.g., `neonexus.cloud`).

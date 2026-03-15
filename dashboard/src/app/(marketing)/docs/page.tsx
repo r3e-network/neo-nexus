@@ -73,7 +73,7 @@ export default function Docs() {
           <h2 className="text-2xl font-bold text-white mt-10 mb-4 border-b border-[#222222] pb-2">Quick Start</h2>
           <div className="bg-[#111111] border border-[#333333] rounded-lg p-4 mb-6">
             <pre className="text-sm text-gray-300 font-mono">
-              <code>{`curl -X POST https://mainnet.neonexus.com/v1/your-api-key \\
+              <code>{`curl -X POST https://mainnet.neonexus.cloud/v1/your-api-key \\
   -H "Content-Type: application/json" \\
   -d '{ "jsonrpc": "2.0", "id": 1, "method": "getblockcount", "params": [] }'`}</code>
             </pre>

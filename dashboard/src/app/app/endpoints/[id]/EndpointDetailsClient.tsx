@@ -72,7 +72,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
     { id: 'settings', name: 'Settings' },
   ];
 
-  const wssUrl = endpoint?.url ? endpoint.url.replace('https://', 'wss://').replace('/v1', '/ws') : 'wss://node-tokyo-01.neonexus.com/ws/xyz';
+  const wssUrl = endpoint?.url ? endpoint.url.replace('https://', 'wss://').replace('/v1', '/ws') : 'wss://node-tokyo-01.neonexus.cloud/ws/xyz';
 
 
   return (
@@ -144,7 +144,7 @@ export default function EndpointDetailsClient({ endpoint }: { endpoint: Endpoint
                   <h2 className="text-lg font-medium text-white">HTTPS Endpoint</h2>
                 </div>
                 <div className="bg-[#111111] border border-[#333333] p-3 rounded-lg flex items-center justify-between group">
-                  <code className="text-sm text-[#00E599] truncate">{endpoint?.url || 'https://node-tokyo-01.neonexus.com/v1/xyz'}</code>
+                  <code className="text-sm text-[#00E599] truncate">{endpoint?.url || 'https://node-tokyo-01.neonexus.cloud/v1/xyz'}</code>
                   <button 
                     onClick={() => navigator.clipboard.writeText(endpoint?.url || '')}
                     className="text-gray-500 hover:text-white p-1 rounded transition-colors bg-[#1A1A1A] opacity-0 group-hover:opacity-100"

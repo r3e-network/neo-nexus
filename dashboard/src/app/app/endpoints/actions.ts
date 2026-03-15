@@ -90,8 +90,8 @@ export async function createEndpointAction(formData: {
   // Generate a realistic routing URL
   const randomId = Math.random().toString(36).substring(2, 8);
   const url = formData.type === 'dedicated' 
-    ? `https://node-${formData.region}-${randomId}.neonexus.com/v1`
-    : `https://${formData.network}.neonexus.com/v1/${randomId}`;
+    ? `https://node-${formData.region}-${randomId}.neonexus.cloud/v1`
+    : `https://${formData.network}.neonexus.cloud/v1/${randomId}`;
 
   try {
     const networkString = formData.protocol === 'neo-x' 
