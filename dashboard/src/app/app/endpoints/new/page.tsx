@@ -14,7 +14,7 @@ import {
   listSupportedProviders,
   type InfrastructureProvider,
 } from '@/services/infrastructure/ProviderCatalog';
-import { getNodeTemplates, type NodeTemplateId, type NodeTemplate } from '@/services/provisioning/NodeTemplates';
+import { getNodeTemplates, type NodeTemplateId } from '@/services/provisioning/NodeTemplates';
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
