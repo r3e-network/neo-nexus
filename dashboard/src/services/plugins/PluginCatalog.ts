@@ -10,7 +10,10 @@ export type SupportedPluginId =
   | 'RocksDBStore'
   | 'RpcServer'
   | 'StateService'
-  | 'TokensTracker';
+  | 'TokensTracker'
+  | 'SQLiteWallet'
+  | 'StorageDumper'
+  | 'SignClient';
 
 export type PluginConfigSchemaField = {
   key: string;
@@ -27,7 +30,7 @@ export type PluginDefinition = {
   description: string;
   badge: string;
   requiresPrivateKey: boolean;
-  category: 'Security' | 'Execution' | 'Core' | 'Storage' | 'API';
+  category: 'Security' | 'Execution' | 'Core' | 'Storage' | 'API' | 'Tooling';
   defaultImage: string;
   schema?: PluginConfigSchemaField[];
 };
@@ -155,6 +158,24 @@ const PLUGINS: PluginDefinition[] = [
     ]
   },
   {
+    id: 'SignClient',
+    name: 'Sign Client',
+    description: 'Allows node to securely communicate with a remote multi-sig wallet.',
+    badge: 'Tooling',
+    requiresPrivateKey: false,
+    category: 'Tooling',
+    defaultImage: 'neo-cli-plugin',
+  },
+  {
+    id: 'SQLiteWallet',
+    name: 'SQLite Wallet',
+    description: 'Allows Neo-CLI to open and manage SQLite based NEP-6 wallets.',
+    badge: 'Tooling',
+    requiresPrivateKey: false,
+    category: 'Tooling',
+    defaultImage: 'neo-cli-plugin',
+  },
+  {
     id: 'StateService',
     name: 'State Service',
     description: 'Provides MPT state root tracking and validation.',
@@ -167,6 +188,15 @@ const PLUGINS: PluginDefinition[] = [
       { key: 'AutoStart', type: 'boolean', label: 'Auto Start', description: 'Automatically start the State service.', defaultValue: true },
       { key: 'FullState', type: 'boolean', label: 'Full State', description: 'Maintain full historic MPT state.', defaultValue: false },
     ]
+  },
+  {
+    id: 'StorageDumper',
+    name: 'Storage Dumper',
+    description: 'Provides tools for dumping and migrating Neo node storage states.',
+    badge: 'Tooling',
+    requiresPrivateKey: false,
+    category: 'Tooling',
+    defaultImage: 'neo-cli-plugin',
   },
   {
     id: 'TokensTracker',
