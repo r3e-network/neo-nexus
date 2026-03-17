@@ -45,7 +45,7 @@ describe('PluginCatalog', () => {
   });
 
   it('rejects unsupported plugin ids', () => {
-    expect(isSupportedPlugin('unknown-plugin' as any)).toBe(false);
-    expect(getPluginDefinition('unknown-plugin' as any)).toBeNull();
+    expect(isSupportedPlugin('unknown-plugin')).toBe(false);
+    expect(getPluginDefinition('unknown-plugin')).toBeNull();
   });
 });

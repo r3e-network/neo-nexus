@@ -20,7 +20,7 @@ export type PluginConfigSchemaField = {
   type: 'string' | 'number' | 'boolean' | 'stringArray' | 'multiselect';
   label: string;
   description: string;
-  defaultValue?: any;
+  defaultValue?: string | number | boolean | string[];
   options?: string[]; // for multiselect
 };
 
