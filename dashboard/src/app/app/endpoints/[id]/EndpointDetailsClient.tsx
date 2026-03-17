@@ -1228,53 +1228,94 @@ export default function EndpointDetailsClient({
         )}
       </div>
 
-      {installPluginModal && (
+      {installPluginModal && (() => {
+        const pluginDef = listSupportedPlugins().find(p => p.id === installPluginModal);
+        return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
             <button onClick={() => { setInstallPluginModal(null); setPrivateKey(''); setPluginConfigInput(''); }} className="absolute top-4 right-4 text-gray-500 hover:text-white">✕</button>
             <h3 className="text-xl font-bold text-white mb-2">
-              Configure {installPluginModal === 'tee-oracle' ? 'TEE Oracle' : (installPluginModal === 'tee-mempool' ? 'TEE Protected Mempool' : 'AA Bundler')}
+              Configure {pluginDef?.name || installPluginModal}
             </h3>
-            <p className="text-sm text-gray-400 mb-6">
-              This plugin requires a wallet to sign transactions on-chain. Provide the signing key and any deployment note you want persisted with the plugin configuration. Secrets are encrypted before storage.
-            </p>
+            
+            {pluginDef?.requiresPrivateKey ? (
+              <p className="text-sm text-gray-400 mb-6">
+                This plugin requires a wallet to sign transactions on-chain. Provide the signing key and any deployment note you want persisted with the plugin configuration. Secrets are encrypted before storage.
+              </p>
+            ) : (
+              <p className="text-sm text-gray-400 mb-6">
+                Configure the parameters for this official Neo plugin.
+              </p>
+            )}
             
             <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Neo N3 Private Key (WIF)</label>
-                <input 
-                  type="password" 
-                  value={privateKey}
-                  onChange={(e) => setPrivateKey(e.target.value)}
-                  placeholder="L1K..." 
-                  className="w-full bg-[var(--color-dark-bg)] border border-[var(--color-dark-border)] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00E599] transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Plugin Configuration Note</label>
-                <textarea
-                  value={pluginConfigInput}
-                  onChange={(e) => setPluginConfigInput(e.target.value)}
-                  placeholder="Optional route, webhook, or deployment note..."
-                  rows={3}
-                  className="w-full bg-[var(--color-dark-bg)] border border-[var(--color-dark-border)] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00E599] transition-colors"
-                />
-              </div>
+              {pluginDef?.requiresPrivateKey && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Neo N3 Private Key (WIF)</label>
+                  <input 
+                    type="password" 
+                    value={privateKey}
+                    onChange={(e) => setPrivateKey(e.target.value)}
+                    placeholder="L1K..." 
+                    className="w-full bg-[var(--color-dark-bg)] border border-[var(--color-dark-border)] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00E599] transition-colors"
+                  />
+                </div>
+              )}
+              
+              {pluginDef?.schema && pluginDef.schema.length > 0 ? (
+                <div className="space-y-3">
+                  {pluginDef.schema.map((field) => (
+                     <div key={field.key}>
+                       <label className="block text-sm font-medium text-gray-400 mb-1">{field.label}</label>
+                       {field.type === 'boolean' ? (
+                         <div className="flex items-center gap-2">
+                           <input type="checkbox" className="w-4 h-4 rounded border-gray-600 bg-[var(--color-dark-bg)] focus:ring-[#00E599]" defaultChecked={field.defaultValue} />
+                           <span className="text-xs text-gray-500">{field.description}</span>
+                         </div>
+                       ) : field.type === 'multiselect' ? (
+                         <select multiple className="w-full bg-[var(--color-dark-bg)] border border-[var(--color-dark-border)] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00E599] transition-colors h-24">
+                           {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                         </select>
+                       ) : (
+                         <input 
+                            type={field.type === 'number' ? 'number' : 'text'} 
+                            defaultValue={field.defaultValue}
+                            className="w-full bg-[var(--color-dark-bg)] border border-[var(--color-dark-border)] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00E599] transition-colors"
+                         />
+                       )}
+                       {field.type !== 'boolean' && <p className="text-xs text-gray-500 mt-1">{field.description}</p>}
+                     </div>
+                  ))}
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Plugin Configuration Note</label>
+                  <textarea
+                    value={pluginConfigInput}
+                    onChange={(e) => setPluginConfigInput(e.target.value)}
+                    placeholder="Optional route, webhook, or deployment note..."
+                    rows={3}
+                    className="w-full bg-[var(--color-dark-bg)] border border-[var(--color-dark-border)] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00E599] transition-colors"
+                  />
+                </div>
+              )}
             </div>
 
             <button 
               onClick={handleInstallPlugin}
-              disabled={isInstalling || !privateKey}
+              disabled={isInstalling || (pluginDef?.requiresPrivateKey && !privateKey)}
               className="w-full bg-[#00E599] hover:bg-[#00cc88] disabled:opacity-50 text-black py-3 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(0,229,153,0.2)]"
             >
-              {isInstalling ? 'Installing...' : 'Save securely & Deploy'}
+              {isInstalling ? 'Installing...' : 'Save & Deploy'}
             </button>
-            <p className="text-xs text-center text-gray-500 mt-4 flex items-center justify-center gap-1">
-              <Lock className="w-3 h-3" /> Encrypted and stored via the NeoNexus vault layer
-            </p>
+            {pluginDef?.requiresPrivateKey && (
+              <p className="text-xs text-center text-gray-500 mt-4 flex items-center justify-center gap-1">
+                <Lock className="w-3 h-3" /> Encrypted and stored via the NeoNexus vault layer
+              </p>
+            )}
           </div>
         </div>
-      )}
+      );})()}
 
       {pendingConfirmation && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">

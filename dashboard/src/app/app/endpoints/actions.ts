@@ -21,6 +21,7 @@ export async function createEndpointAction(formData: {
   provider: string;
   region: string;
   syncMode: string;
+  initialPlugins?: string[];
 }) {
   try {
     assertDatabaseConfigured();
@@ -82,6 +83,7 @@ export async function createEndpointAction(formData: {
     const providerLabel = formData.type === 'dedicated'
       ? infrastructureSelection.provider
       : 'shared';
+      
     const { endpoint, order } = await prisma.$transaction(async (tx) => {
       const createdEndpoint = await tx.endpoint.create({
         data: {
@@ -129,6 +131,19 @@ export async function createEndpointAction(formData: {
           currentStep: 'pending',
         },
       });
+
+      // Queue initial plugins if specified
+      if (formData.initialPlugins && formData.initialPlugins.length > 0 && formData.type === 'dedicated') {
+        const pluginData = formData.initialPlugins.map(pluginId => ({
+            endpointId: endpoint.id,
+            pluginId,
+            status: 'Pending Apply' as const,
+        }));
+        
+        await tx.nodePlugin.createMany({
+            data: pluginData
+        });
+      }
 
       return { endpoint, order };
     });

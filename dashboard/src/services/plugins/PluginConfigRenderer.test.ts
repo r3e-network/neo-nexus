@@ -38,4 +38,23 @@ describe('PluginConfigRenderer', () => {
     expect(rendered).toContain('"pluginId": "aa-bundler"');
     expect(rendered).toContain('bundlerUrl');
   });
+
+  it('renders official Neo plugin config (RpcServer) mapping configuration accurately', () => {
+    const rendered = renderPluginConfig({
+      pluginId: 'RpcServer',
+      endpointId: 14,
+      secretRefs: [],
+      secretPayloads: {},
+      runtimeImage: 'neo-cli-plugin',
+      configData: {
+        DisabledMethods: ['getversion'],
+        Port: 10332
+      },
+    });
+
+    const parsed = JSON.parse(rendered);
+    expect(parsed.pluginId).toBe('RpcServer');
+    expect(parsed.config.DisabledMethods).toEqual(['getversion']);
+    expect(parsed.config.Port).toBe(10332);
+  });
 });
