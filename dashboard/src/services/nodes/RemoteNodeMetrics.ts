@@ -33,7 +33,7 @@ function buildSshCommand(input: SshInput, remoteCommand: string) {
 export function buildRemoteNodeMetricsCommand(input: SshInput): string {
   const remoteCommand = [
     `docker stats neonexus-node --no-stream --format '{{json .}}' 2>/dev/null || echo '{}'`,
-    `df -B1 /var/lib/neonexus | tail -1 | awk '{print $3\",\"$2}'`,
+    `df -B1 /var/lib/neonexus | tail -1 | awk '{print \\$3","\\$2}'`,
   ].join('; ');
 
   return buildSshCommand(input, remoteCommand);
