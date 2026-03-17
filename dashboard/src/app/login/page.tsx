@@ -12,9 +12,15 @@ function LoginContent() {
   const callbackUrl = searchParams.get('callbackUrl') || '/app';
   const [isLoading, setIsLoading] = useState<string | null>(null);
 
+  const [email, setEmail] = useState('');
+
   const handleLogin = async (provider: string) => {
     setIsLoading(provider);
-    await signIn(provider, { callbackUrl });
+    if (provider === 'credentials') {
+      await signIn('credentials', { email, callbackUrl });
+    } else {
+      await signIn(provider, { callbackUrl });
+    }
   };
 
   return (
@@ -77,12 +83,18 @@ function LoginContent() {
             <label className="block text-sm font-medium text-gray-400 mb-1">Email Address</label>
             <input 
               type="email" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.com" 
               className="w-full bg-[var(--color-dark-bg)] border border-[var(--color-dark-border)] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00E599] transition-colors"
             />
           </div>
-          <button className="w-full bg-[#00E599] hover:bg-[#00cc88] text-black py-3 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(0,229,153,0.2)]">
-            {isSignup ? 'Create Account' : 'Sign In'}
+          <button 
+            onClick={() => handleLogin('credentials')}
+            disabled={!!isLoading || !email}
+            className="w-full bg-[#00E599] hover:bg-[#00cc88] disabled:opacity-50 text-black py-3 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(0,229,153,0.2)]"
+          >
+            {isLoading === 'credentials' ? 'Signing in...' : (isSignup ? 'Create Account' : 'Sign In')}
           </button>
         </div>
       </div>
