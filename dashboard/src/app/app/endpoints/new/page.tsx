@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, ChevronRight, Cloud, HardDrive, Info, Layers, Server, Zap } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ChevronRight, Cloud, HardDrive, Info, Layers, Server, Zap, Cpu, Database, Network } from 'lucide-react';
 import Link from 'next/link';
 import { createEndpointAction } from '../actions';
 import toast from 'react-hot-toast';
@@ -14,11 +14,13 @@ import {
   listSupportedProviders,
   type InfrastructureProvider,
 } from '@/services/infrastructure/ProviderCatalog';
+import { getNodeTemplates, type NodeTemplateId, type NodeTemplate } from '@/services/provisioning/NodeTemplates';
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
 
 const providerOptions = listSupportedProviders();
+const templates = getNodeTemplates();
 
 export default function CreateEndpoint() {
   const router = useRouter();
@@ -26,6 +28,7 @@ export default function CreateEndpoint() {
 
   // Form State
   const [name, setName] = useState('My Node');
+  const [selectedTemplate, setSelectedTemplate] = useState<NodeTemplateId>('rpc');
   const [protocol, setProtocol] = useState<'neo-n3' | 'neo-x'>('neo-n3');
   const [network, setNetwork] = useState('mainnet');
   const [clientEngine, setClientEngine] = useState('neo-go');
@@ -36,13 +39,29 @@ export default function CreateEndpoint() {
 
   const selectedProvider = useMemo(() => getProviderSummary(provider), [provider]);
 
+  const handleTemplateChange = (templateId: NodeTemplateId) => {
+    setSelectedTemplate(templateId);
+    const template = templates.find((t) => t.id === templateId);
+    if (template) {
+      if (template.recommendedEngine === 'neo-cli') {
+        setProtocol('neo-n3');
+        setClientEngine('neo-cli');
+      } else if (template.recommendedEngine === 'neo-go') {
+        setProtocol('neo-n3');
+        setClientEngine('neo-go');
+      }
+    }
+  };
+
   // Ensure valid client engine when protocol changes
   const handleProtocolChange = (newProtocol: 'neo-n3' | 'neo-x') => {
     setProtocol(newProtocol);
     if (newProtocol === 'neo-x') {
       setClientEngine('neo-x-geth');
     } else {
-      setClientEngine('neo-go');
+      // Revert to template default if available, else neo-go
+      const template = templates.find((t) => t.id === selectedTemplate);
+      setClientEngine(template?.recommendedEngine || 'neo-go');
     }
   };
 
@@ -64,6 +83,8 @@ export default function CreateEndpoint() {
     setIsDeploying(true);
     
     try {
+      const template = templates.find((t) => t.id === selectedTemplate);
+      
       const result = await createEndpointAction({
         name,
         protocol,
@@ -72,7 +93,9 @@ export default function CreateEndpoint() {
         clientEngine,
         provider,
         region,
-        syncMode
+        syncMode,
+        // Pass the default plugins from the template if deploying a dedicated N3 node
+        initialPlugins: (protocol === 'neo-n3' && nodeType === 'dedicated') ? template?.defaultPlugins : undefined,
       });
 
       if (result.success) {
@@ -117,10 +140,51 @@ export default function CreateEndpoint() {
             />
           </section>
 
-          {/* Section 0.5: Protocol */}
+          {/* Section 0.25: Template Selection */}
           <section className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">1</div>
+              <h2 className="text-xl font-bold text-white">Select Architecture Template</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {templates.map((template) => (
+                <div 
+                  key={template.id}
+                  onClick={() => handleTemplateChange(template.id)}
+                  className={`group relative cursor-pointer rounded-xl p-5 border-2 transition-all duration-200 flex flex-col ${
+                    selectedTemplate === template.id ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)]'
+                  }`}
+                >
+                  {selectedTemplate === template.id && <CheckCircle2 className="absolute top-4 right-4 w-5 h-5 text-[#00E599]" />}
+                  <div className="flex items-center gap-3 mb-2">
+                    {template.id === 'rpc' && <Network className="w-6 h-6 text-blue-400" />}
+                    {template.id === 'consensus' && <Cpu className="w-6 h-6 text-yellow-400" />}
+                    {template.id === 'oracle' && <Database className="w-6 h-6 text-purple-400" />}
+                    {template.id === 'custom' && <HardDrive className="w-6 h-6 text-gray-400" />}
+                    <h3 className="text-md font-bold text-white">{template.name}</h3>
+                  </div>
+                  <p className="text-xs text-gray-400 leading-relaxed flex-grow">{template.description}</p>
+                  
+                  {template.defaultPlugins.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-[var(--color-dark-border)]">
+                      <p className="text-[10px] uppercase text-gray-500 font-bold mb-2">Included Plugins</p>
+                      <div className="flex flex-wrap gap-2">
+                        {template.defaultPlugins.map(p => (
+                          <span key={p} className="text-[10px] px-2 py-0.5 rounded bg-[#333] text-gray-300">{p}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Section 0.5: Protocol */}
+          <section className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-8 shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">2</div>
               <h2 className="text-xl font-bold text-white">Select Protocol</h2>
             </div>
             
