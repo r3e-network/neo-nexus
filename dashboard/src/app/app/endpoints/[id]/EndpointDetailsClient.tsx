@@ -96,6 +96,8 @@ type NodeSettingsView = {
   websocketEnabled: boolean;
   graphqlEnabled: boolean;
   cacheMb: number | null;
+  envVars?: Record<string, string>;
+  customDockerFlags?: string;
 };
 
 type EndpointActivityView = {
@@ -1166,6 +1168,51 @@ export default function EndpointDetailsClient({
                     Only settings that map to the current managed runtime are exposed here. Advanced engine-specific tuning remains pinned to the bootstrap profile for now.
                   </p>
                 )}
+              </div>
+
+              {/* Advanced Settings */}
+              <div className="pt-6 mt-6 border-t border-[var(--color-dark-border)]">
+                <details className="group">
+                  <summary className="cursor-pointer text-sm font-bold text-gray-400 hover:text-white transition-colors flex items-center gap-2">
+                    Advanced Engine Configuration (Danger Zone)
+                    <span className="text-xs font-normal bg-red-500/20 text-red-400 px-2 py-0.5 rounded">Use with caution</span>
+                  </summary>
+                  <div className="mt-4 space-y-5 animate-in fade-in">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Environment Variables</label>
+                      <textarea 
+                        value={Object.entries(settingsForm.envVars || {}).map(([k, v]) => `${k}=${v}`).join('\n')}
+                        onChange={(e) => {
+                          const lines = e.target.value.split('\n');
+                          const envVars: Record<string, string> = {};
+                          lines.forEach(line => {
+                            const [k, ...v] = line.split('=');
+                            if (k && k.trim()) {
+                              envVars[k.trim()] = v.join('=').trim();
+                            }
+                          });
+                          setSettingsForm((current) => ({ ...current, envVars }));
+                        }}
+                        placeholder="NEO_DEBUG=1&#10;CUSTOM_VAR=value" 
+                        rows={3}
+                        className="w-full bg-[var(--color-dark-bg)] border border-[var(--color-dark-border)] rounded-md px-4 py-2 text-white focus:outline-none focus:border-[#00E599] font-mono text-sm" 
+                      />
+                      <p className="text-xs text-gray-500 mt-1">One per line (KEY=VALUE). Passed to the node container via -e.</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Custom Docker Flags</label>
+                      <input 
+                        type="text" 
+                        value={settingsForm.customDockerFlags || ''} 
+                        onChange={(e) => setSettingsForm((current) => ({ ...current, customDockerFlags: e.target.value }))} 
+                        placeholder="--memory=4g --cpus=2" 
+                        className="w-full bg-[var(--color-dark-bg)] border border-[var(--color-dark-border)] rounded-md px-4 py-2 text-white focus:outline-none focus:border-[#00E599] font-mono text-sm" 
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Appended directly to the docker run command. Can break deployment if malformed.</p>
+                    </div>
+                  </div>
+                </details>
               </div>
 
               <div className="pt-6 mt-6 border-t border-[var(--color-dark-border)]">
