@@ -1316,7 +1316,7 @@ export default function EndpointDetailsClient({
                        <label className="block text-sm font-medium text-gray-400 mb-1">{field.label}</label>
                        {field.type === 'boolean' ? (
                          <div className="flex items-center gap-2">
-                           <input type="checkbox" className="w-4 h-4 rounded border-gray-600 bg-[var(--color-dark-bg)] focus:ring-[#00E599]" defaultChecked={field.defaultValue} />
+                           <input type="checkbox" className="w-4 h-4 rounded border-gray-600 bg-[var(--color-dark-bg)] focus:ring-[#00E599]" defaultChecked={field.defaultValue as boolean | undefined} />
                            <span className="text-xs text-gray-500">{field.description}</span>
                          </div>
                        ) : field.type === 'multiselect' ? (
@@ -1326,7 +1326,7 @@ export default function EndpointDetailsClient({
                        ) : (
                          <input 
                             type={field.type === 'number' ? 'number' : 'text'} 
-                            defaultValue={field.defaultValue}
+                            defaultValue={field.defaultValue as string | number | string[] | undefined}
                             className="w-full bg-[var(--color-dark-bg)] border border-[var(--color-dark-border)] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00E599] transition-colors"
                          />
                        )}
