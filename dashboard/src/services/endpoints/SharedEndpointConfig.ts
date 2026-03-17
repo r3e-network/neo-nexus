@@ -1,4 +1,8 @@
 export function getSharedBackendTarget(protocol: string, networkKey: string) {
+  if (networkKey === 'private') {
+    throw new Error('Private networks are not supported for shared endpoints.');
+  }
+
   const key = protocol === 'neo-x'
     ? (networkKey === 'mainnet' ? 'SHARED_NEO_X_MAINNET_UPSTREAM' : 'SHARED_NEO_X_TESTNET_UPSTREAM')
     : (networkKey === 'mainnet' ? 'SHARED_NEO_N3_MAINNET_UPSTREAM' : 'SHARED_NEO_N3_TESTNET_UPSTREAM');
