@@ -14,10 +14,10 @@ The repository is structured into two main layers:
    - Built with Next.js 16 (App Router), Tailwind CSS, and Framer Motion.
    - Contains both the public Marketing Website (`/(marketing)`) and the authenticated Control Console (`/app`).
    - Connected to **Neon Serverless Postgres** via Prisma ORM and NextAuth.
-   - Includes: Endpoint creation wizard, real-time Analytics (SWR), Firewall security settings, and Marketplace add-ons.
+   - Includes: Endpoint creation wizard, real-time Analytics, Firewall security settings, and a managed plugin catalog for dedicated nodes.
 
 2. **`/infrastructure` (DevOps & Control Plane)**
-   - **Helm Charts (`/helm`)**: Production-ready Kubernetes manifests to deploy `neo-go`, `neo-cli`, and `neo-x-geth` stateful nodes with persistent volumes.
+   - **Helm Charts (`/helm`)**: Optional shared-service and observability assets for cluster-based experiments or APISIX/monitoring deployments.
    - **Database (`/database`)**: Complete PostgreSQL schema.
    - **Docker (`/docker`)**: Local observability stack (neo-go + Prometheus + Grafana) for testing metrics.
 
@@ -53,9 +53,12 @@ docker-compose up -d
 ## 🛠️ Infrastructure Capabilities
 
 * **Dual-Engine Support**: Choose between the lightning-fast `neo-go` or the official reference `neo-cli` (C#).
-* **Multi-Cloud Readiness**: Helm values configured to support mapping onto AWS (EKS) and Google Cloud (GKE) storage classes.
+* **Provider Strategy**: Dedicated nodes are provisioned as VMs with Hetzner as the primary provider and DigitalOcean as the fallback provider.
+* **Shared Endpoint Strategy**: Shared endpoints route through configured upstream node pools via APISIX.
+* **Provisioning Lifecycle**: Node orders move through an explicit async lifecycle (`pending -> vm_creating -> software_installing -> syncing -> ready/failed`) so users can track progress while infrastructure is built in the background.
 * **Sync Modes**: Provisions both lightweight Full nodes (RPC) and deep Archive nodes for indexers.
-* **Marketplace Integrations**: Architected to support sidecar containers for Phala TEE Oracles and Account Abstraction Bundlers.
+* **Managed Plugin Runtime**: Dedicated nodes support managed plugin configuration, remote sync, runtime status, and plugin logs.
+* **Operator Access Bootstrap**: Platform-wide Operations surfaces can be bootstrapped with `OPERATOR_EMAILS`, with database-backed `User.role` support available for persistent role assignment.
 
 ## ⚠️ Current Gaps
 

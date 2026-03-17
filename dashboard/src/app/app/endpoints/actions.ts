@@ -2,9 +2,11 @@
 
 import { prisma } from '@/utils/prisma';
 import { revalidatePath } from 'next/cache';
-import { KubernetesDeployer, DeploymentConfig } from '@/services/KubernetesDeployer';
-import { ApisixService } from '@/services/apisix/ApisixService';
 import { getErrorMessage } from '@/server/errors';
+import { resolveInfrastructureSelection } from '@/services/infrastructure/ProviderCatalog';
+import { buildPlannedEndpointAddress } from '@/services/endpoints/EndpointAddressing';
+import { getSharedBackendTarget } from '@/services/endpoints/SharedEndpointConfig';
+import { kickoffProvisioningOrder } from '@/services/provisioning/ProvisioningRunner';
 import {
   assertDatabaseConfigured,
   requireCurrentOrganizationContext,
@@ -58,30 +60,15 @@ export async function createEndpointAction(formData: {
     }
   }
 
-  // 1. Simulate Control Plane Deployment
-  const k8sConfig: DeploymentConfig = {
-    name: formData.name,
-    protocol: formData.protocol as 'neo-n3' | 'neo-x',
-    network: formData.network as 'mainnet' | 'testnet' | 'private',
-    type: formData.type as 'shared' | 'dedicated',
-    clientEngine: formData.clientEngine as 'neo-go' | 'neo-cli' | 'neo-x-geth',
-    provider: formData.provider as 'aws' | 'gcp' | 'digitalocean',
-    region: formData.region,
-    syncMode: formData.syncMode as 'full' | 'archive'
-  };
+  const infrastructureSelection = resolveInfrastructureSelection(formData.provider, formData.region);
 
-  const k8sResult = await KubernetesDeployer.deployNode(k8sConfig);
-
-  if (!k8sResult.success) {
-    return { success: false, error: 'Control Plane failed to schedule deployment on Kubernetes cluster. ' + (k8sResult.error || '') };
+  if (formData.type === 'shared') {
+    try {
+      getSharedBackendTarget(formData.protocol, formData.network);
+    } catch (error) {
+      return { success: false, error: getErrorMessage(error) };
+    }
   }
-
-  // 2. Persist to Database
-  // Generate a realistic routing URL
-  const randomId = Math.random().toString(36).substring(2, 8);
-  const url = formData.type === 'dedicated' 
-    ? `https://node-${formData.region}-${randomId}.neonexus.cloud/v1`
-    : `https://${formData.network}.neonexus.cloud/v1/${randomId}`;
 
   try {
     let networkString = formData.protocol === 'neo-x' 
@@ -92,29 +79,64 @@ export async function createEndpointAction(formData: {
         networkString = formData.protocol === 'neo-x' ? 'Neo X Private Net' : 'Neo N3 Private Net';
     }
 
-    const endpoint = await prisma.endpoint.create({
-      data: {
-        name: formData.name,
-        network: networkString,
-        type: formData.type.charAt(0).toUpperCase() + formData.type.slice(1),
-        clientEngine: formData.clientEngine,
-        cloudProvider: formData.type === 'dedicated' ? formData.provider : null,
-        region: formData.type === 'dedicated' ? formData.region : null,
-        url: url,
-        status: 'Syncing', // Starts in syncing state
-        requests: 0,
-        k8sNamespace: k8sResult.namespace,
-        k8sDeploymentName: k8sResult.releaseName,
-        organizationId: orgId
-      }
+    const providerLabel = formData.type === 'dedicated'
+      ? infrastructureSelection.provider
+      : 'shared';
+    const { endpoint, order } = await prisma.$transaction(async (tx) => {
+      const createdEndpoint = await tx.endpoint.create({
+        data: {
+          name: formData.name,
+          protocol: formData.protocol,
+          networkKey: formData.network,
+          network: networkString,
+          type: formData.type.charAt(0).toUpperCase() + formData.type.slice(1),
+          clientEngine: formData.clientEngine,
+          syncMode: formData.syncMode,
+          cloudProvider: formData.type === 'dedicated' ? infrastructureSelection.provider : null,
+          providerServerId: null,
+          region: formData.type === 'dedicated' ? infrastructureSelection.region : null,
+          url: 'pending://route-assignment',
+          wssUrl: null,
+          providerPublicIp: null,
+          status: formData.type === 'dedicated' ? 'Provisioning' : 'Syncing',
+          requests: 0,
+          organizationId: orgId,
+        },
+      });
+
+      const plannedAddress = buildPlannedEndpointAddress({
+        type: formData.type as 'shared' | 'dedicated',
+        protocol: formData.protocol as 'neo-n3' | 'neo-x',
+        networkKey: formData.network as 'mainnet' | 'testnet' | 'private',
+        region: formData.type === 'dedicated' ? infrastructureSelection.region : null,
+        routeKey: String(createdEndpoint.id),
+      });
+
+      const endpoint = await tx.endpoint.update({
+        where: { id: createdEndpoint.id },
+        data: {
+          url: plannedAddress.httpsUrl,
+          wssUrl: plannedAddress.wssUrl,
+        },
+      });
+
+      const order = await tx.provisioningOrder.create({
+        data: {
+          organizationId: orgId,
+          endpointId: endpoint.id,
+          provider: providerLabel,
+          status: 'pending',
+          currentStep: 'pending',
+        },
+      });
+
+      return { endpoint, order };
     });
 
-    // 3. Register route with APISIX Gateway
-    const internalHost = `${k8sResult.releaseName}.${k8sResult.namespace}.svc.cluster.local`;
-    await ApisixService.createRoute(randomId, internalHost, formData.protocol === 'neo-x' ? 8545 : 10332);
+    await kickoffProvisioningOrder(order.id);
 
     revalidatePath('/app/endpoints');
-    return { success: true, id: endpoint.id };
+    return { success: true, id: endpoint.id, orderId: order.id };
   } catch (error) {
     console.error('Error creating endpoint:', error);
     return { success: false, error: getErrorMessage(error) };

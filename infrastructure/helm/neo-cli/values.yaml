@@ -22,7 +22,7 @@ resources:
 persistence:
   enabled: true
   size: 200Gi
-  storageClass: "gp3"
+  storageClass: "hcloud-volumes"
 
 snapshot:
   enabled: true

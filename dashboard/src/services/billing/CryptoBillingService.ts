@@ -41,7 +41,7 @@ function parseGasAmountToAtomic(value: string): bigint {
   return BigInt(whole) * GAS_FACTOR + BigInt(paddedFraction);
 }
 
-function formatAtomicGasAmount(amountAtomic: bigint): string {
+export function formatAtomicGasAmount(amountAtomic: bigint): string {
   const whole = amountAtomic / GAS_FACTOR;
   const fraction = amountAtomic % GAS_FACTOR;
 

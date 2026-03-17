@@ -17,7 +17,7 @@ export async function GET() {
     return NextResponse.json(EMPTY_ANALYTICS_SNAPSHOT);
   }
 
-  const [endpoints, apiKeys, plugins] = await Promise.all([
+  const [endpoints, apiKeys, plugins, activities] = await Promise.all([
     prisma.endpoint.findMany({
       where: { organizationId: userContext.organizationId },
       select: {
@@ -51,6 +51,23 @@ export async function GET() {
         createdAt: true,
       },
     }),
+    prisma.endpointActivity.findMany({
+      where: {
+        endpoint: {
+          organizationId: userContext.organizationId,
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: {
+        id: true,
+        category: true,
+        action: true,
+        status: true,
+        message: true,
+        createdAt: true,
+      },
+    }),
   ]);
 
   return NextResponse.json(
@@ -58,6 +75,7 @@ export async function GET() {
       endpoints,
       apiKeys,
       plugins,
+      activities,
     }),
   );
 }

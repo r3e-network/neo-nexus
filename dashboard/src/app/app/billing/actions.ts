@@ -27,8 +27,23 @@ function isPlausibleTransactionHash(txHash: string): boolean {
 }
 
 export async function upgradePlanAction(plan: 'growth' | 'dedicated') {
+  assertDatabaseConfigured();
   const { organizationId } = await requireCurrentOrganizationContext();
   const baseUrl = getAppBaseUrl();
+
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { stripeCustomerId: true },
+  });
+
+  if (organization?.stripeCustomerId) {
+    const { url } = await StripeService.createBillingPortalSession(
+      organization.stripeCustomerId,
+      `${baseUrl}/app/billing`,
+    );
+
+    redirect(url);
+  }
 
   const { url } = await StripeService.createCheckoutSession(
     organizationId,
@@ -38,6 +53,37 @@ export async function upgradePlanAction(plan: 'growth' | 'dedicated') {
   );
 
   redirect(url);
+}
+
+export async function openBillingPortalAction() {
+  try {
+    assertDatabaseConfigured();
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+
+  try {
+    const { organizationId } = await requireCurrentOrganizationContext();
+    const baseUrl = getAppBaseUrl();
+
+    const organization = await prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { stripeCustomerId: true },
+    });
+
+    if (!organization?.stripeCustomerId) {
+      return { success: false, error: 'Stripe billing portal is available after a card-backed subscription is created.' };
+    }
+
+    const { url } = await StripeService.createBillingPortalSession(
+      organization.stripeCustomerId,
+      `${baseUrl}/app/billing`,
+    );
+
+    redirect(url);
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
 }
 
 export async function verifyCryptoPaymentAction(plan: 'growth' | 'dedicated', txHash: string) {
@@ -67,8 +113,6 @@ export async function verifyCryptoPaymentAction(plan: 'growth' | 'dedicated', tx
       return { success: false, error: 'This transaction hash has already been used.' };
     }
 
-    console.log(`[Crypto Billing] Verifying TX ${normalizedTxHash} for plan ${plan}...`);
-
     const verification = await verifyCryptoTransferOnChain(normalizedTxHash, plan);
 
     await prisma.$transaction([
@@ -86,7 +130,6 @@ export async function verifyCryptoPaymentAction(plan: 'growth' | 'dedicated', tx
       }),
     ]);
 
-    console.log(`[Crypto Billing] Organization ${organizationId} upgraded to ${plan} via Web3 payment.`);
     return { success: true };
   } catch (error) {
     console.error('Crypto verification failed:', error);

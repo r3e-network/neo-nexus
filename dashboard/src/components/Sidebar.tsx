@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Server, BarChart3, Puzzle, Shield, CreditCard } from 'lucide-react';
+import { LayoutDashboard, Server, BarChart3, Puzzle, Shield, CreditCard, Wrench } from 'lucide-react';
 
-const navigation = [
+const baseNavigation = [
   { name: 'Overview', href: '/app', icon: LayoutDashboard },
   { name: 'Endpoints', href: '/app/endpoints', icon: Server },
   { name: 'Analytics', href: '/app/analytics', icon: BarChart3 },
@@ -13,8 +13,15 @@ const navigation = [
   { name: 'Billing', href: '/app/billing', icon: CreditCard },
 ];
 
-export default function Sidebar() {
+type SidebarProps = {
+  showOperations: boolean;
+};
+
+export default function Sidebar({ showOperations }: SidebarProps) {
   const pathname = usePathname();
+  const navigation = showOperations
+    ? [...baseNavigation, { name: 'Operations', href: '/app/operations', icon: Wrench }]
+    : baseNavigation;
 
   return (
     <div className="flex h-screen w-64 flex-col bg-[var(--color-dark-panel)] border-r border-[var(--color-dark-border)] shrink-0">
@@ -26,7 +33,7 @@ export default function Sidebar() {
       </div>
       <nav className="flex flex-1 flex-col px-4 py-6 space-y-2">
         {navigation.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
               key={item.name}

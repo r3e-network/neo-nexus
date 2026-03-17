@@ -4,6 +4,7 @@ import type { Provider } from 'next-auth/providers';
 import GithubProvider from 'next-auth/providers/github';
 import GoogleProvider from 'next-auth/providers/google';
 import { isDatabaseConfigured } from '@/server/organization';
+import { getConfiguredOperatorEmails, resolveUserRole } from '@/server/userRoles';
 import { prisma } from '@/utils/prisma';
 
 const providers: Provider[] = [];
@@ -34,18 +35,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   callbacks: {
     async jwt({ token, user }) {
+      const operatorEmails = getConfiguredOperatorEmails();
+      const tokenEmail = typeof token.email === 'string' ? token.email : null;
+      const tokenRole = typeof token.role === 'string' ? token.role : null;
+
       if (user?.id) {
+        const userRole = typeof user.role === 'string' ? user.role : null;
         token.id = user.id;
         token.organizationId = user.organizationId ?? token.organizationId ?? null;
+        token.role = resolveUserRole({
+          role: userRole ?? tokenRole,
+          email: user.email ?? tokenEmail,
+          operatorEmails,
+        });
 
         if (isDatabaseConfigured()) {
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
-            select: { organizationId: true },
+            select: { organizationId: true, role: true, email: true },
           });
 
-          if (dbUser?.organizationId) {
-            token.organizationId = dbUser.organizationId;
+          if (dbUser) {
+            token.organizationId = dbUser.organizationId ?? null;
+            token.role = resolveUserRole({
+              role: dbUser.role,
+              email: dbUser.email ?? user.email ?? tokenEmail,
+              operatorEmails,
+            });
           }
         }
       }
@@ -56,6 +72,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token && session.user && token.id) {
         session.user.id = token.id as string;
         session.user.organizationId = typeof token.organizationId === 'string' ? token.organizationId : null;
+        session.user.role = typeof token.role === 'string' ? token.role : 'member';
       }
 
       return session;

@@ -18,10 +18,10 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-bold mb-4">Products</h4>
             <ul className="space-y-3 text-sm text-gray-400">
-              <li><Link href="#" className="hover:text-[#00E599] transition-colors">Elastic Nodes</Link></li>
-              <li><Link href="#" className="hover:text-[#00E599] transition-colors">Dedicated Nodes</Link></li>
-              <li><Link href="#" className="hover:text-[#00E599] transition-colors">Marketplace</Link></li>
-              <li><Link href="#" className="hover:text-[#00E599] transition-colors">Enterprise</Link></li>
+              <li><Link href="/pricing" className="hover:text-[#00E599] transition-colors">Shared Endpoints</Link></li>
+              <li><Link href="/pricing" className="hover:text-[#00E599] transition-colors">Dedicated Nodes</Link></li>
+              <li><Link href="/developers" className="hover:text-[#00E599] transition-colors">Managed Plugins</Link></li>
+              <li><Link href="/pricing" className="hover:text-[#00E599] transition-colors">Enterprise</Link></li>
             </ul>
           </div>
 
@@ -29,9 +29,9 @@ export default function Footer() {
             <h4 className="text-white font-bold mb-4">Developers</h4>
             <ul className="space-y-3 text-sm text-gray-400">
               <li><Link href="/docs" className="hover:text-[#00E599] transition-colors">Documentation</Link></li>
-              <li><Link href="/developers" className="hover:text-[#00E599] transition-colors">API Reference</Link></li>
-              <li><Link href="#" className="hover:text-[#00E599] transition-colors">Tutorials</Link></li>
-              <li><Link href="#" className="hover:text-[#00E599] transition-colors">GitHub</Link></li>
+              <li><Link href="/developers" className="hover:text-[#00E599] transition-colors">Developer Hub</Link></li>
+              <li><Link href="/docs" className="hover:text-[#00E599] transition-colors">Tutorials</Link></li>
+              <li><a href="https://github.com/r3e-network/neonexus" target="_blank" rel="noreferrer" className="hover:text-[#00E599] transition-colors">GitHub</a></li>
             </ul>
           </div>
 
@@ -39,9 +39,9 @@ export default function Footer() {
             <h4 className="text-white font-bold mb-4">Company</h4>
             <ul className="space-y-3 text-sm text-gray-400">
               <li><Link href="/pricing" className="hover:text-[#00E599] transition-colors">Pricing</Link></li>
-              <li><Link href="#" className="hover:text-[#00E599] transition-colors">About</Link></li>
-              <li><Link href="#" className="hover:text-[#00E599] transition-colors">Blog</Link></li>
-              <li><Link href="#" className="hover:text-[#00E599] transition-colors">Careers</Link></li>
+              <li><Link href="/" className="hover:text-[#00E599] transition-colors">About</Link></li>
+              <li><span className="text-gray-600">Blog (Soon)</span></li>
+              <li><span className="text-gray-600">Careers (Soon)</span></li>
             </ul>
           </div>
         </div>
@@ -49,9 +49,9 @@ export default function Footer() {
         <div className="flex flex-col md:flex-row items-center justify-between pt-8 border-t border-white/10 text-xs text-gray-500">
           <p>© {new Date().getFullYear()} NeoNexus Inc. All rights reserved.</p>
           <div className="flex gap-6 mt-4 md:mt-0">
-            <Link href="#" className="hover:text-white transition-colors">Privacy Policy</Link>
-            <Link href="#" className="hover:text-white transition-colors">Terms of Service</Link>
-            <Link href="#" className="hover:text-white transition-colors">Cookie Policy</Link>
+            <span className="text-gray-600">Privacy Policy (Soon)</span>
+            <span className="text-gray-600">Terms of Service (Soon)</span>
+            <span className="text-gray-600">Cookie Policy (Soon)</span>
           </div>
         </div>
       </div>

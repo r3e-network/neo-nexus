@@ -1,33 +1,41 @@
-# Infrastructure Deployment Guide (Kubernetes)
+# Infrastructure Deployment Guide (Control Plane)
 
-This guide covers deploying the backend "Control Plane" of NeoNexus. This is where the actual Neo N3 and Neo X blockchain nodes run.
+This guide covers deploying the backend control-plane services that support NeoNexus.
 
-## 1. Provision a Kubernetes Cluster
+NeoNexus now uses a VM-first dedicated-node architecture:
+- **Hetzner** is the primary dedicated-node provider
+- **DigitalOcean** is the fallback dedicated-node provider
+- **APISIX** fronts both dedicated-node traffic and shared-node upstreams
 
-You must use a managed Kubernetes service that supports fast block storage provisioning.
+## 1. Provision the control plane
 
-### Recommended: AWS EKS
-1. Create an EKS cluster (version 1.28+).
-2. Create a managed Node Group.
-   - Instance Type: `m6i.xlarge` or `m6a.xlarge` (At least 4 vCPUs, 16GB RAM). Neo X (EVM) nodes are especially resource-intensive.
-   - *Blockchain nodes are CPU and I/O intensive.*
-3. Ensure the AWS EBS CSI Driver add-on is installed on your cluster (required for `gp3` persistent volumes).
+1. Run APISIX and monitoring on a small control-plane environment. Kubernetes is one supported option, but it is only for shared services such as APISIX, Prometheus, and Grafana.
+2. Prepare provider API credentials for:
+   - `HETZNER_API_TOKEN`
+   - `DIGITALOCEAN_API_TOKEN`
+3. Prepare shared upstream targets for free/shared endpoints:
+   - `SHARED_NEO_N3_MAINNET_UPSTREAM`
+   - `SHARED_NEO_N3_TESTNET_UPSTREAM`
+   - `SHARED_NEO_X_MAINNET_UPSTREAM`
+   - `SHARED_NEO_X_TESTNET_UPSTREAM`
 
-## 2. Initialize the Cluster
+## 2. (Optional) Bootstrap a Kubernetes control-plane cluster
 
-We have provided a bootstrap script that installs Helm, Apache APISIX (API Gateway), and the Prometheus Observability stack.
+If you choose Kubernetes for APISIX and monitoring, use the provided bootstrap script. This script does not provision dedicated customer nodes. Dedicated nodes are still created directly as VMs through Hetzner or DigitalOcean.
 
-1. Configure your local `kubectl` to point to your new EKS cluster.
+1. Configure your local `kubectl` to point to the control-plane cluster.
 2. Run the setup script from the root of this repository:
 
 ```bash
-chmod +x infrastructure/scripts/setup_k8s.sh
-./infrastructure/scripts/setup_k8s.sh
+chmod +x scripts/setup_k8s.sh
+CLUSTER_PROVIDER=hetzner ./scripts/setup_k8s.sh
 ```
+
+Use `CLUSTER_PROVIDER=digitalocean` when the control-plane cluster runs on DigitalOcean. The provider flag only affects storage defaults for the control-plane services, not dedicated-node VM provisioning.
 
 ### What this script does:
 - Creates `ingress-apisix` namespace and deploys the API gateway.
-- Creates a high-performance `gp3` StorageClass.
+- Applies a provider-aware storage profile for the control-plane cluster.
 - Creates `monitoring` namespace and deploys Grafana & Prometheus.
 
 ## 3. Configure APISIX Load Balancer
@@ -36,34 +44,25 @@ chmod +x infrastructure/scripts/setup_k8s.sh
    ```bash
    kubectl get svc -n ingress-apisix apisix-gateway
    ```
-2. Note the `EXTERNAL-IP` (an AWS ELB address).
-3. In your DNS provider (e.g., Route53, Cloudflare), create a wildcard CNAME record pointing to this Load Balancer:
-   - `*.node.neonexus.cloud` -> `[EXTERNAL-IP]`
-   - `mainnet.neonexus.cloud` -> `[EXTERNAL-IP]`
+2. Note the `EXTERNAL-IP`.
+3. In your DNS provider, create records that cover both generated dedicated-node hosts and shared endpoint hosts:
+   - `*.neonexus.cloud` -> `[EXTERNAL-IP]`
+   - or an equivalent wildcard / delegated subdomain strategy that covers hostnames such as `node-fsn1-42.neonexus.cloud` and `mainnet.neonexus.cloud`
 
-## 4. Connect the Dashboard to the Cluster
+## 4. Connect the Dashboard to the control plane
 
-For the Vercel-hosted Dashboard to deploy nodes to your private EKS cluster, it needs authentication.
+1. Expose the APISIX admin endpoint securely.
+2. Configure the dashboard environment with:
+   - `APISIX_ADMIN_URL`
+   - `APISIX_ADMIN_KEY`
+   - `HETZNER_API_TOKEN`
+   - `DIGITALOCEAN_API_TOKEN`
+3. Configure the shared upstream targets used by the free/shared endpoint tier.
+4. Configure `ENDPOINT_ROOT_DOMAIN` if you are not using `neonexus.cloud` for generated public endpoint hostnames.
 
-Because Vercel functions run statelessly on Edge/Serverless environments, the `@kubernetes/client-node` library needs the raw Kubeconfig.
+## 5. (Optional) Helm Chart Validation
 
-1. Base64 encode your `~/.kube/config` file:
-   ```bash
-   cat ~/.kube/config | base64 | tr -d '\n'
-   ```
-2. Go to your Vercel Dashboard project settings -> Environment Variables.
-3. Add a new variable:
-   - Key: `KUBECONFIG_BASE64`
-   - Value: *(The base64 string from step 1)*
-4. Retrieve the internal APISIX Admin IP (or expose it securely) and add:
-   - Key: `APISIX_ADMIN_URL`
-   - Value: `http://[APISIX-ADMIN-IP]:9180/apisix/admin`
-   - Key: `APISIX_ADMIN_KEY`
-   - Value: `***REMOVED***` (Default from script, change in production).
-
-## 5. (Optional) Manual Helm Deployment Test
-
-You can test the deployment mechanism manually by using the provided Helm charts for Neo N3 (`neo-go` / `neo-cli`) or Neo X (`neo-x`).
+The Helm charts under `/infrastructure/helm` remain useful for validating shared-service or experimental cluster deployments. They are not the primary dedicated-node runtime path anymore.
 
 ```bash
 # Create a test namespace

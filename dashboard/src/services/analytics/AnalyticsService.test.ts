@@ -28,6 +28,7 @@ describe('AnalyticsService', () => {
       plugins: [
         { id: 9, pluginId: 'tee-oracle', endpointId: 1, status: 'Active', createdAt: new Date('2025-03-13T08:00:00Z') },
       ],
+      activities: [],
     });
 
     expect(snapshot.stats.totalRequests).toBe('1.5K');
@@ -37,5 +38,32 @@ describe('AnalyticsService', () => {
     expect(snapshot.endpointUsageData[0]).toMatchObject({ name: 'Mainnet RPC', requests: 1200 });
     expect(snapshot.networkData[0]).toMatchObject({ name: 'N3 Mainnet', requests: 1500, endpoints: 2 });
     expect(snapshot.recentEvents[0]?.category).toBe('Plugin');
+  });
+
+  it('prefers persisted endpoint activities for recent events when available', () => {
+    const snapshot = buildAnalyticsSnapshot({
+      endpoints: [],
+      apiKeys: [],
+      plugins: [],
+      activities: [
+        {
+          id: 44,
+          category: 'plugin',
+          action: 'install',
+          status: 'success',
+          message: 'TEE Oracle applied on the managed node.',
+          createdAt: new Date('2025-03-13T08:00:00Z'),
+        },
+      ],
+    });
+
+    expect(snapshot.recentEvents).toEqual([
+      {
+        time: '2025-03-13T08:00:00.000Z',
+        category: 'Plugin',
+        detail: 'TEE Oracle applied on the managed node.',
+        status: 'success',
+      },
+    ]);
   });
 });

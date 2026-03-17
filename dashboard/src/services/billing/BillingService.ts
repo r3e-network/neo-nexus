@@ -2,6 +2,8 @@
  * Infrastructure Billing & Usage Calculation Service
  */
 
+import type { InfrastructureProvider } from '@/services/infrastructure/ProviderCatalog';
+
 export class BillingService {
     /**
      * Calculates the projected monthly cost for a node deployment
@@ -10,20 +12,19 @@ export class BillingService {
         type: string;
         syncMode: string;
         plugins: string[];
+        provider?: InfrastructureProvider;
     }): number {
         let cost = 0;
+        const provider = params.provider ?? 'hetzner';
 
-        // Base Type Cost
         if (params.type.toLowerCase() === 'dedicated') {
-            cost += 99; // Base dedicated server
+            cost += provider === 'hetzner' ? 79 : 99;
         }
 
-        // Storage/Sync Cost
         if (params.syncMode.toLowerCase() === 'archive') {
-            cost += 50; // Premium SSD storage for 2TB+ archive
+            cost += 50;
         }
 
-        // Plugin Costs
         params.plugins.forEach(plugin => {
             switch(plugin) {
                 case 'aa-bundler':

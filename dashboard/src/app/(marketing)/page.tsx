@@ -23,12 +23,12 @@ export default function Home() {
           </h1>
           
           <p className="text-lg md:text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Fast, scalable, and reliable RPC endpoints, dedicated nodes, and enterprise-grade APIs. Build your next DApp on Neo with zero devops.
+            Fast, scalable, and reliable RPC endpoints, managed dedicated nodes, and enterprise-grade APIs. Build on Neo without operating your own node fleet.
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/login?signup=true" className="w-full sm:w-auto bg-[#00E599] hover:bg-[#00cc88] text-black px-8 py-4 rounded-xl font-bold transition-all hover:shadow-[0_0_20px_rgba(0,229,153,0.4)] text-lg">
-              Deploy a Node for Free
+              Start Free
             </Link>
             <Link href="/docs" className="w-full sm:w-auto bg-[var(--color-dark-panel)] hover:bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] text-white px-8 py-4 rounded-xl font-bold transition-colors text-lg flex items-center justify-center gap-2">
               Read Docs
@@ -43,20 +43,20 @@ export default function Home() {
           <p className="text-center text-sm font-bold text-gray-500 uppercase tracking-widest mb-8">Trusted by the Neo Ecosystem</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center divide-x divide-white/5">
             <div>
-              <div className="text-4xl font-bold text-white mb-2">99.99%</div>
-              <div className="text-sm text-gray-400">Uptime SLA</div>
+              <div className="text-4xl font-bold text-white mb-2">2</div>
+              <div className="text-sm text-gray-400">Endpoint Modes</div>
             </div>
             <div>
-              <div className="text-4xl font-bold text-white mb-2">50ms</div>
-              <div className="text-sm text-gray-400">Global Latency</div>
-            </div>
-            <div>
-              <div className="text-4xl font-bold text-white mb-2">1B+</div>
-              <div className="text-sm text-gray-400">Requests Served</div>
+              <div className="text-4xl font-bold text-white mb-2">2</div>
+              <div className="text-sm text-gray-400">VM Providers</div>
             </div>
             <div>
               <div className="text-4xl font-bold text-white mb-2">3</div>
-              <div className="text-sm text-gray-400">Global Regions</div>
+              <div className="text-sm text-gray-400">Managed Plugins</div>
+            </div>
+            <div>
+              <div className="text-4xl font-bold text-white mb-2">2</div>
+              <div className="text-sm text-gray-400">Neo Protocol Families</div>
             </div>
           </div>
         </div>
@@ -67,7 +67,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center max-w-3xl mx-auto mb-20">
             <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">Everything you need to build on Neo</h2>
-            <p className="text-gray-400 text-lg">From free shared endpoints for rapid prototyping to custom K8s-deployed dedicated nodes for enterprise scale.</p>
+            <p className="text-gray-400 text-lg">From free shared endpoints for rapid prototyping to managed dedicated VMs for isolated production workloads.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -93,7 +93,7 @@ export default function Home() {
               </div>
               <h3 className="text-xl font-bold text-white mb-3">Dedicated Nodes</h3>
               <p className="text-gray-400 leading-relaxed mb-6">
-                Your private Neo instance on AWS or GCP. Zero rate limits, max performance, and complete control over client engine (neo-go/neo-cli).
+                Your private Neo instance on a managed VM footprint with Hetzner as primary and DigitalOcean as fallback. Isolated capacity, custom client engine selection, and managed lifecycle operations.
               </p>
               <Link href="/pricing" className="text-blue-400 font-medium flex items-center gap-1 hover:gap-2 transition-all">
                 View dedicated plans <ArrowRight className="w-4 h-4" />
@@ -105,9 +105,9 @@ export default function Home() {
               <div className="w-14 h-14 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Blocks className="w-7 h-7" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-3">Marketplace Add-ons</h3>
+              <h3 className="text-xl font-bold text-white mb-3">Managed Plugins</h3>
               <p className="text-gray-400 leading-relaxed mb-6">
-                One-click install advanced capabilities: Phala TEE Oracles, Native Account Abstraction Bundlers, and high-speed Token Indexers.
+                Browse the supported plugin catalog and configure advanced capabilities from each dedicated node: TEE privacy services, AA bundlers, and protected mempool routing.
               </p>
               <Link href="/developers" className="text-purple-400 font-medium flex items-center gap-1 hover:gap-2 transition-all">
                 Explore add-ons <ArrowRight className="w-4 h-4" />
@@ -134,7 +134,7 @@ export default function Home() {
             <ul className="space-y-4 mb-8">
               {[
                 'Real-time metrics and historical analytics',
-                'Advanced IP and Method firewall',
+                'Advanced IP allowlists and JSON-RPC method firewall controls',
                 'Direct WSS (WebSocket) support',
                 'Seamless integration with Neo dAPI'
               ].map((item, i) => (
@@ -189,7 +189,7 @@ async function getBlockCount() {
       <section className="py-32 relative">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">Ready to scale on Neo?</h2>
-          <p className="text-xl text-gray-400 mb-10">Join the best teams building the future of the Neo ecosystem. Deploy your infrastructure in seconds.</p>
+          <p className="text-xl text-gray-400 mb-10">Join the teams building on the Neo ecosystem. Start provisioning your infrastructure from the managed control plane.</p>
           <Link href="/login?signup=true" className="bg-white text-black hover:bg-gray-200 px-10 py-5 rounded-full font-bold text-lg transition-colors shadow-xl">
             Create Free Account
           </Link>

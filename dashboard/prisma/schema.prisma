@@ -42,6 +42,7 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
+  role          String    @default("member")
   accounts      Account[]
   sessions      Session[]
   
@@ -68,24 +69,42 @@ model Organization {
   
   users              User[]
   endpoints          Endpoint[]
+  firewalls          Firewall[]
   apiKeys            ApiKey[]
   billingTransactions BillingTransaction[]
+  provisioningOrders ProvisioningOrder[]
+}
+
+model ReconcileRun {
+  id                        Int      @id @default(autoincrement())
+  source                    String   @default("manual")
+  status                    String
+  provisioningChecked       Int
+  provisioningResumed       Int
+  alertingEndpointsEvaluated Int
+  metadata                  Json?
+  errorMessage              String?
+  createdAt                 DateTime @default(now())
 }
 
 model Endpoint {
   id                Int       @id @default(autoincrement())
   organizationId    String?
   name              String
+  protocol          String    @default("neo-n3")
+  networkKey        String    @default("mainnet")
   network           String
   type              String
   clientEngine      String    @default("neo-go")
+  syncMode          String    @default("full")
+  settings          Json?
   url               String
   wssUrl            String?
+  providerPublicIp  String?
   status            String    @default("Syncing")
   requests          Int       @default(0)
-  k8sNamespace      String?
-  k8sDeploymentName String?
   cloudProvider     String?
+  providerServerId  String?
   region            String?
   createdAt         DateTime  @default(now())
   organization      Organization? @relation(fields: [organizationId], references: [id])
@@ -93,6 +112,22 @@ model Endpoint {
   plugins           NodePlugin[]
   secrets           NodeSecret[]
   alertRules        AlertRule[]
+  alertIncidents    AlertIncident[]
+  deliveryAttempts  AlertDeliveryAttempt[]
+  activities        EndpointActivity[]
+  provisioningOrders ProvisioningOrder[]
+}
+
+model EndpointActivity {
+  id         Int       @id @default(autoincrement())
+  endpointId Int
+  category   String
+  action     String
+  status     String
+  message    String
+  metadata   Json?
+  createdAt  DateTime  @default(now())
+  endpoint   Endpoint  @relation(fields: [endpointId], references: [id], onDelete: Cascade)
 }
 
 model NodePlugin {
@@ -100,6 +135,9 @@ model NodePlugin {
   endpointId  Int
   pluginId    String    // e.g., "aa-bundler", "tee-oracle", "oracleService"
   status      String    @default("Installing") // Installing, Active, Error
+  errorMessage String?
+  lastAppliedAt DateTime?
+  updatedAt   DateTime  @updatedAt
   config      Json?     // Store plugin-specific configuration like wallet addresses
   createdAt   DateTime  @default(now())
   endpoint    Endpoint  @relation(fields: [endpointId], references: [id], onDelete: Cascade)
@@ -126,8 +164,45 @@ model AlertRule {
   actionType  String    // e.g., "email", "webhook"
   target      String    // Email address or Webhook URL
   isActive    Boolean   @default(true)
+  deliveryAttemptCount Int @default(0)
+  nextDeliveryAt DateTime?
+  snoozedUntil DateTime?
+  lastTriggeredAt DateTime?
+  lastDeliveredAt DateTime?
+  lastResolvedAt DateTime?
+  lastDeliveryError String?
   createdAt   DateTime  @default(now())
   endpoint    Endpoint  @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  incidents   AlertIncident[]
+  deliveryAttempts AlertDeliveryAttempt[]
+}
+
+model AlertIncident {
+  id            Int       @id @default(autoincrement())
+  alertRuleId   Int
+  endpointId    Int
+  status        String
+  severity      String
+  message       String
+  openedAt      DateTime  @default(now())
+  resolvedAt    DateTime?
+  lastDeliveredAt DateTime?
+  lastDeliveryError String?
+  alertRule     AlertRule @relation(fields: [alertRuleId], references: [id], onDelete: Cascade)
+  endpoint      Endpoint  @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+}
+
+model AlertDeliveryAttempt {
+  id            Int       @id @default(autoincrement())
+  alertRuleId   Int
+  endpointId    Int
+  actionType    String
+  target        String
+  status        String
+  errorMessage  String?
+  createdAt     DateTime  @default(now())
+  alertRule     AlertRule @relation(fields: [alertRuleId], references: [id], onDelete: Cascade)
+  endpoint      Endpoint  @relation(fields: [endpointId], references: [id], onDelete: Cascade)
 }
 
 model ApiKey {
@@ -150,11 +225,30 @@ model BillingTransaction {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
+model ProvisioningOrder {
+  id             Int          @id @default(autoincrement())
+  organizationId String
+  endpointId     Int
+  provider       String
+  status         String
+  currentStep    String
+  attemptCount   Int          @default(0)
+  lastAttemptAt  DateTime?
+  nextAttemptAt  DateTime?
+  errorMessage   String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  endpoint       Endpoint     @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+}
+
 model Firewall {
   id          Int       @id @default(autoincrement())
+  organizationId String
   endpointId  Int?
   type        String
   value       String
   createdAt   DateTime  @default(now())
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   endpoint    Endpoint? @relation(fields: [endpointId], references: [id], onDelete: Cascade)
 }

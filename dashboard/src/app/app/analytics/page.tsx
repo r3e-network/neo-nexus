@@ -21,6 +21,9 @@ type AnalyticsResponse = {
     activeEndpoints: number;
     syncingEndpoints: number;
     apiKeys: number;
+    successRate: string;
+    avgLatency: number;
+    bandwidth: string;
   };
   endpointUsageData: Array<{
     name: string;
@@ -31,6 +34,10 @@ type AnalyticsResponse = {
     name: string;
     requests: number;
     endpoints: number;
+  }>;
+  latencyData: Array<{
+    requests: number;
+    time?: string;
   }>;
   recentEvents: Array<{
     time: string;
@@ -46,9 +53,13 @@ const EMPTY_ANALYTICS: AnalyticsResponse = {
     activeEndpoints: 0,
     syncingEndpoints: 0,
     apiKeys: 0,
+    successRate: '0%',
+    avgLatency: 0,
+    bandwidth: '0 MB',
   },
   endpointUsageData: [],
   networkData: [],
+  latencyData: [],
   recentEvents: [],
 };
 

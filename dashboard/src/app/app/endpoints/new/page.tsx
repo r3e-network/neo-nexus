@@ -1,14 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, ChevronRight, Cloud, HardDrive, Info, Layers, Server, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { createEndpointAction } from '../actions';
 import toast from 'react-hot-toast';
+import { BillingService } from '@/services/billing/BillingService';
+import {
+  DEFAULT_PROVIDER,
+  getDefaultRegion,
+  getProviderSummary,
+  listSupportedProviders,
+  type InfrastructureProvider,
+} from '@/services/infrastructure/ProviderCatalog';
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
+
+const providerOptions = listSupportedProviders();
 
 export default function CreateEndpoint() {
   const router = useRouter();
@@ -20,9 +30,11 @@ export default function CreateEndpoint() {
   const [network, setNetwork] = useState('mainnet');
   const [clientEngine, setClientEngine] = useState('neo-go');
   const [nodeType, setNodeType] = useState('dedicated');
-  const [provider, setProvider] = useState('digitalocean');
-  const [region, setRegion] = useState('nyc3');
+  const [provider, setProvider] = useState<InfrastructureProvider>(DEFAULT_PROVIDER);
+  const [region, setRegion] = useState(getDefaultRegion(DEFAULT_PROVIDER));
   const [syncMode, setSyncMode] = useState('full');
+
+  const selectedProvider = useMemo(() => getProviderSummary(provider), [provider]);
 
   // Ensure valid client engine when protocol changes
   const handleProtocolChange = (newProtocol: 'neo-n3' | 'neo-x') => {
@@ -34,13 +46,18 @@ export default function CreateEndpoint() {
     }
   };
 
-  const pricing = {
-    shared: { full: 0, archive: 49 },
-    dedicated: { full: 99, archive: 149 }
+  const handleProviderChange = (nextProvider: InfrastructureProvider) => {
+    setProvider(nextProvider);
+    setRegion(getDefaultRegion(nextProvider));
   };
 
   const calculatePrice = () => {
-    return pricing[nodeType as keyof typeof pricing][syncMode as keyof typeof pricing.shared];
+    return BillingService.calculateProjectedCost({
+      type: nodeType,
+      syncMode,
+      plugins: [],
+      provider,
+    });
   };
 
   const handleDeploy = async () => {
@@ -59,7 +76,7 @@ export default function CreateEndpoint() {
       });
 
       if (result.success) {
-        toast.success('Node deployed successfully!');
+        toast.success('Provisioning started. We are preparing your node now.');
         router.push(`/app/endpoints/${result.id}`);
       } else {
         toast.error(result.error || 'Failed to deploy node');
@@ -270,7 +287,7 @@ export default function CreateEndpoint() {
                 {nodeType === 'shared' && <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-[#00E599]" />}
                 <Layers className={`w-8 h-8 mb-4 ${nodeType === 'shared' ? 'text-[#00E599]' : 'text-gray-400 group-hover:text-gray-300'}`} />
                 <h3 className="text-lg font-bold text-white mb-2">Elastic (Shared)</h3>
-                <p className="text-sm text-gray-400 mb-4 h-10">Auto-scaling global endpoints. Ideal for lightweight DApps and basic querying.</p>
+                <p className="text-sm text-gray-400 mb-4 h-10">Managed shared upstreams behind APISIX. Ideal for lightweight DApps and basic querying.</p>
                 <div className="pt-4 border-t border-gray-800 flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-400">Rate limited</span>
                   <span className="text-lg font-bold text-white">Free</span>
@@ -287,16 +304,16 @@ export default function CreateEndpoint() {
                 {nodeType === 'dedicated' && <CheckCircle2 className="absolute top-10 right-4 w-6 h-6 text-[#00E599]" />}
                 <Server className={`w-8 h-8 mb-4 ${nodeType === 'dedicated' ? 'text-[#00E599]' : 'text-gray-400 group-hover:text-gray-300'}`} />
                 <h3 className="text-lg font-bold text-white mb-2">Dedicated</h3>
-                <p className="text-sm text-gray-400 mb-4 h-10">Private K8s deployment. Unlimited requests, custom plugins, max performance.</p>
+                <p className="text-sm text-gray-400 mb-4 h-10">Dedicated VM provisioning with provider failover, custom plugins, and isolated capacity.</p>
                 <div className="pt-4 border-t border-gray-800 flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-400">Unlimited QPS</span>
-                  <span className="text-lg font-bold text-white">From $99<span className="text-xs text-gray-500 font-normal">/mo</span></span>
+                  <span className="text-lg font-bold text-white">From $79<span className="text-xs text-gray-500 font-normal">/mo</span></span>
                 </div>
               </div>
             </div>
           </section>
 
-          {/* Section 4: Cloud Provider & Region (Only if Dedicated) */}
+          {/* Section 4: Provider & Region (Only if Dedicated) */}
           <div className={`transition-all duration-500 overflow-hidden ${nodeType === 'dedicated' ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
             <section className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
@@ -307,54 +324,46 @@ export default function CreateEndpoint() {
               <div className="space-y-8">
                 {/* Providers */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4">Cloud Provider</h3>
+                  <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4">Infrastructure Provider</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div 
-                      onClick={() => setProvider('aws')}
-                      className={`cursor-pointer rounded-xl p-4 border-2 flex items-center gap-4 transition-all ${
-                        provider === 'aws' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)]'
-                      }`}
-                    >
-                      <div className="w-12 h-12 rounded bg-gray-800 flex items-center justify-center">
-                        <Cloud className={`w-6 h-6 ${provider === 'aws' ? 'text-[#00E599]' : 'text-gray-300'}`} />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-bold text-white">Amazon Web Services</h4>
-                        <p className="text-xs text-gray-400">Enterprise tier</p>
-                      </div>
-                      {provider === 'aws' && <CheckCircle2 className="w-5 h-5 text-[#00E599]" />}
-                    </div>
-                    
-                    <div 
-                      onClick={() => setProvider('gcp')}
-                      className={`cursor-pointer rounded-xl p-4 border-2 flex items-center gap-4 transition-all ${
-                        provider === 'gcp' ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)]'
-                      }`}
-                    >
-                      <div className="w-12 h-12 rounded bg-gray-800 flex items-center justify-center">
-                        <Server className={`w-6 h-6 ${provider === 'gcp' ? 'text-[#00E599]' : 'text-gray-300'}`} />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-bold text-white">Google Cloud</h4>
-                        <p className="text-xs text-gray-400">Premium network tier</p>
-                      </div>
-                      {provider === 'gcp' && <CheckCircle2 className="w-5 h-5 text-[#00E599]" />}
-                    </div>
+                    {providerOptions.map((providerOption) => {
+                      const isSelected = provider === providerOption.id;
+                      const Icon = providerOption.id === 'hetzner' ? Server : Cloud;
+
+                      return (
+                        <div 
+                          key={providerOption.id}
+                          onClick={() => handleProviderChange(providerOption.id)}
+                          className={`cursor-pointer rounded-xl p-4 border-2 flex items-center gap-4 transition-all ${
+                            isSelected ? 'border-[#00E599] bg-[#00E599]/5' : 'border-[var(--color-dark-border)] hover:border-gray-500 bg-[var(--color-dark-panel)]'
+                          }`}
+                        >
+                          <div className="w-12 h-12 rounded bg-gray-800 flex items-center justify-center">
+                            <Icon className={`w-6 h-6 ${isSelected ? 'text-[#00E599]' : 'text-gray-300'}`} />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold text-white">{providerOption.name}</h4>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${providerOption.role === 'Primary' ? 'bg-[#00E599]/20 text-[#00E599]' : 'bg-blue-500/20 text-blue-400'}`}>
+                                {providerOption.role}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-400">{providerOption.description}</p>
+                          </div>
+                          {isSelected && <CheckCircle2 className="w-5 h-5 text-[#00E599]" />}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
                 {/* Regions */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    Region <Info className="w-4 h-4 text-gray-500 cursor-help" />
+                    Provider Region <Info className="w-4 h-4 text-gray-500 cursor-help" />
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {[
-                      { id: 'ap-northeast-1', name: 'Tokyo', flag: '🇯🇵' },
-                      { id: 'eu-central-1', name: 'Frankfurt', flag: '🇩🇪' },
-                      { id: 'us-east-1', name: 'N. Virginia', flag: '🇺🇸' },
-                      { id: 'ap-southeast-1', name: 'Singapore', flag: '🇸🇬' },
-                    ].map((r) => (
+                    {selectedProvider.regions.map((r) => (
                       <div 
                         key={r.id}
                         onClick={() => setRegion(r.id)}
@@ -451,9 +460,9 @@ export default function CreateEndpoint() {
                 {nodeType === 'dedicated' && (
                   <li className="flex justify-between items-center">
                     <span className="text-sm text-gray-400">Infrastructure</span>
-                    <span className="text-sm font-medium text-white uppercase flex items-center gap-2">
-                      {provider === 'aws' ? <Cloud className="w-3 h-3 text-[#00E599]"/> : <Server className="w-3 h-3 text-[#00E599]"/>}
-                      {provider} • {region}
+                    <span className="text-sm font-medium text-white flex items-center gap-2">
+                      {provider === 'hetzner' ? <Server className="w-3 h-3 text-[#00E599]"/> : <Cloud className="w-3 h-3 text-[#00E599]"/>}
+                      {selectedProvider.shortName} • {region}
                     </span>
                   </li>
                 )}
@@ -471,7 +480,7 @@ export default function CreateEndpoint() {
                   <span className="text-sm text-gray-400">Setup Time</span>
                   <span className="text-sm font-medium text-[#00E599] flex items-center gap-1">
                     <Zap className="w-3 h-3" />
-                    {nodeType === 'shared' ? 'Instant' : '~2 Minutes'}
+                    {nodeType === 'shared' ? 'Instant' : '~5 Minutes'}
                   </span>
                 </li>
               </ul>

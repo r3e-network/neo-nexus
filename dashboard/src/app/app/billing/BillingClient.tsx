@@ -1,10 +1,12 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { CheckCircle2, CreditCard } from 'lucide-react';
+import type { BillingHistoryItem } from '@/services/billing/BillingOverviewService';
 import type { PublicCryptoBillingConfig } from '@/services/billing/CryptoBillingService';
-import { upgradePlanAction, verifyCryptoPaymentAction } from './actions';
+import { openBillingPortalAction, upgradePlanAction, verifyCryptoPaymentAction } from './actions';
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
@@ -12,9 +14,16 @@ const getErrorMessage = (error: unknown, fallback: string) =>
 type BillingClientProps = {
   billingPlan: string;
   cryptoBillingConfig: PublicCryptoBillingConfig | null;
+  hasStripeCustomer: boolean;
+  billingOverview: {
+    items: BillingHistoryItem[];
+    cardSummary: string | null;
+    cardExpiry: string | null;
+  };
 };
 
-export default function BillingClient({ billingPlan, cryptoBillingConfig }: BillingClientProps) {
+export default function BillingClient({ billingPlan, cryptoBillingConfig, hasStripeCustomer, billingOverview }: BillingClientProps) {
+  const router = useRouter();
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [isCryptoModalOpen, setIsCryptoModalOpen] = useState(false);
   const [txHash, setTxHash] = useState('');
@@ -51,12 +60,109 @@ export default function BillingClient({ billingPlan, cryptoBillingConfig }: Bill
             : `Successfully upgraded to ${cryptoPlanSelected} using GAS!`,
           { id: 'crypto-pay' },
         );
-        window.location.reload();
+        setIsCryptoModalOpen(false);
+        setIsProcessing(null);
+        router.refresh();
       } else {
         throw new Error(result.error);
       }
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Payment verification failed.'), { id: 'crypto-pay' });
+      setIsProcessing(null);
+    }
+  };
+
+  const handleNeoLinePayment = async () => {
+    if (!cryptoBillingConfig) return;
+    
+    interface NeoLineTxResult { txid: string }
+    interface WindowWithNeoLine extends Window {
+      NEOLineN3?: {
+        Init: new () => {
+          getAccount: () => Promise<{ address: string }>;
+          send: (args: { fromAddress: string, toAddress: string, asset: string, amount: string, network: string }) => Promise<NeoLineTxResult>;
+        };
+      };
+    }
+
+    const win = typeof window !== 'undefined' ? (window as unknown as WindowWithNeoLine) : null;
+
+    // Check if NeoLine is installed
+    if (!win || !win.NEOLineN3) {
+      toast.error('NeoLine wallet is not installed. Please install it or manually transfer GAS and paste the transaction hash.');
+      return;
+    }
+
+    setIsProcessing('crypto-wallet');
+    toast.loading('Connecting to NeoLine...', { id: 'crypto-pay' });
+
+    try {
+      const neolineN3 = new win.NEOLineN3.Init();
+      const account = await neolineN3.getAccount();
+      
+      const amount = cryptoPlanSelected === 'growth' 
+        ? cryptoBillingConfig.growthAmountGas 
+        : cryptoBillingConfig.dedicatedAmountGas;
+
+      toast.loading('Please confirm the transaction in your wallet...', { id: 'crypto-pay' });
+
+      const txResult = await neolineN3.send({
+        fromAddress: account.address,
+        toAddress: cryptoBillingConfig.treasuryAddress,
+        asset: 'GAS',
+        amount: amount.toString(),
+        network: 'MainNet'
+      });
+
+      if (txResult && txResult.txid) {
+        setTxHash(txResult.txid);
+        toast.success('Transaction sent! Waiting for verification...', { id: 'crypto-pay' });
+        
+        // Wait a few seconds to give the network time to index it (not strictly necessary but helpful)
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        
+        setIsProcessing('crypto');
+        toast.loading('Verifying transaction on-chain...', { id: 'crypto-pay' });
+        
+        const verifyResult = await verifyCryptoPaymentAction(cryptoPlanSelected, txResult.txid);
+        
+        if (verifyResult.success) {
+          toast.success(
+            verifyResult.alreadyVerified
+              ? 'This payment was already verified for your account.'
+              : `Successfully upgraded to ${cryptoPlanSelected} using GAS!`,
+            { id: 'crypto-pay' },
+          );
+          setIsCryptoModalOpen(false);
+          setIsProcessing(null);
+          router.refresh();
+        } else {
+          throw new Error(verifyResult.error);
+        }
+      } else {
+        throw new Error('Transaction was cancelled or failed.');
+      }
+    } catch (error: unknown) {
+      console.error(error);
+      const errObj = error as Record<string, unknown>;
+      const errorMessage = (typeof errObj?.description === 'string' ? errObj.description : null) || 
+                           (typeof errObj?.message === 'string' ? errObj.message : null) || 
+                           'Wallet transaction failed or was cancelled.';
+      toast.error(errorMessage, { id: 'crypto-pay' });
+      setIsProcessing(null);
+    }
+  };
+
+  const handleOpenBillingPortal = async () => {
+    setIsProcessing('portal');
+
+    try {
+      const result = await openBillingPortalAction();
+      if (result?.success === false) {
+        throw new Error(result.error);
+      }
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to open Stripe billing portal.'));
       setIsProcessing(null);
     }
   };
@@ -119,11 +225,19 @@ export default function BillingClient({ billingPlan, cryptoBillingConfig }: Bill
               </div>
             )}
             {billingPlan !== 'developer' && (
-              <button
-                className={`text-red-400 hover:text-red-300 px-4 py-2 rounded-md font-medium transition-colors border border-red-500/30 bg-red-500/10 ${billingPlan !== 'dedicated' ? 'mt-4' : ''}`}
-              >
-                Cancel Subscription
-              </button>
+              hasStripeCustomer ? (
+                <button
+                  onClick={handleOpenBillingPortal}
+                  disabled={isProcessing === 'portal'}
+                  className={`text-red-400 hover:text-red-300 px-4 py-2 rounded-md font-medium transition-colors border border-red-500/30 bg-red-500/10 disabled:opacity-50 ${billingPlan !== 'dedicated' ? 'mt-4' : ''}`}
+                >
+                  {isProcessing === 'portal' ? 'Opening Billing Portal...' : 'Manage Subscription in Stripe'}
+                </button>
+              ) : (
+                <div className={`text-sm text-gray-500 ${billingPlan !== 'dedicated' ? 'mt-4' : ''}`}>
+                  Stripe subscription management becomes available after a card-backed subscription is created.
+                </div>
+              )
             )}
           </div>
 
@@ -131,8 +245,31 @@ export default function BillingClient({ billingPlan, cryptoBillingConfig }: Bill
             <div className="p-6 border-b border-[var(--color-dark-border)]">
               <h2 className="text-lg font-medium text-white">Invoices</h2>
             </div>
-            <div className="divide-y divide-[#333333] p-6 text-sm text-gray-400">
-              No recent invoices. Your payment history will appear here.
+            <div className="divide-y divide-[#333333]">
+              {billingOverview.items.length === 0 ? (
+                <div className="p-6 text-sm text-gray-400">
+                  No recent billing activity yet.
+                </div>
+              ) : (
+                billingOverview.items.map((item) => (
+                  <div key={item.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 text-sm">
+                    <div>
+                      <div className="font-medium text-white">{item.title}</div>
+                      <div className="text-gray-500 mt-1">{item.subtitle}</div>
+                      <div className="text-xs text-gray-500 mt-2">{new Date(item.createdAt).toLocaleString()}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium text-white">{item.amountLabel}</div>
+                      <div className="text-xs uppercase tracking-wide text-gray-500 mt-1">{item.status}</div>
+                      {item.href && (
+                        <a href={item.href} target="_blank" rel="noreferrer" className="text-xs text-[#00E599] hover:text-[#00cc88] mt-2 inline-block">
+                          View Invoice
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -146,13 +283,26 @@ export default function BillingClient({ billingPlan, cryptoBillingConfig }: Bill
                 <CreditCard className="w-6 h-6 text-gray-400" />
               </div>
               <div className="flex-1">
-                <div className="text-gray-400 font-medium">No fiat card on file</div>
+                <div className="text-gray-400 font-medium">{billingOverview.cardSummary ?? 'No fiat card on file'}</div>
+                {billingOverview.cardExpiry && (
+                  <div className="text-xs text-gray-500 mt-1">Expires {billingOverview.cardExpiry}</div>
+                )}
               </div>
             </div>
 
-            <button className="w-full bg-[#333333] hover:bg-[#444444] text-white py-2 rounded-md font-medium transition-colors mb-6 cursor-not-allowed opacity-50">
-              Add Card via Stripe
-            </button>
+            {hasStripeCustomer ? (
+              <button
+                onClick={handleOpenBillingPortal}
+                disabled={isProcessing === 'portal'}
+                className="w-full bg-[#333333] hover:bg-[#444444] disabled:opacity-50 text-white py-2 rounded-md font-medium transition-colors mb-6"
+              >
+                {isProcessing === 'portal' ? 'Opening Billing Portal...' : 'Manage Card via Stripe'}
+              </button>
+            ) : (
+              <div className="w-full border border-[var(--color-dark-border)] rounded-md px-4 py-3 text-sm text-gray-500 mb-6">
+                Card management becomes available after a Stripe-backed subscription is created.
+              </div>
+            )}
 
             <div className="pt-6 border-t border-[var(--color-dark-border)]">
               <h3 className="text-sm font-medium text-white mb-4">Web3 Native Payment</h3>
@@ -250,23 +400,40 @@ export default function BillingClient({ billingPlan, cryptoBillingConfig }: Bill
               </div>
             </div>
 
-            <label className="block mb-6">
-              <span className="text-sm font-medium text-white mb-2 block">Submitted Transaction Hash</span>
-              <input
-                value={txHash}
-                onChange={(event) => setTxHash(event.target.value)}
-                placeholder="0x..."
-                className="w-full rounded-xl border border-[var(--color-dark-border)] bg-[var(--color-dark-panel)] px-4 py-3 text-white focus:outline-none focus:border-[#00E599]"
-              />
-            </label>
+            <div className="space-y-4 mb-6">
+              <button
+                onClick={handleNeoLinePayment}
+                disabled={!!isProcessing}
+                className="w-full bg-[#00E599] hover:bg-[#00cc88] disabled:opacity-50 text-black py-3 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(0,229,153,0.2)] flex items-center justify-center gap-2"
+              >
+                {isProcessing === 'crypto-wallet' ? 'Connecting...' : 'Pay with NeoLine Wallet'}
+              </button>
 
-            <button
-              onClick={handleCryptoPayment}
-              disabled={isProcessing === 'crypto'}
-              className="w-full bg-[#00E599] hover:bg-[#00cc88] disabled:opacity-50 text-black py-3 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(0,229,153,0.2)]"
-            >
-              {isProcessing === 'crypto' ? 'Verifying...' : 'Verify On-Chain Payment'}
-            </button>
+              <div className="relative flex items-center py-2">
+                <div className="flex-grow border-t border-[var(--color-dark-border)]"></div>
+                <span className="flex-shrink-0 mx-4 text-xs text-gray-500 font-medium uppercase">Or enter manually</span>
+                <div className="flex-grow border-t border-[var(--color-dark-border)]"></div>
+              </div>
+
+              <label className="block">
+                <span className="text-sm font-medium text-gray-300 mb-2 block">Submitted Transaction Hash</span>
+                <input
+                  value={txHash}
+                  onChange={(event) => setTxHash(event.target.value)}
+                  placeholder="0x..."
+                  className="w-full rounded-xl border border-[var(--color-dark-border)] bg-[var(--color-dark-panel)] px-4 py-3 text-white focus:outline-none focus:border-[#00E599]"
+                />
+              </label>
+
+              <button
+                onClick={handleCryptoPayment}
+                disabled={isProcessing === 'crypto'}
+                className="w-full bg-[#333333] hover:bg-[#444444] disabled:opacity-50 text-white py-3 rounded-xl font-bold transition-colors"
+              >
+                {isProcessing === 'crypto' ? 'Verifying...' : 'Verify Manual Payment'}
+              </button>
+            </div>
+
             <p className="text-xs text-center text-gray-500 mt-4">
               The server validates the submitted transaction against the configured N3 RPC node and treasury requirements.
             </p>

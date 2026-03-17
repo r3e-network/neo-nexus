@@ -1,8 +1,8 @@
 # NeoNexus Deployment Architecture
 
-This document describes the recommended production architecture for deploying NeoNexus. 
+This document describes the recommended production architecture for deploying NeoNexus.
 
-To achieve maximum scalability, zero-downtime deployments, and strong security boundaries, NeoNexus is designed to be deployed across two separate environments: **The Frontend Edge (Vercel)** and **The Backend Control Plane (AWS/GCP Kubernetes)**.
+To achieve strong operational boundaries, NeoNexus is designed to be deployed across two separate environments: **The Frontend Edge (Vercel or a management VM)** and **The Backend Provisioning Plane (Hetzner VMs as primary, DigitalOcean VMs as fallback, with APISIX in front of both dedicated and shared node traffic)**.
 
 ## High-Level Architecture Diagram
 
@@ -26,14 +26,14 @@ graph TD
     end
 
     %% Infrastructure Layer
-    subgraph "Infrastructure Layer (Kubernetes Cluster)"
+    subgraph "Infrastructure Layer"
         APISIX[Apache APISIX Ingress Gateway]
         Prometheus[Prometheus & Grafana]
+        SharedPool[Shared Node Pool]
         
-        subgraph "Tenant Namespaces"
-            Node1[neo-go (Node 1)]
-            Node2[neo-cli (Node 2)]
-            Node3[Shared Node Pool]
+        subgraph "Dedicated VM Providers"
+            Hetzner[Hetzner Dedicated Nodes]
+            DO[DigitalOcean Fallback Nodes]
         end
     end
 
@@ -47,22 +47,25 @@ graph TD
     Dashboard <--> NeonDB
     Dashboard <--> Stripe
     
-    Dashboard -->|Kubernetes API (Deploy/Scale)| APISIX
-    Dashboard -->|Kubernetes API (Deploy/Scale)| Node1
-    
-    APISIX -->|Routes traffic| Node1
-    APISIX -->|Routes traffic| Node2
-    APISIX -->|Routes traffic| Node3
+    Dashboard -->|Provision / Manage| Hetzner
+    Dashboard -->|Fallback Provision| DO
+    Dashboard -->|Configure Routes & Keys| APISIX
 
-    Prometheus -->|Scrapes Metrics| Node1
-    Prometheus -->|Scrapes Metrics| Node2
+    APISIX -->|Routes traffic| Hetzner
+    APISIX -->|Routes traffic| DO
+    APISIX -->|Routes traffic| SharedPool
+
+    Prometheus -->|Scrapes Metrics| Hetzner
+    Prometheus -->|Scrapes Metrics| DO
+    Prometheus -->|Scrapes Metrics| SharedPool
 ```
 
 ## Why this Architecture?
 
-1. **Separation of Concerns:** The Next.js frontend (Dashboard) handles the UI, authentication, database persistence, and billing. It runs on a globally distributed edge network (Vercel), ensuring lightning-fast load times.
-2. **Heavy Lifting on K8s:** Blockchain nodes (neo-go/neo-cli) are highly stateful, requiring massive IOPS and memory. Kubernetes (EKS/GKE) is the only reliable way to orchestrate persistent volumes (PVCs) dynamically.
-3. **API Gateway (APISIX):** Directly exposing K8s Services is dangerous. APISIX acts as a high-performance shield, validating API keys, enforcing rate limits, and routing traffic to the correct tenant's pod.
+1. **Separation of Concerns:** The Next.js frontend (Dashboard) handles the UI, authentication, database persistence, and billing. It can run on Vercel or another management environment while the provisioning plane stays isolated.
+2. **Dedicated Nodes on VMs:** Dedicated blockchain nodes are provisioned as isolated VMs, which maps better to provider snapshots, fixed-IP routing, and per-customer operational ownership.
+3. **API Gateway (APISIX):** Directly exposing provider VMs is dangerous. APISIX acts as the shield, validating API keys, enforcing rate limits, and routing traffic to the correct dedicated VM or shared upstream.
+4. **Optional Shared-Service Cluster:** Kubernetes is optional and only relevant when you want to run APISIX, Prometheus, or related shared services on a small control-plane cluster.
 
 ## Setup Requirements
 
@@ -72,5 +75,5 @@ Before you begin the deployment process, ensure you have accounts and access to 
 - **Neon Account:** For the Serverless PostgreSQL database.
 - **GitHub/Google Developer Console:** For OAuth credentials.
 - **Stripe Account:** For handling subscriptions and payments.
-- **Cloud Provider (AWS/GCP):** For creating the Kubernetes cluster (EKS/GKE).
+- **Cloud Provider:** Hetzner for the primary dedicated-node footprint, with DigitalOcean retained as the backup deployment target.
 - **Domain Name:** To configure DNS records (e.g., `neonexus.cloud`).

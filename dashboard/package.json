@@ -8,13 +8,13 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
-    "typecheck": "npx prisma generate && tsc --noEmit",
+    "typecheck": "npx prisma generate && npx next typegen && tsc --noEmit",
     "verify": "npm run lint && npm run test && npm run typecheck && npm run build"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
+    "@aws-sdk/client-kms": "^3.1010.0",
     "@cityofzion/neon-js": "^5.8.1",
-    "@kubernetes/client-node": "^1.4.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.577.0",
     "next": "16.1.6",
@@ -23,6 +23,7 @@
     "react-dom": "19.2.3",
     "react-hot-toast": "^2.6.0",
     "recharts": "^3.8.0",
+    "resend": "^6.9.3",
     "stripe": "^20.4.1",
     "swr": "^2.4.1",
     "tailwind-merge": "^3.5.0"

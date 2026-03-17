@@ -1,5 +1,6 @@
 import { prisma } from '@/utils/prisma';
 import EndpointsList, { Endpoint } from './EndpointsList';
+import { synchronizeEndpointStatus } from '@/services/endpoints/EndpointStatusService';
 import { getCurrentUserContext } from '@/server/organization';
 
 export const dynamic = 'force-dynamic';
@@ -17,16 +18,35 @@ export default async function EndpointsPage() {
       });
 
       if (data && data.length > 0) {
+        const statuses = await Promise.all(
+          data.map((endpoint) =>
+          synchronizeEndpointStatus({
+            id: endpoint.id,
+            url: endpoint.url,
+            status: endpoint.status,
+            clientEngine: endpoint.clientEngine,
+            providerPublicIp: endpoint.providerPublicIp,
+          }),
+        ),
+      );
+
         // Map Prisma Endpoint to our component Endpoint type
-        endpoints = data.map(ep => ({
+        endpoints = data.map((ep, index) => ({
           id: ep.id,
           name: ep.name,
+          protocol: ep.protocol,
+          networkKey: ep.networkKey,
           network: ep.network,
           type: ep.type,
           url: ep.url,
-          status: ep.status,
+          wssUrl: ep.wssUrl,
+          providerPublicIp: ep.providerPublicIp,
+          status: statuses[index],
           requests: ep.requests.toString(),
-          clientEngine: ep.clientEngine
+          clientEngine: ep.clientEngine,
+          syncMode: ep.syncMode,
+          cloudProvider: ep.cloudProvider,
+          region: ep.region,
         }));
       }
     } else if (!process.env.DATABASE_URL) {

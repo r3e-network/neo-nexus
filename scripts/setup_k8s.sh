@@ -1,10 +1,20 @@
 #!/bin/bash
-# NeoNexus Production Kubernetes Cluster Initialization Script
-# This script sets up the required dependencies on a blank EKS or GKE cluster.
+# NeoNexus Optional Kubernetes Control-Plane Bootstrap Script
+# This script sets up APISIX, monitoring, and provider-aware storage defaults
+# on a Kubernetes cluster used only for shared control-plane services.
 
 set -e
 
-echo "🚀 Initializing NeoNexus Kubernetes Cluster Configuration..."
+CLUSTER_PROVIDER="${CLUSTER_PROVIDER:-hetzner}"
+
+if [[ "$CLUSTER_PROVIDER" != "hetzner" && "$CLUSTER_PROVIDER" != "digitalocean" ]]; then
+  echo "Unsupported CLUSTER_PROVIDER: $CLUSTER_PROVIDER"
+  echo "Use one of: hetzner, digitalocean"
+  exit 1
+fi
+
+echo "🚀 Initializing optional NeoNexus Kubernetes control-plane services..."
+echo "Provider profile: $CLUSTER_PROVIDER"
 
 # 1. Install Helm
 if ! command -v helm &> /dev/null
@@ -28,19 +38,23 @@ helm upgrade --install apisix apisix/apisix \
   --set ingress-controller.config.apisix.adminKey="***REMOVED***"
 
 # 3. Setup Storage Classes
-echo "💾 Setting up high-performance storage classes..."
+echo "💾 Configuring storage profile..."
+if [[ "$CLUSTER_PROVIDER" == "hetzner" ]]; then
 kubectl apply -f - <<EOF
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: gp3
-provisioner: ebs.csi.aws.com
+  name: hcloud-volumes
+provisioner: csi.hetzner.cloud
 volumeBindingMode: WaitForFirstConsumer
-parameters:
-  type: gp3
-  iops: "3000"
-  throughput: "125"
+allowVolumeExpansion: true
+reclaimPolicy: Delete
 EOF
+  echo "Applied hcloud-volumes StorageClass for Hetzner."
+else
+  echo "DigitalOcean profile selected. Expect built-in do-block-storage to exist already."
+  kubectl get storageclass do-block-storage >/dev/null
+fi
 
 # 4. Setup Prometheus & Grafana Operator for Observability
 echo "📊 Installing kube-prometheus-stack..."
@@ -51,5 +65,5 @@ helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
   --create-namespace \
   --set grafana.adminPassword=neonexus_admin
 
-echo "✅ NeoNexus Cluster Base Infrastructure Initialized successfully!"
-echo "APISIX Admin URL is exposed internally. Next steps: Configure Control Plane Environment variables."
+echo "✅ Optional NeoNexus Kubernetes control-plane services initialized successfully."
+echo "APISIX Admin URL is exposed internally. Next steps: configure dashboard control-plane environment variables."

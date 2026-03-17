@@ -24,7 +24,7 @@ resources:
 persistence:
   enabled: true
   size: 500Gi # Increase to 2Ti for archive
-  storageClass: "gp3" # Or premium-rwo for GCP
+  storageClass: "hcloud-volumes" # Use do-block-storage when running on DigitalOcean
 
 snapshot:
   enabled: true

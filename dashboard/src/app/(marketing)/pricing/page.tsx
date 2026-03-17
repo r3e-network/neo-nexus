@@ -54,15 +54,15 @@ export default function Pricing() {
               <Feature text="20,000,000 requests / month" />
               <Feature text="Auto-scaling Global Network" />
               <Feature text="Email Support (24h SLA)" />
-              <Feature text="Advanced Analytics & Firewalls" />
-              <Feature text="Access to Add-on Marketplace" />
+              <Feature text="Advanced Analytics, Allowlists & Method Firewall" />
+              <Feature text="Access to Managed Plugin Catalog" />
             </div>
           </div>
 
           {/* Dedicated Tier */}
           <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-3xl p-8 flex flex-col">
             <h3 className="text-xl font-bold text-white mb-2">Dedicated</h3>
-            <p className="text-sm text-gray-400 mb-6">Your private Neo N3 / Neo X instance. Zero rate limits.</p>
+            <p className="text-sm text-gray-400 mb-6">Managed dedicated Neo N3 / Neo X VMs with isolated capacity and provider failover.</p>
             <div className="mb-6">
               <span className="text-4xl font-bold text-white">$99</span>
               <span className="text-gray-500"> / month</span>
@@ -73,10 +73,10 @@ export default function Pricing() {
             </Link>
             <div className="space-y-4 flex-1">
               <div className="text-sm font-medium text-white mb-4 uppercase tracking-wider">Features:</div>
-              <Feature text="Private K8s deployment" />
+              <Feature text="Managed dedicated VM deployment" />
               <Feature text="Unlimited requests" />
               <Feature text="Client engines: neo-go, neo-cli, neo-x-geth" />
-              <Feature text="Choose AWS or GCP regions" />
+              <Feature text="Hetzner primary regions with DigitalOcean fallback" />
               <Feature text="WSS (WebSocket) Support" />
               <Feature text="Custom Node Configuration" />
               <Feature text="Priority 24/7 Support" />
@@ -87,19 +87,19 @@ export default function Pricing() {
 
         {/* Add-ons Section */}
         <div className="mt-24 pt-16 border-t border-[var(--color-dark-border)] max-w-5xl mx-auto">
-          <h2 className="text-2xl md:text-3xl font-bold text-white mb-8 text-center">Marketplace Add-ons</h2>
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-8 text-center">Managed Plugin Catalog</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] p-6 rounded-2xl flex justify-between items-center">
               <div>
                 <h4 className="font-bold text-white flex items-center gap-2"><Zap className="w-4 h-4 text-yellow-400"/> Account Abstraction Bundler</h4>
-                <p className="text-sm text-gray-400 mt-1">Native AA relay services.</p>
+                <p className="text-sm text-gray-400 mt-1">Managed per dedicated node through the plugin catalog.</p>
               </div>
               <div className="font-bold text-white">$49<span className="text-sm text-gray-500 font-normal">/mo</span></div>
             </div>
             <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] p-6 rounded-2xl flex justify-between items-center">
               <div>
                 <h4 className="font-bold text-white flex items-center gap-2"><Server className="w-4 h-4 text-[#00E599]"/> Archive Node Sync</h4>
-                <p className="text-sm text-gray-400 mt-1">Access full historical state.</p>
+                <p className="text-sm text-gray-400 mt-1">Expanded storage and history retention for dedicated nodes.</p>
               </div>
               <div className="font-bold text-white">+$50<span className="text-sm text-gray-500 font-normal">/mo</span></div>
             </div>

@@ -5,8 +5,11 @@
  * directly in the database.
  */
 
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/utils/prisma';
-import { decryptSecret, encryptSecret } from './VaultCrypto';
+import { decryptSecretAsync, encryptSecretAsync } from './VaultCrypto';
+
+type SecretWriter = Pick<Prisma.TransactionClient, 'nodeSecret'> | typeof prisma;
 
 export class VaultService {
     /**
@@ -15,10 +18,15 @@ export class VaultService {
      * @param secretName e.g., 'OraclePrivateKey', 'BundlerKey'
      * @param plainTextKey The raw private key (e.g. WIF format)
      */
-    static async storeNodeSecret(endpointId: number, secretName: string, plainTextKey: string) {
-        const ciphertext = encryptSecret(plainTextKey);
+    static async storeNodeSecret(
+        endpointId: number,
+        secretName: string,
+        plainTextKey: string,
+        db: SecretWriter = prisma,
+    ) {
+        const ciphertext = await encryptSecretAsync(plainTextKey);
 
-        return await prisma.nodeSecret.upsert({
+        return await db.nodeSecret.upsert({
             where: {
                 endpointId_name: {
                     endpointId,
@@ -65,6 +73,6 @@ export class VaultService {
             return null;
         }
 
-        return decryptSecret(secret.secretHash);
+        return await decryptSecretAsync(secret.secretHash);
     }
 }
