@@ -22,10 +22,10 @@ type ProviderResult = {
   fallbackUsed: boolean;
 };
 
-function getEnvValue(env: ProvisionerEnv, key: string): string {
-  const value = env[key];
+function getEnvValue(env: ProvisionerEnv, key: string, fallbackKey?: string): string {
+  const value = env[key] || (fallbackKey ? env[fallbackKey] : undefined);
   if (!value) {
-    throw new Error(`${key} must be configured for VM provisioning.`);
+    throw new Error(`${key}${fallbackKey ? ` or ${fallbackKey}` : ''} must be configured for VM provisioning.`);
   }
 
   return value;
@@ -56,7 +56,7 @@ async function createHetznerServer(
   env: ProvisionerEnv,
   fetchImpl: typeof fetch,
 ): Promise<ProviderResult> {
-  const token = getEnvValue(env, 'HETZNER_API_TOKEN');
+  const token = getEnvValue(env, 'HETZNER_API_TOKEN', 'NEO_NEXUS_HETZNER');
   const image = env.HETZNER_IMAGE ?? 'ubuntu-24.04';
   const serverType = config.clientEngine === 'neo-x-geth' || config.syncMode === 'archive' ? 'cpx41' : 'cpx31';
   const response = await fetchImpl('https://api.hetzner.cloud/v1/servers', {
