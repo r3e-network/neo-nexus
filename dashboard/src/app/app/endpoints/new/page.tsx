@@ -140,7 +140,7 @@ export default function CreateEndpoint() {
             />
           </section>
 
-          {/* Section 0.25: Template Selection */}
+          {/* Section 1: Template Selection */}
           <section className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">1</div>
@@ -181,7 +181,7 @@ export default function CreateEndpoint() {
             </div>
           </section>
 
-          {/* Section 0.5: Protocol */}
+          {/* Section 2: Protocol */}
           <section className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">2</div>
@@ -219,7 +219,7 @@ export default function CreateEndpoint() {
             </div>
           </section>
 
-          {/* Section 1: Network */}
+          {/* Section 3: Network */}
           <section className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">3</div>
@@ -271,7 +271,7 @@ export default function CreateEndpoint() {
             </div>
           </section>
 
-          {/* Section 2: Client Engine */}
+          {/* Section 4: Client Engine */}
           <section className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">4</div>
@@ -334,7 +334,7 @@ export default function CreateEndpoint() {
             </div>
           </section>
 
-          {/* Section 3: Node Type */}
+          {/* Section 5: Node Type */}
           <section className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">5</div>
@@ -377,7 +377,7 @@ export default function CreateEndpoint() {
             </div>
           </section>
 
-          {/* Section 4: Provider & Region (Only if Dedicated) */}
+          {/* Section 6: Provider & Region (Only if Dedicated) */}
           <div className={`transition-all duration-500 overflow-hidden ${nodeType === 'dedicated' ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
             <section className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
@@ -446,7 +446,7 @@ export default function CreateEndpoint() {
             </section>
           </div>
 
-          {/* Section 5: Node Configuration */}
+          {/* Section 7: Node Configuration */}
           <section className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-2xl p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-full bg-[#00E599]/10 text-[#00E599] flex items-center justify-center font-bold">
