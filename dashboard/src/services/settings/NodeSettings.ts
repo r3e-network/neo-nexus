@@ -4,6 +4,8 @@ export type NodeSettings = {
   websocketEnabled: boolean;
   graphqlEnabled: boolean;
   cacheMb: number | null;
+  envVars?: Record<string, string>;
+  customDockerFlags?: string;
 };
 
 export function buildDefaultNodeSettings(clientEngine: string): NodeSettings {
@@ -14,6 +16,8 @@ export function buildDefaultNodeSettings(clientEngine: string): NodeSettings {
       websocketEnabled: true,
       graphqlEnabled: false,
       cacheMb: 4096,
+      envVars: {},
+      customDockerFlags: '',
     };
   }
 
@@ -23,6 +27,8 @@ export function buildDefaultNodeSettings(clientEngine: string): NodeSettings {
     websocketEnabled: false,
     graphqlEnabled: false,
     cacheMb: null,
+    envVars: {},
+    customDockerFlags: '',
   };
 }
 
@@ -42,5 +48,7 @@ export function mergeNodeSettings(
     websocketEnabled: typeof settings.websocketEnabled === 'boolean' ? settings.websocketEnabled : defaults.websocketEnabled,
     graphqlEnabled: typeof settings.graphqlEnabled === 'boolean' ? settings.graphqlEnabled : defaults.graphqlEnabled,
     cacheMb: typeof settings.cacheMb === 'number' ? settings.cacheMb : defaults.cacheMb,
+    envVars: settings.envVars && typeof settings.envVars === 'object' ? { ...settings.envVars } : defaults.envVars,
+    customDockerFlags: typeof settings.customDockerFlags === 'string' ? settings.customDockerFlags : defaults.customDockerFlags,
   };
 }

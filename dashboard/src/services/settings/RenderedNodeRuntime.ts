@@ -9,10 +9,25 @@ export const REMOTE_NODE_SYNC_PATH = '/usr/local/bin/neonexus-node-sync';
 export const REMOTE_NEO_GO_CONFIG_PATH = '/etc/neonexus/protocol.mainnet.yml';
 
 const SUPPORTED_NODE_SETTING_KEYS: Record<ClientEngine, SupportedNodeSettingKey[]> = {
-  'neo-go': ['maxPeers', 'rpcEnabled'],
-  'neo-cli': ['rpcEnabled'],
-  'neo-x-geth': ['maxPeers', 'rpcEnabled', 'websocketEnabled', 'graphqlEnabled', 'cacheMb'],
+  'neo-go': ['maxPeers', 'rpcEnabled', 'envVars', 'customDockerFlags'],
+  'neo-cli': ['rpcEnabled', 'envVars', 'customDockerFlags'],
+  'neo-x-geth': ['maxPeers', 'rpcEnabled', 'websocketEnabled', 'graphqlEnabled', 'cacheMb', 'envVars', 'customDockerFlags'],
 };
+
+function formatDockerExtras(settings: NodeSettings): string {
+  const parts: string[] = [];
+  if (settings.envVars) {
+    for (const [key, value] of Object.entries(settings.envVars)) {
+      // Basic escaping to prevent trivial injection, wrap in quotes
+      const escapedValue = String(value).replace(/"/g, '\\"');
+      parts.push(`-e ${key}="${escapedValue}"`);
+    }
+  }
+  if (settings.customDockerFlags) {
+    parts.push(settings.customDockerFlags);
+  }
+  return parts.length > 0 ? ' ' + parts.join(' ') : '';
+}
 
 function buildNeoGoConfig(network: Network, settings: NodeSettings): string {
   const isMainnet = network === 'mainnet';
@@ -43,9 +58,10 @@ function buildNeoGoConfig(network: Network, settings: NodeSettings): string {
   ].join('\n');
 }
 
-function buildNeoGoRunCommand(): string {
+function buildNeoGoRunCommand(settings: NodeSettings): string {
+  const extras = formatDockerExtras(settings);
   return [
-    'docker run -d --name neonexus-node --restart unless-stopped',
+    `docker run -d --name neonexus-node --restart unless-stopped${extras}`,
     '-p 10332:10332 -p 10333:10333 -p 2112:2112',
     '-v /var/lib/neonexus:/data',
     `-v ${REMOTE_NEO_GO_CONFIG_PATH}:/config/protocol.mainnet.yml`,
@@ -60,8 +76,9 @@ function buildNeoCliRunCommand(settings: NodeSettings): string {
     publishedPorts.unshift('-p 10332:10332');
   }
 
+  const extras = formatDockerExtras(settings);
   return [
-    'docker run -d --name neonexus-node --restart unless-stopped',
+    `docker run -d --name neonexus-node --restart unless-stopped${extras}`,
     ...publishedPorts,
     '-v /var/lib/neonexus:/data',
     'neo-project/neo-cli:3.7.4',
@@ -90,8 +107,9 @@ function buildNeoXRunCommand(settings: NodeSettings): string {
     command.push(`--cache ${settings.cacheMb}`);
   }
 
+  const extras = formatDockerExtras(settings);
   return [
-    'docker run -d --name neonexus-node --restart unless-stopped',
+    `docker run -d --name neonexus-node --restart unless-stopped${extras}`,
     ...publishedPorts,
     '-v /var/lib/neonexus:/data',
     'neofoundation/neo-x-geth:latest',
@@ -113,7 +131,7 @@ export function renderNodeRuntimeArtifacts(input: {
 
   if (input.clientEngine === 'neo-go') {
     neoGoConfig = buildNeoGoConfig(input.network, input.settings);
-    runCommand = buildNeoGoRunCommand();
+    runCommand = buildNeoGoRunCommand(input.settings);
   } else if (input.clientEngine === 'neo-cli') {
     runCommand = buildNeoCliRunCommand(input.settings);
   } else {
