@@ -6,11 +6,75 @@ import { prisma } from '@/utils/prisma';
 import { revalidatePath } from 'next/cache';
 import { getErrorMessage } from '@/server/errors';
 import { recordEndpointActivity } from '@/services/endpoints/EndpointActivityService';
-import {
-  buildRemoteResyncCommand,
-  buildRemoteSnapshotCommand,
-} from '@/services/maintenance/RemoteMaintenance';
+import { buildRemoteResyncCommand, buildRemoteSnapshotCommand } from '@/services/maintenance/RemoteMaintenance';
 import { buildRemoteNodeSettingsSyncCommand } from '@/services/settings/RemoteNodeSettings';
+import { buildPlannedEndpointAddress } from '@/services/endpoints/EndpointAddressing';
+import { ApisixService } from '@/services/apisix/ApisixService';
+import { loadOrganizationRoutePlugins } from '@/services/security/RouteSecuritySync';
+
+export async function updateEndpointDomainAction(
+  endpointId: number,
+  customDomain: string | null,
+) {
+  try {
+    const endpoint = await requireOwnedEndpoint(endpointId);
+    
+    // Only allow custom domains for dedicated nodes
+    if (endpoint.type.toLowerCase() === 'shared') {
+      return { success: false, error: 'Custom domains are only supported for dedicated nodes.' };
+    }
+
+    const domainToSave = customDomain && customDomain.trim() !== '' ? customDomain.trim() : null;
+
+    const plannedAddress = buildPlannedEndpointAddress({
+      type: 'dedicated',
+      protocol: endpoint.protocol as 'neo-n3' | 'neo-x',
+      networkKey: endpoint.networkKey as 'mainnet' | 'testnet' | 'private',
+      region: endpoint.region,
+      routeKey: String(endpoint.id),
+      customDomain: domainToSave,
+    });
+
+    await prisma.endpoint.update({
+      where: { id: endpoint.id },
+      data: {
+        customDomain: domainToSave,
+        url: plannedAddress.httpsUrl,
+        wssUrl: plannedAddress.wssUrl,
+      },
+    });
+
+    await recordEndpointActivity({
+      endpointId: endpoint.id,
+      category: 'settings',
+      action: 'domain_updated',
+      status: 'success',
+      message: domainToSave 
+        ? `Custom domain updated to ${domainToSave}`
+        : 'Reverted to auto-generated domain',
+      metadata: { customDomain: domainToSave },
+    });
+
+    // Fire the async apisix route sync to rebuild the URL rules
+    try {
+      const routePlugins = await loadOrganizationRoutePlugins(endpoint.organizationId || '');
+      await ApisixService.createRoute(
+        String(endpoint.id),
+        plannedAddress.httpsUrl,
+        endpoint.providerPublicIp || '127.0.0.1', // Will be 127.0.0.1 if it's pending provision, which is safe to override later
+        10332, // Default RPC port for now, the real provisioning engine overwrites this based on engine anyway
+        routePlugins
+      );
+    } catch (e) {
+      console.warn('Failed to sync domain change to apisix right away', e);
+    }
+
+    revalidatePath(`/app/endpoints/${endpoint.id}`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
 import { mergeNodeSettings } from '@/services/settings/NodeSettings';
 import {
   REMOTE_NEO_GO_CONFIG_PATH,

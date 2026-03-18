@@ -17,6 +17,7 @@ import {
   exportEndpointSnapshotAction,
   triggerEndpointResyncAction,
   updateEndpointSettingsAction,
+  updateEndpointDomainAction,
 } from '../settingsActions';
 import toast from 'react-hot-toast';
 import { listAlertRuleDefinitions } from '@/services/alerts/AlertRuleCatalog';
@@ -170,6 +171,25 @@ export default function EndpointDetailsClient({
   const [deletingAlertId, setDeletingAlertId] = useState<number | null>(null);
   const [settingsForm, setSettingsForm] = useState<NodeSettingsView>(nodeSettings);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [customDomainInput, setCustomDomainInput] = useState<string>(endpoint?.customDomain || '');
+  const [isSavingDomain, setIsSavingDomain] = useState(false);
+
+  const handleSaveDomain = async () => {
+    if (!endpoint?.id) return;
+    
+    setIsSavingDomain(true);
+    toast.loading('Updating endpoint routing...', { id: 'domain-update' });
+
+    const result = await updateEndpointDomainAction(Number(endpoint.id), customDomainInput);
+
+    if (result.success) {
+      toast.success('Domain updated successfully.', { id: 'domain-update' });
+      router.refresh();
+    } else {
+      toast.error(result.error || 'Failed to update domain.', { id: 'domain-update' });
+    }
+    setIsSavingDomain(false);
+  };
   const [maintenanceAction, setMaintenanceAction] = useState<string | null>(null);
   const [orderState, setOrderState] = useState<ProvisioningOrderState | null>(null);
   const [isLifecycleLoading, setIsLifecycleLoading] = useState<string | null>(null);
@@ -1180,6 +1200,43 @@ export default function EndpointDetailsClient({
                   </p>
                 )}
               </div>
+
+              {/* Custom Vanity Domain */}
+              {endpoint?.type.toLowerCase() === 'dedicated' && (
+                <div className="pt-6 mt-6 border-t border-[var(--color-dark-border)]">
+                  <h3 className="text-md font-bold text-white mb-4 flex items-center gap-2">
+                    Custom Vanity Domain
+                    <span className="bg-[#00E599]/20 text-[#00E599] text-[10px] px-2 py-0.5 rounded uppercase tracking-wider font-bold">Dedicated</span>
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Endpoint URL Override</label>
+                      <input 
+                        type="text" 
+                        value={customDomainInput}
+                        onChange={(e) => setCustomDomainInput(e.target.value)}
+                        placeholder="rpc.mycompany.com" 
+                        className="w-full md:w-1/2 bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-md px-4 py-2 text-white focus:outline-none focus:border-[#00E599]" 
+                      />
+                    </div>
+                    {customDomainInput && customDomainInput !== endpoint?.customDomain && (
+                      <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-sm">
+                        <p className="text-blue-300 font-medium mb-1">DNS Configuration Required</p>
+                        <p className="text-gray-400">
+                          Before saving, ensure you have created a CNAME record in your DNS provider mapping <strong className="text-white">{customDomainInput}</strong> to <strong className="text-white">{endpoint?.url.replace('https://', '').split('/')[0]}</strong>.
+                        </p>
+                      </div>
+                    )}
+                    <button 
+                      onClick={handleSaveDomain}
+                      disabled={isSavingDomain || customDomainInput === (endpoint?.customDomain || '')}
+                      className="bg-[#333] hover:bg-[#444] disabled:opacity-50 text-white px-6 py-2 rounded-md font-bold transition-colors"
+                    >
+                      {isSavingDomain ? 'Updating Route...' : 'Update Domain'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Advanced Settings */}
               <div className="pt-6 mt-6 border-t border-[var(--color-dark-border)]">

@@ -14,8 +14,20 @@ export function buildPlannedEndpointAddress(input: {
   routeKey: string;
   region?: string | null;
   rootDomain?: string;
+  customDomain?: string | null;
 }) {
   const rootDomain = getEndpointRootDomain(input.rootDomain);
+
+  if (input.customDomain && input.customDomain.trim().length > 0) {
+    const custom = input.customDomain.trim();
+    const httpsUrl = `https://${custom}/v1`;
+    return {
+      httpsUrl,
+      wssUrl: input.protocol === 'neo-x'
+        ? httpsUrl.replace(/^https:\/\//, 'wss://').replace(/\/v1$/, '/ws')
+        : null,
+    };
+  }
 
   if (input.type === 'shared') {
     const httpsUrl = `https://${input.networkKey}.${rootDomain}/v1/${input.routeKey}`;
