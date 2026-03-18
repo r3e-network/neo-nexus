@@ -50,21 +50,14 @@ docker-compose up -d
 
 ---
 
-## 🛠️ Infrastructure Capabilities
+## 🛠️ Core Capabilities
 
-* **Dual-Engine Support**: Choose between the lightning-fast `neo-go` or the official reference `neo-cli` (C#).
-* **Provider Strategy**: Dedicated nodes are provisioned as VMs with Hetzner as the primary provider and DigitalOcean as the fallback provider.
-* **Shared Endpoint Strategy**: Shared endpoints route through configured upstream node pools via APISIX.
-* **Provisioning Lifecycle**: Node orders move through an explicit async lifecycle (`pending -> vm_creating -> software_installing -> syncing -> ready/failed`) so users can track progress while infrastructure is built in the background.
-* **Sync Modes**: Provisions both lightweight Full nodes (RPC) and deep Archive nodes for indexers.
-* **Managed Plugin Runtime**: Dedicated nodes support managed plugin configuration, remote sync, runtime status, and plugin logs.
-* **Operator Access Bootstrap**: Platform-wide Operations surfaces can be bootstrapped with `OPERATOR_EMAILS`, with database-backed `User.role` support available for persistent role assignment.
-
-## ⚠️ Current Gaps
-
-- The analytics dashboard is now backed by persisted organization data, but it is still current-state reporting rather than a full Prometheus/VictoriaMetrics time-series pipeline.
-- Crypto billing now verifies a real N3 transaction hash against the configured treasury and amount, but wallet initiation itself is still manual in the UI.
-- Secret storage now uses authenticated encryption via `VAULT_ENCRYPTION_KEY`; if you need HSM/KMS-backed custody, you still need to integrate an external secret manager.
+* **Zero-Touch Provisioning**: Automated architecture templates (RPC, Consensus, Oracle) that intelligently spin up Hetzner/DigitalOcean VMs, configure firewalls, and install Docker engines without manual SSH.
+* **Dual-Engine Support**: Choose between the lightning-fast `neo-go` or the official reference `neo-cli` (C#). Also natively supports `neo-x-geth` for the Neo X EVM sidechain.
+* **Managed Plugin Runtime**: Natively supports all 12 official Neo-CLI plugins (including DBFT, OracleService, ApplicationLogs). Users can dynamically reconfigure plugins via web forms.
+* **Enterprise Secret Custody**: AWS KMS-backed encryption ensures that Consensus and Oracle private keys are securely injected directly into isolated sidecar containers.
+* **Vanity Domains with Auto-TLS**: Allows users to configure custom endpoint URLs (`rpc.mycompany.com`) backed by automated Let's Encrypt certificates managed by the APISIX edge gateway.
+* **Native Crypto Billing**: Frictionless NeoLine web3 wallet integration for paying subscription tiers automatically in GAS.
 
 ## 🤝 Open Source
 NeoNexus is designed to accelerate the growth of the Neo N3 and Neo X blockchains by removing infrastructure hurdles.
