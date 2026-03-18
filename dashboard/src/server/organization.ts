@@ -15,6 +15,7 @@ import type { UserRole } from './userRoles';
 
 export type UserContext = {
   userId: string;
+  name: string | null;
   organizationId: string | null;
   billingPlan: BillingPlan;
   role: UserRole;
@@ -104,6 +105,7 @@ export async function getCurrentUserContext(): Promise<UserContext | null> {
 
   return {
     userId: session.user.id,
+    name: session.user.name || null,
     organizationId,
     billingPlan,
     role,

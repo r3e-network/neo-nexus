@@ -6,5 +6,5 @@ export const dynamic = 'force-dynamic';
 export default async function OverviewPage() {
   const userContext = await getCurrentUserContext();
 
-  return <OverviewClient showOperations={userContext?.role === 'operator'} />;
+  return <OverviewClient showOperations={userContext?.role === 'operator'} userName={userContext?.name} />;
 }

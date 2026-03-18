@@ -56,6 +56,7 @@ type ReconcileRun = {
 
 type OverviewClientProps = {
   showOperations: boolean;
+  userName?: string | null;
 };
 
 const fallbackMetrics: DashboardMetrics = {
@@ -63,7 +64,7 @@ const fallbackMetrics: DashboardMetrics = {
   latencyData: [],
 };
 
-export default function OverviewClient({ showOperations }: OverviewClientProps) {
+export default function OverviewClient({ showOperations, userName }: OverviewClientProps) {
   const { data: metrics = fallbackMetrics, isLoading: isMetricsLoading } = useSWR<DashboardMetrics>('/api/metrics', fetcher, {
     refreshInterval: 15000,
     fallbackData: fallbackMetrics,
@@ -91,7 +92,7 @@ export default function OverviewClient({ showOperations }: OverviewClientProps) 
     <div className="min-h-screen pb-12 space-y-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Welcome back.</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Welcome back{userName ? `, ${userName}` : ''}.</h1>
           <p className="text-gray-400 text-lg">Here&apos;s what&apos;s happening with your infrastructure today.</p>
         </div>
         <div className="flex items-center gap-3">
