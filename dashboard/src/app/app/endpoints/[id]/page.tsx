@@ -21,6 +21,7 @@ export default async function EndpointDetailsPage({ params }: { params: { id: st
     pluginId: string;
     status: string;
     errorMessage: string | null;
+    config: unknown;
     lastAppliedAt: string | null;
     createdAt: string;
   }> = [];
@@ -59,6 +60,7 @@ export default async function EndpointDetailsPage({ params }: { params: { id: st
             pluginId: true,
             status: true,
             errorMessage: true,
+            config: true,
             lastAppliedAt: true,
             createdAt: true,
           },
@@ -66,6 +68,7 @@ export default async function EndpointDetailsPage({ params }: { params: { id: st
 
         nodePlugins = pluginRows.map((plugin) => ({
           ...plugin,
+          config: plugin.config ? JSON.parse(JSON.stringify(plugin.config)) : {},
           lastAppliedAt: plugin.lastAppliedAt?.toISOString() ?? null,
           createdAt: plugin.createdAt.toISOString(),
         }));
