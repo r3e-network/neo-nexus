@@ -90,11 +90,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (isDatabaseConfigured()) {
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
-            select: { organizationId: true, role: true, email: true },
+            select: { id: true, name: true, email: true, organizationId: true, role: true },
           });
 
           if (dbUser) {
-            token.organizationId = dbUser.organizationId ?? null;
+            let userOrgId = dbUser.organizationId;
+
+            // PROFESSIONAL REFACTOR: Auto-provision a Personal Workspace on first login
+            if (!userOrgId) {
+              const defaultName = dbUser.name || dbUser.email?.split('@')[0] || 'Personal';
+              const newOrg = await prisma.organization.create({
+                data: {
+                  name: `${defaultName} Workspace`,
+                  billingPlan: 'developer',
+                  users: {
+                    connect: { id: dbUser.id }
+                  }
+                }
+              });
+              
+              // Also auto-generate an API key for them so they can hit the ground running
+              await prisma.apiKey.create({
+                data: {
+                  name: 'Default API Key',
+                  keyHash: `nk_live_${Buffer.from(newOrg.id + Date.now().toString()).toString('base64url').slice(0, 32)}`,
+                  organizationId: newOrg.id,
+                }
+              });
+
+              userOrgId = newOrg.id;
+            }
+
+            token.organizationId = userOrgId;
             token.role = resolveUserRole({
               role: dbUser.role,
               email: dbUser.email ?? user.email ?? tokenEmail,
