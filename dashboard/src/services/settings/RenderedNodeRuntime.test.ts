@@ -21,7 +21,7 @@ describe('RenderedNodeRuntime', () => {
     expect(rendered.neoGoConfig).toContain('MaxPeers: 42');
     expect(rendered.neoGoConfig).toContain('Enabled: false');
     expect(rendered.runScript).toContain('neonexus-node');
-    expect(rendered.runCommand).toContain('nspccdev/neo-go:0.106.0');
+    expect(rendered.runCommand).toContain('nspccdev/neo-go:0.118.0');
   });
 
   it('renders neo-x geth flags from the persisted settings', () => {

@@ -65,7 +65,7 @@ function buildNeoGoRunCommand(settings: NodeSettings): string {
     '-p 10332:10332 -p 10333:10333 -p 2112:2112',
     '-v /var/lib/neonexus:/data',
     `-v ${REMOTE_NEO_GO_CONFIG_PATH}:/config/protocol.mainnet.yml`,
-    'nspccdev/neo-go:0.106.0',
+    'nspccdev/neo-go:0.118.0',
     'node --config-path /config',
   ].join(' ');
 }
@@ -81,7 +81,7 @@ function buildNeoCliRunCommand(settings: NodeSettings): string {
     `docker run -d --name neonexus-node --restart unless-stopped${extras}`,
     ...publishedPorts,
     '-v /var/lib/neonexus:/data',
-    'neo-project/neo-cli:3.7.4',
+    'ghcr.io/neo-project/neo-node:v3.9.2',
     settings.rpcEnabled ? 'dotnet neo-cli.dll --rpc' : 'dotnet neo-cli.dll',
   ].join(' ');
 }
