@@ -83,10 +83,10 @@ ${toWriteFileBlock(REMOTE_NODE_SETTINGS_PATH, '0644', JSON.stringify(defaultSett
           env_path = plugin_runtime_dir / 'plugin.env'
           secret_payloads = payload.get('secretPayloads', {})
           with open(env_path, 'w', encoding='utf-8') as env_file:
-              env_file.write(f'NEONEXUS_PLUGIN_ID={plugin_id}\n')
-              env_file.write('NEONEXUS_PLUGIN_CONFIG=/etc/neonexus/plugin.json\n')
+              env_file.write(f'NEONEXUS_PLUGIN_ID={plugin_id}\\n')
+              env_file.write('NEONEXUS_PLUGIN_CONFIG=/etc/neonexus/plugin.json\\n')
               for key, value in secret_payloads.items():
-                  env_file.write(f'{key.upper()}={value}\n')
+                  env_file.write(f'{key.upper()}={value}\\n')
 
           run(['docker', 'rm', '-f', container_name], check=False)
           run([

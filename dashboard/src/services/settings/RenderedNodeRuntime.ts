@@ -66,7 +66,7 @@ function buildNeoGoRunCommand(settings: NodeSettings): string {
     '-v /var/lib/neonexus:/data',
     `-v ${REMOTE_NEO_GO_CONFIG_PATH}:/config/protocol.mainnet.yml`,
     'nspccdev/neo-go:0.106.0',
-    'node --config-path /config --relative-path',
+    'node --config-path /config',
   ].join(' ');
 }
 
