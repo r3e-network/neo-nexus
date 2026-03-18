@@ -12,42 +12,36 @@ NeoNexus is a unified Next.js application containing both the Marketing Website 
    cd dashboard
    DATABASE_URL="your-neon-url" npx prisma db push
    ```
-5. Set `OPERATOR_EMAILS` in your environment to the comma-separated list of emails that should have platform operator access:
+5. Set `OPERATOR_WALLETS` in your environment to the comma-separated list of Neo N3 addresses that should have platform operator access:
    ```env
-   OPERATOR_EMAILS=you@example.com,ops@example.com
+   OPERATOR_WALLETS=NNR...123,Nabc...xyz
    ```
 6. If you prefer persistent role assignment in the database, you can also promote your own account after the first login creates a user row:
    ```sql
    update "User"
    set role = 'operator'
-   where email = 'you@example.com';
+   where "walletAddress" = 'NNR...123';
    ```
-7. Re-run `npx prisma db push` whenever you pull schema changes from this repository. The dashboard now depends on the `User.role` column at runtime, even if you primarily bootstrap access with `OPERATOR_EMAILS`.
 
-## 2. Authentication Setup (NextAuth)
+## 2. Authentication Setup (NextAuth & Web3)
 
 ### Generate a Secret
-Generate a random 32-character string for NextAuth:
+Generate a random 32-character string for NextAuth session cookies:
 ```bash
 openssl rand -base64 32
 ```
+This becomes your `AUTH_SECRET` environment variable.
 
-### GitHub OAuth
-1. Go to GitHub -> Settings -> Developer Settings -> OAuth Apps -> New OAuth App.
-2. Homepage URL: `https://your-domain.com`
-3. Authorization callback URL: `https://your-domain.com/api/auth/callback/github`
-4. Save the **Client ID** and generate a **Client Secret**.
+The platform uses **Sign-In with Neo (SIWN)**. No OAuth apps (GitHub/Google) are required! Users simply connect their NeoLine wallet to authenticate.
 
-## 3. Stripe Setup (Billing)
+## 3. Cryptography & Custody (AWS KMS)
 
-1. Create a [Stripe](https://stripe.com) account.
-2. Go to the Developer Dashboard and copy your **Secret Key** (`sk_live_...` or `sk_test_...`).
-3. Create two Products (Subscriptions):
-   - **Growth Plan** ($49/mo) -> Save the Price ID (e.g., `price_12345`)
-   - **Dedicated Plan** ($99/mo) -> Save the Price ID (e.g., `price_67890`)
-4. Set up a Webhook endpoint pointing to: `https://your-domain.com/api/webhooks/stripe`.
-   - Listen for the `checkout.session.completed` event.
-   - Save the **Webhook Signing Secret** (`whsec_...`).
+To securely encrypt plugin secrets (like Consensus and Oracle keys) before storing them in the database:
+1. Create a Symmetric Encryption Key in **AWS KMS**.
+2. Save the ARN of the key as `KMS_KEY_ID`.
+3. Provide `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to the environment if deploying outside of an IAM-role-assumed container.
+
+*(Fallback: If you do not have AWS KMS, you can provide a 32-byte hex string as `VAULT_ENCRYPTION_KEY` for local symmetric encryption).*
 
 ## 4. Deploying to Vercel
 
@@ -58,24 +52,19 @@ openssl rand -base64 32
 5. Add the following Environment Variables:
    - `DATABASE_URL`: (Your Neon DB URL)
    - `DIRECT_URL`: (Same as above, or non-pooled URL)
-   - `NEXTAUTH_SECRET`: (From step 2)
-   - `NEXTAUTH_URL`: `https://your-domain.com`
-   - `GITHUB_ID`: (From step 2)
-   - `GITHUB_SECRET`: (From step 2)
-   - `OPERATOR_EMAILS`: comma-separated operator email allowlist for the platform-only Operations surfaces
-   - `STRIPE_SECRET_KEY`: (From step 3)
-   - `STRIPE_WEBHOOK_SECRET`: (From step 3)
-   - `STRIPE_PRICE_ID_GROWTH`: (From step 3)
-   - `STRIPE_PRICE_ID_DEDICATED`: (From step 3)
+   - `AUTH_SECRET`: (From step 2)
+   - `OPERATOR_WALLETS`: (From step 1)
+   - `KMS_KEY_ID`: (From step 3)
    - `APISIX_ADMIN_URL`
    - `APISIX_ADMIN_KEY`
-   - `HETZNER_API_TOKEN`
+   - `NEO_NEXUS_HETZNER` (Your Hetzner API Token)
    - `DIGITALOCEAN_API_TOKEN`
+   - `VM_OPERATOR_PUBLIC_KEY` (e.g. `ssh-ed25519 AAAAC3...`)
    - `SHARED_NEO_N3_MAINNET_UPSTREAM`
    - `SHARED_NEO_N3_TESTNET_UPSTREAM`
    - `SHARED_NEO_X_MAINNET_UPSTREAM`
    - `SHARED_NEO_X_TESTNET_UPSTREAM`
-6. **(Important)** Dedicated node provisioning now depends on provider API credentials and APISIX. Leaving those blank will prevent real endpoint creation.
+6. **(Important)** Dedicated node provisioning depends on provider API credentials, SSH keys, and APISIX. Leaving those blank will prevent real endpoint creation.
 7. Click **Deploy**. Assign your custom domain (e.g., `neonexus.cloud`).
 
-You now have a fully functional frontend architecture connected to a database and payment processor!
+You now have a fully functional Node-as-a-Service architecture!
