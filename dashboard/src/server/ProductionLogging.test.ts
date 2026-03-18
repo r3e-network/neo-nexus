@@ -7,7 +7,6 @@ describe('production logging hygiene', () => {
     const files = [
       path.join(process.cwd(), 'src/app/app/billing/actions.ts'),
       path.join(process.cwd(), 'src/app/app/endpoints/pluginActions.ts'),
-      path.join(process.cwd(), 'src/services/billing/StripeService.ts'),
     ];
 
     for (const file of files) {

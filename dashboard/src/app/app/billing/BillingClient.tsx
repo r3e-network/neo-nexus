@@ -3,10 +3,10 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { CheckCircle2, CreditCard } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import type { BillingHistoryItem } from '@/services/billing/BillingOverviewService';
 import type { PublicCryptoBillingConfig } from '@/services/billing/CryptoBillingService';
-import { openBillingPortalAction, upgradePlanAction, verifyCryptoPaymentAction } from './actions';
+import { verifyCryptoPaymentAction } from './actions';
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
@@ -14,15 +14,12 @@ const getErrorMessage = (error: unknown, fallback: string) =>
 type BillingClientProps = {
   billingPlan: string;
   cryptoBillingConfig: PublicCryptoBillingConfig | null;
-  hasStripeCustomer: boolean;
   billingOverview: {
     items: BillingHistoryItem[];
-    cardSummary: string | null;
-    cardExpiry: string | null;
   };
 };
 
-export default function BillingClient({ billingPlan, cryptoBillingConfig, hasStripeCustomer, billingOverview }: BillingClientProps) {
+export default function BillingClient({ billingPlan, cryptoBillingConfig, billingOverview }: BillingClientProps) {
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [isCryptoModalOpen, setIsCryptoModalOpen] = useState(false);
@@ -30,16 +27,6 @@ export default function BillingClient({ billingPlan, cryptoBillingConfig, hasStr
   const [cryptoPlanSelected, setCryptoPlanSelected] = useState<'growth' | 'dedicated'>(
     billingPlan === 'developer' ? 'growth' : 'dedicated',
   );
-
-  const handleStripeUpgrade = async (plan: 'growth' | 'dedicated') => {
-    setIsProcessing(plan);
-    try {
-      await upgradePlanAction(plan);
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to start checkout session'));
-      setIsProcessing(null);
-    }
-  };
 
   const handleCryptoPayment = async () => {
     if (!txHash.trim()) {
@@ -153,20 +140,6 @@ export default function BillingClient({ billingPlan, cryptoBillingConfig, hasStr
     }
   };
 
-  const handleOpenBillingPortal = async () => {
-    setIsProcessing('portal');
-
-    try {
-      const result = await openBillingPortalAction();
-      if (result?.success === false) {
-        throw new Error(result.error);
-      }
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to open Stripe billing portal.'));
-      setIsProcessing(null);
-    }
-  };
-
   return (
     <div className="space-y-8">
       <div>
@@ -205,45 +178,26 @@ export default function BillingClient({ billingPlan, cryptoBillingConfig, hasStr
             </div>
 
             {billingPlan !== 'dedicated' && (
-              <div className="flex flex-col sm:flex-row gap-4">
-                {billingPlan === 'developer' && (
-                  <button
-                    onClick={() => handleStripeUpgrade('growth')}
-                    disabled={!!isProcessing}
-                    className="bg-[#00E599] hover:bg-[#00cc88] disabled:opacity-50 text-black px-4 py-2 rounded-md font-bold transition-colors flex items-center justify-center gap-2"
-                  >
-                    {isProcessing === 'growth' ? 'Loading...' : 'Upgrade to Growth ($49/mo)'}
-                  </button>
-                )}
+              <div className="flex flex-col sm:flex-row gap-4 mt-4">
                 <button
-                  onClick={() => handleStripeUpgrade('dedicated')}
-                  disabled={!!isProcessing}
-                  className="bg-[#333333] hover:bg-[#444444] disabled:opacity-50 text-white px-4 py-2 rounded-md font-bold transition-colors flex items-center justify-center gap-2"
+                  onClick={() => { setCryptoPlanSelected('growth'); setIsCryptoModalOpen(true); }}
+                  className="bg-[#00E599] hover:bg-[#00cc88] text-black px-4 py-2 rounded-md font-bold transition-colors flex items-center justify-center gap-2"
                 >
-                  {isProcessing === 'dedicated' ? 'Loading...' : 'Upgrade to Dedicated ($99/mo)'}
+                  Upgrade to Growth ({cryptoBillingConfig?.growthAmountGas || 0} GAS/mo)
+                </button>
+                <button
+                  onClick={() => { setCryptoPlanSelected('dedicated'); setIsCryptoModalOpen(true); }}
+                  className="bg-[#333333] hover:bg-[#444444] text-white px-4 py-2 rounded-md font-bold transition-colors flex items-center justify-center gap-2"
+                >
+                  Upgrade to Dedicated ({cryptoBillingConfig?.dedicatedAmountGas || 0} GAS/mo)
                 </button>
               </div>
-            )}
-            {billingPlan !== 'developer' && (
-              hasStripeCustomer ? (
-                <button
-                  onClick={handleOpenBillingPortal}
-                  disabled={isProcessing === 'portal'}
-                  className={`text-red-400 hover:text-red-300 px-4 py-2 rounded-md font-medium transition-colors border border-red-500/30 bg-red-500/10 disabled:opacity-50 ${billingPlan !== 'dedicated' ? 'mt-4' : ''}`}
-                >
-                  {isProcessing === 'portal' ? 'Opening Billing Portal...' : 'Manage Subscription in Stripe'}
-                </button>
-              ) : (
-                <div className={`text-sm text-gray-500 ${billingPlan !== 'dedicated' ? 'mt-4' : ''}`}>
-                  Stripe subscription management becomes available after a card-backed subscription is created.
-                </div>
-              )
             )}
           </div>
 
           <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-xl overflow-hidden">
             <div className="p-6 border-b border-[var(--color-dark-border)]">
-              <h2 className="text-lg font-medium text-white">Invoices</h2>
+              <h2 className="text-lg font-medium text-white">Invoices & On-Chain Payments</h2>
             </div>
             <div className="divide-y divide-[#333333]">
               {billingOverview.items.length === 0 ? (
@@ -260,12 +214,7 @@ export default function BillingClient({ billingPlan, cryptoBillingConfig, hasStr
                     </div>
                     <div className="text-right">
                       <div className="font-medium text-white">{item.amountLabel}</div>
-                      <div className="text-xs uppercase tracking-wide text-gray-500 mt-1">{item.status}</div>
-                      {item.href && (
-                        <a href={item.href} target="_blank" rel="noreferrer" className="text-xs text-[#00E599] hover:text-[#00cc88] mt-2 inline-block">
-                          View Invoice
-                        </a>
-                      )}
+                      <div className="text-xs uppercase tracking-wide text-[#00E599] mt-1">{item.status}</div>
                     </div>
                   </div>
                 ))
@@ -279,37 +228,20 @@ export default function BillingClient({ billingPlan, cryptoBillingConfig, hasStr
             <h2 className="text-lg font-medium text-white mb-6">Payment Method</h2>
 
             <div className="bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-lg p-4 flex items-center gap-4 mb-4">
-              <div className="bg-gray-800 p-2 rounded">
-                <CreditCard className="w-6 h-6 text-gray-400" />
+              <div className="bg-[#00E599]/20 p-2 rounded">
+                <div className="w-6 h-6 rounded-full bg-[#00E599] flex items-center justify-center text-black text-xs font-bold">N</div>
               </div>
               <div className="flex-1">
-                <div className="text-gray-400 font-medium">{billingOverview.cardSummary ?? 'No fiat card on file'}</div>
-                {billingOverview.cardExpiry && (
-                  <div className="text-xs text-gray-500 mt-1">Expires {billingOverview.cardExpiry}</div>
-                )}
+                <div className="text-gray-300 font-medium">Neo N3 Wallet</div>
+                <div className="text-xs text-gray-500 mt-1">Native Web3 Integration</div>
               </div>
             </div>
 
-            {hasStripeCustomer ? (
-              <button
-                onClick={handleOpenBillingPortal}
-                disabled={isProcessing === 'portal'}
-                className="w-full bg-[#333333] hover:bg-[#444444] disabled:opacity-50 text-white py-2 rounded-md font-medium transition-colors mb-6"
-              >
-                {isProcessing === 'portal' ? 'Opening Billing Portal...' : 'Manage Card via Stripe'}
-              </button>
-            ) : (
-              <div className="w-full border border-[var(--color-dark-border)] rounded-md px-4 py-3 text-sm text-gray-500 mb-6">
-                Card management becomes available after a Stripe-backed subscription is created.
-              </div>
-            )}
-
-            <div className="pt-6 border-t border-[var(--color-dark-border)]">
-              <h3 className="text-sm font-medium text-white mb-4">Web3 Native Payment</h3>
+            <div className="pt-2">
               {cryptoBillingConfig ? (
                 <>
                   <p className="text-sm text-gray-400 mb-6">
-                    Send the required GAS amount to the configured treasury, then paste the confirmed transaction hash for on-chain verification.
+                    Connect your NeoLine wallet to pay for subscriptions directly using GAS.
                   </p>
 
                   {billingPlan !== 'dedicated' ? (
@@ -318,10 +250,10 @@ export default function BillingClient({ billingPlan, cryptoBillingConfig, hasStr
                       className="w-full bg-[#00E599]/10 hover:bg-[#00E599]/20 text-[#00E599] border border-[#00E599]/30 py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
                     >
                       <div className="w-4 h-4 rounded-full bg-[#00E599] flex items-center justify-center text-black text-[10px] font-bold">N</div>
-                      {billingPlan === 'developer' ? 'Verify GAS Payment' : 'Upgrade to Dedicated with GAS'}
+                      {billingPlan === 'developer' ? 'Upgrade Plan with GAS' : 'Upgrade to Dedicated'}
                     </button>
                   ) : (
-                    <div className="text-sm text-green-400 border border-green-400/30 bg-green-400/10 p-3 rounded-lg text-center">
+                    <div className="text-sm text-green-400 border border-green-400/30 bg-green-400/10 p-3 rounded-lg text-center font-medium">
                       Subscription active via verified on-chain payment.
                     </div>
                   )}
@@ -347,7 +279,7 @@ export default function BillingClient({ billingPlan, cryptoBillingConfig, hasStr
             </button>
             <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-[#00E599] flex items-center justify-center text-black text-xs font-bold">N</div>
-              Verify Neo N3 Payment
+              Pay with Neo N3
             </h3>
 
             <div className="space-y-4 mb-6">
@@ -367,7 +299,7 @@ export default function BillingClient({ billingPlan, cryptoBillingConfig, hasStr
                     </div>
                     <span className="text-[#00E599] font-medium">{cryptoBillingConfig.growthAmountGas} GAS</span>
                   </div>
-                  <div className="pl-7 text-xs text-gray-400">Submit a payment to the configured treasury address.</div>
+                  <div className="pl-7 text-xs text-gray-400">Unlock marketplace plugins and advanced features.</div>
                 </label>
               )}
 
@@ -386,7 +318,7 @@ export default function BillingClient({ billingPlan, cryptoBillingConfig, hasStr
                   </div>
                   <span className="text-[#00E599] font-medium">{cryptoBillingConfig.dedicatedAmountGas} GAS</span>
                 </div>
-                <div className="pl-7 text-xs text-gray-400">Submit a payment to the configured treasury address.</div>
+                <div className="pl-7 text-xs text-gray-400">Deploy dedicated infrastructure and custom configurations.</div>
               </label>
             </div>
 
