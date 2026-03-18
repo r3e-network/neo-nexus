@@ -65,6 +65,11 @@ export async function updateEndpointDomainAction(
         10332, // Default RPC port for now, the real provisioning engine overwrites this based on engine anyway
         routePlugins
       );
+
+      // If a vanity domain is configured, ensure APISIX terminates SSL for that SNI
+      if (domainToSave) {
+        await ApisixService.syncSslCertificate(domainToSave);
+      }
     } catch (e) {
       console.warn('Failed to sync domain change to apisix right away', e);
     }
