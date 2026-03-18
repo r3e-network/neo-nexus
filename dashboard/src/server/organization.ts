@@ -3,7 +3,7 @@ import { prisma } from '../utils/prisma';
 import {
   UnauthorizedError,
   assertOperatorRole,
-  getConfiguredOperatorEmails,
+  getConfiguredOperatorWallets,
   resolveUserRole,
 } from './userRoles';
 
@@ -19,6 +19,7 @@ export type UserContext = {
   organizationId: string | null;
   billingPlan: BillingPlan;
   role: UserRole;
+  walletAddress: string | null;
 };
 
 export type OrganizationContext = UserContext & {
@@ -68,20 +69,20 @@ export async function getCurrentUserContext(): Promise<UserContext | null> {
     return null;
   }
 
-  const operatorEmails = getConfiguredOperatorEmails();
+  const operatorWallets = getConfiguredOperatorWallets();
   let organizationId = session.user.organizationId ?? null;
   let billingPlan: BillingPlan = 'developer';
   let role: UserRole = resolveUserRole({
     role: session.user.role,
-    email: session.user.email,
-    operatorEmails,
+    walletAddress: session.user.walletAddress,
+    operatorWallets,
   });
 
   if (isDatabaseConfigured()) {
     const userRecord = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: {
-        email: true,
+        walletAddress: true,
         role: true,
         organizationId: true,
         organization: {
@@ -97,8 +98,8 @@ export async function getCurrentUserContext(): Promise<UserContext | null> {
       billingPlan = normalizeBillingPlan(userRecord.organization?.billingPlan);
       role = resolveUserRole({
         role: userRecord.role,
-        email: userRecord.email ?? session.user.email,
-        operatorEmails,
+        walletAddress: userRecord.walletAddress ?? session.user.walletAddress,
+        operatorWallets,
       });
     }
   }
@@ -106,6 +107,7 @@ export async function getCurrentUserContext(): Promise<UserContext | null> {
   return {
     userId: session.user.id,
     name: session.user.name || null,
+    walletAddress: session.user.walletAddress || null,
     organizationId,
     billingPlan,
     role,

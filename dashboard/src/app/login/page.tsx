@@ -1,31 +1,91 @@
 'use client';
 
 import Link from 'next/link';
-import { Github } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
+import toast from 'react-hot-toast';
+
+interface NeoLineTxResult { txid: string }
+interface WindowWithNeoLine extends Window {
+  NEOLineN3?: {
+    Init: new () => {
+      getAccount: () => Promise<{ address: string }>;
+      signMessage: (args: { message: string }) => Promise<{ publicKey: string, data: string, salt: string, message: string }>;
+      send: (args: { fromAddress: string, toAddress: string, asset: string, amount: string, network: string }) => Promise<NeoLineTxResult>;
+    };
+  };
+}
 
 function LoginContent() {
   const searchParams = useSearchParams();
   const isSignup = searchParams.get('signup') === 'true';
   const callbackUrl = searchParams.get('callbackUrl') || '/app';
-  const [isLoading, setIsLoading] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [hasNeoLine, setHasNeoLine] = useState<boolean>(false);
 
-  const [email, setEmail] = useState('');
+  useEffect(() => {
+    // Check if NeoLine is injected
+    if (typeof window !== 'undefined') {
+      const checkNeoLine = () => {
+        const win = window as unknown as WindowWithNeoLine;
+        if (win.NEOLineN3) {
+          setHasNeoLine(true);
+        }
+      };
+      checkNeoLine();
+      // Sometimes it takes a moment to inject
+      setTimeout(checkNeoLine, 500);
+      setTimeout(checkNeoLine, 1000);
+    }
+  }, []);
 
-  const handleLogin = async (provider: string) => {
-    setIsLoading(provider);
-    if (provider === 'credentials') {
-      await signIn('credentials', { email, callbackUrl });
-    } else {
-      await signIn(provider, { callbackUrl });
+  const handleNeoLogin = async () => {
+    setIsLoading(true);
+    
+    try {
+      const win = window as unknown as WindowWithNeoLine;
+      if (!win.NEOLineN3) {
+        throw new Error('NeoLine wallet not found. Please install the NeoLine extension.');
+      }
+
+      const neoline = new win.NEOLineN3.Init();
+      const account = await neoline.getAccount();
+      
+      const message = `Sign in to NeoNexus\nNonce: ${Date.now()}`;
+      
+      const signed = await neoline.signMessage({
+        message,
+      });
+
+      const result = await signIn('credentials', {
+        redirect: false,
+        address: account.address,
+        publicKey: signed.publicKey,
+        message: message,
+        signature: signed.data,
+      });
+
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+
+      // Success, redirect
+      window.location.href = callbackUrl;
+
+    } catch (error: unknown) {
+      console.error(error);
+      const errObj = error as Record<string, unknown>;
+      const errorMessage = (typeof errObj?.description === 'string' ? errObj.description : null) || 
+                           (typeof errObj?.message === 'string' ? errObj.message : null) || 
+                           'Failed to authenticate with Neo wallet.';
+      toast.error(errorMessage);
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="w-full max-w-md bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] rounded-3xl p-8 md:p-12 shadow-2xl relative overflow-hidden">
-      
       {/* Glow effect */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-[#00E599]/10 rounded-full blur-[50px]"></div>
 
@@ -37,66 +97,29 @@ function LoginContent() {
           {isSignup ? 'Create an account' : 'Welcome back'}
         </h1>
         <p className="text-gray-400">
-          {isSignup ? 'Start building on Neo in seconds.' : 'Sign in to your NeoNexus console.'}
+          Sign in using your Neo N3 wallet to access the control plane.
         </p>
       </div>
 
       <div className="space-y-4 relative z-10">
+        {!hasNeoLine && (
+          <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-sm p-4 rounded-xl mb-4 text-left">
+            NeoLine wallet extension not detected. Please install NeoLine for your browser to continue.
+          </div>
+        )}
+
         <button 
-          onClick={() => handleLogin('github')}
-          disabled={!!isLoading}
-          className="w-full bg-white text-black hover:bg-gray-200 disabled:opacity-50 py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-3"
+          onClick={handleNeoLogin}
+          disabled={isLoading || !hasNeoLine}
+          className="w-full bg-[#00E599] hover:bg-[#00cc88] disabled:opacity-50 text-black py-3 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(0,229,153,0.2)] flex items-center justify-center gap-2"
         >
-          {isLoading === 'github' ? <span className="animate-spin w-5 h-5 border-2 border-black border-t-transparent rounded-full"></span> : <Github className="w-5 h-5" />}
-          {isSignup ? 'Sign up with GitHub' : 'Continue with GitHub'}
-        </button>
-        
-        <button 
-          onClick={() => handleLogin('google')}
-          disabled={!!isLoading}
-          className="w-full bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] hover:border-gray-500 disabled:opacity-50 text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-3"
-        >
-          {isLoading === 'google' ? (
-            <span className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></span>
+          {isLoading ? (
+            <span className="animate-spin w-5 h-5 border-2 border-black border-t-transparent rounded-full"></span>
           ) : (
-            <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-            </svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2"/><path d="M7 12H17M12 7V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
           )}
-          {isSignup ? 'Sign up with Google' : 'Continue with Google'}
+          {isSignup ? 'Connect Wallet to Sign Up' : 'Connect Wallet to Sign In'}
         </button>
-
-        <div className="relative py-4">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-[var(--color-dark-border)]"></div>
-          </div>
-          <div className="relative flex justify-center text-xs">
-            <span className="bg-[var(--color-dark-panel)] px-4 text-gray-500">Or</span>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Email Address</label>
-            <input 
-              type="email" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com" 
-              className="w-full bg-[var(--color-dark-bg)] border border-[var(--color-dark-border)] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00E599] transition-colors"
-            />
-          </div>
-          <button 
-            onClick={() => handleLogin('credentials')}
-            disabled={!!isLoading || !email}
-            className="w-full bg-[#00E599] hover:bg-[#00cc88] disabled:opacity-50 text-black py-3 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(0,229,153,0.2)]"
-          >
-            {isLoading === 'credentials' ? 'Signing in...' : (isSignup ? 'Create Account' : 'Sign In')}
-          </button>
-        </div>
       </div>
 
       <p className="text-center text-sm text-gray-500 mt-8 relative z-10">

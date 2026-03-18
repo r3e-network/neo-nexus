@@ -1,66 +1,64 @@
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import NextAuth from 'next-auth';
 import type { Provider } from 'next-auth/providers';
-import GithubProvider from 'next-auth/providers/github';
-import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { isDatabaseConfigured } from '@/server/organization';
-import { getConfiguredOperatorEmails, resolveUserRole } from '@/server/userRoles';
+import { getConfiguredOperatorWallets, resolveUserRole } from '@/server/userRoles';
 import { prisma } from '@/utils/prisma';
+import { wallet } from '@cityofzion/neon-js';
 
 const providers: Provider[] = [];
 
-if (process.env.GITHUB_ID && process.env.GITHUB_SECRET) {
-  providers.push(
-    GithubProvider({
-      clientId: process.env.GITHUB_ID,
-      clientSecret: process.env.GITHUB_SECRET,
-    }),
-  );
-}
-
-if (process.env.GOOGLE_ID && process.env.GOOGLE_SECRET) {
-  providers.push(
-    GoogleProvider({
-      clientId: process.env.GOOGLE_ID,
-      clientSecret: process.env.GOOGLE_SECRET,
-    }),
-  );
-}
-
-// Fallback for development/testing environments to ensure login works without OAuth configured
 providers.push(
   CredentialsProvider({
-    name: 'Email (Dev)',
+    name: 'Neo Wallet',
     credentials: {
-      email: { label: 'Email', type: 'email' },
+      address: { label: 'Address', type: 'text' },
+      publicKey: { label: 'Public Key', type: 'text' },
+      message: { label: 'Message', type: 'text' },
+      signature: { label: 'Signature', type: 'text' },
     },
     async authorize(credentials) {
-      if (!credentials?.email || typeof credentials.email !== 'string') return null;
+      if (!credentials?.address || !credentials?.publicKey || !credentials?.message || !credentials?.signature) {
+        return null;
+      }
       
-      if (!isDatabaseConfigured()) {
-        return {
-          id: 'dev_user',
-          email: credentials.email,
-          name: credentials.email.split('@')[0],
-          role: 'operator',
-        };
-      }
+      const { address, publicKey, message, signature } = credentials as Record<string, string>;
+      
+      try {
+        const isValid = wallet.verify(message, signature, publicKey);
+        if (!isValid) return null;
+        
+        const expectedAddress = new wallet.Account(publicKey).address;
+        if (expectedAddress !== address) return null;
+        
+        if (!isDatabaseConfigured()) {
+          return {
+            id: `dev_${address}`,
+            name: address.slice(0, 8),
+            walletAddress: address,
+            role: 'operator',
+          };
+        }
 
-      let user = await prisma.user.findUnique({
-        where: { email: credentials.email },
-      });
-
-      if (!user) {
-        user = await prisma.user.create({
-          data: {
-            email: credentials.email,
-            name: credentials.email.split('@')[0],
-          }
+        let userRecord = await prisma.user.findUnique({
+          where: { walletAddress: address },
         });
-      }
 
-      return user;
+        if (!userRecord) {
+          userRecord = await prisma.user.create({
+            data: {
+              walletAddress: address,
+              name: `Neo User ${address.slice(0, 4)}`,
+            }
+          });
+        }
+
+        return userRecord;
+      } catch (e) {
+        console.error('Signature verification failed', e);
+        return null;
+      }
     },
   })
 );
@@ -73,24 +71,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   callbacks: {
     async jwt({ token, user }) {
-      const operatorEmails = getConfiguredOperatorEmails();
-      const tokenEmail = typeof token.email === 'string' ? token.email : null;
+      const operatorWallets = getConfiguredOperatorWallets();
+      const tokenWallet = typeof token.walletAddress === 'string' ? token.walletAddress : null;
       const tokenRole = typeof token.role === 'string' ? token.role : null;
 
       if (user?.id) {
         const userRole = typeof user.role === 'string' ? user.role : null;
         token.id = user.id;
+        token.walletAddress = user.walletAddress ?? tokenWallet ?? null;
         token.organizationId = user.organizationId ?? token.organizationId ?? null;
         token.role = resolveUserRole({
           role: userRole ?? tokenRole,
-          email: user.email ?? tokenEmail,
-          operatorEmails,
+          walletAddress: user.walletAddress ?? tokenWallet,
+          operatorWallets,
         });
 
         if (isDatabaseConfigured()) {
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
-            select: { id: true, name: true, email: true, organizationId: true, role: true },
+            select: { id: true, name: true, walletAddress: true, organizationId: true, role: true },
           });
 
           if (dbUser) {
@@ -98,7 +97,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
             // PROFESSIONAL REFACTOR: Auto-provision a Personal Workspace on first login
             if (!userOrgId) {
-              const defaultName = dbUser.name || dbUser.email?.split('@')[0] || 'Personal';
+              const defaultName = dbUser.name || dbUser.walletAddress?.slice(0, 6) || 'Personal';
               const newOrg = await prisma.organization.create({
                 data: {
                   name: `${defaultName} Workspace`,
@@ -121,11 +120,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               userOrgId = newOrg.id;
             }
 
+            token.walletAddress = dbUser.walletAddress;
             token.organizationId = userOrgId;
             token.role = resolveUserRole({
               role: dbUser.role,
-              email: dbUser.email ?? user.email ?? tokenEmail,
-              operatorEmails,
+              walletAddress: dbUser.walletAddress ?? user.walletAddress ?? tokenWallet,
+              operatorWallets,
             });
           }
         }
@@ -136,6 +136,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (token && session.user && token.id) {
         session.user.id = token.id as string;
+        session.user.walletAddress = typeof token.walletAddress === 'string' ? token.walletAddress : null;
         session.user.organizationId = typeof token.organizationId === 'string' ? token.organizationId : null;
         session.user.role = typeof token.role === 'string' ? token.role : 'member';
       }

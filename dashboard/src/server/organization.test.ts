@@ -3,7 +3,7 @@ import {
   UnauthorizedError,
   assertOperatorRole,
   normalizeUserRole,
-  parseOperatorEmails,
+  parseOperatorWallets,
   resolveUserRole,
 } from './userRoles';
 
@@ -20,28 +20,28 @@ describe('organization role helpers', () => {
     expect(() => assertOperatorRole('operator')).not.toThrow();
   });
 
-  it('treats configured operator emails as operator access', () => {
-    const operatorEmails = parseOperatorEmails('ops@example.com, admin@example.com\nowner@example.com');
+  it('treats configured operator wallets as operator access', () => {
+    const operatorWallets = parseOperatorWallets('Nh7..., Nxyz...\nNabc...');
 
     expect(resolveUserRole({
       role: 'member',
-      email: 'Admin@Example.com',
-      operatorEmails,
+      walletAddress: 'Nh7...',
+      operatorWallets,
     })).toBe('operator');
   });
 
-  it('falls back to the normalized stored role when email is not allowlisted', () => {
-    const operatorEmails = parseOperatorEmails('ops@example.com');
+  it('falls back to the normalized stored role when wallet is not allowlisted', () => {
+    const operatorWallets = parseOperatorWallets('Nh7...');
 
     expect(resolveUserRole({
       role: 'operator',
-      email: 'user@example.com',
-      operatorEmails,
+      walletAddress: 'NUser...',
+      operatorWallets,
     })).toBe('operator');
     expect(resolveUserRole({
       role: 'unexpected',
-      email: 'user@example.com',
-      operatorEmails,
+      walletAddress: 'NUser...',
+      operatorWallets,
     })).toBe('member');
   });
 });

@@ -17,30 +17,30 @@ export function normalizeUserRole(role: string | null | undefined): UserRole {
   return 'member';
 }
 
-export function parseOperatorEmails(value: string | null | undefined): Set<string> {
+export function parseOperatorWallets(value: string | null | undefined): Set<string> {
   return new Set(
     (value ?? '')
       .split(/[,\n]/)
-      .map((email) => email.trim().toLowerCase())
+      .map((wallet) => wallet.trim())
       .filter(Boolean),
   );
 }
 
 export function resolveUserRole(input: {
   role: string | null | undefined;
-  email: string | null | undefined;
-  operatorEmails?: Set<string>;
+  walletAddress: string | null | undefined;
+  operatorWallets?: Set<string>;
 }): UserRole {
-  const normalizedEmail = input.email?.trim().toLowerCase();
-  if (normalizedEmail && input.operatorEmails?.has(normalizedEmail)) {
+  const address = input.walletAddress?.trim();
+  if (address && input.operatorWallets?.has(address)) {
     return 'operator';
   }
 
   return normalizeUserRole(input.role);
 }
 
-export function getConfiguredOperatorEmails(envValue = process.env.OPERATOR_EMAILS): Set<string> {
-  return parseOperatorEmails(envValue);
+export function getConfiguredOperatorWallets(envValue = process.env.OPERATOR_WALLETS): Set<string> {
+  return parseOperatorWallets(envValue);
 }
 
 export function assertOperatorRole(role: UserRole): asserts role is 'operator' {

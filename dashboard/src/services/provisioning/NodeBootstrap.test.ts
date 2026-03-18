@@ -12,7 +12,7 @@ describe('NodeBootstrap', () => {
     });
 
     expect(script).toContain('#cloud-config');
-    expect(script).toContain('nspccdev/neo-go:0.106.0');
+    expect(script).toContain('nspccdev/neo-go:0.118.0');
     expect(script).toContain('10332:10332');
     expect(script).toContain('2112:2112');
     expect(script).toContain('ProtocolConfiguration:');
