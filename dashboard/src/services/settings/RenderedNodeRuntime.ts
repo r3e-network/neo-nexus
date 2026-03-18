@@ -81,8 +81,10 @@ function buildNeoCliRunCommand(settings: NodeSettings): string {
     `docker run -d --name neonexus-node --restart unless-stopped${extras}`,
     ...publishedPorts,
     '-v /var/lib/neonexus:/data',
-    'ghcr.io/neo-project/neo-node:v3.9.2',
-    settings.rpcEnabled ? 'dotnet neo-cli.dll --rpc' : 'dotnet neo-cli.dll',
+    '-v /etc/neonexus/plugins:/config/Plugins',
+    '-v /etc/neonexus/node-settings.json:/config/config.json',
+    'neonexus/neo-cli:v3.9.2',
+    settings.rpcEnabled ? '--rpc' : '',
   ].join(' ');
 }
 
