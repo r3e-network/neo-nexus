@@ -42,6 +42,7 @@ type NodePluginView = {
   pluginId: string;
   status: string;
   errorMessage: string | null;
+  config: unknown;
   lastAppliedAt: string | null;
   createdAt: string;
 };
@@ -914,7 +915,17 @@ export default function EndpointDetailsClient({
                     </div>
                   </div>
                   <button
-                    onClick={() => setInstallPluginModal(pluginDefinition.id)}
+                    onClick={() => {
+                      setInstallPluginModal(pluginDefinition.id);
+                      if (installed) {
+                        try {
+                          const conf = installed.config as Record<string, unknown>;
+                          setPluginConfigInput(typeof conf?.note === 'string' ? conf.note : '');
+                        } catch {
+                          // Ignore
+                        }
+                      }
+                    }}
                     className={`${isInstalled ? 'bg-[var(--color-dark-panel)] border border-[var(--color-dark-border)] hover:bg-[#252525] text-white' : 'text-[#00E599] bg-[#00E599]/10 border border-[#00E599]/20 hover:bg-[#00E599]/20'} px-4 py-2 rounded text-sm transition-colors`}
                   >
                     {isInstalled ? 'Reconfigure' : 'Install Plugin'}
