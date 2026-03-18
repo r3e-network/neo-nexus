@@ -100,6 +100,7 @@ model Endpoint {
   settings          Json?
   url               String
   wssUrl            String?
+  customDomain      String?
   providerPublicIp  String?
   status            String    @default("Syncing")
   requests          Int       @default(0)

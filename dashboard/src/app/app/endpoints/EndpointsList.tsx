@@ -13,6 +13,7 @@ export type Endpoint = {
   type: string;
   url: string;
   wssUrl?: string | null;
+  customDomain?: string | null;
   providerPublicIp?: string | null;
   status: string;
   requests: string | number;

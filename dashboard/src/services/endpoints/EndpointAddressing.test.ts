@@ -40,4 +40,18 @@ describe('EndpointAddressing', () => {
 
     expect(address.httpsUrl).toBe('https://node-ash-55.neonexus.cloud/v1');
   });
+
+  it('prioritizes custom vanity domains if provided', () => {
+    const address = buildPlannedEndpointAddress({
+      type: 'dedicated',
+      protocol: 'neo-x',
+      networkKey: 'mainnet',
+      region: 'ash',
+      routeKey: '55',
+      customDomain: 'rpc.mycompany.com'
+    });
+
+    expect(address.httpsUrl).toBe('https://rpc.mycompany.com/v1');
+    expect(address.wssUrl).toBe('wss://rpc.mycompany.com/ws');
+  });
 });
