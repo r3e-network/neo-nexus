@@ -1,6 +1,0 @@
-apiVersion: v2
-name: neo-x
-description: A Helm chart for deploying a Neo X EVM node (neo-x-geth)
-type: application
-version: 0.1.0
-appVersion: "latest"

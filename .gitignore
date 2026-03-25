@@ -1,4 +1,60 @@
+# Dependencies
 node_modules/
+web/node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+web/dist/
+build/
+*.tsbuildinfo
+
+# Environment
 .env
-.next/
-.serena/
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# NeoNexus specific
+.neonexus/
+!docs/.neonexus
+*.db
+*.db-journal
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Archive (old code)
+archive/
+
+# Misc
+*.pid
+*.seed
+*.pid.lock
+nodes/

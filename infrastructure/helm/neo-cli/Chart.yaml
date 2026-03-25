@@ -1,6 +1,0 @@
-apiVersion: v2
-name: neo-cli
-description: A Helm chart for deploying a Neo N3 C# official node
-type: application
-version: 0.1.0
-appVersion: "3.7.4"

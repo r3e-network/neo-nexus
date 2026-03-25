@@ -1,6 +1,0 @@
-apiVersion: v2
-name: neo-go
-description: A Helm chart for deploying a Neo N3 neo-go node
-type: application
-version: 0.1.0
-appVersion: "0.106.0"
