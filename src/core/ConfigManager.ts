@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import YAML from 'js-yaml';
 import type { NodeConfig, NodeNetwork, PluginId } from '../types/index';
@@ -76,11 +76,32 @@ export class ConfigManager {
   /**
    * Generate neo-cli config.json
    */
-  static generateNeoCliConfig(node: NodeConfig, installedPlugins: PluginId[] = []): Record<string, unknown> {
+  static async generateNeoCliConfig(node: NodeConfig, installedPlugins: PluginId[] = []): Promise<Record<string, unknown>> {
     const networkMagic = getNetworkMagic(node.network);
+
+    // Try to load the official config from the downloaded neo-cli binary as a base.
+    // neo-cli ships with config.testnet.json / config.mainnet.json that contain the
+    // correct StandbyCommittee keys, NNS contract hash, and hardfork heights.
+    let baseConfig: Record<string, unknown> = {};
+    try {
+      const { DownloadManager } = await import('./DownloadManager');
+      const binaryDir = DownloadManager.getNodeBinaryPath('neo-cli', node.version);
+      if (binaryDir) {
+        const networkSuffix = node.network === 'private' ? 'mainnet' : node.network;
+        const officialConfigPath = join(binaryDir, `config.${networkSuffix}.json`);
+        if (existsSync(officialConfigPath)) {
+          baseConfig = JSON.parse(readFileSync(officialConfigPath, 'utf-8'));
+        }
+      }
+    } catch {
+      // Fall back to generated config
+    }
+
+    const baseApp = (baseConfig as any)?.ApplicationConfiguration || {};
 
     const config: Record<string, unknown> = {
       ApplicationConfiguration: {
+        ...baseApp,
         Logger: {
           Path: 'Logs',
           ConsoleOutput: true,
@@ -91,37 +112,28 @@ export class ConfigManager {
           Path: 'Data',
         },
         P2P: {
+          ...(baseApp.P2P || {}),
           Port: node.ports.p2p,
           MinDesiredConnections: node.settings.minPeers ?? 10,
           MaxConnections: node.settings.maxPeers ?? 40,
           MaxConnectionsPerAddress: 3,
         },
-        RpcServer: installedPlugins.includes('RpcServer')
-          ? {
-              Enabled: true,
-              BindAddress: '0.0.0.0',
-              Port: node.ports.rpc,
-              MaxConcurrentConnections: node.settings.maxConnections ?? 40,
-              KeepAliveTimeout: 60,
-            }
-          : undefined,
         UnlockWallet: {
           Path: '',
           Password: '',
           IsActive: false,
         },
-        Contracts: {
-          NeoName: 'NeoToken',
-          GasName: 'GasToken',
+        Contracts: baseApp.Contracts || {
+          NeoNameService: '0x50ac1c37690cc2cfc594472833cf57505d5f46de',
         },
         Plugins: {
           Enabled: installedPlugins,
         },
       },
-      ProtocolConfiguration: {
+      ProtocolConfiguration: (baseConfig as any)?.ProtocolConfiguration || {
         Network: networkMagic,
         AddressVersion: 53,
-        SecondsPerBlock: 15,
+        MillisecondsPerBlock: 15000,
         MaxTransactionsPerBlock: 512,
         MemoryPoolMaxTransactions: 50000,
         MaxTraceableBlocks: 2102400,
@@ -136,8 +148,6 @@ export class ConfigManager {
           '038b3d1535c76c6f6d24c0d1dd871b05b5274ec08f7840b8b222b50e3e6724dd20',
         ],
         SeedList: node.network === 'private' ? [] : getSeedList(node.network),
-        MillisecondsPerBlock: 15000,
-        MaxCommitteeChangeBlockHeight: 0,
       },
     };
 
@@ -308,16 +318,16 @@ export class ConfigManager {
   /**
    * Write node configuration files
    */
-  static writeNodeConfig(node: NodeConfig, installedPlugins: PluginId[] = []): void {
+  static async writeNodeConfig(node: NodeConfig, installedPlugins: PluginId[] = []): Promise<void> {
     // Ensure config directory exists
     mkdirSync(node.paths.config, { recursive: true });
 
     if (node.type === 'neo-cli') {
-      const config = this.generateNeoCliConfig(node, installedPlugins);
-      writeFileSync(
-        join(node.paths.config, 'config.json'),
-        JSON.stringify(config, null, 2)
-      );
+      const config = await this.generateNeoCliConfig(node, installedPlugins);
+      const configJson = JSON.stringify(config, null, 2);
+      writeFileSync(join(node.paths.config, 'config.json'), configJson);
+      // neo-cli looks for config.json in its working directory (the node base path)
+      writeFileSync(join(node.paths.base, 'config.json'), configJson);
     } else {
       const config = this.generateNeoGoConfig(node);
       writeFileSync(
