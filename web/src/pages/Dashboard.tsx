@@ -1,18 +1,9 @@
-import { 
-  Activity, 
-  Server, 
-  Cpu, 
-   
-  Play, 
-  
-  AlertCircle,
-  CheckCircle,
-  AlertTriangle,
-  Settings
-} from 'lucide-react';
-import { useNodes, useSystemMetrics } from '../hooks/useNodes';
-import { useAuth } from '../hooks/useAuth';
-import { Link } from 'react-router-dom';
+import { Activity, Server, Cpu, Play, AlertCircle, AlertTriangle, Settings, ShieldCheck } from "lucide-react";
+import { ProgressBar } from "../components/ProgressBar";
+import { useNodeSignerHealth, useNodes, useSystemMetrics } from "../hooks/useNodes";
+import { useAuth } from "../hooks/useAuth";
+import { Link } from "react-router-dom";
+import { countProtectedNodes, getNodeProtectionLabel, signerReadinessColor } from "../utils/signerVisibility";
 
 export default function Dashboard() {
   const { data: nodes = [] } = useNodes();
@@ -20,40 +11,40 @@ export default function Dashboard() {
   const { user } = useAuth();
 
   // Check if using default credentials
-  const isDefaultPassword = user?.username === 'admin';
+  const isDefaultPassword = user?.usingDefaultPassword === true;
 
-  const runningNodes = nodes.filter(n => n.process.status === 'running');
-  const errorNodes = nodes.filter(n => n.process.status === 'error');
-  const totalBlocks = nodes.reduce((sum, n) => sum + (n.metrics?.blockHeight || 0), 0);
+  const runningNodes = nodes.filter((n) => n.process.status === "running");
+  const errorNodes = nodes.filter((n) => n.process.status === "error");
+  const protectedNodes = countProtectedNodes(nodes);
 
   const stats = [
-    { 
-      label: 'Total Nodes', 
-      value: nodes.length, 
+    {
+      label: "Total Nodes",
+      value: nodes.length,
       icon: Server,
-      color: 'text-blue-400',
-      bgColor: 'bg-blue-500/10'
+      color: "text-blue-400",
+      bgColor: "bg-blue-500/10",
     },
-    { 
-      label: 'Running', 
-      value: runningNodes.length, 
+    {
+      label: "Running",
+      value: runningNodes.length,
       icon: Play,
-      color: 'text-emerald-400',
-      bgColor: 'bg-emerald-500/10'
+      color: "text-emerald-400",
+      bgColor: "bg-emerald-500/10",
     },
-    { 
-      label: 'Errors', 
-      value: errorNodes.length, 
+    {
+      label: "Errors",
+      value: errorNodes.length,
       icon: AlertCircle,
-      color: errorNodes.length > 0 ? 'text-red-400' : 'text-slate-400',
-      bgColor: errorNodes.length > 0 ? 'bg-red-500/10' : 'bg-slate-500/10'
+      color: errorNodes.length > 0 ? "text-red-400" : "text-slate-400",
+      bgColor: errorNodes.length > 0 ? "bg-red-500/10" : "bg-slate-500/10",
     },
-    { 
-      label: 'Blocks Synced', 
-      value: totalBlocks.toLocaleString(), 
-      icon: CheckCircle,
-      color: 'text-purple-400',
-      bgColor: 'bg-purple-500/10'
+    {
+      label: "Protected",
+      value: protectedNodes,
+      icon: ShieldCheck,
+      color: protectedNodes > 0 ? "text-cyan-400" : "text-slate-400",
+      bgColor: protectedNodes > 0 ? "bg-cyan-500/10" : "bg-slate-500/10",
     },
   ];
 
@@ -72,15 +63,30 @@ export default function Dashboard() {
             <div className="flex-1">
               <h3 className="text-sm font-medium text-yellow-400">Security Warning: Default Password in Use</h3>
               <p className="text-sm text-yellow-400/80 mt-1">
-                You are currently using the default password "admin". For security, please change your password immediately.
+                You are currently using the default password "admin". For security, please change your password
+                immediately.
               </p>
-              <Link 
-                to="/settings" 
+              <Link
+                to="/settings"
                 className="inline-flex items-center gap-2 mt-3 text-sm font-medium text-yellow-400 hover:text-yellow-300"
               >
                 <Settings className="w-4 h-4" />
                 Change Password
               </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {protectedNodes > 0 && (
+        <div className="p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-lg">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-medium text-cyan-300">Secure Signer Protection Active</h3>
+              <p className="text-sm text-cyan-200/80 mt-1">
+                {protectedNodes} node{protectedNodes === 1 ? "" : "s"} currently use external secure-signer protection. Review signer readiness from the node cards below.
+              </p>
             </div>
           </div>
         </div>
@@ -116,36 +122,21 @@ export default function Dashboard() {
                 <span className="text-slate-400">CPU Usage</span>
                 <span className="text-white">{systemMetrics.cpu.usage.toFixed(1)}%</span>
               </div>
-              <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-blue-500 transition-all duration-500"
-                  style={{ width: `${systemMetrics.cpu.usage}%` }}
-                />
-              </div>
+              <ProgressBar value={systemMetrics.cpu.usage} color="bg-blue-500" />
             </div>
             <div>
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-slate-400">Memory</span>
                 <span className="text-white">{systemMetrics.memory.percentage.toFixed(1)}%</span>
               </div>
-              <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-emerald-500 transition-all duration-500"
-                  style={{ width: `${systemMetrics.memory.percentage}%` }}
-                />
-              </div>
+              <ProgressBar value={systemMetrics.memory.percentage} color="bg-emerald-500" />
             </div>
             <div>
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-slate-400">Disk</span>
                 <span className="text-white">{systemMetrics.disk.percentage.toFixed(1)}%</span>
               </div>
-              <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-purple-500 transition-all duration-500"
-                  style={{ width: `${systemMetrics.disk.percentage}%` }}
-                />
-              </div>
+              <ProgressBar value={systemMetrics.disk.percentage} color="bg-purple-500" />
             </div>
           </div>
         </div>
@@ -174,21 +165,37 @@ export default function Dashboard() {
               <Link
                 key={node.id}
                 to={`/nodes/${node.id}`}
-                className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-colors"
+                className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-all duration-200 hover:shadow-md border border-transparent hover:border-slate-700"
               >
                 <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    node.type === 'neo-cli' ? 'bg-blue-500/10' : 'bg-emerald-500/10'
-                  }`}>
-                    <Activity className={`w-5 h-5 ${
-                      node.type === 'neo-cli' ? 'text-blue-400' : 'text-emerald-400'
-                    }`} />
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      node.type === "neo-cli" ? "bg-blue-500/10" : "bg-emerald-500/10"
+                    }`}
+                  >
+                    <Activity className={`w-5 h-5 ${node.type === "neo-cli" ? "text-blue-400" : "text-emerald-400"}`} />
                   </div>
                   <div>
                     <h3 className="font-medium text-white">{node.name}</h3>
-                    <p className="text-sm text-slate-400">
-                      {node.type} • {node.network} • v{node.version}
-                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <p className="text-sm text-slate-400">
+                        {node.type} • {node.network} • v{node.version}
+                      </p>
+                      {(() => {
+                        const protection = getNodeProtectionLabel(node);
+                        return (
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                              protection.tone === "secure"
+                                ? "bg-cyan-500/10 text-cyan-300"
+                                : "bg-slate-700 text-slate-400"
+                            }`}
+                          >
+                            {protection.label}
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -199,9 +206,14 @@ export default function Dashboard() {
                     </div>
                   )}
                   <span className={`status-badge status-${node.process.status}`}>
-                    {node.process.status === 'running' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+                    {node.process.status === "running" && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    )}
                     {node.process.status}
                   </span>
+                  {node.settings?.keyProtection?.mode === "secure-signer" && (
+                    <DashboardSignerStatus nodeId={node.id} />
+                  )}
                 </div>
               </Link>
             ))}
@@ -209,5 +221,22 @@ export default function Dashboard() {
         )}
       </div>
     </div>
+  );
+}
+
+function DashboardSignerStatus({ nodeId }: { nodeId: string }) {
+  const { data: signerHealth } = useNodeSignerHealth(nodeId);
+
+  if (!signerHealth) {
+    return null;
+  }
+
+  const tone = signerReadinessColor(signerHealth.readiness.status);
+
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${tone}`}>
+      Signer {signerHealth.readiness.status}
+      {signerHealth.readiness.accountStatus ? ` · ${signerHealth.readiness.accountStatus}` : ""}
+    </span>
   );
 }

@@ -146,7 +146,6 @@ export class NodeDetector {
     // Check for neo-go specific files
     const configPath = join(basePath, 'config.yaml');
     const configProtocolPath = join(basePath, 'protocol.yaml');
-    const configPrivnetPath = join(basePath, 'protocol.privnet.yaml');
     const neoGoBinary = join(basePath, 'neo-go');
 
     // Check if this looks like a neo-go installation

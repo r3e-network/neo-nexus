@@ -230,7 +230,7 @@ A self-hosted dashboard for deploying and managing Neo N3 nodes.
 
 Run your own Neo infrastructure without the headache.
 
-→ github.com/yourusername/neo-nexus
+→ github.com/r3e-network/neonexus
 
 #NeoN3 #Blockchain #NodeManager
 ```

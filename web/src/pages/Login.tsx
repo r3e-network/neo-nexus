@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { Shield, Lock, User, AlertCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { Shield, Lock, User, Loader2, AlertTriangle } from 'lucide-react';
+import { FeedbackBanner } from '../components/FeedbackBanner';
 
 export default function Login() {
   const { login } = useAuth();
@@ -50,12 +51,7 @@ export default function Login() {
         </div>
 
         <div className="card">
-          {error && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2 text-red-400 text-sm">
-              <AlertCircle className="w-4 h-4" />
-              {error}
-            </div>
-          )}
+          <FeedbackBanner error={error} />
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -110,7 +106,7 @@ export default function Login() {
         </div>
 
         <div className="mt-6 text-center text-sm text-slate-500">
-          <p>NeoNexus Node Manager v2.0.0</p>
+          <p>NeoNexus Node Manager v{__APP_VERSION__}</p>
           <p className="mt-1">Secure your node with strong credentials</p>
         </div>
       </div>

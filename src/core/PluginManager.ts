@@ -1,19 +1,29 @@
-import { existsSync, mkdirSync, copyFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, copyFileSync, readdirSync, statSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
-import type { PluginId, PluginDefinition, InstalledPlugin } from '../types/index';
+import type { PluginId, PluginDefinition, InstalledPlugin, NodeConfig } from '../types/index';
 import { DownloadManager } from './DownloadManager';
 import { ConfigManager } from './ConfigManager';
 
 // Plugin version mapping (simplified - in production, fetch from releases)
 const PLUGIN_VERSIONS: Record<string, string> = {
-  '3.9.2': 'v3.9.2',
-  '3.9.1': 'v3.9.1',
-  '3.9.0': 'v3.9.0',
-  '3.8.0': 'v3.8.0',
-  '0.106.0': 'v3.9.0', // neo-go uses different versioning
-  '0.105.0': 'v3.8.0',
+  '3.7.5': 'v3.7.5',
+  '3.7.4': 'v3.7.4',
+  '3.7.3': 'v3.7.3',
+  '3.7.2': 'v3.7.2',
+  '3.7.1': 'v3.7.1',
+  '3.6.3': 'v3.6.3',
+  '3.6.2': 'v3.6.2',
+  '3.6.1': 'v3.6.1',
+  '3.6.0': 'v3.6.0',
+  '0.118.0': 'v3.7.5',
+  '0.117.0': 'v3.7.5',
+  '0.116.0': 'v3.7.5',
 };
+
+export function resolvePluginReleaseVersion(nodeVersion: string, latestAvailableVersion: string): string {
+  return PLUGIN_VERSIONS[nodeVersion] || latestAvailableVersion;
+}
 
 export class PluginManager {
   constructor(private db: Database.Database) {}
@@ -119,8 +129,9 @@ export class PluginManager {
       throw new Error(`Plugin ${pluginId} is already installed on this node`);
     }
 
-    // Get plugin version matching node version
-    const pluginVersion = PLUGIN_VERSIONS[nodeVersion] || 'v3.9.2';
+    const latestPluginRelease = await DownloadManager.getLatestPluginRelease();
+    const latestAvailableVersion = latestPluginRelease?.version || "v3.7.5";
+    const pluginVersion = resolvePluginReleaseVersion(nodeVersion, latestAvailableVersion);
 
     // Download plugin
     const pluginSourceDir = await DownloadManager.downloadPlugin(pluginId, pluginVersion);
@@ -133,7 +144,10 @@ export class PluginManager {
     this.copyPluginFiles(pluginSourceDir, nodePluginDir);
 
     // Create/update config
-    const config = customConfig || plugin.defaultConfig || {};
+    const config = {
+      ...(plugin.defaultConfig || {}),
+      ...(customConfig || {}),
+    };
     const stmt = this.db.prepare(`
       INSERT INTO node_plugins (node_id, plugin_id, version, config, installed_at, enabled)
       VALUES (?, ?, ?, ?, ?, 1)
@@ -141,11 +155,7 @@ export class PluginManager {
     stmt.run(nodeId, pluginId, pluginVersion, JSON.stringify(config), Date.now());
 
     // Write plugin config file
-    ConfigManager.writePluginConfig(pluginId, {
-      id: nodeId,
-      type: 'neo-cli',
-      network: 'mainnet',
-    } as unknown as Parameters<typeof ConfigManager.writePluginConfig>[1]);
+    ConfigManager.writePluginConfig(pluginId, this.getNodeConfig(nodeId), config);
   }
 
   /**
@@ -159,8 +169,7 @@ export class PluginManager {
     // Remove plugin directory
     const pluginDir = join(this.getNodeBasePath(nodeId), 'Plugins', pluginId);
     if (existsSync(pluginDir)) {
-      // In a real implementation, use fs.rm for recursive deletion
-      // For now, we'll just mark it as disabled in the DB
+      rmSync(pluginDir, { recursive: true, force: true });
     }
   }
 
@@ -180,11 +189,7 @@ export class PluginManager {
     stmt.run(JSON.stringify(config), nodeId, pluginId);
 
     // Update config file
-    ConfigManager.writePluginConfig(pluginId, {
-      id: nodeId,
-      type: 'neo-cli',
-      network: 'mainnet',
-    } as unknown as Parameters<typeof ConfigManager.writePluginConfig>[1]);
+    ConfigManager.writePluginConfig(pluginId, this.getNodeConfig(nodeId), config);
   }
 
   /**
@@ -229,6 +234,62 @@ export class PluginManager {
       throw new Error(`Node ${nodeId} not found`);
     }
     return row.base_path;
+  }
+
+  /**
+   * Get full node config from database for plugin config generation
+   */
+  private getNodeConfig(nodeId: string): NodeConfig {
+    const stmt = this.db.prepare('SELECT * FROM nodes WHERE id = ?');
+    const row = stmt.get(nodeId) as {
+      id: string;
+      name: string;
+      type: 'neo-cli' | 'neo-go';
+      network: 'mainnet' | 'testnet' | 'private';
+      sync_mode: 'full' | 'light';
+      version: string;
+      rpc_port: number;
+      p2p_port: number;
+      websocket_port: number | null;
+      metrics_port: number | null;
+      base_path: string;
+      data_path: string;
+      logs_path: string;
+      config_path: string;
+      wallet_path: string | null;
+      settings: string | null;
+      created_at: number;
+      updated_at: number;
+    } | undefined;
+
+    if (!row) {
+      throw new Error(`Node ${nodeId} not found`);
+    }
+
+    return {
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      network: row.network,
+      syncMode: row.sync_mode,
+      version: row.version,
+      ports: {
+        rpc: row.rpc_port,
+        p2p: row.p2p_port,
+        websocket: row.websocket_port ?? undefined,
+        metrics: row.metrics_port ?? undefined,
+      },
+      paths: {
+        base: row.base_path,
+        data: row.data_path,
+        logs: row.logs_path,
+        config: row.config_path,
+        wallet: row.wallet_path ?? undefined,
+      },
+      settings: row.settings ? JSON.parse(row.settings) : {},
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
   }
 
   /**

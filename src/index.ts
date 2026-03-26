@@ -34,9 +34,11 @@ async function main() {
       process.exit(0);
     });
 
-    // Handle uncaught errors
-    process.on('uncaughtException', (error) => {
+    // Handle uncaught errors - exit after logging
+    process.on('uncaughtException', async (error) => {
       console.error('Uncaught Exception:', error);
+      await server.stop();
+      process.exit(1);
     });
 
     process.on('unhandledRejection', (reason) => {

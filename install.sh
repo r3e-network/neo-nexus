@@ -125,7 +125,7 @@ After=network.target
 Type=simple
 User=$SERVICE_USER
 WorkingDirectory=$INSTALL_DIR
-ExecStart=$(which node) $INSTALL_DIR/dist/index.js
+ExecStart=$(which node) --import tsx $INSTALL_DIR/dist/index.js
 Restart=on-failure
 RestartSec=10
 Environment=NODE_ENV=production
@@ -150,7 +150,7 @@ cat > "$INSTALL_DIR/start.sh" <<'EOF'
 cd "$(dirname "$0")"
 export NODE_ENV=production
 export PORT=${PORT:-8080}
-node dist/index.js
+node --import tsx dist/index.js
 EOF
 chmod +x "$INSTALL_DIR/start.sh"
 

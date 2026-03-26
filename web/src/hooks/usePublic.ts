@@ -101,15 +101,3 @@ export function usePublicSystemMetrics() {
   });
 }
 
-export function usePublicNodesMetrics() {
-  return useQuery({
-    queryKey: ['public', 'metrics', 'nodes'],
-    queryFn: async () => {
-      const response = await fetch(`${API_BASE}/metrics/nodes`);
-      if (!response.ok) throw new Error('Failed to fetch metrics');
-      const data = await response.json();
-      return data.metrics;
-    },
-    refetchInterval: 5000,
-  });
-}

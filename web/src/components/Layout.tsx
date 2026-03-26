@@ -5,14 +5,21 @@ import {
   Server, 
   Puzzle, 
   Settings, 
+  Network,
   Menu, 
   Github,
   Activity,
   User,
   LogOut,
-  Shield
+  Shield,
+  Bell,
+  CheckCircle2,
+  AlertTriangle,
+  AlertOctagon,
+  X
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useNotifications } from '../hooks/useNotifications';
 
 interface LayoutProps {
   children: ReactNode;
@@ -21,6 +28,7 @@ interface LayoutProps {
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/nodes', icon: Server, label: 'Nodes' },
+  { path: '/servers', icon: Network, label: 'Servers' },
   { path: '/plugins', icon: Puzzle, label: 'Plugins' },
   { path: '/settings', icon: Settings, label: 'Settings' },
 ];
@@ -28,7 +36,25 @@ const navItems = [
 export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { notifications, unreadCount, dismissNotification, markAllRead, markNotificationRead } = useNotifications();
+
+  const recentNotifications = notifications.slice(0, 8);
+  const toastNotifications = notifications.filter((notification) => !notification.read).slice(0, 3);
+
+  const iconForLevel = (level: string) => {
+    if (level === 'error') return AlertOctagon;
+    if (level === 'warning') return AlertTriangle;
+    return CheckCircle2;
+  };
+
+  const colorForLevel = (level: string) => {
+    if (level === 'error') return 'text-red-400';
+    if (level === 'warning') return 'text-amber-400';
+    if (level === 'success') return 'text-emerald-400';
+    return 'text-blue-400';
+  };
 
   return (
     <div className="min-h-screen flex">
@@ -90,7 +116,7 @@ export default function Layout({ children }: LayoutProps) {
               <Github className="w-4 h-4" />
               View on GitHub
             </a>
-            <p className="mt-2 text-xs text-slate-500">Version 2.0.0</p>
+            <p className="mt-2 text-xs text-slate-500">Version {__APP_VERSION__}</p>
           </div>
         </div>
       </aside>
@@ -114,6 +140,80 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* User Menu */}
           <div className="flex items-center gap-4 ml-auto">
+            <div className="relative">
+              <button
+                onClick={() => {
+                  const nextOpen = !notificationsOpen;
+                  setNotificationsOpen(nextOpen);
+                  if (nextOpen) {
+                    markAllRead();
+                  }
+                }}
+                className="relative p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {notificationsOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setNotificationsOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-96 max-w-[calc(100vw-2rem)] bg-slate-800 rounded-lg shadow-lg border border-slate-700 z-50 overflow-hidden">
+                    <div className="p-3 border-b border-slate-700 flex items-center justify-between">
+                      <div>
+                        <p className="text-white font-medium">Notifications</p>
+                        <p className="text-xs text-slate-400">Realtime node alerts and status changes</p>
+                      </div>
+                      <button
+                        onClick={markAllRead}
+                        className="text-xs text-blue-400 hover:text-blue-300"
+                      >
+                        Mark all read
+                      </button>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                      {recentNotifications.length === 0 ? (
+                        <div className="p-4 text-sm text-slate-400">No alerts yet.</div>
+                      ) : (
+                        recentNotifications.map((notification) => {
+                          const Icon = iconForLevel(notification.level);
+                          return (
+                            <button
+                              key={notification.id}
+                              onClick={() => markNotificationRead(notification.id)}
+                              className={`w-full text-left p-4 border-b border-slate-700/60 hover:bg-slate-700/40 transition-colors ${
+                                notification.read ? 'opacity-70' : ''
+                              }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <Icon className={`w-4 h-4 mt-0.5 ${colorForLevel(notification.level)}`} />
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <p className="text-sm font-medium text-white">{notification.title}</p>
+                                    <span className="text-xs text-slate-500">
+                                      {new Date(notification.createdAt).toLocaleTimeString()}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-sm text-slate-300 break-words">{notification.message}</p>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
             <div className="relative">
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
@@ -161,6 +261,34 @@ export default function Layout({ children }: LayoutProps) {
         <main className="flex-1 p-4 lg:p-8 overflow-auto">
           {children}
         </main>
+      </div>
+
+      <div className="fixed top-20 right-4 z-[70] space-y-3 w-80 max-w-[calc(100vw-2rem)] pointer-events-none">
+        {toastNotifications.map((notification) => {
+          const Icon = iconForLevel(notification.level);
+          return (
+            <div
+              key={notification.id}
+              className="pointer-events-auto rounded-xl border border-slate-700 bg-slate-900/95 shadow-xl backdrop-blur px-4 py-3 animate-slide-in-right"
+            >
+              <div className="flex items-start gap-3">
+                <Icon className={`w-4 h-4 mt-0.5 ${colorForLevel(notification.level)}`} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-white">{notification.title}</p>
+                    <button
+                      onClick={() => dismissNotification(notification.id)}
+                      className="text-slate-500 hover:text-white"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-300 break-words">{notification.message}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

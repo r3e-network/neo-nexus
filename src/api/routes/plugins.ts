@@ -17,7 +17,7 @@ export function createPluginsRouter(nodeManager: NodeManager): Router {
       const plugins = pluginManager.getInstalledPlugins(req.params.id);
       res.json({ plugins });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 
@@ -34,7 +34,7 @@ export function createPluginsRouter(nodeManager: NodeManager): Router {
       const plugins = pluginManager.getInstalledPlugins(req.params.id);
       res.status(201).json({ plugins });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 
@@ -44,7 +44,7 @@ export function createPluginsRouter(nodeManager: NodeManager): Router {
       const plugins = pluginManager.getAvailablePlugins();
       res.json({ plugins });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 
@@ -56,7 +56,7 @@ export function createPluginsRouter(nodeManager: NodeManager): Router {
       const plugins = pluginManager.getInstalledPlugins(req.params.id);
       res.json({ plugins });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 
@@ -66,7 +66,7 @@ export function createPluginsRouter(nodeManager: NodeManager): Router {
       await pluginManager.uninstallPlugin(req.params.id, req.params.pluginId as PluginId);
       res.status(204).send();
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 
@@ -77,7 +77,7 @@ export function createPluginsRouter(nodeManager: NodeManager): Router {
       const plugins = pluginManager.getInstalledPlugins(req.params.id);
       res.json({ plugins });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 
@@ -88,7 +88,7 @@ export function createPluginsRouter(nodeManager: NodeManager): Router {
       const plugins = pluginManager.getInstalledPlugins(req.params.id);
       res.json({ plugins });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 

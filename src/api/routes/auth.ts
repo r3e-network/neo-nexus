@@ -1,9 +1,10 @@
 import { Router, type Request, type Response } from "express";
 import type { UserManager } from "../../core/UserManager";
-import { generateToken } from "../middleware/auth";
+import { createAuthMiddleware, generateToken, type AuthenticatedRequest } from "../middleware/auth";
 
 export function createAuthRouter(userManager: UserManager): Router {
   const router = Router();
+  const requireAuth = createAuthMiddleware(userManager);
 
   /**
    * POST /api/auth/setup - Initial setup (create first admin user)
@@ -49,7 +50,7 @@ export function createAuthRouter(userManager: UserManager): Router {
         token,
       });
     } catch (error) {
-      res.status(400).json({ error: String(error) });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Bad request" });
     }
   });
 
@@ -86,24 +87,26 @@ export function createAuthRouter(userManager: UserManager): Router {
 
       // Create session
       userManager.createSession(user.id, token, 24);
+      const usingDefaultPassword = await userManager.isUsingDefaultPassword(user.id);
 
       res.json({
         user: {
           id: user.id,
           username: user.username,
           role: user.role,
+          usingDefaultPassword,
         },
         token,
       });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 
   /**
    * POST /api/auth/logout - Logout user
    */
-  router.post("/logout", (req: Request, res: Response) => {
+  router.post("/logout", requireAuth, (req: Request, res: Response) => {
     const authHeader = req.headers.authorization;
     if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.substring(7);
@@ -115,10 +118,10 @@ export function createAuthRouter(userManager: UserManager): Router {
   /**
    * POST /api/auth/register - Register new user (admin only)
    */
-  router.post("/register", async (req: Request, res: Response) => {
+  router.post("/register", requireAuth, async (req: Request, res: Response) => {
     try {
       // Only admins can register new users
-      const user = (req as any).user;
+      const user = (req as AuthenticatedRequest).user;
       if (!user || user.role !== "admin") {
         return res.status(403).json({ error: "Admin access required" });
       }
@@ -129,10 +132,13 @@ export function createAuthRouter(userManager: UserManager): Router {
         return res.status(400).json({ error: "Username and password are required" });
       }
 
+      const validRoles = ["admin", "viewer"];
+      const assignedRole = validRoles.includes(role) ? role : "viewer";
+
       const newUser = await userManager.createUser({
         username,
         password,
-        role: role || "viewer",
+        role: assignedRole,
       });
 
       res.status(201).json({
@@ -143,27 +149,34 @@ export function createAuthRouter(userManager: UserManager): Router {
         },
       });
     } catch (error) {
-      res.status(400).json({ error: String(error) });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Bad request" });
     }
   });
 
   /**
    * GET /api/auth/me - Get current user
    */
-  router.get("/me", (req: Request, res: Response) => {
-    const user = (req as any).user;
-    if (!user) {
-      return res.status(401).json({ error: "Not authenticated" });
+  router.get("/me", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const usingDefaultPassword = await userManager.isUsingDefaultPassword(user.id);
+      res.json({
+        user: {
+          ...user,
+          usingDefaultPassword,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
-    res.json({ user });
   });
 
   /**
    * PUT /api/auth/password - Change password
    */
-  router.put("/password", async (req: Request, res: Response) => {
+  router.put("/password", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req as AuthenticatedRequest).user;
       if (!user) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -174,19 +187,19 @@ export function createAuthRouter(userManager: UserManager): Router {
         return res.status(400).json({ error: "Current and new password are required" });
       }
 
-      await userManager.updatePassword(user.userId, currentPassword, newPassword);
+      await userManager.updatePassword(user.id, currentPassword, newPassword);
 
       res.json({ message: "Password updated successfully" });
     } catch (error) {
-      res.status(400).json({ error: String(error) });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Bad request" });
     }
   });
 
   /**
    * GET /api/auth/users - List all users (admin only)
    */
-  router.get("/users", (req: Request, res: Response) => {
-    const user = (req as any).user;
+  router.get("/users", requireAuth, (req: Request, res: Response) => {
+    const user = (req as AuthenticatedRequest).user;
     if (!user || user.role !== "admin") {
       return res.status(403).json({ error: "Admin access required" });
     }
@@ -198,17 +211,20 @@ export function createAuthRouter(userManager: UserManager): Router {
   /**
    * DELETE /api/auth/users/:id - Delete user (admin only)
    */
-  router.delete("/users/:id", (req: Request, res: Response) => {
-    const user = (req as any).user;
+  router.delete("/users/:id", requireAuth, (req: Request, res: Response) => {
+    const user = (req as AuthenticatedRequest).user;
     if (!user || user.role !== "admin") {
       return res.status(403).json({ error: "Admin access required" });
     }
 
     try {
+      if (req.params.id === user.id) {
+        return res.status(400).json({ error: "Cannot delete your own account" });
+      }
       userManager.deleteUser(req.params.id as string);
       res.status(204).send();
     } catch (error) {
-      res.status(400).json({ error: String(error) });
+      res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
     }
   });
 

@@ -1,8 +1,10 @@
 import Database from "better-sqlite3";
+import { mkdirSync } from "node:fs";
 import { paths } from "../utils/paths";
 import bcrypt from "bcrypt";
 
 export async function initializeDatabase(): Promise<Database.Database> {
+  mkdirSync(paths.base, { recursive: true });
   const db = new Database(paths.database);
 
   // Enable WAL mode for better concurrency
@@ -125,7 +127,50 @@ export async function initializeDatabase(): Promise<Database.Database> {
 
     CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+
+    CREATE TABLE IF NOT EXISTS remote_servers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      base_url TEXT NOT NULL,
+      description TEXT,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_remote_servers_enabled ON remote_servers(enabled);
+
+    CREATE TABLE IF NOT EXISTS secure_signer_profiles (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      mode TEXT NOT NULL,
+      endpoint TEXT NOT NULL,
+      public_key TEXT,
+      account_address TEXT,
+      wallet_path TEXT,
+      unlock_mode TEXT NOT NULL,
+      notes TEXT,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      workspace_path TEXT,
+      startup_port INTEGER,
+      aws_region TEXT,
+      kms_key_id TEXT,
+      kms_ciphertext_blob_path TEXT,
+      last_test_status TEXT,
+      last_test_message TEXT,
+      last_tested_at INTEGER,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_secure_signer_profiles_enabled ON secure_signer_profiles(enabled);
   `);
+
+  ensureColumn(db, "secure_signer_profiles", "workspace_path", "TEXT");
+  ensureColumn(db, "secure_signer_profiles", "startup_port", "INTEGER");
+  ensureColumn(db, "secure_signer_profiles", "aws_region", "TEXT");
+  ensureColumn(db, "secure_signer_profiles", "kms_key_id", "TEXT");
+  ensureColumn(db, "secure_signer_profiles", "kms_ciphertext_blob_path", "TEXT");
 
   // Initialize plugin catalog
   initializePlugins(db);
@@ -134,6 +179,21 @@ export async function initializeDatabase(): Promise<Database.Database> {
   await checkInitialSetup(db);
 
   return db;
+}
+
+const VALID_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+function ensureColumn(db: Database.Database, table: string, column: string, definition: string): void {
+  if (!VALID_IDENTIFIER.test(table) || !VALID_IDENTIFIER.test(column) || !VALID_IDENTIFIER.test(definition)) {
+    throw new Error(`Invalid identifier in ensureColumn: ${table}.${column} ${definition}`);
+  }
+  try {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  } catch (error) {
+    if (!String(error).includes("duplicate column")) {
+      throw error;
+    }
+  }
 }
 
 function initializePlugins(db: Database.Database): void {

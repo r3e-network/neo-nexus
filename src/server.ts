@@ -16,7 +16,17 @@ import { createPluginsRouter } from "./api/routes/plugins";
 import { createMetricsRouter } from "./api/routes/metrics";
 import { createAuthRouter } from "./api/routes/auth";
 import { createPublicRouter } from "./api/routes/public";
-import { authMiddleware } from "./api/middleware/auth";
+import { createAuthMiddleware, verifyToken, type AuthenticatedRequest } from "./api/middleware/auth";
+import { createSystemRouter } from "./api/routes/system";
+import { createServersRouter } from "./api/routes/servers";
+import { createSecureSignersRouter } from "./api/routes/secureSigners";
+import { buildNodeLogMessage, buildNodeMetricsMessage, buildNodeStatusMessage, buildSystemMessage } from "./realtime/messages";
+import { RemoteServerManager } from "./core/RemoteServerManager";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const pkg = JSON.parse(readFileSync(join(import.meta.dirname ?? ".", "..", "package.json"), "utf-8"));
+const APP_VERSION: string = pkg.version || "0.0.0";
 
 export interface ServerConfig {
   port: number;
@@ -44,18 +54,27 @@ export function createAppServer(config: ServerConfig) {
 
   // Initialize core services
   const nodeManager = new NodeManager(config.db);
+  const secureSignerManager = nodeManager.getSecureSignerManager();
+  const remoteServerManager = new RemoteServerManager(config.db);
   const userManager = new UserManager(config.db);
   const metricsCollector = new MetricsCollector();
+  const requireAuth = createAuthMiddleware(userManager);
 
   // Clean up expired sessions periodically
-  setInterval(() => {
+  const sessionCleanupInterval = setInterval(() => {
     userManager.cleanupExpiredSessions();
   }, 60 * 60 * 1000); // Every hour
 
   // Middleware
+  const corsOrigin = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
+    : process.env.NODE_ENV === "production"
+      ? false
+      : ["http://localhost:3000", "http://127.0.0.1:3000"];
+
   app.use(
     cors({
-      origin: process.env.NODE_ENV === "production" ? false : ["http://localhost:3000", "http://127.0.0.1:3000"],
+      origin: corsOrigin,
       credentials: true,
     }),
   );
@@ -76,6 +95,7 @@ export function createAppServer(config: ServerConfig) {
     max: 5, // 5 attempts per 15 minutes
     message: { error: "Too many login attempts, please try again later" },
   });
+  app.use("/api/auth/login", authLimiter);
 
   // Stricter rate limit for node control operations
   const controlLimiter = rateLimit({
@@ -90,26 +110,10 @@ export function createAppServer(config: ServerConfig) {
   // Public routes (no auth required)
   app.use("/api/auth", createAuthRouter(userManager));
 
-  // Protected routes middleware
-  app.use("/api", (req, res, next) => {
-    // Allow login
-    if (req.path === "/auth/login") {
-      return authLimiter(req, res, next);
-    }
-
-    // Require auth for all other routes
-    authMiddleware(req, res, next);
-  });
-
-  // Protected API Routes
-  app.use("/api/nodes", createNodesRouter(nodeManager));
-  app.use("/api/nodes/:id/plugins", createPluginsRouter(nodeManager));
-  app.use("/api/metrics", createMetricsRouter(nodeManager, metricsCollector));
-
   // Apply stricter rate limit to control endpoints
-  app.use("/api/nodes/:id/start", controlLimiter);
-  app.use("/api/nodes/:id/stop", controlLimiter);
-  app.use("/api/nodes/:id/restart", controlLimiter);
+  app.use("/api/nodes/:id/start", requireAuth, controlLimiter);
+  app.use("/api/nodes/:id/stop", requireAuth, controlLimiter);
+  app.use("/api/nodes/:id/restart", requireAuth, controlLimiter);
 
   // Health check (public)
   app.get("/api/health", (req, res) => {
@@ -117,7 +121,7 @@ export function createAppServer(config: ServerConfig) {
       status: "ok",
       timestamp: Date.now(),
       nodes: nodeManager.getAllNodes().length,
-      authenticated: !!(req as any).user,
+      authenticated: !!(req as AuthenticatedRequest).user,
     });
   });
 
@@ -131,16 +135,33 @@ export function createAppServer(config: ServerConfig) {
       ]);
 
       res.json({
-        neonexus: "2.0.0",
+        neonexus: APP_VERSION,
         latest: {
           "neo-cli": neoCliLatest,
           "neo-go": neoGoLatest,
         },
       });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
+
+  // Admin-only middleware
+  function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+    const user = (req as AuthenticatedRequest).user;
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    next();
+  }
+
+  // Protected API Routes
+  app.use("/api/nodes", requireAuth, createNodesRouter(nodeManager));
+  app.use("/api/nodes/:id/plugins", requireAuth, createPluginsRouter(nodeManager));
+  app.use("/api/metrics", requireAuth, createMetricsRouter(nodeManager, metricsCollector));
+  app.use("/api/system", requireAuth, requireAdmin, createSystemRouter(nodeManager));
+  app.use("/api/servers", requireAuth, createServersRouter(remoteServerManager));
+  app.use("/api/secure-signers", requireAuth, requireAdmin, createSecureSignersRouter(secureSignerManager));
 
   // Serve static files in production
   if (process.env.NODE_ENV === "production") {
@@ -153,13 +174,30 @@ export function createAppServer(config: ServerConfig) {
   // WebSocket handling
   const clients = new Set<WebSocket>();
 
-  wss.on("connection", (ws) => {
+  wss.on("connection", (ws, req) => {
+    // Authenticate WebSocket connections via query parameter token
+    try {
+      const url = new URL(req.url || "", `http://${req.headers.host}`);
+      const token = url.searchParams.get("token");
+      if (!token) {
+        ws.close(4001, "Authentication required");
+        return;
+      }
+      verifyToken(token);
+      const sessionUser = userManager.verifySession(token);
+      if (!sessionUser) {
+        ws.close(4001, "Invalid or expired session");
+        return;
+      }
+    } catch {
+      ws.close(4001, "Invalid token");
+      return;
+    }
+
     clients.add(ws);
-    console.log("WebSocket client connected");
 
     ws.on("close", () => {
       clients.delete(ws);
-      console.log("WebSocket client disconnected");
     });
 
     ws.on("error", (error) => {
@@ -167,13 +205,8 @@ export function createAppServer(config: ServerConfig) {
       clients.delete(ws);
     });
 
-    // Send initial welcome message
     ws.send(
-      JSON.stringify({
-        type: "system",
-        data: { message: "Connected to NeoNexus Node Manager" },
-        timestamp: Date.now(),
-      }),
+      JSON.stringify(buildSystemMessage({ message: "Connected to NeoNexus Node Manager" })),
     );
   });
 
@@ -187,30 +220,29 @@ export function createAppServer(config: ServerConfig) {
     });
   }
 
+  nodeManager.on("nodeStatus", ({ nodeId, status, previousStatus }) => {
+    broadcast(buildNodeStatusMessage(nodeId, status, previousStatus));
+  });
+
+  nodeManager.on("nodeLog", ({ nodeId, entry }) => {
+    broadcast(buildNodeLogMessage(nodeId, entry));
+  });
+
+  nodeManager.on("nodeMetrics", ({ nodeId, metrics }) => {
+    broadcast(buildNodeMetricsMessage(nodeId, metrics));
+  });
+
   // Periodic metrics broadcast
-  setInterval(async () => {
+  const metricsInterval = setInterval(async () => {
     try {
       const systemMetrics = await metricsCollector.collectSystemMetrics();
-      broadcast({
-        type: "system",
-        data: systemMetrics,
-        timestamp: Date.now(),
-      });
+      broadcast(buildSystemMessage(systemMetrics));
 
       // Update and broadcast node metrics
       const nodes = nodeManager.getAllNodes();
       for (const node of nodes) {
         if (node.process.status === "running") {
           await nodeManager.updateMetrics(node.id);
-          const updatedNode = nodeManager.getNode(node.id);
-          if (updatedNode?.metrics) {
-            broadcast({
-              type: "metrics",
-              nodeId: node.id,
-              data: updatedNode.metrics,
-              timestamp: Date.now(),
-            });
-          }
         }
       }
     } catch (error) {
@@ -221,7 +253,7 @@ export function createAppServer(config: ServerConfig) {
   // Start server
   function start() {
     return new Promise<void>((resolve) => {
-      server.listen(config.port, config.host, () => {
+      server.listen(config.port, config.host, async () => {
         const protocol = httpsCredentials ? "https" : "http";
         console.log(`🚀 NeoNexus Node Manager running on ${protocol}://${config.host}:${config.port}`);
 
@@ -232,11 +264,21 @@ export function createAppServer(config: ServerConfig) {
           console.log(`   Make sure port ${config.port} is open in your firewall.\n`);
         }
 
-        // Print default credentials notice
-        console.log(`🔐 Default Login Credentials:`);
-        console.log(`   Username: admin`);
-        console.log(`   Password: admin`);
-        console.log(`   ⚠️  IMPORTANT: Please change the default password after first login!\n`);
+        // Print default credentials notice only if default password is still in use
+        try {
+          const adminUsers = userManager.getAllUsers().filter((u: { role: string }) => u.role === "admin");
+          const hasDefaultPassword = adminUsers.length > 0
+            ? await Promise.resolve(userManager.isUsingDefaultPassword(adminUsers[0].id)).catch(() => false)
+            : false;
+          if (hasDefaultPassword) {
+            console.log(`🔐 Default Login Credentials:`);
+            console.log(`   Username: admin`);
+            console.log(`   Password: admin`);
+            console.log(`   ⚠️  IMPORTANT: Please change the default password after first login!\n`);
+          }
+        } catch {
+          // Ignore errors checking default password
+        }
 
         resolve();
       });
@@ -244,17 +286,34 @@ export function createAppServer(config: ServerConfig) {
   }
 
   // Graceful shutdown
-  function stop() {
+  async function stop() {
+    console.log("Shutting down...");
+
+    // Clear intervals
+    clearInterval(sessionCleanupInterval);
+    clearInterval(metricsInterval);
+
+    // Stop all running nodes
+    try {
+      await nodeManager.stopAllNodes();
+    } catch (error) {
+      console.error("Error stopping nodes:", error);
+    }
+
+    // Close all WebSocket connections
+    wss.clients.forEach((client) => {
+      client.close();
+    });
+
     return new Promise<void>((resolve) => {
-      console.log("Shutting down...");
-
-      // Close all WebSocket connections
-      wss.clients.forEach((client) => {
-        client.close();
-      });
-
       // Close HTTP server
       server.close(() => {
+        // Close database
+        try {
+          config.db.close();
+        } catch {
+          // ignore
+        }
         console.log("Server closed");
         resolve();
       });

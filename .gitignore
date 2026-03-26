@@ -44,6 +44,8 @@ coverage/
 !docs/.neonexus
 *.db
 *.db-journal
+*.db-wal
+Data_LevelDB_*/
 
 # Temporary files
 *.tmp

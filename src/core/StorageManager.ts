@@ -1,4 +1,4 @@
-import { existsSync, statSync, readdirSync, unlinkSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { stat, readdir, unlink, rmdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { StorageInfo } from '../types/index';

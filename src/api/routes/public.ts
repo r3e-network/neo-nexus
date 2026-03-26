@@ -25,7 +25,7 @@ export function createPublicRouter(nodeManager: NodeManager, metricsCollector: M
 
       res.json({ status: summary });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 
@@ -56,7 +56,7 @@ export function createPublicRouter(nodeManager: NodeManager, metricsCollector: M
 
       res.json({ nodes: publicNodes });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 
@@ -95,7 +95,7 @@ export function createPublicRouter(nodeManager: NodeManager, metricsCollector: M
 
       res.json({ node: publicNode });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 
@@ -109,8 +109,8 @@ export function createPublicRouter(nodeManager: NodeManager, metricsCollector: M
         return res.status(404).json({ error: "Node not found" });
       }
 
-      const isHealthy = node.process.status === "running" && 
-        (node.metrics?.connectedPeers ?? 0) >= 0;
+      const isHealthy = node.process.status === "running" &&
+        (node.metrics?.connectedPeers ?? 0) > 0;
 
       res.json({
         healthy: isHealthy,
@@ -120,7 +120,7 @@ export function createPublicRouter(nodeManager: NodeManager, metricsCollector: M
         timestamp: Date.now(),
       });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 
@@ -152,7 +152,7 @@ export function createPublicRouter(nodeManager: NodeManager, metricsCollector: M
 
       res.json({ metrics: publicMetrics });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 
@@ -176,7 +176,7 @@ export function createPublicRouter(nodeManager: NodeManager, metricsCollector: M
 
       res.json({ metrics });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 

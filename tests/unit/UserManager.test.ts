@@ -368,4 +368,27 @@ describe("UserManager", () => {
       expect(user).toBeNull();
     });
   });
+
+  describe("isUsingDefaultPassword", () => {
+    it("returns true when the admin account still uses the default password", async () => {
+      mockDb._users.push({
+        id: "admin-id",
+        username: "admin",
+        password_hash: "hashed_admin",
+        role: "admin",
+        created_at: Date.now(),
+      });
+
+      await expect(userManager.isUsingDefaultPassword("admin-id")).resolves.toBe(true);
+    });
+
+    it("returns false after the admin password changes", async () => {
+      const user = await userManager.createUser({
+        username: "admin",
+        password: "admin12345",
+      });
+
+      await expect(userManager.isUsingDefaultPassword(user.id)).resolves.toBe(false);
+    });
+  });
 });

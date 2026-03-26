@@ -55,16 +55,23 @@ vi.mock("bcrypt", () => ({
 }));
 
 // Mock jsonwebtoken
-vi.mock("jsonwebtoken", () => ({
-  sign: vi.fn(() => "mock-jwt-token"),
-  verify: vi.fn((token: string) => {
+vi.mock("jsonwebtoken", () => {
+  const sign = vi.fn(() => "mock-jwt-token");
+  const verify = vi.fn((token: string) => {
     if (token === "valid-token" || token === "mock-jwt-token") {
       return { userId: "test-user-id", username: "admin", role: "admin" };
     }
     throw new Error("Invalid token");
-  }),
-  decode: vi.fn(() => ({ userId: "test-user-id", username: "admin" })),
-}));
+  });
+  const decode = vi.fn(() => ({ userId: "test-user-id", username: "admin" }));
+
+  return {
+    default: { sign, verify, decode },
+    sign,
+    verify,
+    decode,
+  };
+});
 
 // Mock systeminformation
 vi.mock("systeminformation", () => ({
@@ -209,4 +216,11 @@ export function cleanupTestData() {
 }
 
 // Cleanup on test completion
-process.on("exit", cleanupTestData);
+const testGlobals = globalThis as typeof globalThis & {
+  __neonexusCleanupRegistered?: boolean;
+};
+
+if (!testGlobals.__neonexusCleanupRegistered) {
+  process.on("exit", cleanupTestData);
+  testGlobals.__neonexusCleanupRegistered = true;
+}

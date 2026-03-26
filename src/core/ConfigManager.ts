@@ -1,8 +1,76 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import YAML from 'js-yaml';
-import type { NodeConfig, NodeType, NodeNetwork, PluginId } from '../types/index';
+import type { NodeConfig, NodeNetwork, PluginId } from '../types/index';
 import { getNetworkMagic, getSeedList } from '../utils/network';
+
+const NEO_GO_STANDBY_COMMITTEE: Record<Exclude<NodeNetwork, 'private'>, string[]> = {
+  mainnet: [
+    '03b209fd4f53a7170ea4444e0cb0a6bb6a53c2bd016926989cf85f9b0fba17a70c',
+    '02df48f60e8f3e01c48ff40b9b7f1310d7a8b2a193188befe1c2e3df740e895093',
+    '03b8d9d5771d8f513aa0869b9cc8d50986403b78c6da36890638c3d46a5adce04a',
+    '02ca0e27697b9c248f6f16e085fd0061e26f44da85b58ee835c110caa5ec3ba554',
+    '024c7b7fb6c310fccf1ba33b082519d82964ea93868d676662d4a59ad548df0e7d',
+    '02aaec38470f6aad0042c6e877cfd8087d2676b0f516fddd362801b9bd3936399e',
+    '02486fd15702c4490a26703112a5cc1d0923fd697a33406bd5a1c00e0013b09a70',
+    '023a36c72844610b4d34d1968662424011bf783ca9d984efa19a20babf5582f3fe',
+    '03708b860c1de5d87f5b151a12c2a99feebd2e8b315ee8e7cf8aa19692a9e18379',
+    '03c6aa6e12638b36e88adc1ccdceac4db9929575c3e03576c617c49cce7114a050',
+    '03204223f8c86b8cd5c89ef12e4f0dbb314172e9241e30c9ef2293790793537cf0',
+    '02a62c915cf19c7f19a50ec217e79fac2439bbaad658493de0c7d8ffa92ab0aa62',
+    '03409f31f0d66bdc2f70a9730b66fe186658f84a8018204db01c106edc36553cd0',
+    '0288342b141c30dc8ffcde0204929bb46aed5756b41ef4a56778d15ada8f0c6654',
+    '020f2887f41474cfeb11fd262e982051c1541418137c02a0f4961af911045de639',
+    '0222038884bbd1d8ff109ed3bdef3542e768eef76c1247aea8bc8171f532928c30',
+    '03d281b42002647f0113f36c7b8efb30db66078dfaaa9ab3ff76d043a98d512fde',
+    '02504acbc1f4b3bdad1d86d6e1a08603771db135a73e61c9d565ae06a1938cd2ad',
+    '0226933336f1b75baa42d42b71d9091508b638046d19abd67f4e119bf64a7cfb4d',
+    '03cdcea66032b82f5c30450e381e5295cae85c5e6943af716cc6b646352a6067dc',
+    '02cd5a5547119e24feaa7c2a0f37b8c9366216bab7054de0065c9be42084003c8a',
+  ],
+  testnet: [
+    '023e9b32ea89b94d066e649b124fd50e396ee91369e8e2a6ae1b11c170d022256d',
+    '03009b7540e10f2562e5fd8fac9eaec25166a58b26e412348ff5a86927bfac22a2',
+    '02ba2c70f5996f357a43198705859fae2cfea13e1172962800772b3d588a9d4abd',
+    '03408dcd416396f64783ac587ea1e1593c57d9fea880c8a6a1920e92a259477806',
+    '02a7834be9b32e2981d157cb5bbd3acb42cfd11ea5c3b10224d7a44e98c5910f1b',
+    '0214baf0ceea3a66f17e7e1e839ea25fd8bed6cd82e6bb6e68250189065f44ff01',
+    '030205e9cefaea5a1dfc580af20c8d5aa2468bb0148f1a5e4605fc622c80e604ba',
+    '025831cee3708e87d78211bec0d1bfee9f4c85ae784762f042e7f31c0d40c329b8',
+    '02cf9dc6e85d581480d91e88e8cbeaa0c153a046e89ded08b4cefd851e1d7325b5',
+    '03840415b0a0fcf066bcc3dc92d8349ebd33a6ab1402ef649bae00e5d9f5840828',
+    '026328aae34f149853430f526ecaa9cf9c8d78a4ea82d08bdf63dd03c4d0693be6',
+    '02c69a8d084ee7319cfecf5161ff257aa2d1f53e79bf6c6f164cff5d94675c38b3',
+    '0207da870cedb777fceff948641021714ec815110ca111ccc7a54c168e065bda70',
+    '035056669864feea401d8c31e447fb82dd29f342a9476cfd449584ce2a6165e4d7',
+    '0370c75c54445565df62cfe2e76fbec4ba00d1298867972213530cae6d418da636',
+    '03957af9e77282ae3263544b7b2458903624adc3f5dee303957cb6570524a5f254',
+    '03d84d22b8753cf225d263a3a782a4e16ca72ef323cfde04977c74f14873ab1e4c',
+    '02147c1b1d5728e1954958daff2f88ee2fa50a06890a8a9db3fa9e972b66ae559f',
+    '03c609bea5a4825908027e4ab217e7efc06e311f19ecad9d417089f14927a173d5',
+    '0231edee3978d46c335e851c76059166eb8878516f459e085c0dd092f0f1d51c21',
+    '03184b018d6b2bc093e535519732b3fd3f7551c8cffaf4621dd5a0b89482ca66c9',
+  ],
+};
+
+const NEO_GO_HARDFORKS: Record<Exclude<NodeNetwork, 'private'>, Record<string, number>> = {
+  mainnet: {
+    Aspidochelone: 1730000,
+    Basilisk: 4120000,
+    Cockatrice: 5450000,
+    Domovoi: 5570000,
+    Echidna: 7300000,
+    Faun: 8800000,
+  },
+  testnet: {
+    Aspidochelone: 210000,
+    Basilisk: 2680000,
+    Cockatrice: 3967000,
+    Domovoi: 4144000,
+    Echidna: 5870000,
+    Faun: 12960000,
+  },
+};
 
 export class ConfigManager {
   /**
@@ -82,61 +150,82 @@ export class ConfigManager {
    */
   static generateNeoGoConfig(node: NodeConfig): Record<string, unknown> {
     const networkMagic = getNetworkMagic(node.network);
+    const standbyCommittee =
+      node.network === 'private' ? [] : NEO_GO_STANDBY_COMMITTEE[node.network];
+    const hardforks = node.network === 'private' ? undefined : NEO_GO_HARDFORKS[node.network];
 
     const config: Record<string, unknown> = {
       ProtocolConfiguration: {
         Magic: networkMagic,
-        AddressVersion: 53,
-        SecondsPerBlock: 15,
-        MaxTransactionsPerBlock: 512,
-        MemoryPoolMaxTransactions: 50000,
         MaxTraceableBlocks: 2102400,
+        InitialGASSupply: 52000000,
+        MaxBlockSystemFee: 2000000000,
+        TimePerBlock: '15s',
+        Genesis: {
+          TimePerBlock: '15s',
+        },
+        MemPoolSize: 50000,
         ValidatorsCount: 7,
-        StandbyCommittee: [
-          '03b209fd4f53a7170ea4444e0cb0a6bb6a53c2bd016926989cf85f9b0fba17a70c',
-          '02df48f60e8f3e01c48ff40b9b7f1310d7a8b2a193188befe1c2e3df740e895093',
-          '03b8d9d5771d8f513aa0869b9cc8d50986403b78c6da36890638c3d46a5adce04c',
-          '02ca0e27697b9c248f6f16e085fd0061e26f44da85b58ee835c110caa5ec3ba554',
-          '02cd5a553437e8dd650b566d5dd07cffe5dfad38e2d2fb42d71a2c6c86fedf3204',
-          '02635c9f5b5b23730f9ff3f83b0da4592a74b5f44f3ce47a50f95c8ad950cf2150',
-          '038b3d1535c76c6f6d24c0d1dd871b05b5274ec08f7840b8b222b50e3e6724dd20',
-        ],
+        StandbyCommittee: standbyCommittee,
         SeedList: node.network === 'private' ? [] : getSeedList(node.network),
+        VerifyTransactions: false,
+        P2PSigExtensions: false,
+        Hardforks: hardforks,
       },
       ApplicationConfiguration: {
-        DataDirectoryPath: 'Data',
         SkipBlockVerification: false,
-        MaxPeers: node.settings.maxPeers ?? 100,
-        AttemptConnPeers: node.settings.minPeers ?? 20,
-        MinPeers: node.settings.minPeers ?? 5,
-        RPC: {
-          Enabled: true,
-          Address: '0.0.0.0',
-          Port: node.ports.rpc,
-          MaxGasInvoke: 10,
-          MaxIteratorResultItems: 100,
-          MaxFindResultItems: 100,
-          MaxConcurrentRequests: 40,
-          KeepAliveTimeout: 90,
-          TLSConfig: null,
+        DBConfiguration: {
+          Type: 'leveldb',
+          LevelDBOptions: {
+            DataDirectoryPath: './data',
+          },
         },
         P2P: {
-          Address: '0.0.0.0',
-          Port: node.ports.p2p,
-          MinPeers: node.settings.minPeers ?? 5,
+          Addresses: [`:${node.ports.p2p}`],
+          DialTimeout: '3s',
+          ProtoTickInterval: '2s',
+          PingInterval: '30s',
+          PingTimeout: '90s',
           MaxPeers: node.settings.maxPeers ?? 100,
           AttemptConnPeers: node.settings.minPeers ?? 20,
-          PingInterval: 30,
-          PingTimeout: 90,
+          MinPeers: node.settings.minPeers ?? 10,
+        },
+        Relay: node.settings.relay ?? true,
+        Consensus: {
+          Enabled: false,
+          UnlockWallet: {
+            Path: '/cn_wallet.json',
+            Password: 'pass',
+          },
+        },
+        Oracle: {
+          Enabled: false,
+          AllowedContentTypes: ['application/json'],
+        },
+        P2PNotary: {
+          Enabled: false,
+          UnlockWallet: {
+            Path: '/notary_wallet.json',
+            Password: 'pass',
+          },
+        },
+        RPC: {
+          Enabled: true,
+          Addresses: [`:${node.ports.rpc}`],
+          MaxGasInvoke: 15,
+          EnableCORSWorkaround: false,
+          TLSConfig: {
+            Enabled: false,
+            CertFile: 'serv.crt',
+            KeyFile: 'serv.key',
+          },
         },
         Prometheus: node.ports.metrics
           ? {
               Enabled: true,
-              Address: '0.0.0.0',
-              Port: node.ports.metrics,
+              Addresses: [`:${node.ports.metrics}`],
             }
           : undefined,
-        UnlockWallet: null,
       },
     };
 
@@ -147,7 +236,11 @@ export class ConfigManager {
   /**
    * Generate plugin config.json for neo-cli
    */
-  static generatePluginConfig(pluginId: PluginId, node: NodeConfig): object {
+  static generatePluginConfig(
+    pluginId: PluginId,
+    node: NodeConfig,
+    customConfig: Record<string, unknown> = {},
+  ): object {
     const networkMagic = getNetworkMagic(node.network);
 
     const configs: Record<PluginId, object> = {
@@ -181,7 +274,18 @@ export class ConfigManager {
         KeepAliveTimeout: 60,
         DisabledMethods: [],
       },
-      SignClient: {},
+      SignClient: {
+        PluginConfiguration: {
+          Name:
+            (customConfig.PluginConfiguration as Record<string, unknown> | undefined)?.Name ??
+            customConfig.Name ??
+            'SignClient',
+          Endpoint:
+            (customConfig.PluginConfiguration as Record<string, unknown> | undefined)?.Endpoint ??
+            customConfig.Endpoint ??
+            'http://127.0.0.1:9991',
+        },
+      },
       SQLiteWallet: {},
       StateService: {
         Network: networkMagic,
@@ -194,7 +298,11 @@ export class ConfigManager {
       },
     };
 
-    return configs[pluginId] ?? {};
+    if (pluginId === 'SignClient') {
+      return configs[pluginId];
+    }
+
+    return this.mergeObjects(configs[pluginId] ?? {}, customConfig);
   }
 
   /**
@@ -222,10 +330,14 @@ export class ConfigManager {
   /**
    * Write plugin configuration
    */
-  static writePluginConfig(pluginId: PluginId, node: NodeConfig): void {
+  static writePluginConfig(
+    pluginId: PluginId,
+    node: NodeConfig,
+    customConfig: Record<string, unknown> = {},
+  ): void {
     if (node.type !== 'neo-cli') return;
 
-    const config = this.generatePluginConfig(pluginId, node);
+    const config = this.generatePluginConfig(pluginId, node, customConfig);
     const pluginDir = join(node.paths.base, 'Plugins', pluginId);
     
     mkdirSync(pluginDir, { recursive: true });
@@ -255,5 +367,27 @@ export class ConfigManager {
     }
     
     return obj;
+  }
+
+  private static mergeObjects(base: object, override: Record<string, unknown>): object {
+    const result: Record<string, unknown> = { ...base } as Record<string, unknown>;
+
+    for (const [key, value] of Object.entries(override)) {
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const current = result[key];
+        if (current && typeof current === 'object' && !Array.isArray(current)) {
+          result[key] = this.mergeObjects(
+            current as Record<string, unknown>,
+            value as Record<string, unknown>,
+          );
+        } else {
+          result[key] = this.mergeObjects({}, value as Record<string, unknown>);
+        }
+      } else {
+        result[key] = value;
+      }
+    }
+
+    return result;
   }
 }

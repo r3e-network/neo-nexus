@@ -10,7 +10,7 @@ const PORT_INCREMENT = 10;
 export class PortManager {
   private usedPorts: Set<number> = new Set();
 
-  constructor(private existingPorts: PortConfig[] = []) {
+  constructor(existingPorts: PortConfig[] = []) {
     // Track existing ports as used
     for (const ports of existingPorts) {
       this.usedPorts.add(ports.rpc);
