@@ -60,7 +60,7 @@ export function spawnProcess(
   const child = spawn(command, args, {
     cwd: options?.cwd,
     env: { ...process.env, ...options?.env },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['pipe', 'pipe', 'pipe'],
     detached: false,
   });
 

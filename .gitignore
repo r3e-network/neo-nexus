@@ -59,4 +59,4 @@ archive/
 *.pid
 *.seed
 *.pid.lock
-nodes/
+/nodes/

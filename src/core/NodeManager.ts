@@ -238,7 +238,7 @@ export class NodeManager extends EventEmitter {
     StorageManager.ensureNodeDirectories(config.paths);
 
     // Write initial config
-    ConfigManager.writeNodeConfig(config);
+    await ConfigManager.writeNodeConfig(config);
 
     try {
       // Save to database in a transaction
@@ -444,7 +444,7 @@ export class NodeManager extends EventEmitter {
   /**
    * Update node configuration
    */
-  updateNode(nodeId: string, request: UpdateNodeRequest): NodeInstance {
+  async updateNode(nodeId: string, request: UpdateNodeRequest): Promise<NodeInstance> {
     const node = this.getNode(nodeId);
     if (!node) {
       throw new Error(`Node ${nodeId} not found`);
@@ -482,7 +482,7 @@ export class NodeManager extends EventEmitter {
 
     // Update config files
     const updatedNode = this.getNode(nodeId)!;
-    ConfigManager.writeNodeConfig(updatedNode, updatedNode.plugins?.map(p => p.id));
+    await ConfigManager.writeNodeConfig(updatedNode, updatedNode.plugins?.map(p => p.id));
 
     return updatedNode;
   }
@@ -635,7 +635,7 @@ export class NodeManager extends EventEmitter {
 
     // Update node config
     const plugins = this.pluginManager.getInstalledPlugins(nodeId).map(p => p.id);
-    ConfigManager.writeNodeConfig(node, plugins);
+    await ConfigManager.writeNodeConfig(node, plugins);
   }
 
   /**
