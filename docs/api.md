@@ -868,4 +868,4 @@ curl -s http://localhost:8080/api/nodes \
 
 ---
 
-*For questions or issues, see the [GitHub repository](https://github.com/yourusername/neo-nexus).*
+*For questions or issues, see the [GitHub repository](https://github.com/r3e-network/neonexus).*

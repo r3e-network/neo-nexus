@@ -14,32 +14,13 @@ import {
 } from 'lucide-react';
 import { usePublicStatus, usePublicNodes, usePublicSystemMetrics } from '../hooks/usePublic';
 import { Link } from 'react-router-dom';
+import { formatBytes, formatDuration } from '../utils/format';
+import { ProgressBar } from '../components/ProgressBar';
 
 export default function PublicDashboard() {
   const { data: status } = usePublicStatus();
   const { data: nodes = [] } = usePublicNodes();
   const { data: systemMetrics } = usePublicSystemMetrics();
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-  };
-
-  const formatDuration = (ms?: number) => {
-    if (!ms) return 'N/A';
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-    
-    if (days > 0) return `${days}d ${hours % 24}h`;
-    if (hours > 0) return `${hours}h ${minutes % 60}m`;
-    if (minutes > 0) return `${minutes}m`;
-    return `${seconds}s`;
-  };
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -131,12 +112,7 @@ export default function PublicDashboard() {
                   <span className="text-slate-400">CPU Usage</span>
                   <span className="text-white">{systemMetrics.cpu.usage.toFixed(1)}%</span>
                 </div>
-                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-blue-500 transition-all duration-500"
-                    style={{ width: `${systemMetrics.cpu.usage}%` }}
-                  />
-                </div>
+                <ProgressBar value={systemMetrics.cpu.usage} color="bg-blue-500" />
                 <p className="text-xs text-slate-500 mt-1">{systemMetrics.cpu.cores} cores</p>
               </div>
               <div>
@@ -144,12 +120,7 @@ export default function PublicDashboard() {
                   <span className="text-slate-400">Memory</span>
                   <span className="text-white">{systemMetrics.memory.percentage.toFixed(1)}%</span>
                 </div>
-                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-emerald-500 transition-all duration-500"
-                    style={{ width: `${systemMetrics.memory.percentage}%` }}
-                  />
-                </div>
+                <ProgressBar value={systemMetrics.memory.percentage} color="bg-emerald-500" />
                 <p className="text-xs text-slate-500 mt-1">
                   {formatBytes(systemMetrics.memory.used)} / {formatBytes(systemMetrics.memory.total)}
                 </p>
@@ -159,12 +130,7 @@ export default function PublicDashboard() {
                   <span className="text-slate-400">Disk</span>
                   <span className="text-white">{systemMetrics.disk.percentage.toFixed(1)}%</span>
                 </div>
-                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-purple-500 transition-all duration-500"
-                    style={{ width: `${systemMetrics.disk.percentage}%` }}
-                  />
-                </div>
+                <ProgressBar value={systemMetrics.disk.percentage} color="bg-purple-500" />
                 <p className="text-xs text-slate-500 mt-1">
                   {formatBytes(systemMetrics.disk.used)} / {formatBytes(systemMetrics.disk.total)}
                 </p>
@@ -282,7 +248,7 @@ export default function PublicDashboard() {
 
         {/* Footer */}
         <div className="mt-8 text-center text-sm text-slate-500">
-          <p>NeoNexus Node Manager v2.0.0 • Public Status Page</p>
+          <p>NeoNexus Node Manager v{__APP_VERSION__} • Public Status Page</p>
           <p className="mt-1">
             This is a read-only view.{' '}
             <Link to="/login" className="text-blue-400 hover:text-blue-300">

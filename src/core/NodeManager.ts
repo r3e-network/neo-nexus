@@ -1,7 +1,7 @@
-import { mkdirSync, existsSync } from 'node:fs';
+import { existsSync, rmSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
-import { randomUUID } from 'node:crypto';
+import { EventEmitter } from 'node:events';
 import type { 
   NodeConfig, 
   NodeInstance, 
@@ -11,6 +11,9 @@ import type {
   NodeStatus,
   NodeMetrics,
   PluginId,
+  LogEntry,
+  ConfigurationSnapshot,
+  ConfigurationSnapshotNode,
 } from '../types/index';
 import { paths, getNodePath, getNodeDataPath, getNodeLogsPath, getNodeConfigPath, getNodeWalletPath } from '../utils/paths';
 import { PortManager } from './PortManager';
@@ -18,21 +21,36 @@ import { ConfigManager } from './ConfigManager';
 import { StorageManager } from './StorageManager';
 import { DownloadManager } from './DownloadManager';
 import { PluginManager } from './PluginManager';
+import { SecureSignerManager } from './SecureSignerManager';
 import { NeoCliNode } from '../nodes/NeoCliNode';
 import { NeoGoNode } from '../nodes/NeoGoNode';
 import { BaseNode } from '../nodes/BaseNode';
 
-export class NodeManager {
+export interface NodeManagerEvents {
+  nodeStatus: (event: { nodeId: string; status: NodeStatus; previousStatus: NodeStatus }) => void;
+  nodeLog: (event: { nodeId: string; entry: LogEntry }) => void;
+  nodeMetrics: (event: { nodeId: string; metrics: NodeMetrics }) => void;
+}
+
+export declare interface NodeManager {
+  on<K extends keyof NodeManagerEvents>(event: K, listener: NodeManagerEvents[K]): this;
+  emit<K extends keyof NodeManagerEvents>(event: K, ...args: Parameters<NodeManagerEvents[K]>): boolean;
+}
+
+export class NodeManager extends EventEmitter {
   private nodes: Map<string, BaseNode> = new Map();
   private portManager: PortManager;
   private pluginManager: PluginManager;
+  private secureSignerManager: SecureSignerManager;
 
   constructor(private db: Database.Database) {
+    super();
+    this.pluginManager = new PluginManager(db);
+    this.secureSignerManager = new SecureSignerManager(db);
     // Load existing nodes for port tracking
     const existingNodes = this.getAllNodes();
     const existingPorts = existingNodes.map(n => n.ports);
     this.portManager = new PortManager(existingPorts);
-    this.pluginManager = new PluginManager(db);
   }
 
   /**
@@ -161,6 +179,11 @@ export class NodeManager {
    * Create a new node
    */
   async createNode(request: CreateNodeRequest): Promise<NodeInstance> {
+    const secureSignerBinding = request.settings?.keyProtection;
+    if (secureSignerBinding?.mode === "secure-signer") {
+      this.assertSecureSignerCompatibility(request.type, secureSignerBinding.signerProfileId);
+    }
+
     // Validate version or get latest
     let version = request.version;
     if (!version) {
@@ -217,10 +240,24 @@ export class NodeManager {
     // Write initial config
     ConfigManager.writeNodeConfig(config);
 
-    // Save to database
-    this.saveNodeToDb(config);
+    try {
+      // Save to database in a transaction
+      const saveTransaction = this.db.transaction(() => {
+        this.saveNodeToDb(config);
+      });
+      saveTransaction();
 
-    return this.getNode(nodeId)!;
+      if (secureSignerBinding?.mode === "secure-signer") {
+        await this.syncNodeSecureSigner(nodeId);
+      }
+
+      return this.getNode(nodeId)!;
+    } catch (error) {
+      // Clean up all related tables (CASCADE handles node_processes and node_metrics)
+      this.db.prepare("DELETE FROM nodes WHERE id = ?").run(nodeId);
+      rmSync(config.paths.base, { recursive: true, force: true });
+      throw error;
+    }
   }
 
   /**
@@ -252,6 +289,156 @@ export class NodeManager {
     return rows
       .map(row => this.getNode(row.id))
       .filter((node): node is NodeInstance => node !== null);
+  }
+
+  /**
+   * Stop all running nodes
+   */
+  async stopAllNodes(): Promise<{ stoppedCount: number; alreadyStoppedCount: number }> {
+    const nodes = this.getAllNodes();
+    let stoppedCount = 0;
+    let alreadyStoppedCount = 0;
+
+    for (const node of nodes) {
+      if (node.process.status === 'running') {
+        await this.stopNode(node.id);
+        stoppedCount++;
+      } else {
+        alreadyStoppedCount++;
+      }
+    }
+
+    return { stoppedCount, alreadyStoppedCount };
+  }
+
+  /**
+   * Clean old log files across all nodes
+   */
+  async cleanOldLogs(maxAgeDays = 30): Promise<{ cleanedFiles: number; nodesAffected: number; maxAgeDays: number }> {
+    const nodes = this.getAllNodes();
+    let cleanedFiles = 0;
+    let nodesAffected = 0;
+
+    for (const node of nodes) {
+      const cleanedForNode = await StorageManager.cleanOldLogs(node.paths.logs, maxAgeDays);
+      cleanedFiles += cleanedForNode;
+      if (cleanedForNode > 0) {
+        nodesAffected++;
+      }
+    }
+
+    return {
+      cleanedFiles,
+      nodesAffected,
+      maxAgeDays,
+    };
+  }
+
+  /**
+   * Export a configuration snapshot for all managed nodes
+   */
+  exportConfiguration(): {
+    generatedAt: number;
+    version: string;
+    nodes: Array<Omit<NodeInstance, 'process' | 'metrics'>>;
+  } {
+    const nodes = this.getAllNodes().map(({ process, metrics, ...config }) => config);
+
+    let version = "2.0.0";
+    try {
+      const pkg = JSON.parse(readFileSync(join(import.meta.dirname ?? '.', '..', 'package.json'), 'utf-8'));
+      version = pkg.version || version;
+    } catch { /* use default */ }
+
+    return {
+      generatedAt: Date.now(),
+      version,
+      nodes,
+    };
+  }
+
+  /**
+   * Reset all node data managed by NeoNexus
+   */
+  async resetAllNodeData(): Promise<{
+    deletedNodeCount: number;
+    removedDirectoryCount: number;
+    stoppedCount: number;
+    alreadyStoppedCount: number;
+  }> {
+    const nodes = this.getAllNodes();
+    const { stoppedCount, alreadyStoppedCount } = await this.stopAllNodes();
+    let deletedNodeCount = 0;
+    let removedDirectoryCount = 0;
+
+    for (const node of nodes) {
+      await this.deleteNode(node.id);
+      deletedNodeCount++;
+
+      if (node.paths.base.startsWith(paths.nodes)) {
+        rmSync(node.paths.base, { recursive: true, force: true });
+        removedDirectoryCount++;
+      }
+    }
+
+    return {
+      deletedNodeCount,
+      removedDirectoryCount,
+      stoppedCount,
+      alreadyStoppedCount,
+    };
+  }
+
+  /**
+   * Restore nodes from an exported configuration snapshot
+   */
+  async restoreConfiguration(
+    snapshot: ConfigurationSnapshot,
+    options: { replaceExisting?: boolean } = {},
+  ): Promise<{ restoredCount: number; skippedCount: number; failedCount: number }> {
+    if (options.replaceExisting) {
+      await this.resetAllNodeData();
+    }
+
+    let restoredCount = 0;
+    let skippedCount = 0;
+    let failedCount = 0;
+
+    for (const node of snapshot.nodes) {
+      if (!this.isRestorableSnapshotNode(node)) {
+        skippedCount++;
+        continue;
+      }
+
+      try {
+        const restoredNode = await this.createNode({
+          name: node.name,
+          type: node.type,
+          network: node.network,
+          syncMode: node.syncMode,
+          version: node.version,
+          customPorts: node.ports,
+          settings: node.settings,
+        });
+
+        for (const plugin of node.plugins ?? []) {
+          await this.installPlugin(restoredNode.id, plugin.id, plugin.config);
+          if (plugin.enabled === false) {
+            this.pluginManager.setPluginEnabled(restoredNode.id, plugin.id, false);
+          }
+        }
+
+        restoredCount++;
+      } catch (error) {
+        failedCount++;
+      }
+    }
+
+    return {
+      restoredCount,
+      skippedCount,
+      failedCount,
+    };
   }
 
   /**
@@ -301,9 +488,9 @@ export class NodeManager {
   }
 
   /**
-   * Delete a node
+   * Delete a node and optionally clean up filesystem data
    */
-  async deleteNode(nodeId: string): Promise<void> {
+  async deleteNode(nodeId: string, removeFiles = true): Promise<void> {
     const node = this.getNode(nodeId);
     if (!node) {
       throw new Error(`Node ${nodeId} not found`);
@@ -317,7 +504,7 @@ export class NodeManager {
     // Release ports
     this.portManager.releasePorts(node.ports);
 
-    // Remove from database
+    // Remove from database (CASCADE handles node_processes, node_metrics, node_plugins, logs)
     const stmt = this.db.prepare('DELETE FROM nodes WHERE id = ?');
     stmt.run(nodeId);
 
@@ -326,6 +513,11 @@ export class NodeManager {
     if (runningNode) {
       runningNode.destroy();
       this.nodes.delete(nodeId);
+    }
+
+    // Clean up filesystem data for NeoNexus-managed nodes
+    if (removeFiles && node.paths.base.startsWith(paths.nodes)) {
+      rmSync(node.paths.base, { recursive: true, force: true });
     }
   }
 
@@ -352,10 +544,12 @@ export class NodeManager {
     // Set up event handlers
     nodeInstance.on('status', (status, previous) => {
       this.updateNodeStatus(nodeId, status);
+      this.emit('nodeStatus', { nodeId, status, previousStatus: previous });
     });
 
     nodeInstance.on('log', (entry) => {
       this.saveLogEntry(nodeId, entry);
+      this.emit('nodeLog', { nodeId, entry });
     });
 
     nodeInstance.on('error', (error) => {
@@ -451,6 +645,90 @@ export class NodeManager {
     return this.pluginManager;
   }
 
+  getSecureSignerManager(): SecureSignerManager {
+    return this.secureSignerManager;
+  }
+
+  async getNodeSecureSignerHealth(nodeId: string): Promise<{
+    nodeId: string;
+    profile: {
+      id: string;
+      name: string;
+      mode: string;
+      endpoint: string;
+    };
+    readiness: Awaited<ReturnType<SecureSignerManager["getReadiness"]>>;
+  } | null> {
+    const node = this.getNode(nodeId);
+    const signerProfileId = node?.settings?.keyProtection?.signerProfileId;
+    if (!node || node.settings?.keyProtection?.mode !== "secure-signer" || !signerProfileId) {
+      return null;
+    }
+
+    const profile = this.secureSignerManager.getProfile(signerProfileId);
+    if (!profile) {
+      return {
+        nodeId,
+        profile: {
+          id: signerProfileId,
+          name: "Missing signer profile",
+          mode: "unknown",
+          endpoint: "unavailable",
+        },
+        readiness: {
+          ok: false,
+          status: "unreachable",
+          source: "probe",
+          message: `Secure signer profile ${signerProfileId} is not available`,
+          checkedAt: Date.now(),
+        },
+      };
+    }
+
+    return {
+      nodeId,
+      profile: {
+        id: profile.id,
+        name: profile.name,
+        mode: profile.mode,
+        endpoint: profile.endpoint,
+      },
+      readiness: await this.secureSignerManager.getReadiness(profile.id),
+    };
+  }
+
+  async syncNodeSecureSigner(nodeId: string): Promise<void> {
+    const node = this.getNode(nodeId);
+    if (!node) {
+      throw new Error(`Node ${nodeId} not found`);
+    }
+
+    const keyProtection = node.settings?.keyProtection;
+    if (!keyProtection || keyProtection.mode !== "secure-signer") {
+      return;
+    }
+
+    const signerProfileId = keyProtection.signerProfileId;
+    this.assertSecureSignerCompatibility(node.type, signerProfileId);
+
+    const profile = this.secureSignerManager.getProfile(signerProfileId!);
+    if (!profile || !profile.enabled) {
+      throw new Error(`Secure signer profile ${signerProfileId} is not available`);
+    }
+
+    const config = this.secureSignerManager.buildSignClientConfig(profile);
+    const installedPlugins = this.pluginManager.getInstalledPlugins(nodeId);
+    const existingSignClient = installedPlugins.find((plugin) => plugin.id === "SignClient");
+
+    if (existingSignClient) {
+      this.pluginManager.updatePluginConfig(nodeId, "SignClient", config);
+      this.pluginManager.setPluginEnabled(nodeId, "SignClient", true);
+      return;
+    }
+
+    await this.pluginManager.installPlugin(nodeId, "SignClient", node.version, config);
+  }
+
   /**
    * Update node metrics
    */
@@ -478,6 +756,7 @@ export class NodeManager {
       };
 
       this.saveMetrics(nodeId, metrics);
+      this.emit('nodeMetrics', { nodeId, metrics });
     } catch (error) {
       console.error(`Failed to update metrics for ${nodeId}:`, error);
     }
@@ -623,12 +902,29 @@ export class NodeManager {
   }
 
   private updateNodeStatus(nodeId: string, status: NodeStatus, pid?: number): void {
-    const stmt = this.db.prepare(`
-      UPDATE node_processes 
-      SET status = ?, pid = ?, last_started = ?
-      WHERE node_id = ?
-    `);
-    stmt.run(status, pid ?? null, status === 'running' ? Date.now() : null, nodeId);
+    const now = Date.now();
+    if (status === 'running') {
+      const stmt = this.db.prepare(`
+        UPDATE node_processes
+        SET status = ?, pid = ?, last_started = ?
+        WHERE node_id = ?
+      `);
+      stmt.run(status, pid ?? null, now, nodeId);
+    } else if (status === 'stopped') {
+      const stmt = this.db.prepare(`
+        UPDATE node_processes
+        SET status = ?, pid = NULL, last_stopped = ?
+        WHERE node_id = ?
+      `);
+      stmt.run(status, now, nodeId);
+    } else {
+      const stmt = this.db.prepare(`
+        UPDATE node_processes
+        SET status = ?, pid = ?
+        WHERE node_id = ?
+      `);
+      stmt.run(status, pid ?? null, nodeId);
+    }
   }
 
   private saveLogEntry(nodeId: string, entry: { timestamp: number; level: string; source: string; message: string }): void {
@@ -658,5 +954,27 @@ export class NodeManager {
       metrics.lastUpdate,
       nodeId
     );
+  }
+
+  private isRestorableSnapshotNode(node: Partial<ConfigurationSnapshotNode>): node is ConfigurationSnapshotNode {
+    return Boolean(node.name && node.type && node.network);
+  }
+
+  private assertSecureSignerCompatibility(
+    nodeType: NodeConfig["type"],
+    signerProfileId?: string,
+  ): void {
+    if (!signerProfileId) {
+      throw new Error("Secure signer protection requires a signer profile");
+    }
+
+    if (nodeType !== "neo-cli") {
+      throw new Error("Secure signer protection currently requires a neo-cli node with SignClient support");
+    }
+
+    const profile = this.secureSignerManager.getProfile(signerProfileId);
+    if (!profile || !profile.enabled) {
+      throw new Error(`Secure signer profile ${signerProfileId} is not available`);
+    }
   }
 }

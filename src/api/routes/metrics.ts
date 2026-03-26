@@ -15,7 +15,7 @@ export function createMetricsRouter(nodeManager: NodeManager, metricsCollector: 
       const metrics = await metricsCollector.collectSystemMetrics();
       res.json({ metrics });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 
@@ -29,7 +29,7 @@ export function createMetricsRouter(nodeManager: NodeManager, metricsCollector: 
       }
       res.json({ metrics: node.metrics });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 
@@ -41,8 +41,8 @@ export function createMetricsRouter(nodeManager: NodeManager, metricsCollector: 
         return res.status(404).json({ error: 'Node not found' });
       }
 
-      const isHealthy = node.process.status === 'running' && 
-        (node.metrics?.connectedPeers ?? 0) >= 0;
+      const isHealthy = node.process.status === 'running' &&
+        (node.metrics?.connectedPeers ?? 0) > 0;
 
       res.json({
         healthy: isHealthy,
@@ -53,7 +53,7 @@ export function createMetricsRouter(nodeManager: NodeManager, metricsCollector: 
         },
       });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 
@@ -68,7 +68,7 @@ export function createMetricsRouter(nodeManager: NodeManager, metricsCollector: 
       const metrics = await metricsCollector.getProcessMetrics(node.process.pid);
       res.json({ process: metrics });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 

@@ -8,6 +8,7 @@ export interface User {
   role: "admin" | "viewer";
   createdAt: number;
   lastLogin?: number;
+  usingDefaultPassword?: boolean;
 }
 
 export interface CreateUserRequest {
@@ -252,5 +253,20 @@ export class UserManager {
    */
   cleanupExpiredSessions(): void {
     this.db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(Date.now());
+  }
+
+  /**
+   * Check whether a user still uses the default admin password
+   */
+  async isUsingDefaultPassword(userId: string): Promise<boolean> {
+    const row = this.db.prepare("SELECT password_hash FROM users WHERE id = ?").get(userId) as
+      | { password_hash: string }
+      | undefined;
+
+    if (!row) {
+      return false;
+    }
+
+    return bcrypt.compare("admin", row.password_hash);
   }
 }

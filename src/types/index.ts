@@ -41,6 +41,7 @@ export interface NodeSettings {
   relay?: boolean;
   debugMode?: boolean;
   customConfig?: Record<string, unknown>;
+  keyProtection?: NodeKeyProtectionSettings;
 }
 
 // Process Status
@@ -159,6 +160,224 @@ export interface InstallPluginRequest {
   pluginId: PluginId;
   version?: string;
   config?: Record<string, unknown>;
+}
+
+export interface ConfigurationSnapshotNode {
+  name: string;
+  type: NodeType;
+  network: NodeNetwork;
+  syncMode?: SyncMode;
+  version?: string;
+  ports?: Partial<PortConfig>;
+  settings?: Partial<NodeSettings>;
+  plugins?: Array<{
+    id: PluginId;
+    config?: Record<string, unknown>;
+    enabled?: boolean;
+  }>;
+}
+
+export interface ConfigurationSnapshot {
+  generatedAt?: number;
+  version: string;
+  nodes: ConfigurationSnapshotNode[];
+}
+
+export interface RemoteServerProfile {
+  id: string;
+  name: string;
+  baseUrl: string;
+  description?: string;
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CreateRemoteServerRequest {
+  name: string;
+  baseUrl: string;
+  description?: string;
+  enabled?: boolean;
+}
+
+export interface UpdateRemoteServerRequest {
+  name?: string;
+  baseUrl?: string;
+  description?: string;
+  enabled?: boolean;
+}
+
+export interface RemoteServerStatusSummary {
+  totalNodes: number;
+  runningNodes: number;
+  syncingNodes: number;
+  errorNodes: number;
+  totalBlocks: number;
+  totalPeers: number;
+  timestamp: number;
+}
+
+export interface RemoteServerNodeSummary {
+  id: string;
+  name: string;
+  type: NodeType;
+  network: NodeNetwork;
+  status: NodeStatus | string;
+  version: string;
+  metrics: {
+    blockHeight: number;
+    headerHeight?: number;
+    connectedPeers: number;
+    syncProgress?: number;
+  } | null;
+  uptime?: number;
+  lastUpdate?: number;
+}
+
+export interface RemoteServerSystemMetrics {
+  cpu: {
+    usage: number;
+    cores: number;
+  };
+  memory: {
+    percentage: number;
+    used: number;
+    total: number;
+  };
+  disk: {
+    percentage: number;
+    used: number;
+    total: number;
+  };
+  timestamp?: number;
+}
+
+export interface RemoteServerSummary {
+  profile: RemoteServerProfile;
+  reachable: boolean;
+  status?: RemoteServerStatusSummary;
+  nodes?: RemoteServerNodeSummary[];
+  systemMetrics?: RemoteServerSystemMetrics;
+  error?: string;
+}
+
+export type SecureSignerMode = "software" | "sgx" | "nitro" | "custom";
+export type SecureSignerUnlockMode = "manual" | "interactive-passphrase" | "recipient-attestation";
+export type SecureSignerTestStatus = "reachable" | "unreachable" | "warning";
+export type NodeKeyProtectionMode = "standard" | "secure-signer";
+
+export interface SecureSignerProfile {
+  id: string;
+  name: string;
+  mode: SecureSignerMode;
+  endpoint: string;
+  publicKey?: string;
+  accountAddress?: string;
+  walletPath?: string;
+  unlockMode: SecureSignerUnlockMode;
+  notes?: string;
+  enabled: boolean;
+  workspacePath?: string;
+  startupPort?: number;
+  awsRegion?: string;
+  kmsKeyId?: string;
+  kmsCiphertextBlobPath?: string;
+  lastTestStatus?: SecureSignerTestStatus;
+  lastTestMessage?: string;
+  lastTestedAt?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CreateSecureSignerRequest {
+  name: string;
+  mode: SecureSignerMode;
+  endpoint: string;
+  publicKey?: string;
+  accountAddress?: string;
+  walletPath?: string;
+  unlockMode?: SecureSignerUnlockMode;
+  notes?: string;
+  enabled?: boolean;
+  workspacePath?: string;
+  startupPort?: number;
+  awsRegion?: string;
+  kmsKeyId?: string;
+  kmsCiphertextBlobPath?: string;
+}
+
+export interface UpdateSecureSignerRequest {
+  name?: string;
+  mode?: SecureSignerMode;
+  endpoint?: string;
+  publicKey?: string;
+  accountAddress?: string;
+  walletPath?: string;
+  unlockMode?: SecureSignerUnlockMode;
+  notes?: string;
+  enabled?: boolean;
+  workspacePath?: string;
+  startupPort?: number;
+  awsRegion?: string;
+  kmsKeyId?: string;
+  kmsCiphertextBlobPath?: string;
+}
+
+export interface SecureSignerTestResult {
+  ok: boolean;
+  status: SecureSignerTestStatus;
+  message: string;
+  latencyMs?: number;
+  checkedAt: number;
+}
+
+export interface SecureSignerConnectionInfo {
+  scheme: "http" | "https" | "vsock";
+  host: string;
+  servicePort: number;
+  startupPort: number;
+  cid?: number;
+  localToolingCompatible: boolean;
+}
+
+export interface SecureSignerReadinessResult extends SecureSignerTestResult {
+  source: "probe" | "secure-sign-tools" | "vsock-format";
+  accountStatus?: string;
+}
+
+export interface SecureSignerOrchestrationPlan {
+  connection: SecureSignerConnectionInfo;
+  commands: {
+    deploy: string[];
+    unlock: string[];
+    status: string[];
+    attestation: string[];
+    startRecipient: string[];
+  };
+  warnings: string[];
+}
+
+export interface SecureSignerAttestationResult {
+  attestationBase64: string;
+  checkedAt: number;
+}
+
+export interface SecureSignerCommandResult {
+  ok: boolean;
+  message: string;
+  checkedAt: number;
+}
+
+export interface NodeKeyProtectionSettings {
+  mode: NodeKeyProtectionMode;
+  signerProfileId?: string;
+  signerName?: string;
+  signerMode?: SecureSignerMode;
+  signerEndpoint?: string;
+  accountPublicKey?: string;
+  accountAddress?: string;
+  walletPath?: string;
+  unlockMode?: SecureSignerUnlockMode;
 }
 
 // WebSocket Events

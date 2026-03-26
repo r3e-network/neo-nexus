@@ -1,6 +1,24 @@
 import { Router, type Request, type Response } from 'express';
+import { resolve } from 'node:path';
 import type { NodeManager } from '../../core/NodeManager';
 import type { CreateNodeRequest, UpdateNodeRequest, ImportNodeRequest } from '../../types';
+import { paths } from '../../utils/paths';
+
+function validateNodePath(inputPath: string): string {
+  const resolved = resolve(inputPath);
+  const allowedPrefixes = [paths.nodes, paths.base, '/home', '/opt', '/var/lib'];
+  const blocked = ['/', '/etc', '/root', '/proc', '/sys', '/dev'];
+
+  if (blocked.includes(resolved)) {
+    throw new Error(`Access to path ${resolved} is not permitted`);
+  }
+
+  if (!allowedPrefixes.some((prefix) => resolved.startsWith(prefix))) {
+    throw new Error(`Path must be under an allowed directory`);
+  }
+
+  return resolved;
+}
 
 interface NodeParams {
   id: string;
@@ -9,13 +27,57 @@ interface NodeParams {
 export function createNodesRouter(nodeManager: NodeManager): Router {
   const router = Router();
 
+  const respondWithNodeError = (res: Response, error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (/not found/i.test(message)) {
+      return res.status(404).json({ error: message });
+    }
+
+    if (
+      /missing required fields|invalid|already exists|requires|cannot|not available|unsupported/i.test(
+        message,
+      )
+    ) {
+      return res.status(400).json({ error: message });
+    }
+
+    return res.status(500).json({ error: message });
+  };
+
+  const validateSecureSignerRequest = (
+    request: Pick<CreateNodeRequest, "type" | "settings"> | Pick<UpdateNodeRequest, "settings">,
+    existingNodeType?: CreateNodeRequest["type"],
+  ): string | null => {
+    const keyProtection = request.settings?.keyProtection;
+    if (keyProtection?.mode !== "secure-signer") {
+      return null;
+    }
+
+    const nodeType = "type" in request && request.type ? request.type : existingNodeType;
+    if (nodeType !== "neo-cli") {
+      return "Secure signer protection currently requires a neo-cli node with SignClient support";
+    }
+
+    if (!keyProtection.signerProfileId) {
+      return "Secure signer protection requires a signer profile";
+    }
+
+    const profile = nodeManager.getSecureSignerManager().getProfile(keyProtection.signerProfileId);
+    if (!profile || !profile.enabled) {
+      return `Secure signer profile ${keyProtection.signerProfileId} is not available`;
+    }
+
+    return null;
+  };
+
   // GET /api/nodes - List all nodes
   router.get('/', (req: Request, res: Response) => {
     try {
       const nodes = nodeManager.getAllNodes();
       res.json({ nodes });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      respondWithNodeError(res, error);
     }
   });
 
@@ -31,10 +93,15 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
         });
       }
 
+      const secureSignerValidationError = validateSecureSignerRequest(request);
+      if (secureSignerValidationError) {
+        return res.status(400).json({ error: secureSignerValidationError });
+      }
+
       const node = await nodeManager.createNode(request);
       res.status(201).json({ node });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      respondWithNodeError(res, error);
     }
   });
 
@@ -42,18 +109,20 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
   router.post('/import', async (req: Request, res: Response) => {
     try {
       const request: ImportNodeRequest = req.body;
-      
+
       // Validate required fields
       if (!request.name || !request.existingPath) {
-        return res.status(400).json({ 
-          error: 'Missing required fields: name, existingPath' 
+        return res.status(400).json({
+          error: 'Missing required fields: name, existingPath'
         });
       }
+
+      request.existingPath = validateNodePath(request.existingPath);
 
       const node = await nodeManager.importExistingNode(request);
       res.status(201).json({ node });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      respondWithNodeError(res, error);
     }
   });
 
@@ -61,13 +130,14 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
   router.post('/detect', async (req: Request, res: Response) => {
     try {
       const { path } = req.body;
-      
+
       if (!path) {
         return res.status(400).json({ error: 'Missing required field: path' });
       }
 
+      const validatedPath = validateNodePath(path);
       const { NodeDetector } = await import('../../core/NodeDetector');
-      const detected = NodeDetector.detect(path);
+      const detected = NodeDetector.detect(validatedPath);
       
       if (!detected) {
         return res.status(404).json({ 
@@ -84,7 +154,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
         canImport: validation.valid,
       });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      respondWithNodeError(res, error);
     }
   });
 
@@ -92,21 +162,22 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
   router.post('/scan', async (req: Request, res: Response) => {
     try {
       const { path } = req.body;
-      
+
       if (!path) {
         return res.status(400).json({ error: 'Missing required field: path' });
       }
 
+      const validatedPath = validateNodePath(path);
       const { NodeDetector } = await import('../../core/NodeDetector');
-      const results = NodeDetector.scanDirectory(path);
-      
+      const results = NodeDetector.scanDirectory(validatedPath);
+
       res.json({
-        path,
+        path: validatedPath,
         nodes: results,
         count: results.length,
       });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      respondWithNodeError(res, error);
     }
   });
 
@@ -119,18 +190,34 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       }
       res.json({ node });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      respondWithNodeError(res, error);
     }
   });
 
   // PUT /api/nodes/:id - Update node
-  router.put('/:id', (req: Request<NodeParams>, res: Response) => {
+  router.put('/:id', async (req: Request<NodeParams>, res: Response) => {
     try {
       const request: UpdateNodeRequest = req.body;
+      const existingNode = nodeManager.getNode(req.params.id);
+      if (!existingNode) {
+        return res.status(404).json({ error: "Node not found" });
+      }
+
+      const secureSignerValidationError = validateSecureSignerRequest(request, existingNode.type);
+      if (secureSignerValidationError) {
+        return res.status(400).json({ error: secureSignerValidationError });
+      }
+      const keyProtection = request.settings?.keyProtection;
+
       const node = nodeManager.updateNode(req.params.id, request);
+
+      if (keyProtection?.mode === "secure-signer") {
+        await nodeManager.syncNodeSecureSigner(req.params.id);
+      }
+
       res.json({ node });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      respondWithNodeError(res, error);
     }
   });
 
@@ -140,7 +227,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       await nodeManager.deleteNode(req.params.id);
       res.status(204).send();
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      respondWithNodeError(res, error);
     }
   });
 
@@ -151,7 +238,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       const node = nodeManager.getNode(req.params.id);
       res.json({ node });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      respondWithNodeError(res, error);
     }
   });
 
@@ -163,7 +250,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       const node = nodeManager.getNode(req.params.id);
       res.json({ node });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      respondWithNodeError(res, error);
     }
   });
 
@@ -174,18 +261,18 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       const node = nodeManager.getNode(req.params.id);
       res.json({ node });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      respondWithNodeError(res, error);
     }
   });
 
   // GET /api/nodes/:id/logs - Get node logs
   router.get('/:id/logs', (req: Request<NodeParams>, res: Response) => {
     try {
-      const count = parseInt(req.query.count as string) || 100;
+      const count = Math.min(parseInt(req.query.count as string) || 100, 1000);
       const logs = nodeManager.getNodeLogs(req.params.id, count);
       res.json({ logs });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      respondWithNodeError(res, error);
     }
   });
 
@@ -195,18 +282,37 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       const info = await nodeManager.getStorageInfo(req.params.id);
       res.json({ storage: info });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      respondWithNodeError(res, error);
     }
   });
 
-  // POST /api/nodes/:id/storage/clean - Clean storage
+  // GET /api/nodes/:id/signer-health - Get bound secure signer readiness
+  router.get('/:id/signer-health', async (req: Request<NodeParams>, res: Response) => {
+    try {
+      const signerHealth = await nodeManager.getNodeSecureSignerHealth(req.params.id);
+      if (!signerHealth) {
+        return res.json({ signerHealth: null });
+      }
+      res.json({ signerHealth });
+    } catch (error) {
+      respondWithNodeError(res, error);
+    }
+  });
+
+  // POST /api/nodes/:id/storage/clean - Clean storage (logs)
   router.post('/:id/storage/clean', async (req: Request<NodeParams>, res: Response) => {
     try {
-      const { type, maxAgeDays } = req.body;
-      // Implementation for cleaning logs or chain data
-      res.json({ success: true });
+      const node = nodeManager.getNode(req.params.id);
+      if (!node) {
+        return res.status(404).json({ error: 'Node not found' });
+      }
+      const requestedMaxAge = Number(req.body?.maxAgeDays);
+      const maxAgeDays = Number.isFinite(requestedMaxAge) && requestedMaxAge > 0 ? requestedMaxAge : 30;
+      const { StorageManager } = await import('../../core/StorageManager');
+      const cleanedFiles = await StorageManager.cleanOldLogs(node.paths.logs, maxAgeDays);
+      res.json({ success: true, cleanedFiles, maxAgeDays });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
     }
   });
 

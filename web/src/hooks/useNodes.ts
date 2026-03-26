@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-
-const API_BASE = '/api';
+import { api } from '../utils/api';
 
 export interface Node {
   id: string;
@@ -28,14 +27,24 @@ export interface Node {
     memoryUsage: number;
     cpuUsage: number;
   };
-}
-
-// Helper to get auth headers
-function getHeaders() {
-  const token = localStorage.getItem('token');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  settings: {
+    maxConnections?: number;
+    minPeers?: number;
+    maxPeers?: number;
+    relay?: boolean;
+    debugMode?: boolean;
+    customConfig?: Record<string, unknown>;
+    keyProtection?: {
+      mode: 'standard' | 'secure-signer';
+      signerProfileId?: string;
+      signerName?: string;
+      signerMode?: 'software' | 'sgx' | 'nitro' | 'custom';
+      signerEndpoint?: string;
+      accountPublicKey?: string;
+      accountAddress?: string;
+      walletPath?: string;
+      unlockMode?: 'manual' | 'interactive-passphrase' | 'recipient-attestation';
+    };
   };
 }
 
@@ -43,11 +52,7 @@ export function useNodes() {
   return useQuery({
     queryKey: ['nodes'],
     queryFn: async (): Promise<Node[]> => {
-      const response = await fetch(`${API_BASE}/nodes`, {
-        headers: getHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch nodes');
-      const data = await response.json();
+      const data = await api.get<{ nodes: Node[] }>('/nodes');
       return data.nodes;
     },
   });
@@ -57,11 +62,7 @@ export function useNode(id: string) {
   return useQuery({
     queryKey: ['nodes', id],
     queryFn: async (): Promise<Node> => {
-      const response = await fetch(`${API_BASE}/nodes/${id}`, {
-        headers: getHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch node');
-      const data = await response.json();
+      const data = await api.get<{ node: Node }>(`/nodes/${id}`);
       return data.node;
     },
     enabled: !!id,
@@ -70,19 +71,10 @@ export function useNode(id: string) {
 
 export function useCreateNode() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (nodeData: Partial<Node>): Promise<Node> => {
-      const response = await fetch(`${API_BASE}/nodes`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify(nodeData),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create node');
-      }
-      const data = await response.json();
+      const data = await api.post<{ node: Node }>('/nodes', nodeData as Record<string, unknown>);
       return data.node;
     },
     onSuccess: () => {
@@ -91,17 +83,33 @@ export function useCreateNode() {
   });
 }
 
+export function useUpdateNode() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: Partial<Node>;
+    }): Promise<Node> => {
+      const data = await api.put<{ node: Node }>(`/nodes/${id}`, payload as Record<string, unknown>);
+      return data.node;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['nodes', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['nodes'] });
+    },
+  });
+}
+
 export function useStartNode() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (id: string): Promise<Node> => {
-      const response = await fetch(`${API_BASE}/nodes/${id}/start`, {
-        method: 'POST',
-        headers: getHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to start node');
-      const data = await response.json();
+      const data = await api.post<{ node: Node }>(`/nodes/${id}/start`);
       return data.node;
     },
     onSuccess: (_, id) => {
@@ -113,16 +121,10 @@ export function useStartNode() {
 
 export function useStopNode() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({ id, force = false }: { id: string; force?: boolean }): Promise<Node> => {
-      const response = await fetch(`${API_BASE}/nodes/${id}/stop`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ force }),
-      });
-      if (!response.ok) throw new Error('Failed to stop node');
-      const data = await response.json();
+      const data = await api.post<{ node: Node }>(`/nodes/${id}/stop`, { force });
       return data.node;
     },
     onSuccess: (_, variables) => {
@@ -134,14 +136,10 @@ export function useStopNode() {
 
 export function useDeleteNode() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (id: string): Promise<void> => {
-      const response = await fetch(`${API_BASE}/nodes/${id}`, {
-        method: 'DELETE',
-        headers: getHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to delete node');
+      await api.delete(`/nodes/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nodes'] });
@@ -153,27 +151,58 @@ export function useNodeLogs(id: string, count = 100) {
   return useQuery({
     queryKey: ['nodes', id, 'logs', count],
     queryFn: async (): Promise<Array<{ timestamp: number; level: string; message: string }>> => {
-      const response = await fetch(`${API_BASE}/nodes/${id}/logs?count=${count}`, {
-        headers: getHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch logs');
-      const data = await response.json();
+      const data = await api.get<{ logs: Array<{ timestamp: number; level: string; message: string }> }>(
+        `/nodes/${id}/logs?count=${count}`,
+      );
       return data.logs;
     },
     enabled: !!id,
-    refetchInterval: 2000,
+    refetchInterval: 5000,
   });
+}
+
+export function useNodeSignerHealth(id: string) {
+  return useQuery({
+    queryKey: ['nodes', id, 'signer-health'],
+    queryFn: async () => {
+      const data = await api.get<{
+        signerHealth: {
+          nodeId: string;
+          profile: {
+            id: string;
+            name: string;
+            mode: 'software' | 'sgx' | 'nitro' | 'custom' | string;
+            endpoint: string;
+          };
+          readiness: {
+            ok: boolean;
+            status: 'reachable' | 'unreachable' | 'warning';
+            message: string;
+            source: 'probe' | 'secure-sign-tools' | 'vsock-format' | string;
+            accountStatus?: string;
+            checkedAt: number;
+          };
+        } | null;
+      }>(`/nodes/${id}/signer-health`);
+      return data.signerHealth;
+    },
+    enabled: !!id,
+    refetchInterval: 10000,
+  });
+}
+
+export interface SystemMetrics {
+  cpu: { usage: number; cores: number };
+  memory: { percentage: number; used: number; total: number };
+  disk: { percentage: number; used: number; total: number };
+  timestamp?: number;
 }
 
 export function useSystemMetrics() {
   return useQuery({
     queryKey: ['metrics', 'system'],
-    queryFn: async () => {
-      const response = await fetch(`${API_BASE}/metrics/system`, {
-        headers: getHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch metrics');
-      const data = await response.json();
+    queryFn: async (): Promise<SystemMetrics> => {
+      const data = await api.get<{ metrics: SystemMetrics }>('/metrics/system');
       return data.metrics;
     },
     refetchInterval: 5000,

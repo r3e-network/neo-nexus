@@ -18,6 +18,7 @@ describe("Nodes Routes Integration", () => {
 
     mockNodeManager = {
       createNode: vi.fn(),
+      updateNode: vi.fn(),
       getNode: vi.fn(),
       getAllNodes: vi.fn(),
       deleteNode: vi.fn(),
@@ -50,6 +51,16 @@ describe("Nodes Routes Integration", () => {
         return res.status(404).json({ error: "Node not found" });
       }
       res.json({ node });
+    });
+
+    // PUT /api/nodes/:id - Update node
+    app.put("/api/nodes/:id", async (req: Request, res: Response) => {
+      try {
+        const node = await mockNodeManager.updateNode(req.params.id, req.body);
+        res.json({ node });
+      } catch (error: any) {
+        res.status(400).json({ error: error.message });
+      }
     });
 
     // DELETE /api/nodes/:id - Delete node
@@ -235,6 +246,54 @@ describe("Nodes Routes Integration", () => {
         .expect(400);
 
       expect(response.body.error).toContain("not found");
+    });
+  });
+
+  describe("PUT /api/nodes/:id", () => {
+    it("should update a stopped node configuration", async () => {
+      mockNodeManager.updateNode.mockResolvedValue({
+        id: "node-1",
+        name: "Updated Node",
+        settings: {
+          maxConnections: 80,
+          minPeers: 8,
+        },
+      });
+
+      const response = await request(app)
+        .put("/api/nodes/node-1")
+        .send({
+          name: "Updated Node",
+          settings: {
+            maxConnections: 80,
+            minPeers: 8,
+          },
+        })
+        .expect(200);
+
+      expect(mockNodeManager.updateNode).toHaveBeenCalledWith("node-1", {
+        name: "Updated Node",
+        settings: {
+          maxConnections: 80,
+          minPeers: 8,
+        },
+      });
+      expect(response.body.node.name).toBe("Updated Node");
+    });
+
+    it("should reject updates while a node is running", async () => {
+      mockNodeManager.updateNode.mockRejectedValue(
+        new Error("Cannot update configuration while node is running"),
+      );
+
+      const response = await request(app)
+        .put("/api/nodes/node-1")
+        .send({
+          name: "Updated Node",
+        })
+        .expect(400);
+
+      expect(response.body.error).toContain("running");
     });
   });
 

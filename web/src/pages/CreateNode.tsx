@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCreateNode } from '../hooks/useNodes';
 import { ArrowLeft, Server, Loader2 } from 'lucide-react';
+import { FeedbackBanner } from '../components/FeedbackBanner';
 import { Link } from 'react-router-dom';
+import { normalizeNodeUpsertPayload, toNodeFormValues } from '../utils/nodePayloads';
+import { useSecureSigners } from '../hooks/useSecureSigners';
 
 const NODE_TYPES = [
   { value: 'neo-cli', label: 'Neo CLI (C#)', description: 'Official Neo implementation with plugin support' },
@@ -23,32 +26,37 @@ const SYNC_MODES = [
 export default function CreateNode() {
   const navigate = useNavigate();
   const createNode = useCreateNode();
+  const secureSigners = useSecureSigners();
   
-  const [formData, setFormData] = useState({
-    name: '',
-    type: 'neo-go' as 'neo-cli' | 'neo-go',
-    network: 'mainnet' as 'mainnet' | 'testnet' | 'private',
-    syncMode: 'full' as 'full' | 'light',
-  });
+  const [error, setError] = useState('');
+
+  const [formData, setFormData] = useState(() =>
+    toNodeFormValues({
+      name: '',
+      type: 'neo-go',
+      network: 'mainnet',
+      syncMode: 'full',
+      settings: {
+        relay: true,
+        debugMode: false,
+      },
+    }),
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setError('');
+
     if (!formData.name.trim()) {
-      alert('Please enter a node name');
+      setError('Please enter a node name');
       return;
     }
 
     try {
-      await createNode.mutateAsync({
-        name: formData.name.trim(),
-        type: formData.type,
-        network: formData.network,
-        syncMode: formData.syncMode,
-      });
+      await createNode.mutateAsync(normalizeNodeUpsertPayload(formData));
       navigate('/nodes');
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to create node');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create node');
     }
   };
 
@@ -108,7 +116,18 @@ export default function CreateNode() {
                     name="type"
                     value={type.value}
                     checked={formData.type === type.value}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value as 'neo-cli' | 'neo-go' })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        type: e.target.value as 'neo-cli' | 'neo-go',
+                        ...(e.target.value === 'neo-go'
+                          ? {
+                              keyProtectionMode: 'standard',
+                              secureSignerProfileId: '',
+                            }
+                          : {}),
+                      })
+                    }
                     className="sr-only"
                   />
                   <p className="font-medium text-white">{type.label}</p>
@@ -185,6 +204,178 @@ export default function CreateNode() {
               Ports will be allocated starting from 10332 (RPC) and 10333 (P2P).
             </p>
           </div>
+
+          <div className="space-y-4 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-4">
+            <div>
+              <h2 className="text-sm font-medium text-cyan-200">Private Key Protection</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                NeoNexus can bind `neo-cli` nodes to a secure signer profile so node configs reference a signing endpoint instead of raw private keys.
+              </p>
+            </div>
+
+            {formData.type === 'neo-cli' ? (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label
+                    className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
+                      formData.keyProtectionMode === 'standard'
+                        ? 'border-cyan-500 bg-cyan-500/10'
+                        : 'border-slate-700 hover:border-slate-600'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="keyProtectionMode"
+                      value="standard"
+                      checked={formData.keyProtectionMode === 'standard'}
+                      onChange={() => setFormData({ ...formData, keyProtectionMode: 'standard', secureSignerProfileId: '' })}
+                      className="sr-only"
+                    />
+                    <p className="font-medium text-white">Standard Local Wallet</p>
+                    <p className="mt-1 text-sm text-slate-400">Use the node's regular wallet flow without NeoNexus-managed signer binding.</p>
+                  </label>
+
+                  <label
+                    className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
+                      formData.keyProtectionMode === 'secure-signer'
+                        ? 'border-cyan-500 bg-cyan-500/10'
+                        : 'border-slate-700 hover:border-slate-600'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="keyProtectionMode"
+                      value="secure-signer"
+                      checked={formData.keyProtectionMode === 'secure-signer'}
+                      onChange={() => setFormData({ ...formData, keyProtectionMode: 'secure-signer' })}
+                      className="sr-only"
+                    />
+                    <p className="font-medium text-white">Secure Signer / TEE</p>
+                    <p className="mt-1 text-sm text-slate-400">Attach a software, SGX, or Nitro signer profile and auto-wire Neo SignClient.</p>
+                  </label>
+                </div>
+
+                {formData.keyProtectionMode === 'secure-signer' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Secure Signer Profile</label>
+                      <select
+                        value={formData.secureSignerProfileId}
+                        onChange={(e) => setFormData({ ...formData, secureSignerProfileId: e.target.value })}
+                        className="input"
+                      >
+                        <option value="">Select a secure signer profile</option>
+                        {(secureSigners.data ?? [])
+                          .filter((profile) => profile.enabled)
+                          .map((profile) => (
+                            <option key={profile.id} value={profile.id}>
+                              {profile.name} · {profile.mode} · {profile.endpoint}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+
+                    {(secureSigners.data ?? []).length === 0 && (
+                      <p className="text-sm text-amber-300">
+                        No secure signer profiles are configured yet. Add one in <Link to="/settings" className="underline">Settings</Link> before enabling TEE-backed signing.
+                      </p>
+                    )}
+
+                    <p className="text-xs text-slate-500">
+                      NeoNexus stores only the signer profile reference and endpoint metadata here. It does not store raw WIF or plaintext unlock material.
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-slate-400">
+                Secure signer auto-wiring currently targets `neo-cli` nodes via the Neo `SignClient` plugin. `neo-go` remains standard-wallet only for now.
+              </p>
+            )}
+          </div>
+
+          {/* Advanced Settings */}
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-sm font-medium text-slate-300 mb-3">Advanced Settings</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-2">Max Connections</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.maxConnections}
+                    onChange={(e) => setFormData({ ...formData, maxConnections: e.target.value })}
+                    className="input"
+                    placeholder="Optional"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-2">Min Peers</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.minPeers}
+                    onChange={(e) => setFormData({ ...formData, minPeers: e.target.value })}
+                    className="input"
+                    placeholder="Optional"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-2">Max Peers</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.maxPeers}
+                    onChange={(e) => setFormData({ ...formData, maxPeers: e.target.value })}
+                    className="input"
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-white">Relay Transactions</p>
+                  <p className="text-xs text-slate-400">Allow the node to relay transactions</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={formData.relay}
+                  onChange={(e) => setFormData({ ...formData, relay: e.target.checked })}
+                  className="h-4 w-4"
+                />
+              </label>
+
+              <label className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-white">Debug Mode</p>
+                  <p className="text-xs text-slate-400">Enable verbose debugging where supported</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={formData.debugMode}
+                  onChange={(e) => setFormData({ ...formData, debugMode: e.target.checked })}
+                  className="h-4 w-4"
+                />
+              </label>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Custom Config JSON</label>
+              <textarea
+                value={formData.customConfig}
+                onChange={(e) => setFormData({ ...formData, customConfig: e.target.value })}
+                className="input min-h-36 font-mono text-xs"
+                placeholder='Optional JSON merged into node settings, e.g. { "Trace": true }'
+                spellCheck={false}
+              />
+            </div>
+          </div>
+
+          <FeedbackBanner error={error} />
 
           {/* Submit */}
           <div className="flex gap-4">
