@@ -29,7 +29,7 @@ const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/nodes', icon: Server, label: 'Nodes' },
   { path: '/servers', icon: Network, label: 'Servers' },
-  { path: '/plugins', icon: Puzzle, label: 'Plugins' },
+  { path: '/plugins', icon: Puzzle, label: 'Features' },
   { path: '/settings', icon: Settings, label: 'Settings' },
 ];
 
