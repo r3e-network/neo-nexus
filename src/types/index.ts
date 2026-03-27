@@ -42,6 +42,7 @@ export interface NodeSettings {
   debugMode?: boolean;
   customConfig?: Record<string, unknown>;
   keyProtection?: NodeKeyProtectionSettings;
+  resourceLimits?: { maxMemoryMB?: number };
 }
 
 // Process Status

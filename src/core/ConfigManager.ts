@@ -73,6 +73,11 @@ const NEO_GO_HARDFORKS: Record<Exclude<NodeNetwork, 'private'>, Record<string, n
 };
 
 export class ConfigManager {
+  static getExpectedHardforks(network: NodeNetwork): Record<string, number> | undefined {
+    if (network === 'private') return undefined;
+    return NEO_GO_HARDFORKS[network];
+  }
+
   /**
    * Generate neo-cli config.json
    */
@@ -496,6 +501,18 @@ export class ConfigManager {
         const YAML = (await import('js-yaml')).default;
         const onDisk = YAML.load(readFileSync(onDiskPath, 'utf-8')) as Record<string, unknown>;
         this.diffConfigs(expectedConfig, onDisk, '', issues);
+
+        if (node.type === 'neo-go' && node.network !== 'private') {
+          const expectedForks = this.getExpectedHardforks(node.network);
+          const onDiskForks = (onDisk as any)?.ProtocolConfiguration?.Hardforks;
+          if (expectedForks && onDiskForks) {
+            for (const [name, height] of Object.entries(expectedForks)) {
+              if (onDiskForks[name] !== height) {
+                issues.push({ path: `ProtocolConfiguration.Hardforks.${name}`, severity: 'warning', message: `Hardfork "${name}" height differs: expected ${height}, found ${onDiskForks[name] ?? 'missing'}` });
+              }
+            }
+          }
+        }
       } else {
         issues.push({ path: 'protocol.yml', severity: 'error', message: 'Neo-go protocol.yml does not exist on disk' });
       }

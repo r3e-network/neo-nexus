@@ -2,6 +2,7 @@ import type { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import type { NodeConfig, NodeStatus, ProcessStatus, NodeMetrics, LogEntry } from '../types/index';
 import { spawnProcess, killProcess, getProcessInfo } from '../utils/exec';
+import { buildResourceEnv } from '../utils/resourceLimits';
 
 export interface NodeEvents {
   status: (status: NodeStatus, previousStatus: NodeStatus) => void;
@@ -77,8 +78,10 @@ export abstract class BaseNode extends EventEmitter {
     this.emit('status', 'starting', previousStatus);
 
     try {
+      const resourceEnv = buildResourceEnv(this.config.type, this.config.settings.resourceLimits ?? {});
       this.process = spawnProcess(binaryPath, args, {
         cwd,
+        env: resourceEnv,
         logCallback: (line) => this.handleLogLine(line),
       });
 
