@@ -29,6 +29,7 @@ import { join } from "node:path";
 import { pruneAllLogs } from "./utils/logRetention";
 import { recordDiskReading, getDiskAlertLevel } from "./utils/diskMonitor";
 import { AuditLogger } from "./core/AuditLogger";
+import { WatchdogManager } from "./core/WatchdogManager";
 
 const pkg = JSON.parse(readFileSync(join(import.meta.dirname ?? ".", "..", "package.json"), "utf-8"));
 const APP_VERSION: string = pkg.version || "0.0.0";
@@ -60,6 +61,14 @@ export function createAppServer(config: ServerConfig) {
   // Initialize core services
   const nodeManager = new NodeManager(config.db);
   nodeManager.reconcileProcessStates();
+
+  const watchdog = new WatchdogManager(async (nodeId) => {
+    try {
+      await nodeManager.startNode(nodeId);
+    } catch (error) {
+      console.error(`Watchdog restart failed for ${nodeId}:`, error);
+    }
+  });
   const secureSignerManager = nodeManager.getSecureSignerManager();
   const remoteServerManager = new RemoteServerManager(config.db);
   const userManager = new UserManager(config.db);
@@ -263,6 +272,12 @@ export function createAppServer(config: ServerConfig) {
     } else if (status === "stopped" && previousStatus === "stopping") {
       auditLogger.log({ action: "node.stop", resourceType: "node", resourceId: nodeId });
     }
+
+    if (status === "running") watchdog.onNodeStarted(nodeId);
+    if ((status === "error" || status === "stopped") && previousStatus === "running") {
+      const wasExpected = previousStatus === "stopping";
+      watchdog.onNodeExited(nodeId, wasExpected);
+    }
   });
 
   nodeManager.on("nodeLog", ({ nodeId, entry }) => {
@@ -379,6 +394,7 @@ export function createAppServer(config: ServerConfig) {
     clearInterval(metricsInterval);
     clearInterval(networkHeightInterval);
     clearInterval(logRetentionInterval);
+    watchdog.clearAll();
 
     // Stop all running nodes
     try {
