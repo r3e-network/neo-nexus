@@ -1,4 +1,4 @@
-import { createWriteStream, existsSync, mkdirSync, statSync, unlinkSync } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from "node:fs";
 import { copyFile, chmod } from "node:fs/promises";
 import { get, request as httpsRequest } from "node:https";
 import { join } from "node:path";
@@ -156,14 +156,32 @@ export class DownloadManager {
   }
 
   /**
-   * Download a plugin for neo-cli
+   * Download a plugin for neo-cli.
+   * Checks for a local build directory first (e.g. from a locally-built neo-node
+   * checkout) before attempting to download from GitHub.
    */
   static async downloadPlugin(pluginId: string, version: string): Promise<string> {
+    const pluginDir = join(paths.plugins, pluginId, version);
+
+    // Check for local build source first
+    const localBuildDir = process.env.NEO_PLUGIN_BUILD_DIR;
+    if (localBuildDir) {
+      const localPluginOutput = join(localBuildDir, pluginId, "bin", "Release", "net10.0");
+      if (existsSync(localPluginOutput)) {
+        mkdirSync(pluginDir, { recursive: true });
+        return localPluginOutput;
+      }
+    }
+
+    // Check if already extracted
+    if (existsSync(pluginDir) && readdirSync(pluginDir).some(f => f.endsWith(".dll"))) {
+      return pluginDir;
+    }
+
     // neo-modules releases use format: v3.9.2/ApplicationLogs.zip
     const fileName = `${pluginId}.zip`;
     const downloadUrl = `https://github.com/${PLUGIN_REPO.owner}/${PLUGIN_REPO.repo}/releases/download/${version}/${fileName}`;
 
-    const pluginDir = join(paths.plugins, pluginId, version);
     const downloadPath = join(paths.downloads, `plugin-${pluginId}-${version}.zip`);
 
     // Ensure directories exist

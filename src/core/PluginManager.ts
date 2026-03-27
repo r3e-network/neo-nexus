@@ -7,6 +7,9 @@ import { ConfigManager } from './ConfigManager';
 
 // Plugin version mapping (simplified - in production, fetch from releases)
 const PLUGIN_VERSIONS: Record<string, string> = {
+  '3.9.2': 'v3.9.2',
+  '3.9.1': 'v3.9.1',
+  '3.9.0': 'v3.9.0',
   '3.7.5': 'v3.7.5',
   '3.7.4': 'v3.7.4',
   '3.7.3': 'v3.7.3',
@@ -22,7 +25,8 @@ const PLUGIN_VERSIONS: Record<string, string> = {
 };
 
 export function resolvePluginReleaseVersion(nodeVersion: string, latestAvailableVersion: string): string {
-  return PLUGIN_VERSIONS[nodeVersion] || latestAvailableVersion;
+  const normalized = nodeVersion.replace(/^v/, '');
+  return PLUGIN_VERSIONS[normalized] || latestAvailableVersion;
 }
 
 export class PluginManager {
@@ -140,8 +144,9 @@ export class PluginManager {
     const nodePluginDir = join(this.getNodeBasePath(nodeId), 'Plugins', pluginId);
     mkdirSync(nodePluginDir, { recursive: true });
 
-    // Copy plugin files
-    this.copyPluginFiles(pluginSourceDir, nodePluginDir);
+    // Copy plugin files (pass pluginId for local builds to filter deps)
+    const isLocalBuild = !!process.env.NEO_PLUGIN_BUILD_DIR;
+    this.copyPluginFiles(pluginSourceDir, nodePluginDir, isLocalBuild ? pluginId : undefined);
 
     // Create/update config
     const config = {
@@ -171,6 +176,11 @@ export class PluginManager {
     if (existsSync(pluginDir)) {
       rmSync(pluginDir, { recursive: true, force: true });
     }
+
+    // Update node config to remove plugin from Plugins.Enabled
+    const remainingPlugins = this.getInstalledPlugins(nodeId).map(p => p.id);
+    const nodeConfig = this.getNodeConfig(nodeId);
+    await ConfigManager.writeNodeConfig(nodeConfig, remainingPlugins);
   }
 
   /**
@@ -205,20 +215,35 @@ export class PluginManager {
   }
 
   /**
-   * Copy plugin files from source to destination
+   * Copy plugin files from source to destination.
+   * When installing from a local build directory, copies only the plugin's
+   * own assembly and native libraries — shared framework dependencies are
+   * resolved from the host application at runtime.
    */
-  private copyPluginFiles(sourceDir: string, destDir: string): void {
+  private copyPluginFiles(sourceDir: string, destDir: string, pluginId?: string): void {
     const files = readdirSync(sourceDir);
-    
+
     for (const file of files) {
       const sourcePath = join(sourceDir, file);
       const destPath = join(destDir, file);
-      
+
       const stat = statSync(sourcePath);
       if (stat.isDirectory()) {
-        mkdirSync(destPath, { recursive: true });
-        this.copyPluginFiles(sourcePath, destPath);
+        // Always copy native library directories (runtimes/)
+        if (file === 'runtimes') {
+          mkdirSync(destPath, { recursive: true });
+          this.copyPluginFiles(sourcePath, destPath);
+        }
+      } else if (pluginId) {
+        // Local build: only copy the plugin's own files
+        const isPluginDll = file === `${pluginId}.dll` || file === `Neo.Plugins.${pluginId}.dll`;
+        const isPluginPdb = file.endsWith('.pdb') && (file.includes(pluginId));
+        const isConfig = file === `${pluginId}.json` || file === 'config.json';
+        if (isPluginDll || isPluginPdb || isConfig) {
+          copyFileSync(sourcePath, destPath);
+        }
       } else {
+        // Downloaded ZIP: copy everything
         copyFileSync(sourcePath, destPath);
       }
     }

@@ -56,7 +56,7 @@ describe("secure signer config generation", () => {
       Endpoint: "https://signer.example.com:9443",
     });
 
-    const written = JSON.parse(fs.readFileSync(path.join(baseDir, "Plugins", "SignClient", "config.json"), "utf8"));
+    const written = JSON.parse(fs.readFileSync(path.join(baseDir, "Plugins", "SignClient", "SignClient.json"), "utf8"));
     expect(written).toEqual({
       PluginConfiguration: {
         Name: "SGX Signer",
