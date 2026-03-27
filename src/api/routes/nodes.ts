@@ -72,7 +72,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
   };
 
   // GET /api/nodes - List all nodes
-  router.get('/', (req: Request, res: Response) => {
+  router.get('/', (_req: Request, res: Response) => {
     try {
       const nodes = nodeManager.getAllNodes();
       res.json({ nodes });
@@ -209,7 +209,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       }
       const keyProtection = request.settings?.keyProtection;
 
-      const node = nodeManager.updateNode(req.params.id, request);
+      const node = await nodeManager.updateNode(req.params.id, request);
 
       if (keyProtection?.mode === "secure-signer") {
         await nodeManager.syncNodeSecureSigner(req.params.id);
