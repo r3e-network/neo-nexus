@@ -79,22 +79,25 @@ export default function Layout({ children }: LayoutProps) {
           <div className="h-16 flex items-center px-6 border-b border-slate-800">
             <Activity className="w-8 h-8 text-blue-500 mr-3" />
             <div>
-              <h1 className="text-lg font-bold text-white">NeoNexus</h1>
+              <h1 className="text-lg font-bold">
+              <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">NeoNexus</span>
+            </h1>
               <p className="text-xs text-slate-400">Node Manager</p>
             </div>
           </div>
 
           {/* Navigation */}
           <nav className="flex-1 py-4 px-3 space-y-1">
-            {navItems.map((item) => (
+            {navItems.map((item, i) => (
               <NavLink
                 key={item.path}
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) => `
+                  animate-fade-in stagger-${i + 1}
                   flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
-                  ${isActive 
-                    ? 'bg-blue-500/10 text-blue-400' 
+                  ${isActive
+                    ? 'bg-blue-500/10 text-blue-400'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800'
                   }
                 `}
@@ -165,7 +168,7 @@ export default function Layout({ children }: LayoutProps) {
                     className="fixed inset-0 z-40"
                     onClick={() => setNotificationsOpen(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-96 max-w-[calc(100vw-2rem)] bg-slate-800 rounded-lg shadow-lg border border-slate-700 z-50 overflow-hidden">
+                  <div className="animate-slide-down absolute right-0 mt-2 w-96 max-w-[calc(100vw-2rem)] bg-slate-800 rounded-lg shadow-lg border border-slate-700 z-50 overflow-hidden">
                     <div className="p-3 border-b border-slate-700 flex items-center justify-between">
                       <div>
                         <p className="text-white font-medium">Notifications</p>
@@ -235,7 +238,7 @@ export default function Layout({ children }: LayoutProps) {
                     className="fixed inset-0 z-40"
                     onClick={() => setUserMenuOpen(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-48 bg-slate-800 rounded-lg shadow-lg border border-slate-700 z-50">
+                  <div className="animate-slide-down absolute right-0 mt-2 w-48 bg-slate-800 rounded-lg shadow-lg border border-slate-700 z-50">
                     <div className="p-3 border-b border-slate-700">
                       <p className="text-white font-medium">{user?.username}</p>
                       <p className="text-xs text-slate-400 capitalize">{user?.role}</p>
@@ -258,7 +261,7 @@ export default function Layout({ children }: LayoutProps) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-4 lg:p-8 overflow-auto">
+        <main className="flex-1 p-4 lg:p-8 overflow-auto animate-fade-in">
           {children}
         </main>
       </div>

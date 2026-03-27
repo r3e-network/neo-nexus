@@ -116,7 +116,7 @@ export default function ImportNode() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto animate-fade-in">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white">Import Existing Node</h1>
         <p className="text-slate-400 mt-2">
@@ -138,13 +138,13 @@ export default function ImportNode() {
                 value={path}
                 onChange={(e) => setPath(e.target.value)}
                 placeholder="/path/to/neo-node (e.g., /home/user/neo-cli)"
-                className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                className="input pl-10"
               />
             </div>
             <button
               onClick={handleDetect}
               disabled={detectMutation.isPending}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
+              className="btn btn-primary"
             >
               {detectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
               Detect
@@ -162,7 +162,7 @@ export default function ImportNode() {
             <button
               onClick={handleScan}
               disabled={scanMutation.isPending}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:cursor-not-allowed text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
+              className="btn btn-secondary"
             >
               {scanMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
               Scan Parent Directory
@@ -242,7 +242,7 @@ export default function ImportNode() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="My Neo Node"
-                  className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  className="input"
                 />
               </div>
 
@@ -253,7 +253,7 @@ export default function ImportNode() {
                   value={pid}
                   onChange={(e) => setPid(e.target.value)}
                   placeholder={detected.isRunning ? "Auto-detected" : "e.g., 12345"}
-                  className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  className="input"
                 />
                 <p className="text-slate-500 text-sm mt-1">
                   If the node is running, you can specify its PID to attach to the existing process.
@@ -265,7 +265,7 @@ export default function ImportNode() {
             <button
               onClick={handleImport}
               disabled={importMutation.isPending || !name.trim()}
-              className="w-full mt-6 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+              className="btn btn-success w-full mt-6 justify-center"
             >
               {importMutation.isPending ? (
                 <>
