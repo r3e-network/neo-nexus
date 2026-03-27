@@ -7,6 +7,6 @@ describe("resolvePluginReleaseVersion", () => {
   });
 
   it("falls back to the latest known neo-modules release when the node version has no matching plugin release", () => {
-    expect(resolvePluginReleaseVersion("3.9.2", "v3.7.5")).toBe("v3.7.5");
+    expect(resolvePluginReleaseVersion("99.0.0", "v3.7.5")).toBe("v3.7.5");
   });
 });

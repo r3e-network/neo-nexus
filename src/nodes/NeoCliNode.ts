@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { BaseNode } from "./BaseNode";
 import { DownloadManager } from "../core/DownloadManager";
@@ -15,12 +16,22 @@ export class NeoCliNode extends BaseNode {
   }
 
   getStartArgs(): string[] {
-    const path = DownloadManager.getNodeBinaryPath("neo-cli", this.config.version);
-    if (!path) {
-      throw new Error(`neo-cli ${this.config.version} is not downloaded`);
+    // Prefer neo-cli.dll in the node's own directory (supports per-node binary installs
+    // where plugins are resolved from the same directory as the assembly).
+    const localDll = join(this.config.paths.base, "neo-cli.dll");
+    let dllPath: string;
+
+    if (existsSync(localDll)) {
+      dllPath = localDll;
+    } else {
+      const downloadPath = DownloadManager.getNodeBinaryPath("neo-cli", this.config.version);
+      if (!downloadPath) {
+        throw new Error(`neo-cli ${this.config.version} is not downloaded`);
+      }
+      dllPath = join(downloadPath, "neo-cli.dll");
     }
 
-    const dotnetArgs: string[] = ["dotnet", join(path, "neo-cli.dll")];
+    const dotnetArgs: string[] = ["dotnet", dllPath];
 
     // Add RPC port if configured
     if (this.config.ports.rpc) {

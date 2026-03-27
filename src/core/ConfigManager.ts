@@ -255,34 +255,64 @@ export class ConfigManager {
 
     const configs: Record<PluginId, object> = {
       ApplicationLogs: {
+        Path: 'ApplicationLogs_{0}',
         Network: networkMagic,
-        MaxLogSize: 2147483647,
+        MaxStackSize: 65535,
+        Debug: false,
+        UnhandledExceptionPolicy: 'StopPlugin',
       },
       DBFTPlugin: {
+        RecoveryLogs: 'ConsensusState',
+        IgnoreRecoveryLogs: false,
+        AutoStart: false,
         Network: networkMagic,
-        AutoStart: true,
-        BlockTxNumber: 512,
-        MaxBlockSize: 262144,
+        MaxBlockSize: 2097152,
+        MaxBlockSystemFee: 150000000000,
+        UnhandledExceptionPolicy: 'StopNode',
       },
       LevelDBStore: {},
       OracleService: {
         Network: networkMagic,
-        AutoStart: true,
+        AutoStart: false,
+        UnhandledExceptionPolicy: 'StopPlugin',
       },
       RestServer: {
         Network: networkMagic,
         BindAddress: '0.0.0.0',
         Port: node.ports.websocket ?? 10334,
-        KeepAliveTimeout: 60,
+        KeepAliveTimeout: 120,
+        EnableCors: true,
+        AllowOrigins: [],
+        MaxConcurrentConnections: 40,
+        MaxGasInvoke: 200000000,
+        EnableSwagger: true,
+        MaxPageSize: 50,
+        EnableCompression: true,
+        UnhandledExceptionPolicy: 'StopPlugin',
       },
       RocksDBStore: {},
       RpcServer: {
-        Network: networkMagic,
-        BindAddress: '0.0.0.0',
-        Port: node.ports.rpc,
-        MaxConcurrentConnections: node.settings.maxConnections ?? 40,
-        KeepAliveTimeout: 60,
-        DisabledMethods: [],
+        UnhandledExceptionPolicy: 'Ignore',
+        Servers: [
+          {
+            Network: networkMagic,
+            BindAddress: '0.0.0.0',
+            Port: node.ports.rpc,
+            MaxConcurrentConnections: node.settings.maxConnections ?? 40,
+            KeepAliveTimeout: 60,
+            RequestHeadersTimeout: 15,
+            MaxGasInvoke: 20,
+            MaxFee: 0.1,
+            MaxIteratorResultItems: 100,
+            MaxStackSize: 65535,
+            EnableCors: true,
+            AllowOrigins: [],
+            DisabledMethods: [],
+            SessionEnabled: false,
+            SessionExpirationTime: 60,
+            FindStoragePageSize: 50,
+          },
+        ],
       },
       SignClient: {
         PluginConfiguration: {
@@ -298,13 +328,21 @@ export class ConfigManager {
       },
       SQLiteWallet: {},
       StateService: {
-        Network: networkMagic,
-        AutoStart: true,
+        Path: 'Data_MPT_{0}',
         FullState: false,
+        Network: networkMagic,
+        AutoVerify: false,
+        MaxFindResultItems: 100,
+        UnhandledExceptionPolicy: 'StopPlugin',
       },
       StorageDumper: {},
       TokensTracker: {
+        DBPath: 'TokenBalanceData',
+        TrackHistory: true,
+        MaxResults: 1000,
         Network: networkMagic,
+        EnabledTrackers: ['NEP-11', 'NEP-17'],
+        UnhandledExceptionPolicy: 'StopPlugin',
       },
     };
 
@@ -349,12 +387,15 @@ export class ConfigManager {
 
     const config = this.generatePluginConfig(pluginId, node, customConfig);
     const pluginDir = join(node.paths.base, 'Plugins', pluginId);
-    
+
     mkdirSync(pluginDir, { recursive: true });
-    
+
+    // neo-cli plugins expect {PluginName}.json with PluginConfiguration wrapper
+    const wrappedConfig = pluginId === 'SignClient' ? config : { PluginConfiguration: config };
+
     writeFileSync(
-      join(pluginDir, 'config.json'),
-      JSON.stringify(config, null, 2)
+      join(pluginDir, `${pluginId}.json`),
+      JSON.stringify(wrappedConfig, null, 2)
     );
   }
 
