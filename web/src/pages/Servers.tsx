@@ -125,7 +125,7 @@ export default function Servers() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Servers</h1>
@@ -245,10 +245,10 @@ export default function Servers() {
                 {servers.map((server) => (
                   <button
                     key={server.profile.id}
-                    className={`w-full text-left rounded-lg border px-4 py-3 transition-colors ${
+                    className={`w-full text-left rounded-lg border px-4 py-3 transition-all duration-200 ${
                       server.profile.id === selectedServerId
-                        ? "border-blue-500 bg-blue-500/10"
-                        : "border-slate-700 bg-slate-800/50 hover:bg-slate-800"
+                        ? "border-blue-500 bg-blue-500/10 shadow-sm shadow-blue-500/10"
+                        : "border-slate-700 bg-slate-800/50 hover:bg-slate-800 hover:border-slate-600"
                     }`}
                     onClick={() => {
                       setSelectedServerId(server.profile.id);

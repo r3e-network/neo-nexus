@@ -25,13 +25,13 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-4">
+      <div className="w-full max-w-md animate-scale-in">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Shield className="w-8 h-8 text-blue-500" />
           </div>
-          <h1 className="text-2xl font-bold text-white">NeoNexus</h1>
+          <h1 className="text-2xl font-bold text-white"><span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">NeoNexus</span></h1>
           <p className="text-slate-400 mt-2">Node Manager</p>
         </div>
 
