@@ -49,7 +49,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold text-white">Dashboard</h1>
         <p className="text-slate-400 mt-1">Overview of your Neo nodes</p>
@@ -94,8 +94,8 @@ export default function Dashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
-          <div key={stat.label} className="card">
+        {stats.map((stat, i) => (
+          <div key={stat.label} className={`card animate-fade-in-up stagger-${i + 1}`}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-400 text-sm">{stat.label}</p>
@@ -165,7 +165,7 @@ export default function Dashboard() {
               <Link
                 key={node.id}
                 to={`/nodes/${node.id}`}
-                className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-all duration-200 hover:shadow-md border border-transparent hover:border-slate-700"
+                className="animate-fade-in flex items-center justify-between p-4 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-all duration-200 hover:shadow-md border border-transparent hover:border-slate-700"
               >
                 <div className="flex items-center gap-4">
                   <div

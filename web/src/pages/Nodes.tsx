@@ -39,7 +39,7 @@ export default function Nodes() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Nodes</h1>
@@ -72,7 +72,7 @@ export default function Nodes() {
       {/* Node List */}
       <div className="card">
         {filteredNodes.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-12 animate-fade-in">
             <Activity className="w-12 h-12 text-slate-600 mx-auto mb-4" />
             <p className="text-slate-400">
               {searchTerm ? 'No nodes match your search' : 'No nodes yet'}
@@ -104,8 +104,8 @@ export default function Nodes() {
                 </tr>
               </thead>
               <tbody>
-                {filteredNodes.map((node) => (
-                  <tr key={node.id} className="border-b border-slate-800/50 hover:bg-slate-800/30">
+                {filteredNodes.map((node, i) => (
+                  <tr key={node.id} className={`border-b border-slate-800/50 hover:bg-slate-800/30 animate-fade-in-up`} style={{ animationDelay: `${i * 0.05}s` }}>
                     <td className="py-4 px-4">
                       <Link to={`/nodes/${node.id}`} className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
