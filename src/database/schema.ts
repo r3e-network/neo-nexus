@@ -164,6 +164,19 @@ export async function initializeDatabase(): Promise<Database.Database> {
     );
 
     CREATE INDEX IF NOT EXISTS idx_secure_signer_profiles_enabled ON secure_signer_profiles(enabled);
+
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp INTEGER NOT NULL,
+      user_id TEXT,
+      username TEXT,
+      action TEXT NOT NULL,
+      resource_type TEXT NOT NULL,
+      resource_id TEXT,
+      details TEXT,
+      ip_address TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log(timestamp);
   `);
 
   ensureColumn(db, "secure_signer_profiles", "workspace_path", "TEXT");
