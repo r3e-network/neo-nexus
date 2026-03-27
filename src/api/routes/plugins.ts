@@ -25,7 +25,7 @@ export function createPluginsRouter(nodeManager: NodeManager): Router {
   router.post('/', async (req: Request<NodeParams>, res: Response) => {
     try {
       const { pluginId, config } = req.body;
-      
+
       if (!pluginId) {
         return res.status(400).json({ error: 'pluginId is required' });
       }
@@ -34,7 +34,14 @@ export function createPluginsRouter(nodeManager: NodeManager): Router {
       const plugins = pluginManager.getInstalledPlugins(req.params.id);
       res.status(201).json({ plugins });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      const message = error instanceof Error ? error.message : "Internal server error";
+      if (/not found/i.test(message)) {
+        return res.status(404).json({ error: message });
+      }
+      if (/already installed|only supported|cannot|running/i.test(message)) {
+        return res.status(409).json({ error: message });
+      }
+      res.status(500).json({ error: message });
     }
   });
 

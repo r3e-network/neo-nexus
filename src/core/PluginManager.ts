@@ -7,9 +7,9 @@ import { ConfigManager } from './ConfigManager';
 
 // Plugin version mapping (simplified - in production, fetch from releases)
 const PLUGIN_VERSIONS: Record<string, string> = {
-  '3.9.2': 'v3.9.2',
-  '3.9.1': 'v3.9.1',
-  '3.9.0': 'v3.9.0',
+  '3.9.2': 'v3.7.5',
+  '3.9.1': 'v3.7.5',
+  '3.9.0': 'v3.7.5',
   '3.7.5': 'v3.7.5',
   '3.7.4': 'v3.7.4',
   '3.7.3': 'v3.7.3',

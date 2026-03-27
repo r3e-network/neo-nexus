@@ -112,6 +112,7 @@ describe("Actual nodes router", () => {
   });
 
   it("returns null signer health for standard-wallet nodes", async () => {
+    mockNodeManager.getNode.mockReturnValue({ id: "node-1" });
     mockNodeManager.getNodeSecureSignerHealth.mockResolvedValue(null);
 
     const response = await request(app).get("/api/nodes/node-1/signer-health");
@@ -121,6 +122,7 @@ describe("Actual nodes router", () => {
   });
 
   it("returns bound signer health for protected nodes", async () => {
+    mockNodeManager.getNode.mockReturnValue({ id: "node-1" });
     mockNodeManager.getNodeSecureSignerHealth.mockResolvedValue({
       nodeId: "node-1",
       profile: {

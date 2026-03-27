@@ -115,13 +115,24 @@ export function createAppServer(config: ServerConfig) {
   app.use("/api/nodes/:id/stop", requireAuth, controlLimiter);
   app.use("/api/nodes/:id/restart", requireAuth, controlLimiter);
 
-  // Health check (public)
+  // Health check (public, with optional auth detection)
   app.get("/api/health", (req, res) => {
+    let authenticated = false;
+    try {
+      const authHeader = req.headers.authorization;
+      if (authHeader?.startsWith("Bearer ")) {
+        const token = authHeader.substring(7);
+        const session = userManager.verifySession(token);
+        authenticated = !!session;
+      }
+    } catch {
+      // Token invalid — still report health, just not authenticated
+    }
     res.json({
       status: "ok",
       timestamp: Date.now(),
       nodes: nodeManager.getAllNodes().length,
-      authenticated: !!(req as AuthenticatedRequest).user,
+      authenticated,
     });
   });
 
