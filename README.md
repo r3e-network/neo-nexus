@@ -2,23 +2,25 @@
 
 > Self-hosted Neo N3 node management, simplified
 
-[![Version](https://img.shields.io/badge/version-2.0.0-green.svg)](https://github.com/r3e-network/neonexus)
+[![Version](https://img.shields.io/badge/version-2.0.0-green.svg)](https://github.com/r3e-network/neo-nexus)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org)
+[![Tests](https://img.shields.io/badge/tests-272%20passing-brightgreen.svg)](#)
 
-NeoNexus is a **self-hosted node management platform** for Neo N3. Deploy, monitor, and manage [neo-cli](https://github.com/neo-project/neo-node) and [neo-go](https://github.com/nspcc-dev/neo-go) nodes from a single web dashboard — no command-line expertise required.
+NeoNexus is a **self-hosted node management platform** for Neo N3. Deploy, monitor, and manage [neo-cli](https://github.com/neo-project/neo-node) and [neo-go](https://github.com/nspcc-dev/neo-go) nodes from a single web dashboard.
 
 ## Features
 
-- 🚀 **One-Click Deploy** — Deploy Neo nodes in minutes without CLI setup
-- 📊 **Real-Time Monitoring** — Track block height, peers, CPU, memory, and live node events
-- 🔔 **In-App Alerts** — Receive realtime notifications for node errors, warnings, and status changes
-- 🔌 **Plugin Management** — Install and configure neo-cli plugins through the UI
-- 🔐 **Self-Hosted** — Your nodes, your hardware, your control
-- 🌐 **Multi-Server Monitoring** — Track multiple NeoNexus instances from one control panel
-- 👁️ **Public Dashboard** — Share node status without exposing sensitive config
-- 🧭 **Multi-Network** — Switch between mainnet, testnet, and private networks
-- ⚡ **Multi-Node** — Run multiple nodes with automatic port allocation
+- **One-Click Deploy** — Deploy Neo nodes in minutes without CLI setup
+- **Real-Time Monitoring** — Track block height, sync progress, peers, CPU, memory via WebSocket
+- **Crash Recovery** — Automatic restart with exponential backoff when nodes crash
+- **Plugin Management** — Install and configure neo-cli plugins through the UI
+- **Multi-Network** — Mainnet, testnet, and private networks with correct protocol configs
+- **Multi-Server** — Monitor multiple NeoNexus instances from one control panel
+- **Config Audit** — Detect stale configs, missing plugins, hardfork mismatches
+- **Backup/Restore** — JSON export/import of all node configurations
+- **Audit Logging** — Track all state-changing operations
+- **Secure Signers** — TEE key protection via Intel SGX, AWS Nitro, or custom endpoints
 
 ## Quick Start
 
@@ -26,81 +28,127 @@ NeoNexus is a **self-hosted node management platform** for Neo N3. Deploy, monit
 
 - **Node.js** 20+
 - **npm** 9+
-- **.NET 8+** (for neo-cli nodes)
-- **Git** (optional, for development)
+- **.NET 10+** (for neo-cli nodes)
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/r3e-network/neonexus.git
+git clone https://github.com/r3e-network/neo-nexus.git
 cd neo-nexus
 
-# Install dependencies
 npm install
-
-# Build the application
 npm run build
-
-# Start the server
 npm start
 ```
 
-### First Login
-
-1. Open http://localhost:8080 in your browser
-2. Login with default credentials:
-   - **Username:** `admin`
-   - **Password:** `admin`
-3. **⚠️ Change the default password** in Settings → Change Password
+Open http://localhost:8080 — login with `admin` / `admin`, then change the password.
 
 ### Deploy Your First Node
 
-1. Click **"Create Node"**
-2. Select **Node Type:** neo-cli or neo-go
-3. Choose **Network:** Mainnet, Testnet, or Private
-4. Click **Deploy**
+1. Click **Create Node**
+2. Select **Type** (neo-cli or neo-go) and **Network** (mainnet/testnet/private)
+3. Click **Deploy** — the binary is downloaded, configured, and ready to start
 
-Your node will be automatically downloaded, configured, and ready to start.
+### Use Local neo-node Builds
 
-## Documentation
+To use plugins built from a local [neo-node](https://github.com/neo-project/neo-node) checkout:
 
-- [API Reference](docs/api.md)
-- [Remote Access Setup](docs/REMOTE_ACCESS.md)
+```bash
+cd ~/git/neo-node && git checkout v3.9.2
+dotnet build neo-node.sln -c Release
 
-## What Makes NeoNexus Different?
-
-| Feature            | NeoNexus      | Manual CLI Setup | Cloud Providers |
-| ------------------ | ------------- | ---------------- | --------------- |
-| **Setup Time**     | 5 minutes     | 2+ hours         | 10 minutes      |
-| **Web UI**         | ✅ Built-in   | ❌ CLI only      | ✅ Yes          |
-| **Self-Hosted**    | ✅ Yes        | ✅ Yes           | ❌ No           |
-| **Multi-Node**     | ✅ Easy       | ⚠️ Complex       | 💰 Expensive    |
-| **Cost**           | Free          | Free (labor)     | $$ Monthly      |
-| **Plugin Support** | ✅ UI-managed | ⚠️ Manual        | ❌ No           |
+# Start NeoNexus with local plugin path
+NEO_PLUGIN_BUILD_DIR=~/git/neo-node/plugins npm start
+```
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Web Browser                          │
-└────────────────────┬────────────────────────────────────┘
-                     │ HTTP / WebSocket
-┌────────────────────▼────────────────────────────────────┐
-│              NeoNexus Node Manager                      │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │   Express    │  │   Node.js    │  │   SQLite     │  │
-│  │    API       │  │   Backend    │  │   Database   │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  │
-└────────────────────┬────────────────────────────────────┘
-                     │ Process Management
-        ┌────────────┼────────────┐
-        ▼            ▼            ▼
-   ┌─────────┐  ┌─────────┐  ┌─────────┐
-   │ neo-cli │  │ neo-go  │  │  ...    │
-   │  Node 1 │  │  Node 2 │  │  Node N │
-   └─────────┘  └─────────┘  └─────────┘
+                        Web Browser
+                            |
+                     HTTP / WebSocket
+                            |
+              +-------------+-------------+
+              |     NeoNexus Server        |
+              |  Express + SQLite + ws     |
+              +--+-------+-------+--------+
+                 |       |       |
+           +-----+  +---+---+  ++--------+
+           |     |  |       |  |         |
+        neo-cli  neo-go   neo-cli     neo-go
+        Node 1   Node 2   Node 3     Node N
 ```
+
+**Backend:** TypeScript, Express, better-sqlite3, ws
+**Frontend:** React, TanStack Query, Tailwind CSS, Vite
+**Processes:** Managed via `child_process.spawn` with PTY support for neo-cli
+
+## Supported Software
+
+| Software | Versions | Networks |
+|----------|----------|----------|
+| neo-cli | v3.6.0 — v3.9.2 | Mainnet, Testnet, Private |
+| neo-go | v0.104.0+ | Mainnet, Testnet, Private |
+
+## Production Features
+
+### Crash Recovery
+
+Nodes that crash are automatically restarted with exponential backoff (2s, 4s, 8s... up to 30s). After 5 consecutive failures the watchdog gives up and alerts. Backoff resets after 5 minutes of stable running.
+
+### Sync Progress
+
+NeoNexus queries seed nodes to determine the network's current block height, then computes `syncProgress = localHeight / networkHeight` for each running node. Stalled nodes (no new blocks for 5 minutes) are flagged.
+
+### Config Audit
+
+`GET /api/nodes/:id/config-audit` compares the on-disk config against the expected generated config and reports:
+- Missing or mismatched critical fields (network magic, committee, hardforks)
+- Missing plugin DLLs and config files
+- Port conflicts
+- Binary availability
+
+### Process Management
+
+- **Graceful shutdown:** SIGTERM/SIGINT handlers stop all nodes before exit
+- **Zombie detection:** On startup, reconciles DB state with actual running processes
+- **PID tracking:** Writes `~/.neonexus/neonexus.pid` for process management
+- **Resource limits:** Set per-node memory limits via `settings.resourceLimits.maxMemoryMB`
+
+### Observability
+
+- **Disk monitoring:** Tracks growth rate, alerts at 90%/95% usage, predicts days until full
+- **Log retention:** Auto-prunes to 50K rows per node (configurable via `LOG_RETENTION_MAX_ROWS`)
+- **Audit log:** All state-changing operations logged to `audit_log` table, queryable via API
+- **WebSocket:** Real-time system metrics, node metrics, and log streaming
+
+## Plugin Support (neo-cli)
+
+Install and manage official neo-cli plugins through the UI:
+
+| Plugin | Category | Description |
+|--------|----------|-------------|
+| LevelDBStore | Storage | Default storage backend |
+| RocksDBStore | Storage | Alternative storage backend |
+| RpcServer | API | JSON-RPC endpoint |
+| RestServer | API | REST API endpoint |
+| ApplicationLogs | Core | Transaction and execution logs |
+| DBFTPlugin | Core | dBFT consensus |
+| TokensTracker | API | NEP-11/NEP-17 token tracking |
+| StateService | Core | State root service |
+| OracleService | Core | Oracle data integration |
+| SQLiteWallet | Tooling | Wallet storage |
+| SignClient | Tooling | Remote signing via secure signer |
+| StorageDumper | Tooling | Storage export |
+
+## Secure Signers / TEE Key Protection
+
+Neo-cli nodes can reference a secure signing endpoint instead of raw private-key material:
+
+- **Modes:** Software, Intel SGX, AWS Nitro Enclave, Custom
+- **Integration:** Auto-wires through the Neo `SignClient` plugin
+- **Orchestration:** Generate deploy/unlock/status commands for local signer instances
+- **Safety:** NeoNexus never stores WIF, plaintext private keys, or unlock passphrases
 
 ## API Reference
 
@@ -111,220 +159,78 @@ Your node will be automatically downloaded, configured, and ready to start.
 curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin"}'
-```
 
-### Node Management
-
-```bash
-# List all nodes (requires auth)
+# Use token for authenticated requests
 curl http://localhost:8080/api/nodes \
   -H "Authorization: Bearer YOUR_TOKEN"
-
-# Create a new node
-curl -X POST http://localhost:8080/api/nodes \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "My Neo Node",
-    "type": "neo-cli",
-    "network": "testnet"
-  }'
-
-# Start a node
-curl -X POST http://localhost:8080/api/nodes/NODE_ID/start \
-  -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
-### Public API (No Authentication)
+### Key Endpoints
 
-```bash
-# View public node status
-curl http://localhost:8080/api/public/nodes
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/health` | Health check (public) |
+| GET | `/api/nodes` | List all nodes |
+| POST | `/api/nodes` | Create node |
+| POST | `/api/nodes/:id/start` | Start node |
+| POST | `/api/nodes/:id/stop` | Stop node |
+| GET | `/api/nodes/:id/logs` | Get node logs |
+| GET | `/api/nodes/:id/config-audit` | Audit config |
+| GET | `/api/nodes/:id/plugins/available` | List available plugins |
+| POST | `/api/nodes/:id/plugins` | Install plugin |
+| GET | `/api/metrics/system` | System metrics |
+| GET | `/api/metrics/network` | Network heights |
+| GET | `/api/system/export` | Export configuration |
+| POST | `/api/system/restore` | Restore configuration |
+| GET | `/api/system/audit-log` | Query audit log |
+| GET | `/api/servers` | List remote servers |
+| GET | `/api/secure-signers` | List signer profiles |
 
-# Check system metrics
-curl http://localhost:8080/api/public/metrics/system
+### WebSocket
 
-# Node health check
-curl http://localhost:8080/api/public/nodes/NODE_ID/health
-```
+Connect to `ws://localhost:8080/ws?token=YOUR_TOKEN` for real-time events:
+- `system` — CPU, memory, disk metrics (every 5s)
+- `metrics` — Per-node block height, peers, sync progress
+- `log` — Live node log entries
+- `status` — Node status changes
 
-See [API Documentation](docs/api.md) for complete reference.
+## Environment Variables
 
-## Supported Node Software
-
-| Software | Version         | Networks         |
-| -------- | --------------- | ---------------- |
-| neo-cli  | v3.6.0 - v3.9.2 | Mainnet, Testnet |
-| neo-go   | v0.104.0+       | Mainnet, Testnet |
-
-## Plugin Support (neo-cli)
-
-NeoNexus can install and configure official neo-cli plugins:
-
-- ApplicationLogs
-- LevelDBStore
-- RocksDBStore
-- RpcNep17Tracker
-- RpcSecurity
-- RpcServer
-- StatesDumper
-- StorageDumper
-- TokensTracker
-- and more...
-
-## Secure Signers / TEE Key Protection
-
-NeoNexus now supports **secure signer profiles** so `neo-cli` nodes can reference a signing endpoint instead of relying on raw private-key material inside NeoNexus-managed configuration.
-
-- **Supported signer modes:** software, Intel SGX, AWS Nitro Enclave, and custom compatible endpoints
-- **Upstream integration:** NeoNexus wires secure signers through the Neo `SignClient` plugin
-- **Profile data stored by NeoNexus:** endpoint, signer mode, public key / address metadata, encrypted-wallet path reference, unlock strategy, health-check status, and optional local orchestration metadata such as workspace path and Nitro KMS blob path
-- **Data NeoNexus does not store:** raw WIF, plaintext private keys, or plaintext unlock material
-
-### Current support boundary
-
-- **`neo-cli`:** supported through auto-wired `SignClient` configuration
-- **`neo-go`:** not yet wired to remote secure signers; remains on the standard wallet path until an upstream-compatible remote signing flow is added
-
-### `secure-sign-service-rs` deployment pattern
-
-NeoNexus is designed to work with external signer services such as `secure-sign-service-rs`:
-
-- **Software mode:** local or remote TCP signer for development and testing
-- **SGX mode:** HTTP or HTTPS signer backed by an Intel SGX enclave
-- **Nitro mode:** `vsock://CID:PORT` signer backed by an AWS Nitro Enclave
-
-Register the signer profile in **Settings**, then attach it to a `neo-cli` node from the node creation or configuration screen.
-
-### Orchestration support
-
-NeoNexus can now help operators with signer lifecycle tasks when the signer runs on the same host and a local `secure-sign-service-rs` workspace is configured:
-
-- generate deploy / unlock / status command templates for software, SGX, and Nitro signer modes
-- run safe readiness checks through `secure-sign-tools status` for localhost or vsock-compatible profiles
-- fetch Nitro recipient attestation documents through `secure-sign-tools recipient-attestation`
-- start Nitro signer unlock with `CiphertextForRecipient` through `secure-sign-tools start-recipient`
-- surface bound signer readiness on the node detail page
-
-### Explicit safety boundary
-
-NeoNexus intentionally does **not** accept wallet passphrases or plaintext private keys through the web UI. Manual passphrase unlock remains a host-side terminal workflow. The web UI only orchestrates non-secret operations or Nitro recipient-ciphertext startup paths that avoid exposing plaintext unlock material to NeoNexus.
-
-## Security
-
-- **Self-Hosted:** All data stays on your infrastructure
-- **JWT Authentication:** Secure API access with token-based auth
-- **Public View Mode:** Separate read-only access for monitoring
-- **Isolated Storage:** Each node has isolated data, config, and logs
-- **Automatic Warnings:** Prompts password change on first login
-
-## Remote Access
-
-Access your NeoNexus dashboard remotely:
-
-1. **SSH Tunnel:** `ssh -L 8080:localhost:8080 user@your-server`
-2. **Nginx Reverse Proxy** with SSL
-3. **Cloudflare Tunnel** for secure public access
-
-See [Remote Access Guide](docs/REMOTE_ACCESS.md) for detailed setup.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `8080` | Server port |
+| `HOST` | `0.0.0.0` | Bind address |
+| `JWT_SECRET` | random (dev) | JWT signing key (required in production) |
+| `JWT_EXPIRES_IN` | `24h` | Token expiration |
+| `CORS_ORIGIN` | — | Allowed CORS origins (comma-separated) |
+| `HTTPS_ENABLED` | `false` | Enable HTTPS |
+| `HTTPS_KEY_PATH` | — | TLS key file |
+| `HTTPS_CERT_PATH` | — | TLS cert file |
+| `LOG_RETENTION_MAX_ROWS` | `50000` | Max log rows per node |
+| `NEO_PLUGIN_BUILD_DIR` | — | Local neo-node plugins build directory |
 
 ## Development
 
 ```bash
-# Run in development mode (hot reload)
+# Development mode (hot reload)
 npm run dev
 
-# Run tests
+# Run tests (272 tests)
 npm test
 
-# Build for production
+# Type checking
+npm run typecheck
+
+# Production build
 npm run build
-npm start
 ```
-
-## Functionality Status
-
-### 🔐 Authentication & Security
-
-- [x] Login with username/password
-- [x] JWT token generation and validation
-- [x] Protected routes require authentication
-- [x] Session management (24h expiry)
-- [x] Default password warning
-- [x] Change password functionality
-- [x] Logout functionality
-
-### 📊 Dashboard
-
-- [x] System metrics display (CPU, Memory, Disk)
-- [x] Node statistics (Total, Running, Errors, Blocks)
-- [x] Real-time metrics via WebSocket
-- [x] Node list with status badges
-- [x] Responsive card layouts
-
-### 🖥️ Node Management
-
-- [x] List all nodes in table view
-- [x] View node details
-- [x] Node status display
-- [x] Node metrics (block height, peers, CPU, memory)
-- [x] Node logs viewer
-- [x] Start/Stop/Restart node (UI functional)
-- [x] Delete node (UI functional)
-- [x] Create new node
-- [x] Import existing node
-- [x] Edit node configuration
-
-### 🔌 Plugin Management
-
-- [x] List available plugins
-- [x] Plugin categories and descriptions
-- [x] Install/uninstall plugins
-- [x] Configure plugin settings
-
-### ⚙️ Settings
-
-- [x] System resources display
-- [x] Storage management UI
-- [x] Clean old logs
-- [x] Export configuration
-- [x] Stop all nodes
-- [x] Reset all data
-
-### 🌐 Multi-Server Management
-
-- [x] Create/update/delete remote server profiles
-- [x] Monitor remote NeoNexus public status and metrics
-- [x] View remote node summaries from one dashboard
-
-**Status:** 44/49 features complete (90%)
-
-## Roadmap
-
-- [x] neo-cli support
-- [x] neo-go support
-- [x] Plugin management UI
-- [x] Public dashboard
-- [x] Real-time metrics
-- [x] Node control operations
-- [x] Alert notifications
-- [x] Backup/restore
-- [x] Multi-server management
-
-## Contributing
-
-Contributions are welcome! Please open an issue or pull request on GitHub.
 
 ## License
 
-MIT License
-
-## Support
-
-- 🐛 [Issue Tracker](https://github.com/r3e-network/neonexus/issues)
+MIT
 
 ---
 
 <p align="center">
-  Built with ❤️ for the Neo community
+  Built for the Neo community
 </p>
