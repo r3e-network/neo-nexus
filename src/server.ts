@@ -55,6 +55,7 @@ export function createAppServer(config: ServerConfig) {
 
   // Initialize core services
   const nodeManager = new NodeManager(config.db);
+  nodeManager.reconcileProcessStates();
   const secureSignerManager = nodeManager.getSecureSignerManager();
   const remoteServerManager = new RemoteServerManager(config.db);
   const userManager = new UserManager(config.db);
