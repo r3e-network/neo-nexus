@@ -8,6 +8,7 @@ import { loadHttpsConfig, loadHttpsCredentials } from "./config/https";
 import type Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { paths } from "./utils/paths";
+import { writePidFile, removePidFile } from "./utils/lifecycle";
 import { NodeManager } from "./core/NodeManager";
 import { UserManager } from "./core/UserManager";
 import { MetricsCollector } from "./monitoring/MetricsCollector";
@@ -22,8 +23,13 @@ import { createServersRouter } from "./api/routes/servers";
 import { createSecureSignersRouter } from "./api/routes/secureSigners";
 import { buildNodeLogMessage, buildNodeMetricsMessage, buildNodeStatusMessage, buildSystemMessage } from "./realtime/messages";
 import { RemoteServerManager } from "./core/RemoteServerManager";
+import { NetworkHeightTracker } from "./core/NetworkHeightTracker";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { pruneAllLogs } from "./utils/logRetention";
+import { recordDiskReading, getDiskAlertLevel } from "./utils/diskMonitor";
+import { AuditLogger } from "./core/AuditLogger";
+import { WatchdogManager } from "./core/WatchdogManager";
 
 const pkg = JSON.parse(readFileSync(join(import.meta.dirname ?? ".", "..", "package.json"), "utf-8"));
 const APP_VERSION: string = pkg.version || "0.0.0";
@@ -54,10 +60,21 @@ export function createAppServer(config: ServerConfig) {
 
   // Initialize core services
   const nodeManager = new NodeManager(config.db);
+  nodeManager.reconcileProcessStates();
+
+  const watchdog = new WatchdogManager(async (nodeId) => {
+    try {
+      await nodeManager.startNode(nodeId);
+    } catch (error) {
+      console.error(`Watchdog restart failed for ${nodeId}:`, error);
+    }
+  });
   const secureSignerManager = nodeManager.getSecureSignerManager();
   const remoteServerManager = new RemoteServerManager(config.db);
   const userManager = new UserManager(config.db);
   const metricsCollector = new MetricsCollector();
+  const networkHeightTracker = new NetworkHeightTracker();
+  const auditLogger = new AuditLogger(config.db);
   const requireAuth = createAuthMiddleware(userManager);
 
   // Clean up expired sessions periodically
@@ -174,6 +191,23 @@ export function createAppServer(config: ServerConfig) {
   app.use("/api/servers", requireAuth, createServersRouter(remoteServerManager));
   app.use("/api/secure-signers", requireAuth, requireAdmin, createSecureSignersRouter(secureSignerManager));
 
+  // Audit log endpoint
+  app.get("/api/system/audit-log", requireAuth, (req, res) => {
+    const limit = Math.min(parseInt(String(req.query.limit ?? "100"), 10), 1000);
+    const offset = parseInt(String(req.query.offset ?? "0"), 10);
+    const entries = auditLogger.query({ limit, offset });
+    res.json({ entries });
+  });
+
+  // Network height endpoint
+  app.get("/api/metrics/network", requireAuth, (_req, res) => {
+    res.json({
+      mainnet: networkHeightTracker.getHeight("mainnet"),
+      testnet: networkHeightTracker.getHeight("testnet"),
+      timestamp: Date.now(),
+    });
+  });
+
   // Serve static files in production
   if (process.env.NODE_ENV === "production") {
     app.use(express.static("web/dist"));
@@ -233,6 +267,17 @@ export function createAppServer(config: ServerConfig) {
 
   nodeManager.on("nodeStatus", ({ nodeId, status, previousStatus }) => {
     broadcast(buildNodeStatusMessage(nodeId, status, previousStatus));
+    if (status === "running" && previousStatus === "starting") {
+      auditLogger.log({ action: "node.start", resourceType: "node", resourceId: nodeId });
+    } else if (status === "stopped" && previousStatus === "stopping") {
+      auditLogger.log({ action: "node.stop", resourceType: "node", resourceId: nodeId });
+    }
+
+    if (status === "running") watchdog.onNodeStarted(nodeId);
+    if (status === "error" || status === "stopped") {
+      const wasExpected = previousStatus === "stopping";
+      watchdog.onNodeExited(nodeId, wasExpected);
+    }
   });
 
   nodeManager.on("nodeLog", ({ nodeId, entry }) => {
@@ -249,17 +294,61 @@ export function createAppServer(config: ServerConfig) {
       const systemMetrics = await metricsCollector.collectSystemMetrics();
       broadcast(buildSystemMessage(systemMetrics));
 
+      // Record disk reading and log alerts if needed
+      recordDiskReading(systemMetrics.disk.free);
+      const diskAlert = getDiskAlertLevel(systemMetrics.disk.percentage);
+      if (diskAlert !== null) {
+        console.warn(`[disk] ${diskAlert.toUpperCase()}: disk usage at ${systemMetrics.disk.percentage.toFixed(1)}%`);
+      }
+
       // Update and broadcast node metrics
       const nodes = nodeManager.getAllNodes();
       for (const node of nodes) {
         if (node.process.status === "running") {
           await nodeManager.updateMetrics(node.id);
+          // Compute and persist sync progress
+          const updated = nodeManager.getNode(node.id);
+          const blockHeight = updated?.metrics?.blockHeight ?? 0;
+          if (blockHeight > 0 && node.network !== "private") {
+            networkHeightTracker.recordNodeHeight(node.id, blockHeight);
+            const syncProgress = networkHeightTracker.getSyncProgress(blockHeight, node.network);
+            nodeManager.updateSyncProgress(node.id, syncProgress);
+          }
         }
       }
     } catch (error) {
       console.error("Error broadcasting metrics:", error);
     }
   }, 5000); // Every 5 seconds
+
+  // Periodically prune logs to stay within configured retention limits
+  const maxPerNode = parseInt(process.env.LOG_RETENTION_MAX_ROWS || "50000", 10);
+  const logRetentionInterval = setInterval(() => {
+    try {
+      pruneAllLogs(config.db, maxPerNode, 500000);
+      auditLogger.prune(100000);
+    } catch (error) {
+      console.error("Error pruning logs:", error);
+    }
+  }, 10 * 60 * 1000); // Every 10 minutes
+
+  // Periodically fetch network heights from seed nodes
+  const networkHeightInterval = setInterval(async () => {
+    try {
+      const [mainnetHeight, testnetHeight] = await Promise.allSettled([
+        networkHeightTracker.fetchNetworkHeight("mainnet"),
+        networkHeightTracker.fetchNetworkHeight("testnet"),
+      ]);
+      if (mainnetHeight.status === "fulfilled" && mainnetHeight.value !== null) {
+        networkHeightTracker.setHeight("mainnet", mainnetHeight.value);
+      }
+      if (testnetHeight.status === "fulfilled" && testnetHeight.value !== null) {
+        networkHeightTracker.setHeight("testnet", testnetHeight.value);
+      }
+    } catch (error) {
+      console.error("Error fetching network heights:", error);
+    }
+  }, 60 * 1000); // Every 60 seconds
 
   // Start server
   function start() {
@@ -303,6 +392,9 @@ export function createAppServer(config: ServerConfig) {
     // Clear intervals
     clearInterval(sessionCleanupInterval);
     clearInterval(metricsInterval);
+    clearInterval(networkHeightInterval);
+    clearInterval(logRetentionInterval);
+    watchdog.clearAll();
 
     // Stop all running nodes
     try {
@@ -347,4 +439,49 @@ export function createAppServer(config: ServerConfig) {
     userManager,
     metricsCollector,
   };
+}
+
+/**
+ * High-level entry point: creates the app server, starts it, writes a PID
+ * file, and registers SIGTERM/SIGINT handlers for graceful shutdown.
+ *
+ * Called from src/index.ts.
+ */
+export async function startServer(config: ServerConfig): Promise<ReturnType<typeof createAppServer>> {
+  const appServer = createAppServer(config);
+
+  await appServer.start();
+
+  // Write PID file so external tooling can find the process
+  const pidFile = join(paths.base, "neonexus.pid");
+  writePidFile(pidFile);
+
+  let shuttingDown = false;
+
+  async function shutdown(signal: string): Promise<void> {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    console.log(`Received ${signal}, shutting down gracefully...`);
+
+    // Force-exit safety net — 30 seconds
+    const forceExit = setTimeout(() => {
+      console.error("Graceful shutdown timed out after 30 s — forcing exit");
+      process.exit(1);
+    }, 30_000);
+    // Allow the event loop to exit even if this timer is still pending
+    forceExit.unref();
+
+    try {
+      await appServer.stop();
+    } finally {
+      removePidFile(pidFile);
+      process.exit(0);
+    }
+  }
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+
+  return appServer;
 }
