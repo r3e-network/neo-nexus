@@ -8,6 +8,7 @@ import { loadHttpsConfig, loadHttpsCredentials } from "./config/https";
 import type Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { paths } from "./utils/paths";
+import { writePidFile, removePidFile } from "./utils/lifecycle";
 import { NodeManager } from "./core/NodeManager";
 import { UserManager } from "./core/UserManager";
 import { MetricsCollector } from "./monitoring/MetricsCollector";
@@ -347,4 +348,49 @@ export function createAppServer(config: ServerConfig) {
     userManager,
     metricsCollector,
   };
+}
+
+/**
+ * High-level entry point: creates the app server, starts it, writes a PID
+ * file, and registers SIGTERM/SIGINT handlers for graceful shutdown.
+ *
+ * Called from src/index.ts.
+ */
+export async function startServer(config: ServerConfig): Promise<ReturnType<typeof createAppServer>> {
+  const appServer = createAppServer(config);
+
+  await appServer.start();
+
+  // Write PID file so external tooling can find the process
+  const pidFile = join(paths.base, "neonexus.pid");
+  writePidFile(pidFile);
+
+  let shuttingDown = false;
+
+  async function shutdown(signal: string): Promise<void> {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    console.log(`Received ${signal}, shutting down gracefully...`);
+
+    // Force-exit safety net — 30 seconds
+    const forceExit = setTimeout(() => {
+      console.error("Graceful shutdown timed out after 30 s — forcing exit");
+      process.exit(1);
+    }, 30_000);
+    // Allow the event loop to exit even if this timer is still pending
+    forceExit.unref();
+
+    try {
+      await appServer.stop();
+    } finally {
+      removePidFile(pidFile);
+      process.exit(0);
+    }
+  }
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+
+  return appServer;
 }
