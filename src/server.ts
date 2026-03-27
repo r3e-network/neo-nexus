@@ -23,8 +23,10 @@ import { createServersRouter } from "./api/routes/servers";
 import { createSecureSignersRouter } from "./api/routes/secureSigners";
 import { buildNodeLogMessage, buildNodeMetricsMessage, buildNodeStatusMessage, buildSystemMessage } from "./realtime/messages";
 import { RemoteServerManager } from "./core/RemoteServerManager";
+import { NetworkHeightTracker } from "./core/NetworkHeightTracker";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { pruneAllLogs } from "./utils/logRetention";
 
 const pkg = JSON.parse(readFileSync(join(import.meta.dirname ?? ".", "..", "package.json"), "utf-8"));
 const APP_VERSION: string = pkg.version || "0.0.0";
@@ -60,6 +62,7 @@ export function createAppServer(config: ServerConfig) {
   const remoteServerManager = new RemoteServerManager(config.db);
   const userManager = new UserManager(config.db);
   const metricsCollector = new MetricsCollector();
+  const networkHeightTracker = new NetworkHeightTracker();
   const requireAuth = createAuthMiddleware(userManager);
 
   // Clean up expired sessions periodically
@@ -176,6 +179,15 @@ export function createAppServer(config: ServerConfig) {
   app.use("/api/servers", requireAuth, createServersRouter(remoteServerManager));
   app.use("/api/secure-signers", requireAuth, requireAdmin, createSecureSignersRouter(secureSignerManager));
 
+  // Network height endpoint
+  app.get("/api/metrics/network", requireAuth, (_req, res) => {
+    res.json({
+      mainnet: networkHeightTracker.getHeight("mainnet"),
+      testnet: networkHeightTracker.getHeight("testnet"),
+      timestamp: Date.now(),
+    });
+  });
+
   // Serve static files in production
   if (process.env.NODE_ENV === "production") {
     app.use(express.static("web/dist"));
@@ -256,12 +268,48 @@ export function createAppServer(config: ServerConfig) {
       for (const node of nodes) {
         if (node.process.status === "running") {
           await nodeManager.updateMetrics(node.id);
+          // Compute and persist sync progress
+          const updated = nodeManager.getNode(node.id);
+          const blockHeight = updated?.metrics?.blockHeight ?? 0;
+          if (blockHeight > 0 && node.network !== "private") {
+            networkHeightTracker.recordNodeHeight(node.id, blockHeight);
+            const syncProgress = networkHeightTracker.getSyncProgress(blockHeight, node.network);
+            nodeManager.updateSyncProgress(node.id, syncProgress);
+          }
         }
       }
     } catch (error) {
       console.error("Error broadcasting metrics:", error);
     }
   }, 5000); // Every 5 seconds
+
+  // Periodically prune logs to stay within configured retention limits
+  const maxPerNode = parseInt(process.env.LOG_RETENTION_MAX_ROWS || "50000", 10);
+  const logRetentionInterval = setInterval(() => {
+    try {
+      pruneAllLogs(config.db, maxPerNode, 500000);
+    } catch (error) {
+      console.error("Error pruning logs:", error);
+    }
+  }, 10 * 60 * 1000); // Every 10 minutes
+
+  // Periodically fetch network heights from seed nodes
+  const networkHeightInterval = setInterval(async () => {
+    try {
+      const [mainnetHeight, testnetHeight] = await Promise.allSettled([
+        networkHeightTracker.fetchNetworkHeight("mainnet"),
+        networkHeightTracker.fetchNetworkHeight("testnet"),
+      ]);
+      if (mainnetHeight.status === "fulfilled" && mainnetHeight.value !== null) {
+        networkHeightTracker.setHeight("mainnet", mainnetHeight.value);
+      }
+      if (testnetHeight.status === "fulfilled" && testnetHeight.value !== null) {
+        networkHeightTracker.setHeight("testnet", testnetHeight.value);
+      }
+    } catch (error) {
+      console.error("Error fetching network heights:", error);
+    }
+  }, 60 * 1000); // Every 60 seconds
 
   // Start server
   function start() {
@@ -305,6 +353,8 @@ export function createAppServer(config: ServerConfig) {
     // Clear intervals
     clearInterval(sessionCleanupInterval);
     clearInterval(metricsInterval);
+    clearInterval(networkHeightInterval);
+    clearInterval(logRetentionInterval);
 
     // Stop all running nodes
     try {
