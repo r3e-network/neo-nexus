@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { resolve } from 'node:path';
 import type { NodeManager } from '../../core/NodeManager';
+import { ConfigManager } from '../../core/ConfigManager';
 import type { CreateNodeRequest, UpdateNodeRequest, ImportNodeRequest } from '../../types';
 import { paths } from '../../utils/paths';
 
@@ -268,6 +269,10 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
   // GET /api/nodes/:id/logs - Get node logs
   router.get('/:id/logs', (req: Request<NodeParams>, res: Response) => {
     try {
+      const node = nodeManager.getNode(req.params.id);
+      if (!node) {
+        return res.status(404).json({ error: 'Node not found' });
+      }
       const count = Math.min(parseInt(req.query.count as string) || 100, 1000);
       const logs = nodeManager.getNodeLogs(req.params.id, count);
       res.json({ logs });
@@ -289,6 +294,10 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
   // GET /api/nodes/:id/signer-health - Get bound secure signer readiness
   router.get('/:id/signer-health', async (req: Request<NodeParams>, res: Response) => {
     try {
+      const node = nodeManager.getNode(req.params.id);
+      if (!node) {
+        return res.status(404).json({ error: 'Node not found' });
+      }
       const signerHealth = await nodeManager.getNodeSecureSignerHealth(req.params.id);
       if (!signerHealth) {
         return res.json({ signerHealth: null });
@@ -313,6 +322,21 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       res.json({ success: true, cleanedFiles, maxAgeDays });
     } catch (error) {
       res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  // GET /api/nodes/:id/config-audit - Audit node configuration
+  router.get('/:id/config-audit', async (req: Request<NodeParams>, res: Response) => {
+    try {
+      const node = nodeManager.getNode(req.params.id);
+      if (!node) {
+        return res.status(404).json({ error: 'Node not found' });
+      }
+      const plugins = nodeManager.getPluginManager().getInstalledPlugins(req.params.id).map(p => p.id);
+      const audit = await ConfigManager.auditNodeConfig(node, plugins);
+      res.json({ audit });
+    } catch (error) {
+      respondWithNodeError(res, error);
     }
   });
 

@@ -441,4 +441,176 @@ export class ConfigManager {
 
     return result;
   }
+
+  /**
+   * Audit a node's on-disk config against the expected generated config.
+   * Returns a list of differences so users know what changed, what might
+   * conflict, and what needs attention after a version upgrade.
+   */
+  static async auditNodeConfig(
+    node: NodeConfig,
+    installedPlugins: PluginId[] = [],
+  ): Promise<ConfigAuditResult> {
+    const issues: ConfigAuditIssue[] = [];
+
+    if (node.type === 'neo-cli') {
+      const expectedConfig = await this.generateNeoCliConfig(node, installedPlugins);
+      const onDiskPath = join(node.paths.base, 'config.json');
+      if (existsSync(onDiskPath)) {
+        const onDisk = JSON.parse(readFileSync(onDiskPath, 'utf-8'));
+        this.diffConfigs(expectedConfig, onDisk, '', issues);
+
+        // Check Plugins.Enabled matches installed
+        const diskPlugins: string[] = onDisk?.ApplicationConfiguration?.Plugins?.Enabled || [];
+        const expectedPluginIds = installedPlugins as string[];
+        for (const p of diskPlugins) {
+          if (!expectedPluginIds.includes(p)) {
+            issues.push({ path: `Plugins.Enabled.${p}`, severity: 'warning', message: `Plugin "${p}" is in config but not registered as installed` });
+          }
+        }
+        for (const p of expectedPluginIds) {
+          if (!diskPlugins.includes(p)) {
+            issues.push({ path: `Plugins.Enabled.${p}`, severity: 'warning', message: `Plugin "${p}" is installed but missing from config` });
+          }
+        }
+      } else {
+        issues.push({ path: 'config.json', severity: 'error', message: 'Node config.json does not exist on disk' });
+      }
+
+      // Check each plugin config
+      for (const pluginId of installedPlugins) {
+        const pluginConfigPath = join(node.paths.base, 'Plugins', pluginId, `${pluginId}.json`);
+        if (!existsSync(pluginConfigPath)) {
+          issues.push({ path: `Plugins/${pluginId}/${pluginId}.json`, severity: 'warning', message: `Plugin config file missing — node may use defaults or fail to load` });
+        }
+        const pluginDllPath = join(node.paths.base, 'Plugins', pluginId, `${pluginId}.dll`);
+        if (!existsSync(pluginDllPath)) {
+          issues.push({ path: `Plugins/${pluginId}/${pluginId}.dll`, severity: 'error', message: `Plugin DLL missing — plugin will not load` });
+        }
+      }
+    } else {
+      // neo-go
+      const expectedConfig = this.generateNeoGoConfig(node);
+      const onDiskPath = join(node.paths.config, 'protocol.yml');
+      if (existsSync(onDiskPath)) {
+        const YAML = (await import('js-yaml')).default;
+        const onDisk = YAML.load(readFileSync(onDiskPath, 'utf-8')) as Record<string, unknown>;
+        this.diffConfigs(expectedConfig, onDisk, '', issues);
+      } else {
+        issues.push({ path: 'protocol.yml', severity: 'error', message: 'Neo-go protocol.yml does not exist on disk' });
+      }
+    }
+
+    // Check binary availability
+    const { DownloadManager } = await import('./DownloadManager');
+    const binaryPath = DownloadManager.getNodeBinaryPath(node.type, node.version);
+    if (!binaryPath) {
+      issues.push({ path: 'binary', severity: 'error', message: `${node.type} ${node.version} binary not found in downloads` });
+    }
+
+    // Check port conflicts across all config
+    const portPaths: Record<number, string> = {};
+    const allPorts = [
+      { port: node.ports.rpc, label: 'RPC' },
+      { port: node.ports.p2p, label: 'P2P' },
+      { port: node.ports.websocket, label: 'WebSocket' },
+      { port: node.ports.metrics, label: 'Metrics' },
+    ];
+    for (const { port, label } of allPorts) {
+      if (port) {
+        if (portPaths[port]) {
+          issues.push({ path: `ports.${label}`, severity: 'error', message: `Port ${port} conflicts with ${portPaths[port]}` });
+        }
+        portPaths[port] = label;
+      }
+    }
+
+    return {
+      nodeId: node.id,
+      nodeName: node.name,
+      nodeType: node.type,
+      version: node.version,
+      network: node.network,
+      issueCount: issues.length,
+      errors: issues.filter(i => i.severity === 'error').length,
+      warnings: issues.filter(i => i.severity === 'warning').length,
+      info: issues.filter(i => i.severity === 'info').length,
+      issues,
+    };
+  }
+
+  /**
+   * Diff two config objects and report meaningful differences.
+   */
+  private static diffConfigs(
+    expected: Record<string, unknown>,
+    actual: Record<string, unknown>,
+    prefix: string,
+    issues: ConfigAuditIssue[],
+  ): void {
+    // Important keys to check — skip noise like timestamps
+    const skip = new Set(['createdAt', 'updatedAt', 'lastUpdate', 'lastStarted', 'lastStopped']);
+
+    for (const key of Object.keys(expected)) {
+      if (skip.has(key)) continue;
+      const path = prefix ? `${prefix}.${key}` : key;
+      const exp = expected[key];
+      const act = actual?.[key];
+
+      if (act === undefined) {
+        // Only report missing critical keys
+        if (['Network', 'Magic', 'StandbyCommittee', 'ValidatorsCount', 'SeedList', 'Hardforks', 'Port', 'Engine'].includes(key)) {
+          issues.push({ path, severity: 'warning', message: `Expected key "${key}" is missing from on-disk config` });
+        }
+      } else if (typeof exp === 'object' && exp !== null && !Array.isArray(exp)) {
+        if (typeof act === 'object' && act !== null && !Array.isArray(act)) {
+          this.diffConfigs(exp as Record<string, unknown>, act as Record<string, unknown>, path, issues);
+        }
+      } else if (Array.isArray(exp) && Array.isArray(act)) {
+        if (key === 'StandbyCommittee' && exp.length !== act.length) {
+          issues.push({ path, severity: 'error', message: `StandbyCommittee size mismatch: expected ${exp.length}, found ${act.length}` });
+        }
+        if (key === 'SeedList' && exp.length !== act.length) {
+          issues.push({ path, severity: 'info', message: `SeedList differs: expected ${exp.length} seeds, found ${act.length}` });
+        }
+      } else if (exp !== act) {
+        // Report mismatches on critical fields
+        if (['Network', 'Magic', 'ValidatorsCount', 'Engine'].includes(key)) {
+          issues.push({ path, severity: 'error', message: `Value mismatch: expected ${JSON.stringify(exp)}, found ${JSON.stringify(act)}` });
+        } else if (['Port', 'MaxPeers', 'MinPeers', 'MaxConnections', 'Relay'].includes(key)) {
+          issues.push({ path, severity: 'info', message: `Value differs from default: expected ${JSON.stringify(exp)}, found ${JSON.stringify(act)} (may be intentional)` });
+        }
+      }
+    }
+
+    // Check for unexpected keys in actual that aren't in expected
+    for (const key of Object.keys(actual || {})) {
+      if (skip.has(key)) continue;
+      if (expected[key] === undefined && typeof actual[key] !== 'object') {
+        const path = prefix ? `${prefix}.${key}` : key;
+        if (!['DownloadUrl', 'MaxKnownHashes', 'EnableCompression'].includes(key)) {
+          issues.push({ path, severity: 'info', message: `Extra key "${key}" found in on-disk config (value: ${JSON.stringify(actual[key])})` });
+        }
+      }
+    }
+  }
+}
+
+export interface ConfigAuditIssue {
+  path: string;
+  severity: 'error' | 'warning' | 'info';
+  message: string;
+}
+
+export interface ConfigAuditResult {
+  nodeId: string;
+  nodeName: string;
+  nodeType: string;
+  version: string;
+  network: string;
+  issueCount: number;
+  errors: number;
+  warnings: number;
+  info: number;
+  issues: ConfigAuditIssue[];
 }
