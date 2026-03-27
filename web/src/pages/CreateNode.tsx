@@ -61,7 +61,7 @@ export default function CreateNode() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto animate-fade-in">
       <div className="mb-6">
         <Link to="/nodes" className="text-slate-400 hover:text-white flex items-center gap-2 text-sm">
           <ArrowLeft className="w-4 h-4" />
@@ -82,7 +82,7 @@ export default function CreateNode() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Node Name */}
-          <div>
+          <div className="animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Node Name
             </label>
@@ -97,7 +97,7 @@ export default function CreateNode() {
           </div>
 
           {/* Node Type */}
-          <div>
+          <div className="animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Node Type
             </label>
@@ -105,7 +105,7 @@ export default function CreateNode() {
               {NODE_TYPES.map((type) => (
                 <label
                   key={type.value}
-                  className={`cursor-pointer p-4 rounded-lg border-2 transition-all ${
+                  className={`cursor-pointer p-4 rounded-lg border-2 transition-all duration-200 ${
                     formData.type === type.value
                       ? 'border-blue-500 bg-blue-500/10'
                       : 'border-slate-700 hover:border-slate-600'
@@ -138,7 +138,7 @@ export default function CreateNode() {
           </div>
 
           {/* Network */}
-          <div>
+          <div className="animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Network
             </label>
@@ -146,7 +146,7 @@ export default function CreateNode() {
               {NETWORKS.map((network) => (
                 <label
                   key={network.value}
-                  className={`cursor-pointer p-4 rounded-lg border-2 transition-all ${
+                  className={`cursor-pointer p-4 rounded-lg border-2 transition-all duration-200 ${
                     formData.network === network.value
                       ? 'border-blue-500 bg-blue-500/10'
                       : 'border-slate-700 hover:border-slate-600'
@@ -168,7 +168,7 @@ export default function CreateNode() {
           </div>
 
           {/* Sync Mode */}
-          <div>
+          <div className="animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Sync Mode
             </label>
@@ -176,7 +176,7 @@ export default function CreateNode() {
               {SYNC_MODES.map((mode) => (
                 <label
                   key={mode.value}
-                  className={`cursor-pointer p-4 rounded-lg border-2 transition-all ${
+                  className={`cursor-pointer p-4 rounded-lg border-2 transition-all duration-200 ${
                     formData.syncMode === mode.value
                       ? 'border-blue-500 bg-blue-500/10'
                       : 'border-slate-700 hover:border-slate-600'

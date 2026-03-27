@@ -290,7 +290,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold text-white">Settings</h1>
         <p className="text-slate-400 mt-1">Manage system settings and resources</p>
@@ -716,7 +716,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Danger Zone */}
-      <div className="card border-red-500/20">
+      <div className="card border-red-500/30 border-t-2 border-t-red-500/60">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center">
             <AlertTriangle className="w-5 h-5 text-red-400" />

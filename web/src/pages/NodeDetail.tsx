@@ -127,7 +127,7 @@ export default function NodeDetail() {
   const displayedLogs = mergeNodeLogs(logs, realtimeLogs);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -217,7 +217,7 @@ export default function NodeDetail() {
 
       {/* Overview Tab */}
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
           {/* Metrics */}
           <div className="lg:col-span-2 space-y-6">
             {node.metrics && (
@@ -628,14 +628,14 @@ export default function NodeDetail() {
 
       {/* Logs Tab */}
       {activeTab === 'logs' && (
-        <div className="card">
+        <div className="card animate-fade-in">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-white">Logs</h3>
             <span className="text-sm text-slate-400">
               {connected ? 'Live stream connected' : 'Reconnecting live stream'} · Last 50 entries
             </span>
           </div>
-          <div className="bg-slate-950 rounded-lg p-4 font-mono text-sm h-96 overflow-y-auto">
+          <div className="bg-slate-950 rounded-lg p-4 font-mono text-xs max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
             {displayedLogs.length === 0 ? (
               <p className="text-slate-500">No logs available</p>
             ) : (
