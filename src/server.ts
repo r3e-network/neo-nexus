@@ -274,7 +274,7 @@ export function createAppServer(config: ServerConfig) {
     }
 
     if (status === "running") watchdog.onNodeStarted(nodeId);
-    if ((status === "error" || status === "stopped") && previousStatus === "running") {
+    if (status === "error" || status === "stopped") {
       const wasExpected = previousStatus === "stopping";
       watchdog.onNodeExited(nodeId, wasExpected);
     }
