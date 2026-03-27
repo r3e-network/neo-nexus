@@ -27,6 +27,7 @@ import { NetworkHeightTracker } from "./core/NetworkHeightTracker";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pruneAllLogs } from "./utils/logRetention";
+import { recordDiskReading, getDiskAlertLevel } from "./utils/diskMonitor";
 
 const pkg = JSON.parse(readFileSync(join(import.meta.dirname ?? ".", "..", "package.json"), "utf-8"));
 const APP_VERSION: string = pkg.version || "0.0.0";
@@ -262,6 +263,13 @@ export function createAppServer(config: ServerConfig) {
     try {
       const systemMetrics = await metricsCollector.collectSystemMetrics();
       broadcast(buildSystemMessage(systemMetrics));
+
+      // Record disk reading and log alerts if needed
+      recordDiskReading(systemMetrics.disk.free);
+      const diskAlert = getDiskAlertLevel(systemMetrics.disk.percentage);
+      if (diskAlert !== null) {
+        console.warn(`[disk] ${diskAlert.toUpperCase()}: disk usage at ${systemMetrics.disk.percentage.toFixed(1)}%`);
+      }
 
       // Update and broadcast node metrics
       const nodes = nodeManager.getAllNodes();
