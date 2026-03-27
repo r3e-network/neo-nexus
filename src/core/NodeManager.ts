@@ -16,6 +16,7 @@ import type {
   ConfigurationSnapshotNode,
 } from '../types/index';
 import { paths, getNodePath, getNodeDataPath, getNodeLogsPath, getNodeConfigPath, getNodeWalletPath } from '../utils/paths';
+import { isProcessAlive, getProcessCommand } from '../utils/lifecycle';
 import { PortManager } from './PortManager';
 import { ConfigManager } from './ConfigManager';
 import { StorageManager } from './StorageManager';
@@ -289,6 +290,35 @@ export class NodeManager extends EventEmitter {
     return rows
       .map(row => this.getNode(row.id))
       .filter((node): node is NodeInstance => node !== null);
+  }
+
+  /**
+   * Reconcile DB process states against reality on startup.
+   * Nodes recorded as 'running' or 'starting' with a PID are checked:
+   *   - If the PID is alive and the command contains 'neo-cli' or 'neo-go', keep as running.
+   *   - If the PID is alive but belongs to a different process, mark as stopped (stale PID).
+   *   - If the PID is dead, mark as stopped.
+   */
+  reconcileProcessStates(): void {
+    const nodes = this.getAllNodes();
+    for (const node of nodes) {
+      const { status, pid } = node.process;
+      if ((status === 'running' || status === 'starting') && pid != null) {
+        if (isProcessAlive(pid)) {
+          const cmd = getProcessCommand(pid);
+          if (cmd && (cmd.includes('neo-cli') || cmd.includes('neo-go'))) {
+            console.log(`♻️ Node ${node.name} (PID ${pid}) still running`);
+            this.updateNodeStatus(node.id, 'running', pid);
+          } else {
+            console.warn(`⚠️ Node ${node.name} stale PID`);
+            this.updateNodeStatus(node.id, 'stopped');
+          }
+        } else {
+          console.warn(`⚠️ Node ${node.name} PID dead`);
+          this.updateNodeStatus(node.id, 'stopped');
+        }
+      }
+    }
   }
 
   /**
@@ -727,6 +757,15 @@ export class NodeManager extends EventEmitter {
     }
 
     await this.pluginManager.installPlugin(nodeId, "SignClient", node.version, config);
+  }
+
+  /**
+   * Update sync progress for the current metrics record.
+   * Updates the node_metrics table which tracks current metrics per node.
+   */
+  updateSyncProgress(nodeId: string, syncProgress: number): void {
+    const stmt = this.db.prepare('UPDATE node_metrics SET sync_progress = ? WHERE node_id = ?');
+    stmt.run(syncProgress, nodeId);
   }
 
   /**

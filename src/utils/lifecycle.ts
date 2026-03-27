@@ -6,6 +6,7 @@
  */
 
 import { writeFileSync, readFileSync, unlinkSync, existsSync } from "node:fs";
+import { execSync } from "node:child_process";
 
 /**
  * Write the current process PID to `path` (creates or overwrites the file).
@@ -46,6 +47,16 @@ export function readPidFile(path: string): number | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Return the command string for a running process, or null if the process
+ * does not exist or the command cannot be determined.
+ */
+export function getProcessCommand(pid: number): string | null {
+  try {
+    return execSync(`ps -p ${pid} -o args= 2>/dev/null`, { encoding: 'utf-8' }).trim() || null;
+  } catch { return null; }
 }
 
 /**
