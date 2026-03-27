@@ -28,6 +28,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pruneAllLogs } from "./utils/logRetention";
 import { recordDiskReading, getDiskAlertLevel } from "./utils/diskMonitor";
+import { AuditLogger } from "./core/AuditLogger";
 
 const pkg = JSON.parse(readFileSync(join(import.meta.dirname ?? ".", "..", "package.json"), "utf-8"));
 const APP_VERSION: string = pkg.version || "0.0.0";
@@ -64,6 +65,7 @@ export function createAppServer(config: ServerConfig) {
   const userManager = new UserManager(config.db);
   const metricsCollector = new MetricsCollector();
   const networkHeightTracker = new NetworkHeightTracker();
+  const auditLogger = new AuditLogger(config.db);
   const requireAuth = createAuthMiddleware(userManager);
 
   // Clean up expired sessions periodically
@@ -180,6 +182,14 @@ export function createAppServer(config: ServerConfig) {
   app.use("/api/servers", requireAuth, createServersRouter(remoteServerManager));
   app.use("/api/secure-signers", requireAuth, requireAdmin, createSecureSignersRouter(secureSignerManager));
 
+  // Audit log endpoint
+  app.get("/api/system/audit-log", requireAuth, (req, res) => {
+    const limit = Math.min(parseInt(String(req.query.limit ?? "100"), 10), 1000);
+    const offset = parseInt(String(req.query.offset ?? "0"), 10);
+    const entries = auditLogger.query({ limit, offset });
+    res.json({ entries });
+  });
+
   // Network height endpoint
   app.get("/api/metrics/network", requireAuth, (_req, res) => {
     res.json({
@@ -248,6 +258,11 @@ export function createAppServer(config: ServerConfig) {
 
   nodeManager.on("nodeStatus", ({ nodeId, status, previousStatus }) => {
     broadcast(buildNodeStatusMessage(nodeId, status, previousStatus));
+    if (status === "running" && previousStatus === "starting") {
+      auditLogger.log({ action: "node.start", resourceType: "node", resourceId: nodeId });
+    } else if (status === "stopped" && previousStatus === "stopping") {
+      auditLogger.log({ action: "node.stop", resourceType: "node", resourceId: nodeId });
+    }
   });
 
   nodeManager.on("nodeLog", ({ nodeId, entry }) => {
@@ -296,6 +311,7 @@ export function createAppServer(config: ServerConfig) {
   const logRetentionInterval = setInterval(() => {
     try {
       pruneAllLogs(config.db, maxPerNode, 500000);
+      auditLogger.prune(100000);
     } catch (error) {
       console.error("Error pruning logs:", error);
     }
