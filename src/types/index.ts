@@ -307,22 +307,7 @@ export interface CreateSecureSignerRequest {
   kmsCiphertextBlobPath?: string;
 }
 
-export interface UpdateSecureSignerRequest {
-  name?: string;
-  mode?: SecureSignerMode;
-  endpoint?: string;
-  publicKey?: string;
-  accountAddress?: string;
-  walletPath?: string;
-  unlockMode?: SecureSignerUnlockMode;
-  notes?: string;
-  enabled?: boolean;
-  workspacePath?: string;
-  startupPort?: number;
-  awsRegion?: string;
-  kmsKeyId?: string;
-  kmsCiphertextBlobPath?: string;
-}
+export type UpdateSecureSignerRequest = Partial<CreateSecureSignerRequest>;
 
 export interface SecureSignerTestResult {
   ok: boolean;
