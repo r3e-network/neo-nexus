@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Lock } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
 import { FeedbackBanner } from "../../components/FeedbackBanner";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -90,7 +90,11 @@ export function PasswordSection() {
 
         <div className="md:col-span-3 flex justify-end">
           <button className="btn btn-primary" disabled={isChangingPassword} type="submit">
-            <Lock className="w-4 h-4" />
+            {isChangingPassword ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Lock className="w-4 h-4" />
+            )}
             {isChangingPassword ? "Updating..." : "Change Password"}
           </button>
         </div>

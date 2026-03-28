@@ -153,6 +153,7 @@ export default function Nodes() {
                             loading={stopNode.isPending}
                             className="btn btn-secondary p-2"
                             title="Stop"
+                            aria-label="Stop node"
                           >
                             <Square className="w-4 h-4" />
                           </SpinnerButton>
@@ -163,6 +164,7 @@ export default function Nodes() {
                             disabled={node.process.status === 'starting'}
                             className="btn btn-success p-2"
                             title="Start"
+                            aria-label="Start node"
                           >
                             <Play className="w-4 h-4" />
                           </SpinnerButton>
@@ -172,6 +174,7 @@ export default function Nodes() {
                           loading={deleting === node.id}
                           className="btn btn-error p-2"
                           title="Delete"
+                          aria-label="Delete node"
                         >
                           <Trash2 className="w-4 h-4" />
                         </SpinnerButton>

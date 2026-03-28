@@ -93,6 +93,7 @@ export default function NodeDetail() {
               onClick={() => stopNode.mutate({ id: node.id })}
               disabled={stopNode.isPending}
               className="btn btn-error"
+              aria-label="Stop node"
             >
               <Square className="w-4 h-4" />
               Stop
@@ -102,6 +103,7 @@ export default function NodeDetail() {
               onClick={() => startNode.mutate(node.id)}
               disabled={startNode.isPending}
               className="btn btn-success"
+              aria-label="Start node"
             >
               <Play className="w-4 h-4" />
               Start
@@ -111,6 +113,7 @@ export default function NodeDetail() {
             onClick={handleRestart}
             disabled={node.process.status !== 'running' || isRestarting}
             className="btn btn-secondary"
+            aria-label="Restart node"
           >
             {isRestarting ? (
               <>
@@ -128,6 +131,7 @@ export default function NodeDetail() {
             onClick={handleDelete}
             disabled={deleteNode.isPending}
             className="btn btn-error"
+            aria-label="Delete node"
           >
             <Trash2 className="w-4 h-4" />
             Delete
