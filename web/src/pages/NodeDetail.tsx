@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Square, RotateCw, Trash2 } from 'lucide-react';
-import { useNode, useStartNode, useStopNode, useDeleteNode, useNodeSignerHealth } from '../hooks/useNodes';
+import { ArrowLeft, Play, Square, RotateCw, Trash2, Loader2 } from 'lucide-react';
+import { useNode, useStartNode, useStopNode, useDeleteNode, useNodeSignerHealth, useNetworkHeight } from '../hooks/useNodes';
 import { useState, useEffect } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { mergeNodeLogs } from '../utils/realtime';
@@ -19,6 +19,8 @@ export default function NodeDetail() {
   const deleteNode = useDeleteNode();
   const [activeTab, setActiveTab] = useState<'overview' | 'logs'>('overview');
   const [realtimeLogs, setRealtimeLogs] = useState<Array<{ timestamp: number; level: string; message: string }>>([]);
+  const [isRestarting, setIsRestarting] = useState(false);
+  const networkHeightQuery = useNetworkHeight();
 
   useEffect(() => {
     if (!id || typeof lastMessage === 'string' || !lastMessage) {
@@ -47,6 +49,18 @@ export default function NodeDetail() {
     if (!confirm('Are you sure you want to delete this node? This cannot be undone.')) return;
     await deleteNode.mutateAsync(id);
     navigate('/nodes');
+  };
+
+  const handleRestart = async () => {
+    setIsRestarting(true);
+    try {
+      await stopNode.mutateAsync({ id: node.id });
+      await startNode.mutateAsync(node.id);
+    } catch {
+      // errors are surfaced via mutation state; just ensure we reset
+    } finally {
+      setIsRestarting(false);
+    }
   };
 
   return (
@@ -94,12 +108,21 @@ export default function NodeDetail() {
             </button>
           )}
           <button
-            onClick={() => stopNode.mutate({ id: node.id }, { onSuccess: () => startNode.mutate(node.id) })}
-            disabled={node.process.status !== 'running'}
+            onClick={handleRestart}
+            disabled={node.process.status !== 'running' || isRestarting}
             className="btn btn-secondary"
           >
-            <RotateCw className="w-4 h-4" />
-            Restart
+            {isRestarting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Restarting...
+              </>
+            ) : (
+              <>
+                <RotateCw className="w-4 h-4" />
+                Restart
+              </>
+            )}
           </button>
           <button
             onClick={handleDelete}
@@ -150,6 +173,27 @@ export default function NodeDetail() {
                   <div className="bg-slate-800/50 rounded-lg p-4">
                     <p className="text-slate-400 text-sm">Block Height</p>
                     <p className="text-2xl font-bold text-white">{node.metrics.blockHeight.toLocaleString()}</p>
+                    {(node.network === 'mainnet' || node.network === 'testnet') && (() => {
+                      const networkHeight = node.network === 'mainnet'
+                        ? networkHeightQuery.data?.mainnet
+                        : networkHeightQuery.data?.testnet;
+                      if (!networkHeight || networkHeight <= 0) return null;
+                      const syncPct = (node.metrics!.blockHeight / networkHeight * 100).toFixed(1);
+                      return (
+                        <div className="mt-2 space-y-1">
+                          <p className="text-xs text-slate-400">
+                            Network: {networkHeight.toLocaleString()}
+                          </p>
+                          <p className="text-xs text-slate-400">Sync: {syncPct}%</p>
+                          <div className="h-1 rounded-full bg-slate-700 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-blue-500 transition-all duration-500"
+                              style={{ width: `${Math.min(100, parseFloat(syncPct))}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="bg-slate-800/50 rounded-lg p-4">
                     <p className="text-slate-400 text-sm">Peers</p>

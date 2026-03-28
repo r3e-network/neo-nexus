@@ -52,6 +52,21 @@ export default function CreateNode() {
       return;
     }
 
+    if (formData.maxConnections !== '') {
+      const val = Number(formData.maxConnections);
+      if (!Number.isInteger(val) || val < 1) {
+        setError('Max Connections must be a positive number');
+        return;
+      }
+    }
+
+    if (formData.minPeers !== '' && formData.maxPeers !== '') {
+      if (Number(formData.minPeers) > Number(formData.maxPeers)) {
+        setError('Min Peers cannot exceed Max Peers');
+        return;
+      }
+    }
+
     try {
       await createNode.mutateAsync(normalizeNodeUpsertPayload(formData));
       navigate('/nodes');
