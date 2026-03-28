@@ -6,9 +6,13 @@ import { PasswordSection } from "./settings/PasswordSection";
 import { StorageSection } from "./settings/StorageSection";
 import { SecureSignerSection } from "./settings/SecureSignerSection";
 import { DangerZoneSection } from "./settings/DangerZoneSection";
+import { UserManagement } from "./settings/UserManagement";
+import { AuditLogSection } from "./settings/AuditLogSection";
+import { useAuth } from "../hooks/useAuth";
 
 export default function SettingsPage() {
   const { data: systemMetrics } = useSystemMetrics();
+  const { user } = useAuth();
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -68,6 +72,8 @@ export default function SettingsPage() {
       <StorageSection />
       <SecureSignerSection />
       <PasswordSection />
+      {user?.role === 'admin' && <UserManagement />}
+      {user?.role === 'admin' && <AuditLogSection />}
       <DangerZoneSection />
 
       {/* About */}
