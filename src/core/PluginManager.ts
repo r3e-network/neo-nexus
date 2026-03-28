@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, copyFileSync, readdirSync, statSync, rmSync } fr
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import type { PluginId, PluginDefinition, InstalledPlugin, NodeConfig } from '../types/index';
+import { NodeRow, PluginRow, InstalledPluginRow, nodeRowToConfig } from '../types/database';
 import { DownloadManager } from './DownloadManager';
 import { ConfigManager } from './ConfigManager';
 
@@ -37,15 +38,7 @@ export class PluginManager {
    */
   getAvailablePlugins(): PluginDefinition[] {
     const stmt = this.db.prepare('SELECT * FROM plugins ORDER BY category, name');
-    const rows = stmt.all() as Array<{
-      id: string;
-      name: string;
-      description: string;
-      category: string;
-      requires_config: number;
-      dependencies: string | null;
-      default_config: string | null;
-    }>;
+    const rows = stmt.all() as PluginRow[];
 
     return rows.map(row => ({
       id: row.id as PluginId,
@@ -63,15 +56,7 @@ export class PluginManager {
    */
   getPlugin(id: PluginId): PluginDefinition | null {
     const stmt = this.db.prepare('SELECT * FROM plugins WHERE id = ?');
-    const row = stmt.get(id) as {
-      id: string;
-      name: string;
-      description: string;
-      category: string;
-      requires_config: number;
-      dependencies: string | null;
-      default_config: string | null;
-    } | undefined;
+    const row = stmt.get(id) as PluginRow | undefined;
 
     if (!row) return null;
 
@@ -96,13 +81,7 @@ export class PluginManager {
       JOIN plugins p ON np.plugin_id = p.id 
       WHERE np.node_id = ?
     `);
-    const rows = stmt.all(nodeId) as Array<{
-      plugin_id: string;
-      version: string;
-      config: string | null;
-      installed_at: number;
-      enabled: number;
-    }>;
+    const rows = stmt.all(nodeId) as InstalledPluginRow[];
 
     return rows.map(row => ({
       id: row.plugin_id as PluginId,
@@ -266,55 +245,13 @@ export class PluginManager {
    */
   private getNodeConfig(nodeId: string): NodeConfig {
     const stmt = this.db.prepare('SELECT * FROM nodes WHERE id = ?');
-    const row = stmt.get(nodeId) as {
-      id: string;
-      name: string;
-      type: 'neo-cli' | 'neo-go';
-      network: 'mainnet' | 'testnet' | 'private';
-      sync_mode: 'full' | 'light';
-      version: string;
-      rpc_port: number;
-      p2p_port: number;
-      websocket_port: number | null;
-      metrics_port: number | null;
-      base_path: string;
-      data_path: string;
-      logs_path: string;
-      config_path: string;
-      wallet_path: string | null;
-      settings: string | null;
-      created_at: number;
-      updated_at: number;
-    } | undefined;
+    const row = stmt.get(nodeId) as NodeRow | undefined;
 
     if (!row) {
       throw new Error(`Node ${nodeId} not found`);
     }
 
-    return {
-      id: row.id,
-      name: row.name,
-      type: row.type,
-      network: row.network,
-      syncMode: row.sync_mode,
-      version: row.version,
-      ports: {
-        rpc: row.rpc_port,
-        p2p: row.p2p_port,
-        websocket: row.websocket_port ?? undefined,
-        metrics: row.metrics_port ?? undefined,
-      },
-      paths: {
-        base: row.base_path,
-        data: row.data_path,
-        logs: row.logs_path,
-        config: row.config_path,
-        wallet: row.wallet_path ?? undefined,
-      },
-      settings: row.settings ? JSON.parse(row.settings) : {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
+    return nodeRowToConfig(row);
   }
 
   /**
