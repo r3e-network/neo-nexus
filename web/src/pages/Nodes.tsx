@@ -1,10 +1,10 @@
-import { 
-  Activity, 
-  Plus, 
-  Play, 
-  Square, 
-  Trash2, 
-  
+import {
+  Activity,
+  Plus,
+  Play,
+  Square,
+  Trash2,
+  Server,
   Search,
   FolderOpen
 } from 'lucide-react';
@@ -13,9 +13,12 @@ import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { SignerStatus } from '../components/SignerStatus';
 import { NodeProtectionLabel } from '../components/NodeProtectionLabel';
+import { TableRowSkeleton } from '../components/LoadingSkeleton';
+import { EmptyState } from '../components/EmptyState';
+import { SpinnerButton } from '../components/SpinnerButton';
 
 export default function Nodes() {
-  const { data: nodes = [] } = useNodes();
+  const { data: nodes = [], isLoading } = useNodes();
   const startNode = useStartNode();
   const stopNode = useStopNode();
   const deleteNode = useDeleteNode();
@@ -72,25 +75,22 @@ export default function Nodes() {
 
       {/* Node List */}
       <div className="card">
-        {filteredNodes.length === 0 ? (
-          <div className="text-center py-12 animate-fade-in">
-            <Activity className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-            <p className="text-slate-400">
-              {searchTerm ? 'No nodes match your search' : 'No nodes yet'}
-            </p>
-            {!searchTerm && (
-              <div className="flex gap-3 justify-center mt-4">
-                <Link to="/nodes/import" className="btn btn-secondary inline-flex">
-                  <FolderOpen className="w-4 h-4 mr-2" />
-                  Import existing node
-                </Link>
-                <Link to="/nodes/create" className="btn btn-primary inline-flex">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create new node
-                </Link>
-              </div>
-            )}
-          </div>
+        {isLoading ? (
+          <TableRowSkeleton rows={4} />
+        ) : filteredNodes.length === 0 ? (
+          searchTerm ? (
+            <div className="text-center py-12 animate-fade-in">
+              <Activity className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+              <p className="text-slate-400">No nodes match your search</p>
+            </div>
+          ) : (
+            <EmptyState
+              icon={Server}
+              title="No nodes configured"
+              description="Create or import a Neo node to get started"
+              action={{ label: "Create Node", href: "/nodes/create" }}
+            />
+          )
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -148,32 +148,33 @@ export default function Nodes() {
                     <td className="py-4 px-4">
                       <div className="flex items-center justify-end gap-2">
                         {node.process.status === 'running' ? (
-                          <button
+                          <SpinnerButton
                             onClick={() => stopNode.mutate({ id: node.id })}
-                            disabled={stopNode.isPending}
+                            loading={stopNode.isPending}
                             className="btn btn-secondary p-2"
                             title="Stop"
                           >
                             <Square className="w-4 h-4" />
-                          </button>
+                          </SpinnerButton>
                         ) : (
-                          <button
+                          <SpinnerButton
                             onClick={() => startNode.mutate(node.id)}
-                            disabled={startNode.isPending || node.process.status === 'starting'}
+                            loading={startNode.isPending}
+                            disabled={node.process.status === 'starting'}
                             className="btn btn-success p-2"
                             title="Start"
                           >
                             <Play className="w-4 h-4" />
-                          </button>
+                          </SpinnerButton>
                         )}
-                        <button
+                        <SpinnerButton
                           onClick={() => handleDelete(node.id)}
-                          disabled={deleting === node.id}
+                          loading={deleting === node.id}
                           className="btn btn-error p-2"
                           title="Delete"
                         >
                           <Trash2 className="w-4 h-4" />
-                        </button>
+                        </SpinnerButton>
                       </div>
                     </td>
                   </tr>
