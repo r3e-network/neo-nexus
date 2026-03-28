@@ -16,11 +16,13 @@ import { usePublicStatus, usePublicNodes, usePublicSystemMetrics } from '../hook
 import { Link } from 'react-router-dom';
 import { formatBytes, formatDuration } from '../utils/format';
 import { ProgressBar } from '../components/ProgressBar';
+import { StatSkeleton, CardSkeleton } from '../components/LoadingSkeleton';
+import { EmptyState } from '../components/EmptyState';
 
 export default function PublicDashboard() {
-  const { data: status } = usePublicStatus();
-  const { data: nodes = [] } = usePublicNodes();
-  const { data: systemMetrics } = usePublicSystemMetrics();
+  const { data: status, isLoading: statusLoading } = usePublicStatus();
+  const { data: nodes = [], isLoading: nodesLoading } = usePublicNodes();
+  const { data: systemMetrics, isLoading: metricsLoading } = usePublicSystemMetrics();
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -50,7 +52,9 @@ export default function PublicDashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Overview Stats */}
-        {status && (
+        {statusLoading ? (
+          <div className="mb-8"><StatSkeleton /></div>
+        ) : status ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <div className="card">
               <div className="flex items-center justify-between">
@@ -97,10 +101,12 @@ export default function PublicDashboard() {
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* System Metrics */}
-        {systemMetrics && (
+        {metricsLoading ? (
+          <div className="mb-8"><CardSkeleton count={1} /></div>
+        ) : systemMetrics ? (
           <div className="card mb-8">
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <Cpu className="w-5 h-5 text-blue-400" />
@@ -137,7 +143,7 @@ export default function PublicDashboard() {
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Node List */}
         <div className="card">
@@ -149,11 +155,10 @@ export default function PublicDashboard() {
             </div>
           </div>
 
-          {nodes.length === 0 ? (
-            <div className="text-center py-12">
-              <Server className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-              <p className="text-slate-400">No nodes configured</p>
-            </div>
+          {nodesLoading ? (
+            <CardSkeleton count={2} />
+          ) : nodes.length === 0 ? (
+            <EmptyState icon={Server} title="No nodes configured" description="No Neo nodes are currently managed by this instance" />
           ) : (
             <div className="space-y-4">
               {nodes.map((node) => (
