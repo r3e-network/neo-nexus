@@ -34,6 +34,28 @@ import { WatchdogManager } from "./core/WatchdogManager";
 const pkg = JSON.parse(readFileSync(join(import.meta.dirname ?? ".", "..", "package.json"), "utf-8"));
 const APP_VERSION: string = pkg.version || "0.0.0";
 
+/** Rate limiting configuration */
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const RATE_LIMIT_MAX_REQUESTS = 1000;
+const AUTH_RATE_LIMIT_MAX = 5;
+const CONTROL_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const CONTROL_RATE_LIMIT_MAX = 10;
+
+/** Periodic task intervals */
+const SESSION_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+const METRICS_BROADCAST_INTERVAL_MS = 5_000;
+const LOG_RETENTION_INTERVAL_MS = 10 * 60 * 1000;
+const NETWORK_HEIGHT_INTERVAL_MS = 60 * 1000;
+
+/** Shutdown configuration */
+const GRACEFUL_SHUTDOWN_TIMEOUT_MS = 5_000;
+const FORCE_EXIT_TIMEOUT_MS = 30_000;
+
+/** Log retention defaults */
+const DEFAULT_LOG_RETENTION_MAX_ROWS = 50_000;
+const DEFAULT_AUDIT_LOG_MAX_ROWS = 100_000;
+const DEFAULT_LOG_PRUNE_BATCH_SIZE = 500_000;
+
 export interface ServerConfig {
   port: number;
   host: string;
@@ -80,7 +102,7 @@ export function createAppServer(config: ServerConfig) {
   // Clean up expired sessions periodically
   const sessionCleanupInterval = setInterval(() => {
     userManager.cleanupExpiredSessions();
-  }, 60 * 60 * 1000); // Every hour
+  }, SESSION_CLEANUP_INTERVAL_MS); // Every hour
 
   // Middleware
   const corsOrigin = process.env.CORS_ORIGIN
@@ -100,24 +122,24 @@ export function createAppServer(config: ServerConfig) {
 
   // Rate limiting
   const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 1000,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    max: RATE_LIMIT_MAX_REQUESTS,
     message: { error: "Too many requests, please try again later" },
   });
   app.use(limiter);
 
   // Stricter rate limit for auth endpoints
   const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // 5 attempts per 15 minutes
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    max: AUTH_RATE_LIMIT_MAX, // 5 attempts per 15 minutes
     message: { error: "Too many login attempts, please try again later" },
   });
   app.use("/api/auth/login", authLimiter);
 
   // Stricter rate limit for node control operations
   const controlLimiter = rateLimit({
-    windowMs: 60 * 1000, // 1 minute
-    max: 10,
+    windowMs: CONTROL_RATE_LIMIT_WINDOW_MS,
+    max: CONTROL_RATE_LIMIT_MAX,
     message: { error: "Too many control operations, please slow down" },
   });
 
@@ -319,18 +341,18 @@ export function createAppServer(config: ServerConfig) {
     } catch (error) {
       console.error("Error broadcasting metrics:", error);
     }
-  }, 5000); // Every 5 seconds
+  }, METRICS_BROADCAST_INTERVAL_MS); // Every 5 seconds
 
   // Periodically prune logs to stay within configured retention limits
-  const maxPerNode = parseInt(process.env.LOG_RETENTION_MAX_ROWS || "50000", 10);
+  const maxPerNode = parseInt(process.env.LOG_RETENTION_MAX_ROWS || String(DEFAULT_LOG_RETENTION_MAX_ROWS), 10);
   const logRetentionInterval = setInterval(() => {
     try {
-      pruneAllLogs(config.db, maxPerNode, 500000);
-      auditLogger.prune(100000);
+      pruneAllLogs(config.db, maxPerNode, DEFAULT_LOG_PRUNE_BATCH_SIZE);
+      auditLogger.prune(DEFAULT_AUDIT_LOG_MAX_ROWS);
     } catch (error) {
       console.error("Error pruning logs:", error);
     }
-  }, 10 * 60 * 1000); // Every 10 minutes
+  }, LOG_RETENTION_INTERVAL_MS); // Every 10 minutes
 
   // Periodically fetch network heights from seed nodes
   const networkHeightInterval = setInterval(async () => {
@@ -348,7 +370,7 @@ export function createAppServer(config: ServerConfig) {
     } catch (error) {
       console.error("Error fetching network heights:", error);
     }
-  }, 60 * 1000); // Every 60 seconds
+  }, NETWORK_HEIGHT_INTERVAL_MS); // Every 60 seconds
 
   // Start server
   function start() {
@@ -421,11 +443,11 @@ export function createAppServer(config: ServerConfig) {
         resolve();
       });
 
-      // Force close after 5 seconds
+      // Force close after timeout
       setTimeout(() => {
         console.log("Forced shutdown");
         resolve();
-      }, 5000);
+      }, GRACEFUL_SHUTDOWN_TIMEOUT_MS);
     });
   }
 
@@ -468,7 +490,7 @@ export async function startServer(config: ServerConfig): Promise<ReturnType<type
     const forceExit = setTimeout(() => {
       console.error("Graceful shutdown timed out after 30 s — forcing exit");
       process.exit(1);
-    }, 30_000);
+    }, FORCE_EXIT_TIMEOUT_MS);
     // Allow the event loop to exit even if this timer is still pending
     forceExit.unref();
 
