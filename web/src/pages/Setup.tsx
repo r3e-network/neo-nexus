@@ -1,88 +1,73 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { Shield, Lock, User, Loader2, AlertTriangle } from 'lucide-react';
+import { Activity, Lock, User, Loader2 } from 'lucide-react';
+import { api } from '../utils/api';
 import { FeedbackBanner } from '../components/FeedbackBanner';
 
-export default function Login() {
-  const { login } = useAuth();
+interface SetupResponse {
+  token: string;
+  user: { id: number; username: string; role: string };
+}
+
+export default function Setup() {
   const navigate = useNavigate();
-  const [username, setUsername] = useState('admin');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [checkingSetup, setCheckingSetup] = useState(true);
-
-  useEffect(() => {
-    const checkSetupStatus = async () => {
-      try {
-        const response = await fetch('/api/auth/setup-status');
-        if (response.ok) {
-          const data = (await response.json()) as { needsSetup: boolean };
-          if (data.needsSetup) {
-            navigate('/setup', { replace: true });
-            return;
-          }
-        }
-      } catch {
-        // If the check fails, proceed to login normally
-      } finally {
-        setCheckingSetup(false);
-      }
-    };
-
-    checkSetupStatus();
-  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!username || !password || !confirmPassword) {
+      setError('All fields are required');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      await login(username, password);
+      const data = await api.post<SetupResponse>('/api/auth/setup', { username, password });
+      localStorage.setItem('token', data.token);
+      navigate('/', { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed');
+      setError(err instanceof Error ? err.message : 'Setup failed');
     } finally {
       setIsLoading(false);
     }
   };
-
-  if (checkingSetup) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-4">
       <div className="w-full max-w-md animate-scale-in">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Shield className="w-8 h-8 text-blue-500" />
+            <Activity className="w-8 h-8 text-blue-500" />
           </div>
-          <h1 className="text-2xl font-bold text-white"><span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">NeoNexus</span></h1>
-          <p className="text-slate-400 mt-2">Node Manager</p>
-        </div>
-
-        {/* Default Credentials Warning */}
-        <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
-            <div className="text-sm text-yellow-400">
-              <p className="font-medium mb-1">Default Credentials</p>
-              <p className="opacity-90">Username: <strong>admin</strong></p>
-              <p className="opacity-90">Password: <strong>admin</strong></p>
-              <p className="mt-2 text-xs opacity-75">
-                ⚠️ Please change the default password after first login in Settings → Change Password
-              </p>
-            </div>
-          </div>
+          <h1 className="text-2xl font-bold text-white">
+            <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">NeoNexus</span>
+          </h1>
+          <p className="text-slate-400 mt-2">Welcome to NeoNexus</p>
         </div>
 
         <div className="card">
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-white">Create your admin account to get started</h2>
+            <p className="text-sm text-slate-400 mt-1">This will be the primary administrator account for your NeoNexus instance.</p>
+          </div>
+
           <FeedbackBanner error={error} />
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -97,8 +82,9 @@ export default function Login() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="input pl-10"
-                  placeholder="Enter username"
+                  placeholder="Choose a username"
                   required
+                  autoFocus
                 />
               </div>
             </div>
@@ -114,7 +100,24 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="input pl-10"
-                  placeholder="Enter password"
+                  placeholder="Choose a password (min 6 chars)"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="input pl-10"
+                  placeholder="Confirm your password"
                   required
                 />
               </div>
@@ -128,10 +131,10 @@ export default function Login() {
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Signing in...
+                  Creating account...
                 </>
               ) : (
-                'Sign In'
+                'Create Admin Account'
               )}
             </button>
           </form>
@@ -139,7 +142,6 @@ export default function Login() {
 
         <div className="mt-6 text-center text-sm text-slate-500">
           <p>NeoNexus Node Manager v{__APP_VERSION__}</p>
-          <p className="mt-1">Secure your node with strong credentials</p>
         </div>
       </div>
     </div>
