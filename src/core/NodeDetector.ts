@@ -69,7 +69,7 @@ export class NodeDetector {
 
     // Detect network and ports from config
     let network: NodeNetwork = 'testnet';
-    let ports: Partial<PortConfig> = {};
+    const ports: Partial<PortConfig> = {};
     let dataPath = join(basePath, 'Data');
 
     // Try to read and parse config
@@ -158,8 +158,8 @@ export class NodeDetector {
 
     // Detect network and ports from config
     let network: NodeNetwork = 'testnet';
-    let ports: Partial<PortConfig> = {};
-    let dataPath = join(basePath, 'data');
+    const ports: Partial<PortConfig> = {};
+    const dataPath = join(basePath, 'data');
 
     // Try to read and parse config.yaml
     if (existsSync(configPath)) {
