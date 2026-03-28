@@ -40,41 +40,6 @@ export class NeoGoNode extends BaseNode {
   }
 
   /**
-   * Execute a CLI command on the running node
-   */
-  async executeCommand(command: string, ...args: string[]): Promise<string> {
-    if (!this.isRunning()) {
-      throw new Error('Node is not running');
-    }
-
-    const rpcUrl = `http://127.0.0.1:${this.config.ports.rpc}`;
-    
-    const response = await fetch(rpcUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: command,
-        params: args,
-        id: 1,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`RPC call failed: ${response.statusText}`);
-    }
-
-    const data = await response.json() as { error?: { message: string }; result: unknown };
-    if (data.error) {
-      throw new Error(`RPC error: ${data.error.message}`);
-    }
-
-    return JSON.stringify(data.result);
-  }
-
-  /**
    * Parse neo-go specific log format
    */
   protected parseLogLine(line: string): LogEntry {
@@ -114,7 +79,7 @@ export class NeoGoNode extends BaseNode {
    */
   async getBlockHeight(): Promise<number | null> {
     try {
-      const result = await this.executeCommand('getblockcount');
+      const result = await this.executeRpc('getblockcount');
       const parsed = JSON.parse(result) as number;
       return typeof parsed === 'number' ? parsed : null;
     } catch {
@@ -127,7 +92,7 @@ export class NeoGoNode extends BaseNode {
    */
   async getPeersCount(): Promise<number | null> {
     try {
-      const result = await this.executeCommand('getpeers');
+      const result = await this.executeRpc('getpeers');
       const peers = JSON.parse(result);
       return peers.connected?.length ?? 0;
     } catch {

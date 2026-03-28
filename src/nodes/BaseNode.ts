@@ -202,6 +202,41 @@ export abstract class BaseNode extends EventEmitter {
   }
 
   /**
+   * Execute a JSON-RPC command on the running node
+   */
+  async executeRpc(method: string, ...params: string[]): Promise<string> {
+    if (!this.isRunning()) {
+      throw new Error('Node is not running');
+    }
+
+    const rpcUrl = `http://127.0.0.1:${this.config.ports.rpc}`;
+
+    const response = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method,
+        params,
+        id: 1,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`RPC call failed: ${response.statusText}`);
+    }
+
+    const data = await response.json() as { error?: { message: string }; result: unknown };
+    if (data.error) {
+      throw new Error(`RPC error: ${data.error.message}`);
+    }
+
+    return JSON.stringify(data.result);
+  }
+
+  /**
    * Handle log line from process
    */
   protected handleLogLine(line: string): void {
