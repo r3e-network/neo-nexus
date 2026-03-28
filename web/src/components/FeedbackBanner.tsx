@@ -13,7 +13,7 @@ export function FeedbackBanner({ error, success }: FeedbackBannerProps) {
 
   return (
     <div
-      className={`flex items-center gap-2 rounded-lg border px-4 py-3 text-sm ${
+      className={`animate-fade-in flex items-center gap-2 rounded-lg border px-4 py-3 text-sm ${
         isError
           ? "border-red-500/20 bg-red-500/10 text-red-300"
           : "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
