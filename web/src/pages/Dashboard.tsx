@@ -1,9 +1,11 @@
 import { Activity, Server, Cpu, Play, AlertCircle, AlertTriangle, Settings, ShieldCheck } from "lucide-react";
 import { ProgressBar } from "../components/ProgressBar";
-import { useNodeSignerHealth, useNodes, useSystemMetrics } from "../hooks/useNodes";
+import { SignerStatus } from "../components/SignerStatus";
+import { NodeProtectionLabel } from "../components/NodeProtectionLabel";
+import { useNodes, useSystemMetrics } from "../hooks/useNodes";
 import { useAuth } from "../hooks/useAuth";
 import { Link } from "react-router-dom";
-import { countProtectedNodes, getNodeProtectionLabel, signerReadinessColor } from "../utils/signerVisibility";
+import { countProtectedNodes } from "../utils/signerVisibility";
 
 export default function Dashboard() {
   const { data: nodes = [] } = useNodes();
@@ -181,20 +183,7 @@ export default function Dashboard() {
                       <p className="text-sm text-slate-400">
                         {node.type} • {node.network} • v{node.version}
                       </p>
-                      {(() => {
-                        const protection = getNodeProtectionLabel(node);
-                        return (
-                          <span
-                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                              protection.tone === "secure"
-                                ? "bg-cyan-500/10 text-cyan-300"
-                                : "bg-slate-700 text-slate-400"
-                            }`}
-                          >
-                            {protection.label}
-                          </span>
-                        );
-                      })()}
+                      <NodeProtectionLabel node={node} />
                     </div>
                   </div>
                 </div>
@@ -212,7 +201,7 @@ export default function Dashboard() {
                     {node.process.status}
                   </span>
                   {node.settings?.keyProtection?.mode === "secure-signer" && (
-                    <DashboardSignerStatus nodeId={node.id} />
+                    <SignerStatus nodeId={node.id} showPrefix textSize="text-[11px]" />
                   )}
                 </div>
               </Link>
@@ -221,22 +210,5 @@ export default function Dashboard() {
         )}
       </div>
     </div>
-  );
-}
-
-function DashboardSignerStatus({ nodeId }: { nodeId: string }) {
-  const { data: signerHealth } = useNodeSignerHealth(nodeId);
-
-  if (!signerHealth) {
-    return null;
-  }
-
-  const tone = signerReadinessColor(signerHealth.readiness.status);
-
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${tone}`}>
-      Signer {signerHealth.readiness.status}
-      {signerHealth.readiness.accountStatus ? ` · ${signerHealth.readiness.accountStatus}` : ""}
-    </span>
   );
 }
