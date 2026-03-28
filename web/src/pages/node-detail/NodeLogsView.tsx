@@ -1,6 +1,8 @@
 import { useRef, useEffect } from 'react';
+import { FileText } from 'lucide-react';
 import { useNodeLogs } from '../../hooks/useNodes';
 import { mergeNodeLogs } from '../../utils/realtime';
+import { EmptyState } from '../../components/EmptyState';
 
 interface LogEntry {
   timestamp: number;
@@ -42,7 +44,11 @@ export function NodeLogsView({ nodeId, realtimeLogs, connected }: NodeLogsViewPr
       </div>
       <div className="bg-slate-950 rounded-lg p-4 font-mono text-xs max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
         {displayedLogs.length === 0 ? (
-          <p className="text-slate-500">No logs available</p>
+          <EmptyState
+            icon={FileText}
+            title="No logs yet"
+            description="Logs will appear here when the node is running"
+          />
         ) : (
           <div className="space-y-1">
             {displayedLogs.map((log) => (

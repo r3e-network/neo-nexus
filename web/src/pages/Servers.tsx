@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, Globe, Plus, RefreshCw, Server, Trash2 } from "lucide-react";
+import { AlertCircle, Globe, Network, Plus, RefreshCw, Server, Trash2 } from "lucide-react";
 import { FeedbackBanner } from "../components/FeedbackBanner";
+import { CardSkeleton } from "../components/LoadingSkeleton";
+import { EmptyState } from "../components/EmptyState";
 import { useCreateServer, useDeleteServer, useServers, useUpdateServer, type RemoteServerSummary } from "../hooks/useServers";
 
 interface ServerFormState {
@@ -237,9 +239,13 @@ export default function Servers() {
           <div className="card">
             <h2 className="text-lg font-semibold text-white mb-4">Server Profiles</h2>
             {isLoading ? (
-              <p className="text-sm text-slate-400">Loading remote servers...</p>
+              <CardSkeleton count={2} />
             ) : servers.length === 0 ? (
-              <p className="text-sm text-slate-400">No remote servers configured yet.</p>
+              <EmptyState
+                icon={Network}
+                title="No remote servers"
+                description="Add remote NeoNexus instances to monitor from here"
+              />
             ) : (
               <div className="space-y-3">
                 {servers.map((server) => (

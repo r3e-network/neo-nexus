@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Info, Puzzle, Server } from "lucide-react";
 import { FeedbackBanner } from "../components/FeedbackBanner";
+import { CardSkeleton } from "../components/LoadingSkeleton";
 import { useNodes } from "../hooks/useNodes";
 import {
   useAvailablePlugins,
@@ -208,7 +209,7 @@ export default function Plugins() {
 
       {/* Feature sections */}
       {isLoadingAvailable ? (
-        <div className="card text-sm text-slate-400">Loading features...</div>
+        <CardSkeleton count={4} />
       ) : (
         sections.map((section) => (
           <div key={section.title} className="space-y-4">

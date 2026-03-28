@@ -2,13 +2,15 @@ import { Activity, Server, Cpu, Play, AlertCircle, AlertTriangle, Settings, Shie
 import { ProgressBar } from "../components/ProgressBar";
 import { SignerStatus } from "../components/SignerStatus";
 import { NodeProtectionLabel } from "../components/NodeProtectionLabel";
+import { StatSkeleton } from "../components/LoadingSkeleton";
+import { EmptyState } from "../components/EmptyState";
 import { useNodes, useSystemMetrics } from "../hooks/useNodes";
 import { useAuth } from "../hooks/useAuth";
 import { Link } from "react-router-dom";
 import { countProtectedNodes } from "../utils/signerVisibility";
 
 export default function Dashboard() {
-  const { data: nodes = [] } = useNodes();
+  const { data: nodes = [], isLoading } = useNodes();
   const { data: systemMetrics } = useSystemMetrics();
   const { user } = useAuth();
 
@@ -95,21 +97,25 @@ export default function Dashboard() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, i) => (
-          <div key={stat.label} className={`card animate-fade-in-up stagger-${i + 1}`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 text-sm">{stat.label}</p>
-                <p className="text-2xl font-bold text-white mt-1">{stat.value}</p>
-              </div>
-              <div className={`w-12 h-12 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
-                <stat.icon className={`w-6 h-6 ${stat.color}`} />
+      {isLoading ? (
+        <StatSkeleton />
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {stats.map((stat, i) => (
+            <div key={stat.label} className={`card animate-fade-in-up stagger-${i + 1}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-slate-400 text-sm">{stat.label}</p>
+                  <p className="text-2xl font-bold text-white mt-1">{stat.value}</p>
+                </div>
+                <div className={`w-12 h-12 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
+                  <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* System Metrics */}
       {systemMetrics && (
@@ -154,13 +160,12 @@ export default function Dashboard() {
         </div>
 
         {nodes.length === 0 ? (
-          <div className="text-center py-12">
-            <Server className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-            <p className="text-slate-400">No nodes yet</p>
-            <Link to="/nodes/create" className="btn btn-primary mt-4 inline-flex">
-              Create your first node
-            </Link>
-          </div>
+          <EmptyState
+            icon={Server}
+            title="No nodes yet"
+            description="Create your first Neo node to get started"
+            action={{ label: "Create Node", href: "/nodes/create" }}
+          />
         ) : (
           <div className="space-y-3">
             {nodes.map((node) => (
