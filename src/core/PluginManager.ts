@@ -5,25 +5,7 @@ import type { PluginId, PluginDefinition, InstalledPlugin, NodeConfig } from '..
 import { NodeRow, PluginRow, InstalledPluginRow, nodeRowToConfig } from '../types/database';
 import { DownloadManager } from './DownloadManager';
 import { ConfigManager } from './ConfigManager';
-
-// Plugin version mapping (simplified - in production, fetch from releases)
-const PLUGIN_VERSIONS: Record<string, string> = {
-  '3.9.2': 'v3.7.5',
-  '3.9.1': 'v3.7.5',
-  '3.9.0': 'v3.7.5',
-  '3.7.5': 'v3.7.5',
-  '3.7.4': 'v3.7.4',
-  '3.7.3': 'v3.7.3',
-  '3.7.2': 'v3.7.2',
-  '3.7.1': 'v3.7.1',
-  '3.6.3': 'v3.6.3',
-  '3.6.2': 'v3.6.2',
-  '3.6.1': 'v3.6.1',
-  '3.6.0': 'v3.6.0',
-  '0.118.0': 'v3.7.5',
-  '0.117.0': 'v3.7.5',
-  '0.116.0': 'v3.7.5',
-};
+import { PLUGIN_VERSIONS } from '../data/plugin-versions';
 
 export function resolvePluginReleaseVersion(nodeVersion: string, latestAvailableVersion: string): string {
   const normalized = nodeVersion.replace(/^v/, '');
