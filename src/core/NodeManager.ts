@@ -15,6 +15,7 @@ import type {
   ConfigurationSnapshot,
   ConfigurationSnapshotNode,
 } from '../types/index';
+import { NodeRow, ProcessRow, MetricsRow, nodeRowToConfig } from '../types/database';
 import { paths, getNodePath, getNodeDataPath, getNodeLogsPath, getNodeConfigPath, getNodeWalletPath } from '../utils/paths';
 import { isProcessAlive, getProcessCommand } from '../utils/lifecycle';
 import { PortManager } from './PortManager';
@@ -849,62 +850,16 @@ export class NodeManager extends EventEmitter {
 
   private getNodeConfigFromDb(nodeId: string): NodeConfig | null {
     const stmt = this.db.prepare('SELECT * FROM nodes WHERE id = ?');
-    const row = stmt.get(nodeId) as {
-      id: string;
-      name: string;
-      type: 'neo-cli' | 'neo-go';
-      network: 'mainnet' | 'testnet' | 'private';
-      sync_mode: 'full' | 'light';
-      version: string;
-      rpc_port: number;
-      p2p_port: number;
-      websocket_port: number | null;
-      metrics_port: number | null;
-      base_path: string;
-      data_path: string;
-      logs_path: string;
-      config_path: string;
-      wallet_path: string | null;
-      settings: string;
-      created_at: number;
-      updated_at: number;
-    } | undefined;
+    const row = stmt.get(nodeId) as NodeRow | undefined;
 
     if (!row) return null;
 
-    return {
-      id: row.id,
-      name: row.name,
-      type: row.type,
-      network: row.network,
-      syncMode: row.sync_mode,
-      version: row.version,
-      ports: {
-        rpc: row.rpc_port,
-        p2p: row.p2p_port,
-        websocket: row.websocket_port ?? undefined,
-        metrics: row.metrics_port ?? undefined,
-      },
-      paths: {
-        base: row.base_path,
-        data: row.data_path,
-        logs: row.logs_path,
-        config: row.config_path,
-        wallet: row.wallet_path ?? undefined,
-      },
-      settings: row.settings ? JSON.parse(row.settings) : {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
+    return nodeRowToConfig(row);
   }
 
   private getProcessFromDb(nodeId: string): { status: NodeStatus; pid?: number; errorMessage?: string } {
     const stmt = this.db.prepare('SELECT * FROM node_processes WHERE node_id = ?');
-    const row = stmt.get(nodeId) as {
-      status: NodeStatus;
-      pid: number | null;
-      error_message: string | null;
-    } | undefined;
+    const row = stmt.get(nodeId) as ProcessRow | undefined;
 
     return {
       status: row?.status ?? 'stopped',
@@ -915,16 +870,7 @@ export class NodeManager extends EventEmitter {
 
   private getMetricsFromDb(nodeId: string): NodeMetrics | undefined {
     const stmt = this.db.prepare('SELECT * FROM node_metrics WHERE node_id = ?');
-    const row = stmt.get(nodeId) as {
-      block_height: number;
-      header_height: number;
-      connected_peers: number;
-      unconnected_peers: number;
-      sync_progress: number;
-      memory_usage: number;
-      cpu_usage: number;
-      last_update: number;
-    } | undefined;
+    const row = stmt.get(nodeId) as MetricsRow | undefined;
 
     if (!row) return undefined;
 
