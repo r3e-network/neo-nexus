@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react';
+import { REFETCH_INTERVALS } from './config/constants';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Layout from './components/Layout';
@@ -56,7 +57,7 @@ class ErrorBoundary extends Component<
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchInterval: 5000,
+      refetchInterval: REFETCH_INTERVALS.dashboard,
       retry: 2,
     },
   },

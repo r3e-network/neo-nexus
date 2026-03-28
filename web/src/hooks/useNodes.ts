@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../utils/api';
+import { REFETCH_INTERVALS } from '../config/constants';
 
 export interface Node {
   id: string;
@@ -157,7 +158,7 @@ export function useNodeLogs(id: string, count = 100) {
       return data.logs;
     },
     enabled: !!id,
-    refetchInterval: 5000,
+    refetchInterval: REFETCH_INTERVALS.nodeDetail,
   });
 }
 
@@ -187,7 +188,7 @@ export function useNodeSignerHealth(id: string) {
       return data.signerHealth;
     },
     enabled: !!id,
-    refetchInterval: 10000,
+    refetchInterval: REFETCH_INTERVALS.signerHealth,
   });
 }
 
@@ -205,6 +206,6 @@ export function useSystemMetrics() {
       const data = await api.get<{ metrics: SystemMetrics }>('/metrics/system');
       return data.metrics;
     },
-    refetchInterval: 5000,
+    refetchInterval: REFETCH_INTERVALS.dashboard,
   });
 }
