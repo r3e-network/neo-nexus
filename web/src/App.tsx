@@ -12,6 +12,7 @@ import Servers from './pages/Servers';
 import Plugins from './pages/Plugins';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
+import Setup from './pages/Setup';
 import PublicDashboard from './pages/PublicDashboard';
 import { WebSocketProvider } from './hooks/useWebSocket';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -106,6 +107,25 @@ function LoginRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Setup route - redirects to dashboard if already logged in
+function SetupRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 function ProtectedPage({ children }: { children: React.ReactNode }) {
   return (
     <ProtectedRoute>
@@ -119,6 +139,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/status" element={<PublicRoute><PublicDashboard /></PublicRoute>} />
       <Route path="/login" element={<LoginRoute><Login /></LoginRoute>} />
+      <Route path="/setup" element={<SetupRoute><Setup /></SetupRoute>} />
 
       <Route path="/" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
       <Route path="/nodes" element={<ProtectedPage><Nodes /></ProtectedPage>} />
@@ -128,6 +149,7 @@ function AppRoutes() {
       <Route path="/servers" element={<ProtectedPage><Servers /></ProtectedPage>} />
       <Route path="/plugins" element={<ProtectedPage><Plugins /></ProtectedPage>} />
       <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
