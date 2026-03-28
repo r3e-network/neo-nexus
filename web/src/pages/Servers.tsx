@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, Globe, Network, Plus, RefreshCw, Server, Trash2 } from "lucide-react";
+import { AlertCircle, Globe, Loader2, Network, Plus, RefreshCw, Server, Trash2 } from "lucide-react";
 import { FeedbackBanner } from "../components/FeedbackBanner";
 import { CardSkeleton } from "../components/LoadingSkeleton";
 import { EmptyState } from "../components/EmptyState";
@@ -220,6 +220,9 @@ export default function Servers() {
                 onClick={handleSubmit}
                 type="button"
               >
+                {(createServer.isPending || updateServer.isPending) && (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                )}
                 {formMode === "create" ? "Create Profile" : "Save Changes"}
               </button>
 

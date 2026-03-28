@@ -64,6 +64,7 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
         {isEditing ? (
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => {
                 setIsEditing(false);
                 setConfigError('');
@@ -76,6 +77,7 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
               Cancel
             </button>
             <button
+              type="button"
               onClick={handleSave}
               disabled={updateNode.isPending}
               className="btn btn-primary"
@@ -86,6 +88,7 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
           </div>
         ) : (
           <button
+            type="button"
             onClick={() => {
               setConfigError('');
               setConfigSuccess('');
