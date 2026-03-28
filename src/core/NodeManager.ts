@@ -15,8 +15,8 @@ import type {
   ConfigurationSnapshot,
   ConfigurationSnapshotNode,
 } from '../types/index';
-import { NodeRow, ProcessRow, MetricsRow, nodeRowToConfig } from '../types/database';
 import { paths, getNodePath, getNodeDataPath, getNodeLogsPath, getNodeConfigPath, getNodeWalletPath } from '../utils/paths';
+import { NodeRepository } from './NodeRepository';
 import { isProcessAlive, getProcessCommand } from '../utils/lifecycle';
 import { PortManager } from './PortManager';
 import { ConfigManager } from './ConfigManager';
@@ -41,12 +41,14 @@ export declare interface NodeManager {
 
 export class NodeManager extends EventEmitter {
   private nodes: Map<string, BaseNode> = new Map();
+  private repo: NodeRepository;
   private portManager: PortManager;
   private pluginManager: PluginManager;
   private secureSignerManager: SecureSignerManager;
 
   constructor(private db: Database.Database) {
     super();
+    this.repo = new NodeRepository(db);
     this.pluginManager = new PluginManager(db);
     this.secureSignerManager = new SecureSignerManager(db);
     // Load existing nodes for port tracking
@@ -123,7 +125,7 @@ export class NodeManager extends EventEmitter {
     };
 
     // Save to database
-    this.saveNodeToDb(config);
+    this.repo.saveNode(config);
 
     // If a PID was provided and process is running, attach to it
     if (request.pid) {
@@ -147,7 +149,7 @@ export class NodeManager extends EventEmitter {
       process.kill(pid, 0); // Signal 0 checks if process exists
       
       // Update database to reflect running status
-      this.updateNodeStatus(nodeId, 'running', pid);
+      this.repo.updateStatus(nodeId, 'running', pid);
       
       console.log(`Attached to existing process ${pid} for node ${nodeId}`);
     } catch {
@@ -244,10 +246,9 @@ export class NodeManager extends EventEmitter {
 
     try {
       // Save to database in a transaction
-      const saveTransaction = this.db.transaction(() => {
-        this.saveNodeToDb(config);
+      this.repo.transaction(() => {
+        this.repo.saveNode(config);
       });
-      saveTransaction();
 
       if (secureSignerBinding?.mode === "secure-signer") {
         await this.syncNodeSecureSigner(nodeId);
@@ -256,7 +257,7 @@ export class NodeManager extends EventEmitter {
       return this.getNode(nodeId)!;
     } catch (error) {
       // Clean up all related tables (CASCADE handles node_processes and node_metrics)
-      this.db.prepare("DELETE FROM nodes WHERE id = ?").run(nodeId);
+      this.repo.deleteNode(nodeId);
       rmSync(config.paths.base, { recursive: true, force: true });
       throw error;
     }
@@ -266,11 +267,11 @@ export class NodeManager extends EventEmitter {
    * Get a node by ID
    */
   getNode(nodeId: string): NodeInstance | null {
-    const config = this.getNodeConfigFromDb(nodeId);
+    const config = this.repo.getNodeConfig(nodeId);
     if (!config) return null;
 
-    const process = this.getProcessFromDb(nodeId);
-    const metrics = this.getMetricsFromDb(nodeId);
+    const process = this.repo.getProcess(nodeId);
+    const metrics = this.repo.getMetrics(nodeId);
     const plugins = this.pluginManager.getInstalledPlugins(nodeId);
 
     return {
@@ -285,11 +286,8 @@ export class NodeManager extends EventEmitter {
    * Get all nodes
    */
   getAllNodes(): NodeInstance[] {
-    const stmt = this.db.prepare('SELECT id FROM nodes');
-    const rows = stmt.all() as Array<{ id: string }>;
-    
-    return rows
-      .map(row => this.getNode(row.id))
+    return this.repo.getAllNodeIds()
+      .map(id => this.getNode(id))
       .filter((node): node is NodeInstance => node !== null);
   }
 
@@ -309,14 +307,14 @@ export class NodeManager extends EventEmitter {
           const cmd = getProcessCommand(pid);
           if (cmd && (cmd.includes('neo-cli') || cmd.includes('neo-go'))) {
             console.log(`♻️ Node ${node.name} (PID ${pid}) still running`);
-            this.updateNodeStatus(node.id, 'running', pid);
+            this.repo.updateStatus(node.id, 'running', pid);
           } else {
             console.warn(`⚠️ Node ${node.name} stale PID`);
-            this.updateNodeStatus(node.id, 'stopped');
+            this.repo.updateStatus(node.id, 'stopped');
           }
         } else {
           console.warn(`⚠️ Node ${node.name} PID dead`);
-          this.updateNodeStatus(node.id, 'stopped');
+          this.repo.updateStatus(node.id, 'stopped');
         }
       }
     }
@@ -504,12 +502,7 @@ export class NodeManager extends EventEmitter {
     values.push(Date.now());
     values.push(nodeId);
 
-    const stmt = this.db.prepare(`
-      UPDATE nodes 
-      SET ${updates.join(', ')}
-      WHERE id = ?
-    `);
-    stmt.run(...values);
+    this.repo.updateNode(nodeId, updates, values);
 
     // Update config files
     const updatedNode = this.getNode(nodeId)!;
@@ -536,8 +529,7 @@ export class NodeManager extends EventEmitter {
     this.portManager.releasePorts(node.ports);
 
     // Remove from database (CASCADE handles node_processes, node_metrics, node_plugins, logs)
-    const stmt = this.db.prepare('DELETE FROM nodes WHERE id = ?');
-    stmt.run(nodeId);
+    this.repo.deleteNode(nodeId);
 
     // Remove from memory
     const runningNode = this.nodes.get(nodeId);
@@ -574,12 +566,12 @@ export class NodeManager extends EventEmitter {
 
     // Set up event handlers
     nodeInstance.on('status', (status, previous) => {
-      this.updateNodeStatus(nodeId, status);
+      this.repo.updateStatus(nodeId, status);
       this.emit('nodeStatus', { nodeId, status, previousStatus: previous });
     });
 
     nodeInstance.on('log', (entry) => {
-      this.saveLogEntry(nodeId, entry);
+      this.repo.saveLogEntry(nodeId, entry);
       this.emit('nodeLog', { nodeId, entry });
     });
 
@@ -592,7 +584,7 @@ export class NodeManager extends EventEmitter {
     this.nodes.set(nodeId, nodeInstance);
 
     // Update database
-    this.updateNodeStatus(nodeId, 'running', nodeInstance.getStatus().pid);
+    this.repo.updateStatus(nodeId, 'running', nodeInstance.getStatus().pid);
   }
 
   /**
@@ -608,7 +600,7 @@ export class NodeManager extends EventEmitter {
     this.nodes.delete(nodeId);
 
     // Update database
-    this.updateNodeStatus(nodeId, 'stopped');
+    this.repo.updateStatus(nodeId, 'stopped');
   }
 
   /**
@@ -765,8 +757,7 @@ export class NodeManager extends EventEmitter {
    * Updates the node_metrics table which tracks current metrics per node.
    */
   updateSyncProgress(nodeId: string, syncProgress: number): void {
-    const stmt = this.db.prepare('UPDATE node_metrics SET sync_progress = ? WHERE node_id = ?');
-    stmt.run(syncProgress, nodeId);
+    this.repo.updateSyncProgress(nodeId, syncProgress);
   }
 
   /**
@@ -795,150 +786,15 @@ export class NodeManager extends EventEmitter {
         lastUpdate: Date.now(),
       };
 
-      this.saveMetrics(nodeId, metrics);
+      this.repo.saveMetrics(nodeId, metrics);
       this.emit('nodeMetrics', { nodeId, metrics });
     } catch (error) {
       console.error(`Failed to update metrics for ${nodeId}:`, error);
     }
   }
 
-  // Database operations
-
-  private saveNodeToDb(config: NodeConfig): void {
-    const stmt = this.db.prepare(`
-      INSERT INTO nodes (
-        id, name, type, network, sync_mode, version,
-        rpc_port, p2p_port, websocket_port, metrics_port,
-        base_path, data_path, logs_path, config_path, wallet_path,
-        settings, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      config.id,
-      config.name,
-      config.type,
-      config.network,
-      config.syncMode,
-      config.version,
-      config.ports.rpc,
-      config.ports.p2p,
-      config.ports.websocket ?? null,
-      config.ports.metrics ?? null,
-      config.paths.base,
-      config.paths.data,
-      config.paths.logs,
-      config.paths.config,
-      config.paths.wallet ?? null,
-      JSON.stringify(config.settings),
-      config.createdAt,
-      config.updatedAt
-    );
-
-    // Initialize process record
-    const processStmt = this.db.prepare(`
-      INSERT INTO node_processes (node_id, status) VALUES (?, 'stopped')
-    `);
-    processStmt.run(config.id);
-
-    // Initialize metrics record
-    const metricsStmt = this.db.prepare(`
-      INSERT INTO node_metrics (node_id) VALUES (?)
-    `);
-    metricsStmt.run(config.id);
-  }
-
-  private getNodeConfigFromDb(nodeId: string): NodeConfig | null {
-    const stmt = this.db.prepare('SELECT * FROM nodes WHERE id = ?');
-    const row = stmt.get(nodeId) as NodeRow | undefined;
-
-    if (!row) return null;
-
-    return nodeRowToConfig(row);
-  }
-
-  private getProcessFromDb(nodeId: string): { status: NodeStatus; pid?: number; errorMessage?: string } {
-    const stmt = this.db.prepare('SELECT * FROM node_processes WHERE node_id = ?');
-    const row = stmt.get(nodeId) as ProcessRow | undefined;
-
-    return {
-      status: row?.status ?? 'stopped',
-      pid: row?.pid ?? undefined,
-      errorMessage: row?.error_message ?? undefined,
-    };
-  }
-
-  private getMetricsFromDb(nodeId: string): NodeMetrics | undefined {
-    const stmt = this.db.prepare('SELECT * FROM node_metrics WHERE node_id = ?');
-    const row = stmt.get(nodeId) as MetricsRow | undefined;
-
-    if (!row) return undefined;
-
-    return {
-      blockHeight: row.block_height,
-      headerHeight: row.header_height,
-      connectedPeers: row.connected_peers,
-      unconnectedPeers: row.unconnected_peers,
-      syncProgress: row.sync_progress,
-      memoryUsage: row.memory_usage,
-      cpuUsage: row.cpu_usage,
-      lastUpdate: row.last_update,
-    };
-  }
-
-  private updateNodeStatus(nodeId: string, status: NodeStatus, pid?: number): void {
-    const now = Date.now();
-    if (status === 'running') {
-      const stmt = this.db.prepare(`
-        UPDATE node_processes
-        SET status = ?, pid = ?, last_started = ?
-        WHERE node_id = ?
-      `);
-      stmt.run(status, pid ?? null, now, nodeId);
-    } else if (status === 'stopped') {
-      const stmt = this.db.prepare(`
-        UPDATE node_processes
-        SET status = ?, pid = NULL, last_stopped = ?
-        WHERE node_id = ?
-      `);
-      stmt.run(status, now, nodeId);
-    } else {
-      const stmt = this.db.prepare(`
-        UPDATE node_processes
-        SET status = ?, pid = ?
-        WHERE node_id = ?
-      `);
-      stmt.run(status, pid ?? null, nodeId);
-    }
-  }
-
-  private saveLogEntry(nodeId: string, entry: { timestamp: number; level: string; source: string; message: string }): void {
-    const stmt = this.db.prepare(`
-      INSERT INTO logs (node_id, timestamp, level, source, message)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-    stmt.run(nodeId, entry.timestamp, entry.level, entry.source, entry.message);
-  }
-
-  private saveMetrics(nodeId: string, metrics: NodeMetrics): void {
-    const stmt = this.db.prepare(`
-      UPDATE node_metrics 
-      SET block_height = ?, header_height = ?, connected_peers = ?, 
-          unconnected_peers = ?, sync_progress = ?, memory_usage = ?, 
-          cpu_usage = ?, last_update = ?
-      WHERE node_id = ?
-    `);
-    stmt.run(
-      metrics.blockHeight,
-      metrics.headerHeight,
-      metrics.connectedPeers,
-      metrics.unconnectedPeers,
-      metrics.syncProgress,
-      metrics.memoryUsage,
-      metrics.cpuUsage,
-      metrics.lastUpdate,
-      nodeId
-    );
+  getRepository(): NodeRepository {
+    return this.repo;
   }
 
   private isRestorableSnapshotNode(node: Partial<ConfigurationSnapshotNode>): node is ConfigurationSnapshotNode {
