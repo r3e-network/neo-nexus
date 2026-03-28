@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { REFETCH_INTERVALS } from '../config/constants';
 
 const API_BASE = '/api/public';
 
@@ -57,7 +58,7 @@ export function usePublicStatus() {
       const data = await response.json();
       return data.status;
     },
-    refetchInterval: 5000,
+    refetchInterval: REFETCH_INTERVALS.publicDashboard,
   });
 }
 
@@ -70,7 +71,7 @@ export function usePublicNodes() {
       const data = await response.json();
       return data.nodes;
     },
-    refetchInterval: 5000,
+    refetchInterval: REFETCH_INTERVALS.publicDashboard,
   });
 }
 
@@ -84,7 +85,7 @@ export function usePublicNode(id: string) {
       return data.node;
     },
     enabled: !!id,
-    refetchInterval: 5000,
+    refetchInterval: REFETCH_INTERVALS.publicDashboard,
   });
 }
 
@@ -97,7 +98,7 @@ export function usePublicSystemMetrics() {
       const data = await response.json();
       return data.metrics;
     },
-    refetchInterval: 5000,
+    refetchInterval: REFETCH_INTERVALS.publicDashboard,
   });
 }
 

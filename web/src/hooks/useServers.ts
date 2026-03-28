@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../utils/api";
+import { REFETCH_INTERVALS } from "../config/constants";
 
 export interface RemoteServerProfile {
   id: string;
@@ -71,7 +72,7 @@ export function useServers() {
       const response = await api.get<{ servers: RemoteServerSummary[] }>("/servers");
       return response.servers;
     },
-    refetchInterval: 15000,
+    refetchInterval: REFETCH_INTERVALS.servers,
   });
 }
 
