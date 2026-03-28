@@ -35,7 +35,7 @@ export class ConfigManager {
       // Fall back to generated config
     }
 
-    const baseApp = (baseConfig as any)?.ApplicationConfiguration || {};
+    const baseApp = (baseConfig as Record<string, Record<string, unknown>>)?.ApplicationConfiguration || {};
 
     const config: Record<string, unknown> = {
       ApplicationConfiguration: {
@@ -68,7 +68,7 @@ export class ConfigManager {
           Enabled: installedPlugins,
         },
       },
-      ProtocolConfiguration: (baseConfig as any)?.ProtocolConfiguration || {
+      ProtocolConfiguration: (baseConfig as Record<string, unknown>)?.ProtocolConfiguration || {
         Network: networkMagic,
         AddressVersion: 53,
         MillisecondsPerBlock: 15000,
@@ -437,7 +437,7 @@ export class ConfigManager {
 
         if (node.type === 'neo-go' && node.network !== 'private') {
           const expectedForks = this.getExpectedHardforks(node.network);
-          const onDiskForks = (onDisk as any)?.ProtocolConfiguration?.Hardforks;
+          const onDiskForks = (onDisk as Record<string, Record<string, unknown>>)?.ProtocolConfiguration?.Hardforks as Record<string, number> | undefined;
           if (expectedForks && onDiskForks) {
             for (const [name, height] of Object.entries(expectedForks)) {
               if (onDiskForks[name] !== height) {
