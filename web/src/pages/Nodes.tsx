@@ -8,10 +8,11 @@ import {
   Search,
   FolderOpen
 } from 'lucide-react';
-import { useNodes, useStartNode, useStopNode, useDeleteNode, useNodeSignerHealth } from '../hooks/useNodes';
+import { useNodes, useStartNode, useStopNode, useDeleteNode } from '../hooks/useNodes';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
-import { getNodeProtectionLabel, signerReadinessColor } from '../utils/signerVisibility';
+import { SignerStatus } from '../components/SignerStatus';
+import { NodeProtectionLabel } from '../components/NodeProtectionLabel';
 
 export default function Nodes() {
   const { data: nodes = [] } = useNodes();
@@ -119,20 +120,7 @@ export default function Nodes() {
                           <p className="font-medium text-white">{node.name}</p>
                           <div className="mt-1 flex flex-wrap items-center gap-2">
                             <p className="text-xs text-slate-500">v{node.version}</p>
-                            {(() => {
-                              const protection = getNodeProtectionLabel(node);
-                              return (
-                                <span
-                                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                                    protection.tone === 'secure'
-                                      ? 'bg-cyan-500/10 text-cyan-300'
-                                      : 'bg-slate-700 text-slate-400'
-                                  }`}
-                                >
-                                  {protection.label}
-                                </span>
-                              );
-                            })()}
+                            <NodeProtectionLabel node={node} padding="px-2 py-0.5" />
                           </div>
                         </div>
                       </Link>
@@ -153,7 +141,7 @@ export default function Nodes() {
                           {node.process.status}
                         </span>
                         {node.settings?.keyProtection?.mode === 'secure-signer' && (
-                          <NodeSignerStatus nodeId={node.id} />
+                          <SignerStatus nodeId={node.id} textSize="text-xs" />
                         )}
                       </div>
                     </td>
@@ -196,22 +184,5 @@ export default function Nodes() {
         )}
       </div>
     </div>
-  );
-}
-
-function NodeSignerStatus({ nodeId }: { nodeId: string }) {
-  const { data: signerHealth } = useNodeSignerHealth(nodeId);
-
-  if (!signerHealth) {
-    return null;
-  }
-
-  const tone = signerReadinessColor(signerHealth.readiness.status);
-
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${tone}`}>
-      {signerHealth.readiness.status}
-      {signerHealth.readiness.accountStatus ? ` · ${signerHealth.readiness.accountStatus}` : ''}
-    </span>
   );
 }
