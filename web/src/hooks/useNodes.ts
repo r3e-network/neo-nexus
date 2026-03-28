@@ -209,3 +209,14 @@ export function useSystemMetrics() {
     refetchInterval: REFETCH_INTERVALS.dashboard,
   });
 }
+
+export function useNetworkHeight() {
+  return useQuery({
+    queryKey: ['metrics', 'network'],
+    queryFn: async () => {
+      const data = await api.get<{ mainnet: number | null; testnet: number | null; timestamp: number }>('/metrics/network');
+      return data;
+    },
+    refetchInterval: REFETCH_INTERVALS.dashboard,
+  });
+}
