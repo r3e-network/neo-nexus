@@ -5,21 +5,26 @@ export const sentrySchema: ConfigField[] = [
   { key: 'dsn', label: 'DSN', type: 'password', placeholder: 'https://examplePublicKey@o0.ingest.sentry.io/0', required: true },
 ];
 
+// Module-level tracking prevents double Sentry.init() across provider reloads
+let activeDsn: string | null = null;
+
 export class SentryProvider implements ErrorProvider {
   readonly name = 'Sentry';
-  private initialized = false;
 
   constructor(private config: { dsn: string }) {}
 
   private async ensureInit(): Promise<typeof import('@sentry/node')> {
     const Sentry = await import('@sentry/node');
-    if (!this.initialized) {
+    if (activeDsn !== this.config.dsn) {
+      if (activeDsn !== null) {
+        await Sentry.close(2000);
+      }
       Sentry.init({
         dsn: this.config.dsn,
         tracesSampleRate: 0,
         defaultIntegrations: false,
       });
-      this.initialized = true;
+      activeDsn = this.config.dsn;
     }
     return Sentry;
   }
@@ -67,11 +72,11 @@ export class SentryProvider implements ErrorProvider {
   }
 
   shutdown(): void {
-    if (this.initialized) {
+    if (activeDsn === this.config.dsn) {
       import('@sentry/node').then(Sentry => {
         Sentry.close(2000);
       }).catch(() => {});
-      this.initialized = false;
+      activeDsn = null;
     }
   }
 }

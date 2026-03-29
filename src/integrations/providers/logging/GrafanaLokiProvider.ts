@@ -25,7 +25,6 @@ export class GrafanaLokiProvider implements LogProvider {
           stream: {
             job: 'neonexus',
             node_id: entry.nodeId,
-            node_name: entry.nodeName,
             level: entry.level,
             source: entry.source || 'node',
           },
@@ -33,8 +32,10 @@ export class GrafanaLokiProvider implements LogProvider {
         });
       }
       // Loki expects nanosecond timestamps as strings
+      // Include node_name in the log line (not as a label) to avoid stream churn on renames
       const nsTimestamp = String(entry.timestamp * 1_000_000);
-      streams.get(key)!.values.push([nsTimestamp, entry.message]);
+      const line = entry.nodeName ? `[${entry.nodeName}] ${entry.message}` : entry.message;
+      streams.get(key)!.values.push([nsTimestamp, line]);
     }
 
     const auth = Buffer.from(`${this.config.username}:${this.config.apiKey}`).toString('base64');
