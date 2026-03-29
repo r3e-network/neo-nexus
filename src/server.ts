@@ -305,24 +305,9 @@ export function createAppServer(config: ServerConfig) {
     if (status === "error" || status === "stopped") {
       const wasExpected = previousStatus === "stopping";
       watchdog.onNodeExited(nodeId, wasExpected);
-
-      if (!wasExpected) {
-        const wdNodeName = nodeManager.getNode(nodeId)?.name ?? nodeId;
-        integrationManager.broadcastNotification({
-          type: watchdog.isExhausted(nodeId) ? 'watchdog.exhausted' : 'watchdog.restart',
-          severity: watchdog.isExhausted(nodeId) ? 'critical' : 'warning',
-          title: watchdog.isExhausted(nodeId) ? 'Watchdog Exhausted' : 'Watchdog Restart',
-          message: watchdog.isExhausted(nodeId)
-            ? `Node ${wdNodeName} crashed too many times. Watchdog giving up.`
-            : `Node ${wdNodeName} crashed unexpectedly. Watchdog scheduling restart.`,
-          nodeId,
-          nodeName: wdNodeName,
-          timestamp: Date.now(),
-        }).catch(() => {});
-      }
     }
 
-    // Integration notifications for status changes
+    // Integration notifications — single notification per event
     const statusNode = nodeManager.getNode(nodeId);
     const statusNodeName = statusNode?.name ?? nodeId;
     let integrationEvent: IntegrationEvent | null = null;
@@ -331,8 +316,13 @@ export function createAppServer(config: ServerConfig) {
       integrationEvent = { type: 'node.started', severity: 'info', title: 'Node Started', message: `Node ${statusNodeName} has started.`, nodeId, nodeName: statusNodeName, timestamp: Date.now() };
     } else if (status === "stopped" && previousStatus === "stopping") {
       integrationEvent = { type: 'node.stopped', severity: 'info', title: 'Node Stopped', message: `Node ${statusNodeName} has stopped.`, nodeId, nodeName: statusNodeName, timestamp: Date.now() };
-    } else if (status === "error") {
-      integrationEvent = { type: 'node.crashed', severity: 'critical', title: 'Node Crashed', message: `Node ${statusNodeName} has crashed.`, nodeId, nodeName: statusNodeName, timestamp: Date.now() };
+    } else if (status === "error" || (status === "stopped" && previousStatus !== "stopping")) {
+      // Unexpected exit — use watchdog state to pick the right event type
+      if (watchdog.isExhausted(nodeId)) {
+        integrationEvent = { type: 'watchdog.exhausted', severity: 'critical', title: 'Watchdog Exhausted', message: `Node ${statusNodeName} crashed too many times. Watchdog giving up.`, nodeId, nodeName: statusNodeName, timestamp: Date.now() };
+      } else {
+        integrationEvent = { type: 'node.crashed', severity: 'critical', title: 'Node Crashed', message: `Node ${statusNodeName} crashed unexpectedly. Watchdog scheduling restart.`, nodeId, nodeName: statusNodeName, timestamp: Date.now() };
+      }
     }
 
     if (integrationEvent) {

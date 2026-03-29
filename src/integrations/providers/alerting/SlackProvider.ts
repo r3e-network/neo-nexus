@@ -2,7 +2,7 @@
 import type { NotificationProvider, IntegrationEvent, ConfigField } from '../../types';
 
 export const slackSchema: ConfigField[] = [
-  { key: 'webhookUrl', label: 'Webhook URL', type: 'url', placeholder: 'https://hooks.slack.com/services/T.../B.../...', required: true },
+  { key: 'webhookUrl', label: 'Webhook URL', type: 'url', placeholder: 'https://hooks.slack.com/services/T.../B.../...', required: true, sensitive: true },
 ];
 
 const SEVERITY_COLORS: Record<string, string> = {

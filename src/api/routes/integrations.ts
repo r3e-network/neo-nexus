@@ -35,7 +35,9 @@ export function createIntegrationsRouter(integrationManager: IntegrationManager)
       const integration = integrationManager.getOne(req.params.id as string);
       res.json({ integration });
     } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : 'Bad request' });
+      const msg = error instanceof Error ? error.message : 'Bad request';
+      const status = msg.includes('Unknown integration') ? 404 : 400;
+      res.status(status).json({ error: msg });
     }
   });
 
@@ -53,7 +55,9 @@ export function createIntegrationsRouter(integrationManager: IntegrationManager)
       integrationManager.deleteConfig(req.params.id as string);
       res.status(204).send();
     } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : 'Bad request' });
+      const msg = error instanceof Error ? error.message : 'Bad request';
+      const status = msg.includes('Unknown integration') ? 404 : 400;
+      res.status(status).json({ error: msg });
     }
   });
 

@@ -83,6 +83,7 @@ export interface ConfigField {
   type: ConfigFieldType;
   placeholder: string;
   required: boolean;
+  sensitive?: boolean;
 }
 
 export type IntegrationCategory = 'metrics' | 'logging' | 'uptime' | 'alerting' | 'errors';
