@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.2.0] - 2026-03-30
+
+### Added
+- **SaaS Integrations page** — Dedicated page to connect NeoNexus to external services, with category tabs (Metrics, Logging, Uptime, Alerting, Errors)
+- **11 integration providers** — Grafana Cloud (metrics), Datadog, Better Stack (logging + uptime), Grafana Loki, UptimeRobot, Sentry, Webhook, Slack, Discord, Telegram
+- **Token-gated activation** — Each provider is optional and only activates when credentials are configured via the Integrations page
+- **Save & Test flow** — One-click credential validation with real connectivity checks against each SaaS API
+- **IntegrationManager** — Backend singleton that routes metrics, logs, and notifications to enabled providers with fire-and-forget error isolation
+- **Metrics push** — System and per-node metrics (CPU, memory, disk, block height, peers, sync progress) pushed to Grafana Cloud and Datadog on the existing 5-second interval
+- **Log shipping** — Node logs batched and shipped to Better Stack (Logtail) and Grafana Loki every 5 seconds
+- **Event notifications** — Node start/stop/crash, watchdog restart/exhaustion, and disk alerts sent to Slack, Discord, Telegram, and generic webhooks
+- **Sentry error tracking** — Uncaught exceptions forwarded to Sentry when configured
+- **Uptime monitoring** — Auto-register/deregister health endpoint monitors with Better Stack Uptime and UptimeRobot
+- **Alert debouncing** — 5-minute cooldown on repeated notification events to prevent alert flooding
+- **Credential security** — Sensitive fields (API keys, webhook URLs) redacted in API responses; deterministic redaction prefix prevents credential corruption on save
+- **Frontend form validation** — Required fields validated before Save & Test; password/sensitive URL fields have reveal toggle with aria-labels
+- **ARIA accessibility** — Category tabs use proper `role="tablist"` / `role="tab"` / `aria-selected` semantics
+
+### Changed
+- **Provider architecture** — Plugin-based design with `Map<IntegrationId, Provider>` for O(1) lookup and safe removal
+- **@sentry/node dependency** — Added for Sentry error tracking integration
+
 ## [2.1.0] - 2026-03-29
 
 ### Added
