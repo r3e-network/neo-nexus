@@ -2,7 +2,7 @@
 import type { NotificationProvider, IntegrationEvent, ConfigField } from '../../types';
 
 export const discordSchema: ConfigField[] = [
-  { key: 'webhookUrl', label: 'Webhook URL', type: 'url', placeholder: 'https://discord.com/api/webhooks/...', required: true },
+  { key: 'webhookUrl', label: 'Webhook URL', type: 'url', placeholder: 'https://discord.com/api/webhooks/...', required: true, sensitive: true },
 ];
 
 const SEVERITY_COLORS: Record<string, number> = {

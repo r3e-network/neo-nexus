@@ -46,6 +46,10 @@ export function IntegrationCard({ integration, onSave, onTest, isSaving, isTesti
     });
   };
 
+  const hasRequiredFields = integration.configSchema
+    .filter(f => f.required)
+    .every(f => !!formValues[f.key]?.trim());
+
   const statusColor = integration.lastError
     ? 'text-amber-400'
     : integration.enabled && integration.configured
@@ -83,17 +87,18 @@ export function IntegrationCard({ integration, onSave, onTest, isSaving, isTesti
             <label className="block text-sm font-medium text-slate-300 mb-1.5">{field.label}</label>
             <div className="relative">
               <input
-                type={field.type === 'password' && !revealedFields.has(field.key) ? 'password' : 'text'}
+                type={(field.type === 'password' || field.sensitive) && !revealedFields.has(field.key) ? 'password' : 'text'}
                 className="input w-full pr-10"
                 value={formValues[field.key] || ''}
                 onChange={e => setFormValues(prev => ({ ...prev, [field.key]: e.target.value }))}
                 placeholder={field.placeholder}
               />
-              {field.type === 'password' && (
+              {(field.type === 'password' || field.sensitive) && (
                 <button
                   type="button"
                   onClick={() => toggleReveal(field.key)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-slate-300"
+                  aria-label={revealedFields.has(field.key) ? 'Hide value' : 'Reveal value'}
                 >
                   {revealedFields.has(field.key) ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -114,7 +119,7 @@ export function IntegrationCard({ integration, onSave, onTest, isSaving, isTesti
         <button
           type="button"
           className="btn btn-primary flex-1 justify-center"
-          disabled={isSaving || isTesting}
+          disabled={isSaving || isTesting || !hasRequiredFields}
           onClick={handleSaveAndTest}
         >
           {(isSaving || isTesting) && <Loader2 className="w-4 h-4 animate-spin" />}

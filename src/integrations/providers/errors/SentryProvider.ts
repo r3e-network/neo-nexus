@@ -36,8 +36,8 @@ export class SentryProvider implements ErrorProvider {
       } else {
         Sentry.captureException(error);
       }
-    }).catch(() => {
-      // Silently fail — Sentry is best-effort
+    }).catch(initError => {
+      console.error('[integrations] Sentry initialization failed:', initError instanceof Error ? initError.message : initError);
     });
   }
 
@@ -45,7 +45,22 @@ export class SentryProvider implements ErrorProvider {
     try {
       // Validate DSN format
       const url = new URL(this.config.dsn);
-      return url.protocol === 'https:' && url.pathname.length > 1;
+      if (url.protocol !== 'https:' || url.pathname.length <= 1) return false;
+
+      // Attempt to reach the Sentry ingest endpoint
+      const projectId = url.pathname.replace('/', '');
+      const host = url.hostname;
+      const publicKey = url.username;
+      const storeUrl = `https://${host}/api/${projectId}/envelope/?sentry_key=${publicKey}&sentry_version=7`;
+
+      const response = await fetch(storeUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-sentry-envelope' },
+        body: `{"dsn":"${this.config.dsn}"}\n{"type":"check_in"}\n{"status":"ok"}`,
+        signal: AbortSignal.timeout(10_000),
+      });
+      // Sentry returns 200 on success or 400 for invalid payload, but both prove connectivity
+      return response.status === 200 || response.status === 400;
     } catch {
       return false;
     }

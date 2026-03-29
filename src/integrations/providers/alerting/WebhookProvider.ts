@@ -2,7 +2,7 @@
 import type { NotificationProvider, IntegrationEvent, ConfigField } from '../../types';
 
 export const webhookSchema: ConfigField[] = [
-  { key: 'url', label: 'Webhook URL', type: 'url', placeholder: 'https://example.com/webhook', required: true },
+  { key: 'url', label: 'Webhook URL', type: 'url', placeholder: 'https://example.com/webhook', required: true, sensitive: true },
 ];
 
 export class WebhookProvider implements NotificationProvider {

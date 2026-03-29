@@ -14,13 +14,14 @@ import type {
 } from './types';
 import { integrationRegistry, registryMap } from './registry';
 
-const SENSITIVE_FIELD_TYPES = new Set(['password']);
+const REDACTION_PREFIX = '••••••••...';
 
 export class IntegrationManager {
-  private metricsProviders: MetricsProvider[] = [];
-  private logProviders: LogProvider[] = [];
-  private notificationProviders: NotificationProvider[] = [];
-  private errorProviders: ErrorProvider[] = [];
+  private metricsProviders = new Map<string, MetricsProvider>();
+  private logProviders = new Map<string, LogProvider>();
+  private notificationProviders = new Map<string, NotificationProvider>();
+  private errorProviders = new Map<string, ErrorProvider>();
+  private lastAlertTimes = new Map<string, number>();
 
   constructor(private db: Database.Database) {
     this.loadEnabledProviders();
@@ -52,19 +53,20 @@ export class IntegrationManager {
 
     try {
       const provider = definition.createProvider(config);
+      const id = row.id;
 
       switch (definition.category) {
         case 'metrics':
-          this.metricsProviders.push(provider as MetricsProvider);
+          this.metricsProviders.set(id, provider as MetricsProvider);
           break;
         case 'logging':
-          this.logProviders.push(provider as LogProvider);
+          this.logProviders.set(id, provider as LogProvider);
           break;
         case 'alerting':
-          this.notificationProviders.push(provider as NotificationProvider);
+          this.notificationProviders.set(id, provider as NotificationProvider);
           break;
         case 'errors':
-          this.errorProviders.push(provider as ErrorProvider);
+          this.errorProviders.set(id, provider as ErrorProvider);
           break;
         // uptime providers act on enable/disable, don't need to be stored
       }
@@ -86,49 +88,40 @@ export class IntegrationManager {
   }
 
   private removeProviderInstances(id: string, category: string): void {
-    const definition = registryMap.get(id as IntegrationId);
-    if (!definition) return;
-    const name = definition.name;
-
-    const shutdownAndFilter = <T extends { readonly name: string; shutdown?(): void }>(list: T[]): T[] => {
-      const removed = list.filter(p => p.name === name);
-      for (const p of removed) p.shutdown?.();
-      return list.filter(p => p.name !== name);
+    const shutdownAndRemove = <T extends { shutdown?(): void }>(map: Map<string, T>): void => {
+      const existing = map.get(id);
+      if (existing) {
+        existing.shutdown?.();
+        map.delete(id);
+      }
     };
 
     switch (category) {
-      case 'metrics':
-        this.metricsProviders = shutdownAndFilter(this.metricsProviders);
-        break;
-      case 'logging':
-        this.logProviders = shutdownAndFilter(this.logProviders);
-        break;
-      case 'alerting':
-        this.notificationProviders = shutdownAndFilter(this.notificationProviders);
-        break;
-      case 'errors':
-        this.errorProviders = shutdownAndFilter(this.errorProviders);
-        break;
+      case 'metrics': shutdownAndRemove(this.metricsProviders); break;
+      case 'logging': shutdownAndRemove(this.logProviders); break;
+      case 'alerting': shutdownAndRemove(this.notificationProviders); break;
+      case 'errors': shutdownAndRemove(this.errorProviders); break;
     }
   }
 
   shutdown(): void {
-    for (const p of [...this.metricsProviders, ...this.logProviders, ...this.notificationProviders, ...this.errorProviders]) {
-      (p as { shutdown?(): void }).shutdown?.();
+    const allMaps = [this.metricsProviders, this.logProviders, this.notificationProviders, this.errorProviders];
+    for (const map of allMaps) {
+      for (const p of map.values()) {
+        (p as { shutdown?(): void }).shutdown?.();
+      }
+      map.clear();
     }
-    this.metricsProviders = [];
-    this.logProviders = [];
-    this.notificationProviders = [];
-    this.errorProviders = [];
   }
 
   // --- Broadcasting ---
 
   async broadcastMetrics(system: SystemMetrics, nodes: NodeMetricsWithContext[]): Promise<void> {
+    const providers = [...this.metricsProviders.entries()];
     await Promise.allSettled(
-      this.metricsProviders.map(p =>
+      providers.map(([id, p]) =>
         p.pushMetrics(system, nodes).catch(err =>
-          this.handleProviderError(p.name, err)
+          this.handleProviderError(id, err)
         )
       )
     );
@@ -136,27 +129,38 @@ export class IntegrationManager {
 
   async broadcastLogs(entries: LogEntryWithContext[]): Promise<void> {
     if (entries.length === 0) return;
+    const providers = [...this.logProviders.entries()];
     await Promise.allSettled(
-      this.logProviders.map(p =>
+      providers.map(([id, p]) =>
         p.pushLogs(entries).catch(err =>
-          this.handleProviderError(p.name, err)
+          this.handleProviderError(id, err)
         )
       )
     );
   }
 
   async broadcastNotification(event: IntegrationEvent): Promise<void> {
+    // Debounce repeated alerts of the same type (5 minute cooldown)
+    const ALERT_COOLDOWN_MS = 5 * 60 * 1000;
+    const cooldownKey = event.type + (event.nodeId ?? '');
+    const lastTime = this.lastAlertTimes.get(cooldownKey);
+    if (lastTime && event.timestamp - lastTime < ALERT_COOLDOWN_MS) {
+      return;
+    }
+    this.lastAlertTimes.set(cooldownKey, event.timestamp);
+
+    const providers = [...this.notificationProviders.entries()];
     await Promise.allSettled(
-      this.notificationProviders.map(p =>
+      providers.map(([id, p]) =>
         p.notify(event).catch(err =>
-          this.handleProviderError(p.name, err)
+          this.handleProviderError(id, err)
         )
       )
     );
   }
 
   captureError(error: Error, context?: Record<string, unknown>): void {
-    for (const p of this.errorProviders) {
+    for (const p of this.errorProviders.values()) {
       try {
         p.captureError(error, context);
       } catch {
@@ -216,13 +220,14 @@ export class IntegrationManager {
 
     const existing = this.db.prepare('SELECT * FROM integrations WHERE id = ?').get(id) as IntegrationRow | undefined;
 
-    // Merge with existing config to preserve fields not sent (redacted ones)
+    // Merge with existing config to preserve redacted fields the user didn't change
     let mergedConfig = config;
     if (existing) {
       const existingConfig = JSON.parse(existing.config) as Record<string, string>;
       mergedConfig = { ...existingConfig };
       for (const [key, value] of Object.entries(config)) {
-        if (value && !value.match(/^\*+\.{3}\w{4}$/)) {
+        // Skip if the value looks like a redacted placeholder (starts with our redaction prefix)
+        if (value && !value.startsWith(REDACTION_PREFIX)) {
           mergedConfig[key] = value;
         }
       }
@@ -296,10 +301,10 @@ export class IntegrationManager {
       const value = config[field.key];
       if (!value) {
         redacted[field.key] = '';
-      } else if (SENSITIVE_FIELD_TYPES.has(field.type)) {
+      } else if (field.type === 'password' || field.sensitive) {
         redacted[field.key] = value.length > 4
-          ? '*'.repeat(Math.min(value.length - 4, 8)) + '...' + value.slice(-4)
-          : '****';
+          ? REDACTION_PREFIX + value.slice(-4)
+          : REDACTION_PREFIX.slice(0, 4);
       } else {
         redacted[field.key] = value;
       }
@@ -313,15 +318,10 @@ export class IntegrationManager {
     ).run(error, id);
   }
 
-  private handleProviderError(providerName: string, error: unknown): void {
+  private handleProviderError(integrationId: string, error: unknown): void {
     const msg = error instanceof Error ? error.message : String(error);
-    console.error(`[integrations] ${providerName} error: ${msg}`);
-
-    for (const def of integrationRegistry) {
-      if (def.name === providerName) {
-        this.updateLastError(def.id, msg);
-        break;
-      }
-    }
+    const def = registryMap.get(integrationId as IntegrationId);
+    console.error(`[integrations] ${def?.name ?? integrationId} error: ${msg}`);
+    this.updateLastError(integrationId, msg);
   }
 }

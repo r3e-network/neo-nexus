@@ -9,6 +9,7 @@ export interface ConfigField {
   type: 'text' | 'password' | 'url';
   placeholder: string;
   required: boolean;
+  sensitive?: boolean;
 }
 
 export interface IntegrationStatus {
@@ -50,7 +51,7 @@ export function useSaveIntegration() {
 
   return useMutation({
     mutationFn: async ({ id, config, enabled }: { id: string; config: Record<string, string>; enabled: boolean }) => {
-      const response = await api.put<{ integration: IntegrationStatus }>(`/integrations/${id}`, { config, enabled } as unknown as Record<string, unknown>);
+      const response = await api.put<{ integration: IntegrationStatus }>(`/integrations/${id}`, { config, enabled } as Record<string, unknown>);
       return response.integration;
     },
     onSuccess: () => {
