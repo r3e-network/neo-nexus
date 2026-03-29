@@ -177,6 +177,17 @@ export async function initializeDatabase(): Promise<Database.Database> {
       ip_address TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log(timestamp);
+
+    CREATE TABLE IF NOT EXISTS integrations (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      enabled INTEGER DEFAULT 0,
+      config TEXT NOT NULL DEFAULT '{}',
+      last_test_at TEXT,
+      last_error TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   ensureColumn(db, "secure_signer_profiles", "workspace_path", "TEXT");
