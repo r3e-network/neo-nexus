@@ -37,6 +37,7 @@ async function main() {
     // Handle uncaught errors - exit after logging
     process.on('uncaughtException', async (error) => {
       console.error('Uncaught Exception:', error);
+      server.integrationManager.captureError(error, { source: 'uncaughtException' });
       await server.stop();
       process.exit(1);
     });
