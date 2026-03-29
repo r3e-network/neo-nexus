@@ -2,7 +2,7 @@
 
 > Self-hosted Neo N3 node management, simplified
 
-[![Version](https://img.shields.io/badge/version-2.0.0-green.svg)](https://github.com/r3e-network/neo-nexus)
+[![Version](https://img.shields.io/badge/version-2.2.0-green.svg)](https://github.com/r3e-network/neo-nexus)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org)
 [![Tests](https://img.shields.io/badge/tests-272%20passing-brightgreen.svg)](#)
@@ -21,6 +21,7 @@ NeoNexus is a **self-hosted node management platform** for Neo N3. Deploy, monit
 - **Backup/Restore** — JSON export/import of all node configurations
 - **Audit Logging** — Track all state-changing operations
 - **Secure Signers** — TEE key protection via Intel SGX, AWS Nitro, or custom endpoints
+- **SaaS Integrations** — Optional Grafana Cloud, Datadog, Better Stack, Sentry, Slack, Discord, Telegram, and more — just add a token
 
 ## Quick Start
 
