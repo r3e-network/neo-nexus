@@ -30,6 +30,9 @@ import { pruneAllLogs } from "./utils/logRetention";
 import { recordDiskReading, getDiskAlertLevel } from "./utils/diskMonitor";
 import { AuditLogger } from "./core/AuditLogger";
 import { WatchdogManager } from "./core/WatchdogManager";
+import { IntegrationManager } from "./integrations/IntegrationManager";
+import { createIntegrationsRouter } from "./api/routes/integrations";
+import type { IntegrationEvent, LogEntryWithContext } from "./integrations/types";
 
 const pkg = JSON.parse(readFileSync(join(import.meta.dirname ?? ".", "..", "package.json"), "utf-8"));
 const APP_VERSION: string = pkg.version || "0.0.0";
@@ -97,6 +100,8 @@ export function createAppServer(config: ServerConfig) {
   const metricsCollector = new MetricsCollector();
   const networkHeightTracker = new NetworkHeightTracker();
   const auditLogger = new AuditLogger(config.db);
+  const integrationManager = new IntegrationManager(config.db);
+  const logBuffer: LogEntryWithContext[] = [];
   const requireAuth = createAuthMiddleware(userManager);
 
   // Clean up expired sessions periodically
@@ -212,6 +217,7 @@ export function createAppServer(config: ServerConfig) {
   app.use("/api/system", requireAuth, requireAdmin, createSystemRouter(nodeManager));
   app.use("/api/servers", requireAuth, createServersRouter(remoteServerManager));
   app.use("/api/secure-signers", requireAuth, requireAdmin, createSecureSignersRouter(secureSignerManager));
+  app.use("/api/integrations", requireAuth, requireAdmin, createIntegrationsRouter(integrationManager));
 
   // Audit log endpoint
   app.get("/api/system/audit-log", requireAuth, (req, res) => {
@@ -299,11 +305,45 @@ export function createAppServer(config: ServerConfig) {
     if (status === "error" || status === "stopped") {
       const wasExpected = previousStatus === "stopping";
       watchdog.onNodeExited(nodeId, wasExpected);
+
+      if (!wasExpected) {
+        const wdNodeName = nodeManager.getNode(nodeId)?.name ?? nodeId;
+        integrationManager.broadcastNotification({
+          type: watchdog.isExhausted(nodeId) ? 'watchdog.exhausted' : 'watchdog.restart',
+          severity: watchdog.isExhausted(nodeId) ? 'critical' : 'warning',
+          title: watchdog.isExhausted(nodeId) ? 'Watchdog Exhausted' : 'Watchdog Restart',
+          message: watchdog.isExhausted(nodeId)
+            ? `Node ${wdNodeName} crashed too many times. Watchdog giving up.`
+            : `Node ${wdNodeName} crashed unexpectedly. Watchdog scheduling restart.`,
+          nodeId,
+          nodeName: wdNodeName,
+          timestamp: Date.now(),
+        }).catch(() => {});
+      }
+    }
+
+    // Integration notifications for status changes
+    const statusNode = nodeManager.getNode(nodeId);
+    const statusNodeName = statusNode?.name ?? nodeId;
+    let integrationEvent: IntegrationEvent | null = null;
+
+    if (status === "running" && previousStatus === "starting") {
+      integrationEvent = { type: 'node.started', severity: 'info', title: 'Node Started', message: `Node ${statusNodeName} has started.`, nodeId, nodeName: statusNodeName, timestamp: Date.now() };
+    } else if (status === "stopped" && previousStatus === "stopping") {
+      integrationEvent = { type: 'node.stopped', severity: 'info', title: 'Node Stopped', message: `Node ${statusNodeName} has stopped.`, nodeId, nodeName: statusNodeName, timestamp: Date.now() };
+    } else if (status === "error") {
+      integrationEvent = { type: 'node.crashed', severity: 'critical', title: 'Node Crashed', message: `Node ${statusNodeName} has crashed.`, nodeId, nodeName: statusNodeName, timestamp: Date.now() };
+    }
+
+    if (integrationEvent) {
+      integrationManager.broadcastNotification(integrationEvent).catch(() => {});
     }
   });
 
   nodeManager.on("nodeLog", ({ nodeId, entry }) => {
     broadcast(buildNodeLogMessage(nodeId, entry));
+    const logNode = nodeManager.getNode(nodeId);
+    logBuffer.push({ ...entry, nodeId, nodeName: logNode?.name ?? nodeId });
   });
 
   nodeManager.on("nodeMetrics", ({ nodeId, metrics }) => {
@@ -316,11 +356,38 @@ export function createAppServer(config: ServerConfig) {
       const systemMetrics = await metricsCollector.collectSystemMetrics();
       broadcast(buildSystemMessage(systemMetrics));
 
+      // Flush buffered logs to integration providers
+      if (logBuffer.length > 0) {
+        const batch = logBuffer.splice(0, logBuffer.length);
+        integrationManager.broadcastLogs(batch).catch(() => {});
+      }
+
+      // Push system + node metrics to integration providers
+      const allNodes = nodeManager.getAllNodes();
+      const nodeMetricsForIntegration = allNodes
+        .filter(n => n.process.status === "running" && n.metrics)
+        .map(n => ({
+          nodeId: n.id,
+          nodeName: n.name,
+          nodeType: n.type,
+          network: n.network,
+          metrics: n.metrics!,
+        }));
+      integrationManager.broadcastMetrics(systemMetrics, nodeMetricsForIntegration).catch(() => {});
+
       // Record disk reading and log alerts if needed
       recordDiskReading(systemMetrics.disk.free);
       const diskAlert = getDiskAlertLevel(systemMetrics.disk.percentage);
       if (diskAlert !== null) {
         console.warn(`[disk] ${diskAlert.toUpperCase()}: disk usage at ${systemMetrics.disk.percentage.toFixed(1)}%`);
+
+        integrationManager.broadcastNotification({
+          type: diskAlert === 'critical' ? 'disk.critical' : 'disk.warning',
+          severity: diskAlert === 'critical' ? 'critical' : 'warning',
+          title: `Disk ${diskAlert === 'critical' ? 'Critical' : 'Warning'}`,
+          message: `Disk usage at ${systemMetrics.disk.percentage.toFixed(1)}%`,
+          timestamp: Date.now(),
+        }).catch(() => {});
       }
 
       // Update and broadcast node metrics
@@ -417,6 +484,7 @@ export function createAppServer(config: ServerConfig) {
     clearInterval(networkHeightInterval);
     clearInterval(logRetentionInterval);
     watchdog.clearAll();
+    integrationManager.shutdown();
 
     // Stop all running nodes
     try {
@@ -460,6 +528,7 @@ export function createAppServer(config: ServerConfig) {
     nodeManager,
     userManager,
     metricsCollector,
+    integrationManager,
   };
 }
 
