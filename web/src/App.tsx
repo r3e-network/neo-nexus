@@ -9,6 +9,7 @@ import NodeDetail from './pages/NodeDetail';
 import CreateNode from './pages/CreateNode';
 import ImportNode from './pages/ImportNode';
 import Servers from './pages/Servers';
+import Integrations from './pages/Integrations';
 import Plugins from './pages/Plugins';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
@@ -147,6 +148,7 @@ function AppRoutes() {
       <Route path="/nodes/import" element={<ProtectedPage><ImportNode /></ProtectedPage>} />
       <Route path="/nodes/:id" element={<ProtectedPage><NodeDetail /></ProtectedPage>} />
       <Route path="/servers" element={<ProtectedPage><Servers /></ProtectedPage>} />
+      <Route path="/integrations" element={<ProtectedPage><Integrations /></ProtectedPage>} />
       <Route path="/plugins" element={<ProtectedPage><Plugins /></ProtectedPage>} />
       <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
       <Route path="*" element={<Navigate to="/" replace />} />

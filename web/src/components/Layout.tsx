@@ -3,10 +3,11 @@ import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Server, 
-  Puzzle, 
-  Settings, 
+  Puzzle,
+  Settings,
   Network,
-  Menu, 
+  Plug,
+  Menu,
   Github,
   Activity,
   User,
@@ -29,6 +30,7 @@ const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/nodes', icon: Server, label: 'Nodes' },
   { path: '/servers', icon: Network, label: 'Servers' },
+  { path: '/integrations', icon: Plug, label: 'Integrations' },
   { path: '/plugins', icon: Puzzle, label: 'Features' },
   { path: '/settings', icon: Settings, label: 'Settings' },
 ];
