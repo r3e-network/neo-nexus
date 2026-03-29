@@ -66,11 +66,13 @@ export default function Integrations() {
       </div>
 
       {/* Category tabs */}
-      <div className="flex gap-1 overflow-x-auto pb-1">
+      <div className="flex gap-1 overflow-x-auto pb-1" role="tablist" aria-label="Integration categories">
         {CATEGORIES.map(cat => (
           <button
             key={cat.key}
             type="button"
+            role="tab"
+            aria-selected={activeCategory === cat.key}
             onClick={() => setActiveCategory(cat.key)}
             className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
               activeCategory === cat.key

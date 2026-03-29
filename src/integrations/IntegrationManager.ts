@@ -7,6 +7,7 @@ import type {
   IntegrationEvent,
   MetricsProvider,
   LogProvider,
+  UptimeProvider,
   NotificationProvider,
   ErrorProvider,
   NodeMetricsWithContext,
@@ -68,7 +69,10 @@ export class IntegrationManager {
         case 'errors':
           this.errorProviders.set(id, provider as ErrorProvider);
           break;
-        // uptime providers act on enable/disable, don't need to be stored
+        case 'uptime':
+          // Uptime providers auto-register a monitor for the NeoNexus health endpoint
+          this.registerUptimeMonitor(id, provider as UptimeProvider);
+          break;
       }
     } catch (error) {
       this.updateLastError(row.id, error instanceof Error ? error.message : 'Failed to initialize');
@@ -101,6 +105,43 @@ export class IntegrationManager {
       case 'logging': shutdownAndRemove(this.logProviders); break;
       case 'alerting': shutdownAndRemove(this.notificationProviders); break;
       case 'errors': shutdownAndRemove(this.errorProviders); break;
+      case 'uptime': this.deregisterUptimeMonitor(id); break;
+    }
+  }
+
+  private registerUptimeMonitor(id: string, provider: UptimeProvider): void {
+    const port = process.env.PORT || '8080';
+    const host = process.env.HOST || '0.0.0.0';
+    const healthUrl = `http://${host === '0.0.0.0' ? 'localhost' : host}:${port}/api/health`;
+
+    provider.registerMonitor(healthUrl, `NeoNexus (${id})`).then(monitorId => {
+      // Store the monitor ID so we can remove it later
+      this.db.prepare(
+        "UPDATE integrations SET config = json_set(config, '$._monitorId', ?) WHERE id = ?"
+      ).run(monitorId, id);
+    }).catch(err => {
+      this.handleProviderError(id, err);
+    });
+  }
+
+  private deregisterUptimeMonitor(id: string): void {
+    const row = this.db.prepare('SELECT * FROM integrations WHERE id = ?').get(id) as IntegrationRow | undefined;
+    if (!row) return;
+
+    const config = JSON.parse(row.config) as Record<string, string>;
+    const monitorId = config._monitorId;
+    if (!monitorId) return;
+
+    const def = registryMap.get(id as IntegrationId);
+    if (!def) return;
+
+    try {
+      const provider = def.createProvider(config) as UptimeProvider;
+      provider.removeMonitor(monitorId).catch(err => {
+        this.handleProviderError(id, err);
+      });
+    } catch {
+      // Provider creation failed, can't deregister
     }
   }
 
@@ -217,6 +258,18 @@ export class IntegrationManager {
   saveConfig(id: string, config: Record<string, string>, enabled: boolean): void {
     const def = registryMap.get(id as IntegrationId);
     if (!def) throw new Error(`Unknown integration: ${id}`);
+
+    // Validate URL-type fields
+    for (const field of def.configSchema) {
+      const value = config[field.key];
+      if (field.type === 'url' && value && !value.startsWith(REDACTION_PREFIX)) {
+        try {
+          new URL(value);
+        } catch {
+          throw new Error(`Invalid URL for ${field.label}: ${value}`);
+        }
+      }
+    }
 
     const existing = this.db.prepare('SELECT * FROM integrations WHERE id = ?').get(id) as IntegrationRow | undefined;
 
