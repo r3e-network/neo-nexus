@@ -6,6 +6,8 @@ export class ApiError extends Error {
     public readonly status: number = 400,
   ) {
     super(message);
+    this.name = "ApiError";
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
