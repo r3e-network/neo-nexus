@@ -33,6 +33,7 @@ import { WatchdogManager } from "./core/WatchdogManager";
 import { IntegrationManager } from "./integrations/IntegrationManager";
 import { createIntegrationsRouter } from "./api/routes/integrations";
 import type { IntegrationEvent, LogEntryWithContext } from "./integrations/types";
+import { printShutdownMessage } from "./utils/startup";
 
 const pkg = JSON.parse(readFileSync(join(import.meta.dirname ?? ".", "..", "package.json"), "utf-8"));
 const APP_VERSION: string = pkg.version || "0.0.0";
@@ -67,6 +68,7 @@ export interface ServerConfig {
 
 export function createAppServer(config: ServerConfig) {
   const app = express();
+  app.set('appVersion', APP_VERSION);
 
   // Load HTTPS config and create appropriate server
   const httpsConfig = loadHttpsConfig();
@@ -432,33 +434,7 @@ export function createAppServer(config: ServerConfig) {
   // Start server
   function start() {
     return new Promise<void>((resolve) => {
-      server.listen(config.port, config.host, async () => {
-        const protocol = httpsCredentials ? "https" : "http";
-        console.log(`🚀 NeoNexus Node Manager running on ${protocol}://${config.host}:${config.port}`);
-
-        // Print security notice for public access
-        if (config.host === "0.0.0.0") {
-          console.log(`\n⚠️  Security Notice: Server is bound to all interfaces (0.0.0.0)`);
-          console.log(`   Access the web interface at: ${protocol}://<your-server-ip>:${config.port}`);
-          console.log(`   Make sure port ${config.port} is open in your firewall.\n`);
-        }
-
-        // Print default credentials notice only if default password is still in use
-        try {
-          const adminUsers = userManager.getAllUsers().filter((u: { role: string }) => u.role === "admin");
-          const hasDefaultPassword = adminUsers.length > 0
-            ? await Promise.resolve(userManager.isUsingDefaultPassword(adminUsers[0].id)).catch(() => false)
-            : false;
-          if (hasDefaultPassword) {
-            console.log(`🔐 Default Login Credentials:`);
-            console.log(`   Username: admin`);
-            console.log(`   Password: admin`);
-            console.log(`   ⚠️  IMPORTANT: Please change the default password after first login!\n`);
-          }
-        } catch {
-          // Ignore errors checking default password
-        }
-
+      server.listen(config.port, config.host, () => {
         resolve();
       });
     });
@@ -466,8 +442,6 @@ export function createAppServer(config: ServerConfig) {
 
   // Graceful shutdown
   async function stop() {
-    console.log("Shutting down...");
-
     // Clear intervals
     clearInterval(sessionCleanupInterval);
     clearInterval(metricsInterval);
@@ -477,11 +451,15 @@ export function createAppServer(config: ServerConfig) {
     integrationManager.shutdown();
 
     // Stop all running nodes
+    let stoppedCount = 0;
     try {
-      await nodeManager.stopAllNodes();
+      const result = await nodeManager.stopAllNodes();
+      stoppedCount = result.stoppedCount;
     } catch (error) {
       console.error("Error stopping nodes:", error);
     }
+
+    printShutdownMessage(stoppedCount);
 
     // Close all WebSocket connections
     wss.clients.forEach((client) => {
@@ -497,13 +475,11 @@ export function createAppServer(config: ServerConfig) {
         } catch {
           // ignore
         }
-        console.log("Server closed");
         resolve();
       });
 
       // Force close after timeout
       setTimeout(() => {
-        console.log("Forced shutdown");
         resolve();
       }, GRACEFUL_SHUTDOWN_TIMEOUT_MS);
     });
@@ -542,8 +518,6 @@ export async function startServer(config: ServerConfig): Promise<ReturnType<type
   async function shutdown(signal: string): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
-
-    console.log(`Received ${signal}, shutting down gracefully...`);
 
     // Force-exit safety net — 30 seconds
     const forceExit = setTimeout(() => {
