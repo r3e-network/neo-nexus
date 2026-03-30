@@ -1,5 +1,6 @@
 import { isPortAvailable } from '../utils/network';
 import type { PortConfig } from '../types/index';
+import { Errors } from '../api/errors';
 
 const BASE_RPC_PORT = 10332;
 const BASE_P2P_PORT = 10333;
@@ -41,12 +42,12 @@ export class PortManager {
 
     for (const { name, port } of portsToCheck) {
       if (this.usedPorts.has(port)) {
-        throw new Error(`Port ${port} (${name}) is already in use by another node`);
+        throw Errors.portConflictNode(port, name);
       }
-      
+
       const available = await isPortAvailable(port);
       if (!available) {
-        throw new Error(`Port ${port} (${name}) is already in use by another process`);
+        throw Errors.portConflictSystem(port, name);
       }
     }
 
@@ -86,7 +87,7 @@ export class PortManager {
         return i;
       }
     }
-    throw new Error(`No available port range found (max ${maxNodes} nodes)`);
+    throw Errors.noPortRange();
   }
 
   /**
