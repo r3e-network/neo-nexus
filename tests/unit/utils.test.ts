@@ -12,13 +12,14 @@ import { getLocalIp, getPublicIp, getNetworkMagic, getSeedList } from "../../src
 
 // Mock fs modules
 vi.mock("node:fs", () => ({
-  existsSync: vi.fn(() => true),
   readFileSync: vi.fn(() => '{"test": "data"}'),
   writeFileSync: vi.fn(),
 }));
 
 vi.mock("node:fs/promises", () => ({
   mkdir: vi.fn(() => Promise.resolve()),
+  readFile: vi.fn(() => Promise.resolve('{"test": "data"}')),
+  writeFile: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("node:net", () => ({
@@ -51,20 +52,20 @@ describe("Utils: config", () => {
     });
 
     it("should throw if file not found", async () => {
-      const { existsSync } = await import("node:fs");
-      vi.mocked(existsSync).mockReturnValueOnce(false);
-      
-      await expect(readJsonFile("/nonexistent.json")).rejects.toThrow("File not found");
+      const { readFile } = await import("node:fs/promises");
+      vi.mocked(readFile).mockRejectedValueOnce(new Error("ENOENT: no such file or directory"));
+
+      await expect(readJsonFile("/nonexistent.json")).rejects.toThrow("ENOENT");
     });
   });
 
   describe("writeJsonFile", () => {
     it("should write JSON data to file", async () => {
-      const { writeFileSync } = await import("node:fs");
-      
+      const { writeFile } = await import("node:fs/promises");
+
       await writeJsonFile("/test/file.json", { foo: "bar" });
-      
-      expect(writeFileSync).toHaveBeenCalledWith(
+
+      expect(writeFile).toHaveBeenCalledWith(
         "/test/file.json",
         JSON.stringify({ foo: "bar" }, null, 2),
         "utf8"
