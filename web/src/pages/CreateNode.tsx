@@ -4,6 +4,7 @@ import { useCreateNode } from '../hooks/useNodes';
 import { ArrowLeft, Server, Loader2 } from 'lucide-react';
 import { FeedbackBanner } from '../components/FeedbackBanner';
 import { Link } from 'react-router-dom';
+import { ApiRequestError } from '../utils/api';
 import { normalizeNodeUpsertPayload, toNodeFormValues } from '../utils/nodePayloads';
 import { useSecureSigners } from '../hooks/useSecureSigners';
 
@@ -29,6 +30,8 @@ export default function CreateNode() {
   const secureSigners = useSecureSigners();
   
   const [error, setError] = useState('');
+  const [suggestion, setSuggestion] = useState('');
+  const [code, setCode] = useState('');
 
   const [formData, setFormData] = useState(() =>
     toNodeFormValues({
@@ -46,6 +49,8 @@ export default function CreateNode() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuggestion('');
+    setCode('');
 
     if (!formData.name.trim()) {
       setError('Please enter a node name');
@@ -71,7 +76,15 @@ export default function CreateNode() {
       await createNode.mutateAsync(normalizeNodeUpsertPayload(formData));
       navigate('/nodes');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create node');
+      if (err instanceof ApiRequestError) {
+        setError(err.message);
+        setSuggestion(err.suggestion ?? '');
+        setCode(err.code ?? '');
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to create node');
+        setSuggestion('');
+        setCode('');
+      }
     }
   };
 
@@ -390,7 +403,7 @@ export default function CreateNode() {
             </div>
           </div>
 
-          <FeedbackBanner error={error} />
+          <FeedbackBanner error={error} suggestion={suggestion} code={code} />
 
           {/* Submit */}
           <div className="flex gap-4">

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { FolderOpen, Search, CheckCircle, Loader2, Server } from "lucide-react";
 import { FeedbackBanner } from "../components/FeedbackBanner";
-import { api } from "../utils/api";
+import { api, ApiRequestError } from "../utils/api";
 
 interface DetectedConfig {
   type: "neo-cli" | "neo-go";
@@ -27,6 +27,8 @@ export default function ImportNode() {
   const [detected, setDetected] = useState<DetectedConfig | null>(null);
   const [scanResults, setScanResults] = useState<Array<{ path: string; type: string }> | null>(null);
   const [error, setError] = useState("");
+  const [suggestion, setSuggestion] = useState("");
+  const [code, setCode] = useState("");
 
   const detectMutation = useMutation({
     mutationFn: async (detectPath: string) => {
@@ -38,10 +40,20 @@ export default function ImportNode() {
       if (data.detected) {
         setDetected(data.detected);
         setError("");
+        setSuggestion("");
+        setCode("");
       }
     },
     onError: (err: unknown) => {
-      setError(err instanceof Error ? err.message : "Failed to detect node configuration");
+      if (err instanceof ApiRequestError) {
+        setError(err.message);
+        setSuggestion(err.suggestion ?? "");
+        setCode(err.code ?? "");
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to detect node configuration");
+        setSuggestion("");
+        setCode("");
+      }
       setDetected(null);
     },
   });
@@ -55,9 +67,19 @@ export default function ImportNode() {
     onSuccess: (data) => {
       setScanResults(data.nodes);
       setError("");
+      setSuggestion("");
+      setCode("");
     },
     onError: (err: unknown) => {
-      setError(err instanceof Error ? err.message : "Failed to scan directory");
+      if (err instanceof ApiRequestError) {
+        setError(err.message);
+        setSuggestion(err.suggestion ?? "");
+        setCode(err.code ?? "");
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to scan directory");
+        setSuggestion("");
+        setCode("");
+      }
       setScanResults(null);
     },
   });
@@ -81,7 +103,15 @@ export default function ImportNode() {
       navigate("/nodes");
     },
     onError: (err: unknown) => {
-      setError(err instanceof Error ? err.message : "Failed to import node");
+      if (err instanceof ApiRequestError) {
+        setError(err.message);
+        setSuggestion(err.suggestion ?? "");
+        setCode(err.code ?? "");
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to import node");
+        setSuggestion("");
+        setCode("");
+      }
     },
   });
 
@@ -124,7 +154,7 @@ export default function ImportNode() {
         </p>
       </div>
 
-      <FeedbackBanner error={error} />
+      <FeedbackBanner error={error} suggestion={suggestion} code={code} />
 
       <div className="space-y-6">
         {/* Path Input */}
