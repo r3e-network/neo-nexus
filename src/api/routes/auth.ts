@@ -1,6 +1,8 @@
 import { Router, type Request, type Response } from "express";
 import type { UserManager } from "../../core/UserManager";
 import { createAuthMiddleware, generateToken, type AuthenticatedRequest } from "../middleware/auth";
+import { Errors } from '../errors';
+import { respondWithApiError } from '../respond';
 
 export function createAuthRouter(userManager: UserManager): Router {
   const router = Router();
@@ -14,15 +16,13 @@ export function createAuthRouter(userManager: UserManager): Router {
     try {
       // Check if setup is already complete
       if (userManager.hasUsers()) {
-        return res.status(403).json({
-          error: "Setup already completed. Use /register to create new users.",
-        });
+        throw Errors.setupCompleted();
       }
 
       const { username, password } = req.body;
 
       if (!username || !password) {
-        return res.status(400).json({ error: "Username and password are required" });
+        throw Errors.credentialsRequired();
       }
 
       const user = await userManager.createUser({
@@ -50,7 +50,7 @@ export function createAuthRouter(userManager: UserManager): Router {
         token,
       });
     } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : "Bad request" });
+      respondWithApiError(res, error);
     }
   });
 
@@ -70,13 +70,13 @@ export function createAuthRouter(userManager: UserManager): Router {
       const { username, password } = req.body;
 
       if (!username || !password) {
-        return res.status(400).json({ error: "Username and password are required" });
+        throw Errors.credentialsRequired();
       }
 
       const user = await userManager.verifyCredentials(username, password);
 
       if (!user) {
-        return res.status(401).json({ error: "Invalid credentials" });
+        throw Errors.invalidCredentials();
       }
 
       // Generate token
@@ -99,7 +99,7 @@ export function createAuthRouter(userManager: UserManager): Router {
         token,
       });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      respondWithApiError(res, error);
     }
   });
 
@@ -123,13 +123,13 @@ export function createAuthRouter(userManager: UserManager): Router {
       // Only admins can register new users
       const user = (req as AuthenticatedRequest).user;
       if (!user || user.role !== "admin") {
-        return res.status(403).json({ error: "Admin access required" });
+        throw Errors.adminRequired();
       }
 
       const { username, password, role } = req.body;
 
       if (!username || !password) {
-        return res.status(400).json({ error: "Username and password are required" });
+        throw Errors.credentialsRequired();
       }
 
       const validRoles = ["admin", "viewer"];
@@ -149,7 +149,7 @@ export function createAuthRouter(userManager: UserManager): Router {
         },
       });
     } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : "Bad request" });
+      respondWithApiError(res, error);
     }
   });
 
@@ -167,7 +167,7 @@ export function createAuthRouter(userManager: UserManager): Router {
         },
       });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      respondWithApiError(res, error);
     }
   });
 
@@ -178,20 +178,20 @@ export function createAuthRouter(userManager: UserManager): Router {
     try {
       const user = (req as AuthenticatedRequest).user;
       if (!user) {
-        return res.status(401).json({ error: "Not authenticated" });
+        throw Errors.notAuthenticated();
       }
 
       const { currentPassword, newPassword } = req.body;
 
       if (!currentPassword || !newPassword) {
-        return res.status(400).json({ error: "Current and new password are required" });
+        throw Errors.passwordRequired();
       }
 
       await userManager.updatePassword(user.id, currentPassword, newPassword);
 
       res.json({ message: "Password updated successfully" });
     } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : "Bad request" });
+      respondWithApiError(res, error);
     }
   });
 
@@ -199,32 +199,36 @@ export function createAuthRouter(userManager: UserManager): Router {
    * GET /api/auth/users - List all users (admin only)
    */
   router.get("/users", requireAuth, (req: Request, res: Response) => {
-    const user = (req as AuthenticatedRequest).user;
-    if (!user || user.role !== "admin") {
-      return res.status(403).json({ error: "Admin access required" });
-    }
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      if (!user || user.role !== "admin") {
+        throw Errors.adminRequired();
+      }
 
-    const users = userManager.getAllUsers();
-    res.json({ users });
+      const users = userManager.getAllUsers();
+      res.json({ users });
+    } catch (error) {
+      respondWithApiError(res, error);
+    }
   });
 
   /**
    * DELETE /api/auth/users/:id - Delete user (admin only)
    */
   router.delete("/users/:id", requireAuth, (req: Request, res: Response) => {
-    const user = (req as AuthenticatedRequest).user;
-    if (!user || user.role !== "admin") {
-      return res.status(403).json({ error: "Admin access required" });
-    }
-
     try {
+      const user = (req as AuthenticatedRequest).user;
+      if (!user || user.role !== "admin") {
+        throw Errors.adminRequired();
+      }
+
       if (req.params.id === user.id) {
-        return res.status(400).json({ error: "Cannot delete your own account" });
+        throw Errors.cannotDeleteSelf();
       }
       userManager.deleteUser(req.params.id as string);
       res.status(204).send();
     } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
+      respondWithApiError(res, error);
     }
   });
 

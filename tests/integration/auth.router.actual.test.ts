@@ -86,6 +86,82 @@ describe("Actual auth router protection", () => {
     });
   });
 
+  it("returns structured error when login credentials are missing", async () => {
+    const response = await request(app)
+      .post("/api/auth/login")
+      .send({ username: "admin" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("Username and password are required");
+    expect(response.body.code).toBe("CREDENTIALS_REQUIRED");
+    expect(response.body.suggestion).toBeDefined();
+  });
+
+  it("returns structured error for invalid login credentials", async () => {
+    mockUserManager.verifyCredentials.mockResolvedValue(null);
+
+    const response = await request(app)
+      .post("/api/auth/login")
+      .send({ username: "admin", password: "wrong" });
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe("Invalid credentials");
+    expect(response.body.code).toBe("INVALID_CREDENTIALS");
+    expect(response.body.suggestion).toBeDefined();
+  });
+
+  it("returns structured error when setup is already completed", async () => {
+    mockUserManager.hasUsers.mockReturnValue(true);
+
+    const response = await request(app)
+      .post("/api/auth/setup")
+      .send({ username: "admin", password: "admin" });
+
+    expect(response.status).toBe(403);
+    expect(response.body.code).toBe("SETUP_COMPLETED");
+    expect(response.body.suggestion).toBeDefined();
+  });
+
+  it("returns structured error when password fields are missing", async () => {
+    const response = await request(app)
+      .put("/api/auth/password")
+      .set("Authorization", "Bearer valid-token")
+      .send({ currentPassword: "admin" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("Current and new password are required");
+    expect(response.body.code).toBe("PASSWORD_REQUIRED");
+    expect(response.body.suggestion).toBeDefined();
+  });
+
+  it("returns structured error when non-admin tries to register", async () => {
+    mockUserManager.verifySession.mockReturnValue({
+      id: "test-user-id",
+      username: "admin",
+      role: "viewer",
+    });
+
+    const response = await request(app)
+      .post("/api/auth/register")
+      .set("Authorization", "Bearer valid-token")
+      .send({ username: "newuser", password: "pass123" });
+
+    expect(response.status).toBe(403);
+    expect(response.body.code).toBe("ADMIN_REQUIRED");
+    expect(response.body.suggestion).toBeDefined();
+  });
+
+  it("returns structured error when trying to delete own account", async () => {
+    const response = await request(app)
+      .delete("/api/auth/users/test-user-id")
+      .set("Authorization", "Bearer valid-token");
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("Cannot delete your own account");
+    expect(response.body.code).toBe("CANNOT_DELETE_SELF");
+    expect(response.body.suggestion).toBeDefined();
+  });
+
   it("registers a new user for an authenticated admin", async () => {
     mockUserManager.createUser.mockResolvedValue({
       id: "viewer-1",
