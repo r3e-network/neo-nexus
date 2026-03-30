@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import type { SignOptions } from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
+import { ApiError, Errors } from "../errors";
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -50,12 +51,15 @@ function getBearerToken(req: Request): string | null {
   return authHeader.substring(7);
 }
 
+const sendError = (res: Response, err: ApiError) =>
+  res.status(err.status).json({ error: err.message, code: err.code, suggestion: err.suggestion, status: err.status });
+
 export function createAuthMiddleware(sessionVerifier: SessionVerifier) {
   return function sessionAuthMiddleware(req: Request, res: Response, next: NextFunction) {
     const token = getBearerToken(req);
 
     if (!token) {
-      return res.status(401).json({ error: "No token provided" });
+      return sendError(res, Errors.noToken());
     }
 
     try {
@@ -63,14 +67,13 @@ export function createAuthMiddleware(sessionVerifier: SessionVerifier) {
       const sessionUser = sessionVerifier.verifySession(token);
 
       if (!sessionUser || payload.userId !== sessionUser.id || payload.username !== sessionUser.username) {
-        return res.status(401).json({ error: "Session expired or invalid" });
+        return sendError(res, Errors.sessionInvalid());
       }
 
       (req as AuthenticatedRequest).user = sessionUser;
       next();
-    } catch (error) {
-      return res.status(401).json({ error: "Invalid or expired token" });
+    } catch {
+      return sendError(res, Errors.tokenInvalid());
     }
   };
 }
-
