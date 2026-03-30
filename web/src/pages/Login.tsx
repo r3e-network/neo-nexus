@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Shield, Lock, User, Loader2, AlertTriangle } from 'lucide-react';
 import { FeedbackBanner } from '../components/FeedbackBanner';
+import { ApiRequestError } from '../utils/api';
 
 export default function Login() {
   const { login } = useAuth();
@@ -10,6 +11,8 @@ export default function Login() {
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [suggestion, setSuggestion] = useState('');
+  const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [checkingSetup, setCheckingSetup] = useState(true);
 
@@ -37,12 +40,22 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuggestion('');
+    setCode('');
     setIsLoading(true);
 
     try {
       await login(username, password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed');
+      if (err instanceof ApiRequestError) {
+        setError(err.message);
+        setSuggestion(err.suggestion ?? '');
+        setCode(err.code ?? '');
+      } else {
+        setError(err instanceof Error ? err.message : 'Authentication failed');
+        setSuggestion('');
+        setCode('');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -83,7 +96,7 @@ export default function Login() {
         </div>
 
         <div className="card">
-          <FeedbackBanner error={error} />
+          <FeedbackBanner error={error} suggestion={suggestion} code={code} />
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

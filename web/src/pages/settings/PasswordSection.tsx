@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Loader2, Lock } from "lucide-react";
 import { FeedbackBanner } from "../../components/FeedbackBanner";
+import { ApiRequestError } from "../../utils/api";
 import { useAuth } from "../../hooks/useAuth";
 
 export function PasswordSection() {
@@ -9,11 +10,15 @@ export function PasswordSection() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [passwordSuggestion, setPasswordSuggestion] = useState("");
+  const [passwordCode, setPasswordCode] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
 
   const handlePasswordSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setPasswordError("");
+    setPasswordSuggestion("");
+    setPasswordCode("");
     setPasswordSuccess("");
 
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -38,7 +43,15 @@ export function PasswordSection() {
       setConfirmPassword("");
       setPasswordSuccess("Password updated successfully.");
     } catch (error) {
-      setPasswordError(error instanceof Error ? error.message : "Failed to update password.");
+      if (error instanceof ApiRequestError) {
+        setPasswordError(error.message);
+        setPasswordSuggestion(error.suggestion ?? "");
+        setPasswordCode(error.code ?? "");
+      } else {
+        setPasswordError(error instanceof Error ? error.message : "Failed to update password.");
+        setPasswordSuggestion("");
+        setPasswordCode("");
+      }
     }
   };
 
@@ -54,7 +67,7 @@ export function PasswordSection() {
         </div>
       </div>
 
-      <FeedbackBanner error={passwordError} success={passwordSuccess} />
+      <FeedbackBanner error={passwordError} suggestion={passwordSuggestion} code={passwordCode} success={passwordSuccess} />
 
       <form className="grid grid-cols-1 gap-4 md:grid-cols-3" onSubmit={handlePasswordSubmit}>
         <div>
