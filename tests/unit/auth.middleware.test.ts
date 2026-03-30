@@ -17,7 +17,12 @@ describe("createAuthMiddleware", () => {
 
     expect(verifySession).toHaveBeenCalledWith("valid-token");
     expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.jsonData).toEqual({ error: "Session expired or invalid" });
+    expect(res.jsonData).toEqual(expect.objectContaining({
+      error: "Session expired or invalid",
+      code: "SESSION_INVALID",
+      suggestion: expect.any(String),
+      status: 401,
+    }));
     expect(next).not.toHaveBeenCalled();
   });
 
