@@ -1,3 +1,14 @@
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string,
+    public readonly suggestion?: string,
+    public readonly status?: number,
+  ) {
+    super(message);
+  }
+}
+
 type JsonValue = Record<string, unknown> | Array<unknown> | string | number | boolean | null;
 
 function getToken(): string | null {
@@ -42,12 +53,24 @@ async function request<T>(url: string, init: RequestInit = {}): Promise<T> {
   });
 
   if (!response.ok) {
+    let message = "API Error";
+    let code: string | undefined;
+    let suggestion: string | undefined;
+
     try {
-      const error = (await response.json()) as { error?: string };
-      throw new Error(error.error || "API Error");
-    } catch (error) {
-      throw error instanceof Error ? error : new Error("API Error");
+      const body = (await response.json()) as {
+        error?: string;
+        code?: string;
+        suggestion?: string;
+      };
+      message = body.error || message;
+      code = body.code;
+      suggestion = body.suggestion;
+    } catch {
+      // Response wasn't JSON
     }
+
+    throw new ApiRequestError(message, code, suggestion, response.status);
   }
 
   if (response.status === 204) {
