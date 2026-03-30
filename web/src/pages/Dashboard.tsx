@@ -163,8 +163,11 @@ export default function Dashboard() {
           <EmptyState
             icon={Server}
             title="No nodes yet"
-            description="Create your first Neo node to get started"
-            action={{ label: "Create Node", href: "/nodes/create" }}
+            description="Deploy a new Neo node or import an existing installation"
+            actions={[
+              { label: "Create Node", href: "/nodes/create", variant: "primary" },
+              { label: "Import Existing", href: "/nodes/import", variant: "secondary" },
+            ]}
           />
         ) : (
           <div className="space-y-3">
