@@ -104,6 +104,28 @@ describe("Actual secure signers router", () => {
     expect(response.body.result.status).toBe("warning");
   });
 
+  it("returns structured error when profile is not found", async () => {
+    mockManager.getProfile.mockReturnValue(null);
+
+    const response = await request(app).get("/api/secure-signers/nonexistent");
+
+    expect(response.status).toBe(404);
+    expect(response.body.error).toBe("Secure signer profile not found");
+    expect(response.body.code).toBe("SIGNER_NOT_FOUND");
+    expect(response.body.suggestion).toBeDefined();
+  });
+
+  it("returns structured error when required fields are missing on create", async () => {
+    const response = await request(app).post("/api/secure-signers").send({
+      name: "Incomplete",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("Missing required fields: name, mode, endpoint");
+    expect(response.body.code).toBe("MISSING_FIELDS");
+    expect(response.body.suggestion).toBeDefined();
+  });
+
   it("deletes a secure signer profile", async () => {
     mockManager.deleteProfile.mockReturnValue(undefined);
 

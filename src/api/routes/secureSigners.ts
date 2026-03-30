@@ -4,6 +4,8 @@ import type {
   UpdateSecureSignerRequest,
 } from "../../types";
 import type { SecureSignerManager } from "../../core/SecureSignerManager";
+import { Errors } from '../errors';
+import { respondWithApiError } from '../respond';
 
 interface SignerParams {
   id: string;
@@ -17,7 +19,7 @@ export function createSecureSignersRouter(secureSignerManager: SecureSignerManag
       const profiles = secureSignerManager.listProfiles();
       res.json({ profiles });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      respondWithApiError(res, error);
     }
   });
 
@@ -25,12 +27,12 @@ export function createSecureSignersRouter(secureSignerManager: SecureSignerManag
     try {
       const profile = secureSignerManager.getProfile(req.params.id);
       if (!profile) {
-        return res.status(404).json({ error: "Secure signer profile not found" });
+        throw Errors.signerProfileNotFound();
       }
 
       res.json({ profile });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      respondWithApiError(res, error);
     }
   });
 
@@ -45,9 +47,7 @@ export function createSecureSignersRouter(secureSignerManager: SecureSignerManag
         },
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const status = /not found/i.test(message) ? 404 : 400;
-      res.status(status).json({ error: message });
+      respondWithApiError(res, error);
     }
   });
 
@@ -55,13 +55,13 @@ export function createSecureSignersRouter(secureSignerManager: SecureSignerManag
     try {
       const request: CreateSecureSignerRequest = req.body;
       if (!request.name || !request.mode || !request.endpoint) {
-        return res.status(400).json({ error: "Missing required fields: name, mode, endpoint" });
+        throw Errors.signerFieldsRequired();
       }
 
       const profile = secureSignerManager.createProfile(request);
       res.status(201).json({ profile });
     } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
+      respondWithApiError(res, error);
     }
   });
 
@@ -71,9 +71,7 @@ export function createSecureSignersRouter(secureSignerManager: SecureSignerManag
       const profile = secureSignerManager.updateProfile(req.params.id, request);
       res.json({ profile });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const status = /not found/i.test(message) ? 404 : 400;
-      res.status(status).json({ error: message });
+      respondWithApiError(res, error);
     }
   });
 
@@ -82,7 +80,7 @@ export function createSecureSignersRouter(secureSignerManager: SecureSignerManag
       secureSignerManager.deleteProfile(req.params.id);
       res.status(204).send();
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      respondWithApiError(res, error);
     }
   });
 
@@ -91,9 +89,7 @@ export function createSecureSignersRouter(secureSignerManager: SecureSignerManag
       const result = await secureSignerManager.testProfile(req.params.id);
       res.json({ result });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const status = /not found/i.test(message) ? 404 : 400;
-      res.status(status).json({ error: message });
+      respondWithApiError(res, error);
     }
   });
 
@@ -102,9 +98,7 @@ export function createSecureSignersRouter(secureSignerManager: SecureSignerManag
       const attestation = await secureSignerManager.fetchRecipientAttestation(req.params.id);
       res.json({ attestation });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const status = /not found/i.test(message) ? 404 : 400;
-      res.status(status).json({ error: message });
+      respondWithApiError(res, error);
     }
   });
 
@@ -112,15 +106,13 @@ export function createSecureSignersRouter(secureSignerManager: SecureSignerManag
     try {
       const ciphertextBase64 = String(req.body?.ciphertextBase64 || "").trim();
       if (!ciphertextBase64) {
-        return res.status(400).json({ error: "ciphertextBase64 is required" });
+        throw Errors.missingField("ciphertextBase64");
       }
 
       const result = await secureSignerManager.startRecipientSigner(req.params.id, ciphertextBase64);
       res.json({ result });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const status = /not found/i.test(message) ? 404 : 400;
-      res.status(status).json({ error: message });
+      respondWithApiError(res, error);
     }
   });
 

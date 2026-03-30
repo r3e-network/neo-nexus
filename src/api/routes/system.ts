@@ -1,5 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import type { ConfigurationSnapshot } from "../../types";
+import { Errors } from '../errors';
+import { respondWithApiError } from '../respond';
 
 interface SystemOperations {
   cleanOldLogs(maxAgeDays?: number): Promise<{
@@ -42,7 +44,7 @@ export function createSystemRouter(systemOperations: SystemOperations): Router {
       const result = await systemOperations.cleanOldLogs(maxAgeDays);
       res.json(result);
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      respondWithApiError(res, error);
     }
   });
 
@@ -52,7 +54,7 @@ export function createSystemRouter(systemOperations: SystemOperations): Router {
       res.setHeader("Content-Disposition", `attachment; filename="neonexus-export-${snapshot.generatedAt}.json"`);
       res.json(snapshot);
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      respondWithApiError(res, error);
     }
   });
 
@@ -61,7 +63,7 @@ export function createSystemRouter(systemOperations: SystemOperations): Router {
       const result = await systemOperations.stopAllNodes();
       res.json(result);
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      respondWithApiError(res, error);
     }
   });
 
@@ -70,7 +72,7 @@ export function createSystemRouter(systemOperations: SystemOperations): Router {
       const result = await systemOperations.resetAllNodeData();
       res.json(result);
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      respondWithApiError(res, error);
     }
   });
 
@@ -80,13 +82,13 @@ export function createSystemRouter(systemOperations: SystemOperations): Router {
       const replaceExisting = req.body?.replaceExisting === true;
 
       if (!snapshot || !Array.isArray(snapshot.nodes)) {
-        return res.status(400).json({ error: "A valid snapshot payload is required" });
+        throw Errors.snapshotRequired();
       }
 
       const result = await systemOperations.restoreConfiguration(snapshot, { replaceExisting });
       res.json(result);
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      respondWithApiError(res, error);
     }
   });
 

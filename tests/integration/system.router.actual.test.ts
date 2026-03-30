@@ -91,6 +91,17 @@ describe("Actual system router", () => {
     });
   });
 
+  it("returns structured error when restore payload is missing", async () => {
+    const response = await request(app)
+      .post("/api/system/restore")
+      .send({});
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("A valid snapshot payload is required");
+    expect(response.body.code).toBe("SNAPSHOT_REQUIRED");
+    expect(response.body.suggestion).toBeDefined();
+  });
+
   it("restores a configuration snapshot and reports restore counts", async () => {
     mockNodeManager.restoreConfiguration.mockResolvedValue({
       restoredCount: 2,
