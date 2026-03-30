@@ -4,6 +4,8 @@ import type { NodeManager } from '../../core/NodeManager';
 import { ConfigManager } from '../../core/ConfigManager';
 import type { CreateNodeRequest, UpdateNodeRequest, ImportNodeRequest } from '../../types';
 import { paths } from '../../utils/paths';
+import { ApiError, Errors } from '../errors';
+import { respondWithApiError } from '../respond';
 
 function validateNodePath(inputPath: string): string {
   const resolved = resolve(inputPath);
@@ -11,11 +13,11 @@ function validateNodePath(inputPath: string): string {
   const blocked = ['/', '/etc', '/root', '/proc', '/sys', '/dev'];
 
   if (blocked.includes(resolved)) {
-    throw new Error(`Access to path ${resolved} is not permitted`);
+    throw Errors.pathBlocked(resolved);
   }
 
   if (!allowedPrefixes.some((prefix) => resolved.startsWith(prefix))) {
-    throw new Error(`Path must be under an allowed directory`);
+    throw Errors.pathNotAllowed();
   }
 
   return resolved;
@@ -28,28 +30,10 @@ interface NodeParams {
 export function createNodesRouter(nodeManager: NodeManager): Router {
   const router = Router();
 
-  const respondWithNodeError = (res: Response, error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error);
-
-    if (/not found/i.test(message)) {
-      return res.status(404).json({ error: message });
-    }
-
-    if (
-      /missing required fields|invalid|already exists|requires|cannot|not available|unsupported/i.test(
-        message,
-      )
-    ) {
-      return res.status(400).json({ error: message });
-    }
-
-    return res.status(500).json({ error: message });
-  };
-
   const validateSecureSignerRequest = (
     request: Pick<CreateNodeRequest, "type" | "settings"> | Pick<UpdateNodeRequest, "settings">,
     existingNodeType?: CreateNodeRequest["type"],
-  ): string | null => {
+  ): ApiError | null => {
     const keyProtection = request.settings?.keyProtection;
     if (keyProtection?.mode !== "secure-signer") {
       return null;
@@ -57,16 +41,16 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
 
     const nodeType = "type" in request && request.type ? request.type : existingNodeType;
     if (nodeType !== "neo-cli") {
-      return "Secure signer protection currently requires a neo-cli node with SignClient support";
+      return Errors.signerNeoCliOnly();
     }
 
     if (!keyProtection.signerProfileId) {
-      return "Secure signer protection requires a signer profile";
+      return Errors.signerRequiresProfile();
     }
 
     const profile = nodeManager.getSecureSignerManager().getProfile(keyProtection.signerProfileId);
     if (!profile || !profile.enabled) {
-      return `Secure signer profile ${keyProtection.signerProfileId} is not available`;
+      return Errors.signerNotAvailable(keyProtection.signerProfileId);
     }
 
     return null;
@@ -78,7 +62,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       const nodes = nodeManager.getAllNodes();
       res.json({ nodes });
     } catch (error) {
-      respondWithNodeError(res, error);
+      respondWithApiError(res, error);
     }
   });
 
@@ -86,23 +70,21 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
   router.post('/', async (req: Request, res: Response) => {
     try {
       const request: CreateNodeRequest = req.body;
-      
+
       // Validate required fields
       if (!request.name || !request.type || !request.network) {
-        return res.status(400).json({ 
-          error: 'Missing required fields: name, type, network' 
-        });
+        throw Errors.missingFields("name", "type", "network");
       }
 
       const secureSignerValidationError = validateSecureSignerRequest(request);
       if (secureSignerValidationError) {
-        return res.status(400).json({ error: secureSignerValidationError });
+        throw secureSignerValidationError;
       }
 
       const node = await nodeManager.createNode(request);
       res.status(201).json({ node });
     } catch (error) {
-      respondWithNodeError(res, error);
+      respondWithApiError(res, error);
     }
   });
 
@@ -113,17 +95,15 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
 
       // Validate required fields
       if (!request.name || !request.existingPath) {
-        return res.status(400).json({
-          error: 'Missing required fields: name, existingPath'
-        });
+        throw Errors.missingFields("name", "existingPath");
       }
 
-      request.existingPath = validateNodePath(request.existingPath);
+      const validatedRequest = { ...request, existingPath: validateNodePath(request.existingPath) };
 
-      const node = await nodeManager.importExistingNode(request);
+      const node = await nodeManager.importExistingNode(validatedRequest);
       res.status(201).json({ node });
     } catch (error) {
-      respondWithNodeError(res, error);
+      respondWithApiError(res, error);
     }
   });
 
@@ -133,29 +113,26 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       const { path } = req.body;
 
       if (!path) {
-        return res.status(400).json({ error: 'Missing required field: path' });
+        throw Errors.missingField("path");
       }
 
       const validatedPath = validateNodePath(path);
       const { NodeDetector } = await import('../../core/NodeDetector');
       const detected = NodeDetector.detect(validatedPath);
-      
+
       if (!detected) {
-        return res.status(404).json({ 
-          error: 'No valid node installation detected at the specified path',
-          path 
-        });
+        throw Errors.detectionNotFound();
       }
 
       const validation = NodeDetector.validateImport(detected);
-      
+
       res.json({
         detected,
         validation,
         canImport: validation.valid,
       });
     } catch (error) {
-      respondWithNodeError(res, error);
+      respondWithApiError(res, error);
     }
   });
 
@@ -165,7 +142,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       const { path } = req.body;
 
       if (!path) {
-        return res.status(400).json({ error: 'Missing required field: path' });
+        throw Errors.missingField("path");
       }
 
       const validatedPath = validateNodePath(path);
@@ -178,7 +155,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
         count: results.length,
       });
     } catch (error) {
-      respondWithNodeError(res, error);
+      respondWithApiError(res, error);
     }
   });
 
@@ -187,11 +164,11 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
     try {
       const node = nodeManager.getNode(req.params.id);
       if (!node) {
-        return res.status(404).json({ error: 'Node not found' });
+        throw Errors.nodeNotFound(req.params.id);
       }
       res.json({ node });
     } catch (error) {
-      respondWithNodeError(res, error);
+      respondWithApiError(res, error);
     }
   });
 
@@ -201,12 +178,12 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       const request: UpdateNodeRequest = req.body;
       const existingNode = nodeManager.getNode(req.params.id);
       if (!existingNode) {
-        return res.status(404).json({ error: "Node not found" });
+        throw Errors.nodeNotFound(req.params.id);
       }
 
       const secureSignerValidationError = validateSecureSignerRequest(request, existingNode.type);
       if (secureSignerValidationError) {
-        return res.status(400).json({ error: secureSignerValidationError });
+        throw secureSignerValidationError;
       }
       const keyProtection = request.settings?.keyProtection;
 
@@ -218,7 +195,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
 
       res.json({ node });
     } catch (error) {
-      respondWithNodeError(res, error);
+      respondWithApiError(res, error);
     }
   });
 
@@ -228,7 +205,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       await nodeManager.deleteNode(req.params.id);
       res.status(204).send();
     } catch (error) {
-      respondWithNodeError(res, error);
+      respondWithApiError(res, error);
     }
   });
 
@@ -239,7 +216,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       const node = nodeManager.getNode(req.params.id);
       res.json({ node });
     } catch (error) {
-      respondWithNodeError(res, error);
+      respondWithApiError(res, error);
     }
   });
 
@@ -251,7 +228,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       const node = nodeManager.getNode(req.params.id);
       res.json({ node });
     } catch (error) {
-      respondWithNodeError(res, error);
+      respondWithApiError(res, error);
     }
   });
 
@@ -262,7 +239,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       const node = nodeManager.getNode(req.params.id);
       res.json({ node });
     } catch (error) {
-      respondWithNodeError(res, error);
+      respondWithApiError(res, error);
     }
   });
 
@@ -271,13 +248,13 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
     try {
       const node = nodeManager.getNode(req.params.id);
       if (!node) {
-        return res.status(404).json({ error: 'Node not found' });
+        throw Errors.nodeNotFound(req.params.id);
       }
-      const count = Math.min(parseInt(req.query.count as string) || 100, 1000);
+      const count = Math.max(1, Math.min(parseInt(req.query.count as string) || 100, 1000));
       const logs = nodeManager.getNodeLogs(req.params.id, count);
       res.json({ logs });
     } catch (error) {
-      respondWithNodeError(res, error);
+      respondWithApiError(res, error);
     }
   });
 
@@ -287,7 +264,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       const info = await nodeManager.getStorageInfo(req.params.id);
       res.json({ storage: info });
     } catch (error) {
-      respondWithNodeError(res, error);
+      respondWithApiError(res, error);
     }
   });
 
@@ -296,7 +273,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
     try {
       const node = nodeManager.getNode(req.params.id);
       if (!node) {
-        return res.status(404).json({ error: 'Node not found' });
+        throw Errors.nodeNotFound(req.params.id);
       }
       const signerHealth = await nodeManager.getNodeSecureSignerHealth(req.params.id);
       if (!signerHealth) {
@@ -304,7 +281,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       }
       res.json({ signerHealth });
     } catch (error) {
-      respondWithNodeError(res, error);
+      respondWithApiError(res, error);
     }
   });
 
@@ -313,7 +290,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
     try {
       const node = nodeManager.getNode(req.params.id);
       if (!node) {
-        return res.status(404).json({ error: 'Node not found' });
+        throw Errors.nodeNotFound(req.params.id);
       }
       const requestedMaxAge = Number(req.body?.maxAgeDays);
       const maxAgeDays = Number.isFinite(requestedMaxAge) && requestedMaxAge > 0 ? requestedMaxAge : 30;
@@ -321,7 +298,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       const cleanedFiles = await StorageManager.cleanOldLogs(node.paths.logs, maxAgeDays);
       res.json({ success: true, cleanedFiles, maxAgeDays });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+      respondWithApiError(res, error);
     }
   });
 
@@ -330,13 +307,13 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
     try {
       const node = nodeManager.getNode(req.params.id);
       if (!node) {
-        return res.status(404).json({ error: 'Node not found' });
+        throw Errors.nodeNotFound(req.params.id);
       }
       const plugins = nodeManager.getPluginManager().getInstalledPlugins(req.params.id).map(p => p.id);
       const audit = await ConfigManager.auditNodeConfig(node, plugins);
       res.json({ audit });
     } catch (error) {
-      respondWithNodeError(res, error);
+      respondWithApiError(res, error);
     }
   });
 
