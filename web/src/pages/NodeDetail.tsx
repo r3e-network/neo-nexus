@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Square, RotateCw, Trash2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Play, Square, RotateCw, Trash2, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useNode, useStartNode, useStopNode, useDeleteNode, useNodeSignerHealth, useNetworkHeight } from '../hooks/useNodes';
 import { useState, useEffect } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -21,6 +21,16 @@ export default function NodeDetail() {
   const [realtimeLogs, setRealtimeLogs] = useState<Array<{ timestamp: number; level: string; message: string }>>([]);
   const [isRestarting, setIsRestarting] = useState(false);
   const networkHeightQuery = useNetworkHeight();
+  const [showDetails, setShowDetails] = useState(() => {
+    return localStorage.getItem("neo-nexus-show-node-details") === "true";
+  });
+
+  const toggleDetails = () => {
+    setShowDetails((prev) => {
+      localStorage.setItem("neo-nexus-show-node-details", String(!prev));
+      return !prev;
+    });
+  };
 
   useEffect(() => {
     if (!id || typeof lastMessage === 'string' || !lastMessage) {
@@ -220,53 +230,66 @@ export default function NodeDetail() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Ports */}
-            <div className="card">
-              <h3 className="text-lg font-semibold text-white mb-4">Ports</h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">RPC</span>
-                  <span className="text-white font-mono">{node.ports.rpc}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">P2P</span>
-                  <span className="text-white font-mono">{node.ports.p2p}</span>
-                </div>
-                {node.ports.websocket && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">WebSocket</span>
-                    <span className="text-white font-mono">{node.ports.websocket}</span>
-                  </div>
-                )}
-                {node.ports.metrics && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Metrics</span>
-                    <span className="text-white font-mono">{node.ports.metrics}</span>
-                  </div>
-                )}
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={toggleDetails}
+              className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 mb-3 w-full"
+            >
+              {showDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              {showDetails ? "Hide technical details" : "Show technical details"}
+            </button>
 
-            {/* Process Info */}
-            <div className="card">
-              <h3 className="text-lg font-semibold text-white mb-4">Process</h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">PID</span>
-                  <span className="text-white font-mono">{node.process.pid || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Status</span>
-                  <span className="text-white capitalize">{node.process.status}</span>
-                </div>
-                {node.process.uptime && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Uptime</span>
-                    <span className="text-white">{formatDuration(node.process.uptime)}</span>
+            {showDetails && (
+              <>
+                {/* Ports */}
+                <div className="card">
+                  <h3 className="text-lg font-semibold text-white mb-4">Ports</h3>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">RPC</span>
+                      <span className="text-white font-mono">{node.ports.rpc}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">P2P</span>
+                      <span className="text-white font-mono">{node.ports.p2p}</span>
+                    </div>
+                    {node.ports.websocket && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">WebSocket</span>
+                        <span className="text-white font-mono">{node.ports.websocket}</span>
+                      </div>
+                    )}
+                    {node.ports.metrics && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Metrics</span>
+                        <span className="text-white font-mono">{node.ports.metrics}</span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
+
+                {/* Process Info */}
+                <div className="card">
+                  <h3 className="text-lg font-semibold text-white mb-4">Process</h3>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">PID</span>
+                      <span className="text-white font-mono">{node.process.pid || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Status</span>
+                      <span className="text-white capitalize">{node.process.status}</span>
+                    </div>
+                    {node.process.uptime && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Uptime</span>
+                        <span className="text-white">{formatDuration(node.process.uptime)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
 
             {signerHealth && (
               <div className="card">
