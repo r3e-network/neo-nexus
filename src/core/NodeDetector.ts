@@ -10,8 +10,11 @@
  */
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { join } from 'node:path';
+import YAML from 'js-yaml';
 import type { NodeType, NodeNetwork, PortConfig } from '../types';
+import { Errors } from '../api/errors';
 
 export interface DetectedNodeConfig {
   type: NodeType;
@@ -30,7 +33,7 @@ export class NodeDetector {
   static detect(basePath: string): DetectedNodeConfig | null {
     // Validate path exists
     if (!existsSync(basePath)) {
-      throw new Error(`Path does not exist: ${basePath}`);
+      throw Errors.pathNotFound(basePath);
     }
 
     // Try to detect as neo-cli
@@ -59,74 +62,53 @@ export class NodeDetector {
     const neoCliDll = join(basePath, 'neo-cli.dll');
     const neoCliExe = join(basePath, 'neo-cli');
 
+    const configCandidates = [configPath, configTestnetPath, configMainnetPath];
+
     // Check if this looks like a neo-cli installation
     const hasExecutable = existsSync(neoCliDll) || existsSync(neoCliExe);
-    const hasConfig = existsSync(configPath) || existsSync(configMainnetPath) || existsSync(configTestnetPath);
 
-    if (!hasExecutable && !hasConfig) {
-      return null;
-    }
-
-    // Detect network and ports from config
+    // Single-pass: find and parse the first readable config file
     let network: NodeNetwork = 'testnet';
     const ports: Partial<PortConfig> = {};
     let dataPath = join(basePath, 'Data');
+    let detectedConfigPath: string | undefined;
 
-    // Try to read and parse config
-    const configFiles = [
-      configPath,
-      configTestnetPath,
-      configMainnetPath,
-    ];
+    for (const configFile of configCandidates) {
+      if (!existsSync(configFile)) {
+        continue;
+      }
+      detectedConfigPath ??= configFile;
 
-    for (const configFile of configFiles) {
-      if (existsSync(configFile)) {
-        try {
-          const config = JSON.parse(readFileSync(configFile, 'utf8'));
-          
-          // Detect network from ProtocolConfiguration.Network
-          if (config.ProtocolConfiguration?.Network !== undefined) {
-            const networkMagic = config.ProtocolConfiguration.Network;
-            // Neo N3 network magics
-            if (networkMagic === 860833102) {
-              network = 'mainnet';
-            } else if (networkMagic === 894710606) {
-              network = 'testnet';
-            } else {
-              network = 'private';
-            }
-          }
+      try {
+        const config = JSON.parse(readFileSync(configFile, 'utf8'));
 
-          // Detect ports from ApplicationConfiguration
-          if (config.ApplicationConfiguration?.P2P?.Port) {
-            ports.p2p = config.ApplicationConfiguration.P2P.Port;
-          }
-          if (config.ApplicationConfiguration?.RPC?.Port) {
-            ports.rpc = config.ApplicationConfiguration.RPC.Port;
-          }
-
-          // Detect data path
-          if (config.ApplicationConfiguration?.Storage?.Path) {
-            dataPath = join(basePath, config.ApplicationConfiguration.Storage.Path);
-          }
-
-          break; // Use first valid config
-        } catch {
-          // Continue to next config file
+        if (config.ProtocolConfiguration?.Network !== undefined) {
+          network = this.resolveNetworkFromMagic(config.ProtocolConfiguration.Network);
         }
+
+        if (config.ApplicationConfiguration?.P2P?.Port) {
+          ports.p2p = config.ApplicationConfiguration.P2P.Port;
+        }
+        if (config.ApplicationConfiguration?.RPC?.Port) {
+          ports.rpc = config.ApplicationConfiguration.RPC.Port;
+        }
+
+        if (config.ApplicationConfiguration?.Storage?.Path) {
+          dataPath = join(basePath, config.ApplicationConfiguration.Storage.Path);
+        }
+
+        break;
+      } catch {
+        // Continue to next config file
       }
     }
 
-    // Detect version from neo-cli.dll or other files
-    const version = this.detectNeoCliVersion(basePath);
+    if (!hasExecutable && !detectedConfigPath) {
+      return null;
+    }
 
-    // Default ports if not detected
-    if (!ports.p2p) {
-      ports.p2p = network === 'mainnet' ? 10333 : 20333;
-    }
-    if (!ports.rpc) {
-      ports.rpc = network === 'mainnet' ? 10332 : 20332;
-    }
+    const version = this.detectNeoCliVersion(basePath);
+    this.applyDefaultPorts(ports, network);
 
     return {
       type: 'neo-cli',
@@ -134,8 +116,8 @@ export class NodeDetector {
       version,
       ports,
       dataPath,
-      configPath: existsSync(configPath) ? configPath : configTestnetPath,
-      isRunning: this.isProcessRunning(basePath, 'neo-cli'),
+      configPath: detectedConfigPath ?? configPath,
+      isRunning: this.isProcessRunning('neo-cli'),
     };
   }
 
@@ -145,66 +127,72 @@ export class NodeDetector {
   private static detectNeoGo(basePath: string): DetectedNodeConfig | null {
     // Check for neo-go specific files
     const configPath = join(basePath, 'config.yaml');
-    const configProtocolPath = join(basePath, 'protocol.yaml');
+    const protocolYmlPath = join(basePath, 'protocol.yml');
+    const protocolYamlPath = join(basePath, 'protocol.yaml');
     const neoGoBinary = join(basePath, 'neo-go');
+    const configCandidates = [configPath, protocolYmlPath, protocolYamlPath];
 
     // Check if this looks like a neo-go installation
     const hasBinary = existsSync(neoGoBinary);
-    const hasConfig = existsSync(configPath) || existsSync(configProtocolPath);
 
-    if (!hasBinary && !hasConfig) {
-      return null;
-    }
-
-    // Detect network and ports from config
+    // Single-pass: find and parse the first readable config file
     let network: NodeNetwork = 'testnet';
     const ports: Partial<PortConfig> = {};
-    const dataPath = join(basePath, 'data');
+    let dataPath = join(basePath, 'data');
+    let detectedConfigPath: string | undefined;
 
-    // Try to read and parse config.yaml
-    if (existsSync(configPath)) {
+    for (const candidate of configCandidates) {
+      if (!existsSync(candidate)) {
+        continue;
+      }
+      detectedConfigPath ??= candidate;
+
       try {
-        const configContent = readFileSync(configPath, 'utf8');
-        
-        // Parse YAML-like content (simplified)
-        const networkMatch = configContent.match(/Network:\s*(\d+)/);
-        if (networkMatch) {
-          const networkMagic = parseInt(networkMatch[1], 10);
-          if (networkMagic === 860833102) {
-            network = 'mainnet';
-          } else if (networkMagic === 894710606) {
-            network = 'testnet';
-          } else {
-            network = 'private';
-          }
+        const parsedConfig = YAML.load(readFileSync(candidate, 'utf8'));
+        const config = this.asRecord(parsedConfig);
+        const protocolConfig = this.asRecord(config?.ProtocolConfiguration);
+        const applicationConfig = this.asRecord(config?.ApplicationConfiguration);
+
+        const networkMagic =
+          this.asNumber(protocolConfig?.Magic) ?? this.asNumber(protocolConfig?.Network);
+        if (networkMagic !== undefined) {
+          network = this.resolveNetworkFromMagic(networkMagic);
         }
 
-        // Extract ports
-        const p2pMatch = configContent.match(/Port:\s*(\d+)/);
-        if (p2pMatch) {
-          ports.p2p = parseInt(p2pMatch[1], 10);
+        const p2pConfig = this.asRecord(applicationConfig?.P2P);
+        const rpcConfig = this.asRecord(applicationConfig?.RPC);
+        const dbConfig = this.asRecord(applicationConfig?.DBConfiguration);
+        const levelDbOptions = this.asRecord(dbConfig?.LevelDBOptions);
+
+        const detectedP2pPort = this.extractAddressPort(p2pConfig?.Addresses);
+        if (detectedP2pPort !== undefined) {
+          ports.p2p = detectedP2pPort;
         }
 
-        const rpcMatch = configContent.match(/RPC:\s*[\s\S]*?Port:\s*(\d+)/);
-        if (rpcMatch) {
-          ports.rpc = parseInt(rpcMatch[1], 10);
+        const detectedRpcPort = this.extractAddressPort(rpcConfig?.Addresses);
+        if (detectedRpcPort !== undefined) {
+          ports.rpc = detectedRpcPort;
         }
 
+        const configuredDataDirectory = typeof levelDbOptions?.DataDirectoryPath === 'string'
+          ? levelDbOptions.DataDirectoryPath
+          : undefined;
+        if (configuredDataDirectory) {
+          dataPath = join(basePath, configuredDataDirectory);
+        }
+
+        break;
       } catch {
-        // Use defaults
+        // Use defaults if the config cannot be parsed.
       }
     }
 
-    // Detect version
-    const version = this.detectNeoGoVersion(basePath);
+    if (!hasBinary && !detectedConfigPath) {
+      return null;
+    }
 
-    // Default ports if not detected
-    if (!ports.p2p) {
-      ports.p2p = network === 'mainnet' ? 10333 : 20333;
-    }
-    if (!ports.rpc) {
-      ports.rpc = network === 'mainnet' ? 10332 : 20332;
-    }
+    const version = this.detectNeoGoVersion(basePath);
+    this.applyDefaultPorts(ports, network);
 
     return {
       type: 'neo-go',
@@ -212,16 +200,12 @@ export class NodeDetector {
       version,
       ports,
       dataPath,
-      configPath: existsSync(configPath) ? configPath : configProtocolPath,
-      isRunning: this.isProcessRunning(basePath, 'neo-go'),
+      configPath: detectedConfigPath ?? protocolYmlPath,
+      isRunning: this.isProcessRunning('neo-go'),
     };
   }
 
-  /**
-   * Detect neo-cli version from installation
-   */
   private static detectNeoCliVersion(basePath: string): string {
-    // Try to get version from neo-cli.deps.json
     const depsPath = join(basePath, 'neo-cli.deps.json');
     if (existsSync(depsPath)) {
       try {
@@ -233,43 +217,23 @@ export class NodeDetector {
           }
         }
       } catch {
-        // Fall through to next method
+        // Fall through to default
       }
-    }
-
-    // Try to infer from Neo.dll version
-    const neoDllPath = join(basePath, 'Neo.dll');
-    if (existsSync(neoDllPath)) {
-      // Version detection would require assembly reading
-      // For now, return a default
-      return 'v3.6.0';
     }
 
     return 'v3.6.0';
   }
 
-  /**
-   * Detect neo-go version from installation
-   */
-  private static detectNeoGoVersion(basePath: string): string {
-    // Try to get version from binary
-    const neoGoBinary = join(basePath, 'neo-go');
-    if (existsSync(neoGoBinary)) {
-      // In real implementation, would run: ./neo-go --version
-      // For now, return a default
-      return '0.104.0';
-    }
-
+  private static detectNeoGoVersion(_basePath: string): string {
+    // TODO: run `./neo-go --version` to detect actual version
     return '0.104.0';
   }
 
   /**
    * Check if a process is running for this node
    */
-  private static isProcessRunning(basePath: string, processName: string): boolean {
-    // This is a simplified check - in production would use ps-list or similar
+  private static isProcessRunning(processName: string): boolean {
     try {
-      const { execSync } = require('node:child_process');
       const result = execSync(`pgrep -f "${processName}" || true`, { encoding: 'utf8' });
       return result.trim().length > 0;
     } catch {
@@ -335,5 +299,50 @@ export class NodeDetector {
       valid: errors.length === 0,
       errors,
     };
+  }
+
+  private static applyDefaultPorts(ports: Partial<PortConfig>, network: NodeNetwork): void {
+    if (!ports.p2p) {
+      ports.p2p = network === 'mainnet' ? 10333 : 20333;
+    }
+    if (!ports.rpc) {
+      ports.rpc = network === 'mainnet' ? 10332 : 20332;
+    }
+  }
+
+  private static resolveNetworkFromMagic(networkMagic: number): NodeNetwork {
+    if (networkMagic === 860833102) {
+      return 'mainnet';
+    }
+    if (networkMagic === 894710606) {
+      return 'testnet';
+    }
+    return 'private';
+  }
+
+  private static extractAddressPort(addresses: unknown): number | undefined {
+    if (!Array.isArray(addresses) || addresses.length === 0 || typeof addresses[0] !== 'string') {
+      return undefined;
+    }
+
+    const match = addresses[0].match(/:(\d+)$/);
+    if (!match) {
+      return undefined;
+    }
+
+    const port = Number.parseInt(match[1], 10);
+    return Number.isNaN(port) ? undefined : port;
+  }
+
+  private static asRecord(value: unknown): Record<string, unknown> | undefined {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return undefined;
+    }
+
+    return value as Record<string, unknown>;
+  }
+
+  private static asNumber(value: unknown): number | undefined {
+    return typeof value === 'number' ? value : undefined;
   }
 }

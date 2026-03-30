@@ -1,4 +1,5 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { EventEmitter } from 'node:events';
@@ -27,6 +28,7 @@ import { SecureSignerManager } from './SecureSignerManager';
 import { NeoCliNode } from '../nodes/NeoCliNode';
 import { NeoGoNode } from '../nodes/NeoGoNode';
 import { BaseNode } from '../nodes/BaseNode';
+import { Errors } from '../api/errors';
 
 export interface NodeManagerEvents {
   nodeStatus: (event: { nodeId: string; status: NodeStatus; previousStatus: NodeStatus }) => void;
@@ -66,13 +68,13 @@ export class NodeManager extends EventEmitter {
     // Detect node configuration from existing path
     const detected = NodeDetector.detect(request.existingPath);
     if (!detected) {
-      throw new Error(`Could not detect valid node installation at ${request.existingPath}. Make sure the path contains a valid neo-cli or neo-go installation.`);
+      throw Errors.detectionFailed(request.existingPath);
     }
 
     // Validate the detected configuration
     const validation = NodeDetector.validateImport(detected);
     if (!validation.valid) {
-      throw new Error(`Invalid node configuration: ${validation.errors.join(', ')}`);
+      throw Errors.importInvalid(validation.errors);
     }
 
     // Use detected values or override with user-provided values
@@ -81,20 +83,20 @@ export class NodeManager extends EventEmitter {
     const version = request.version || detected.version;
     const ports = { ...detected.ports, ...request.ports };
 
-    // Check for port conflicts
+    // Allocate ports for any that weren't detected, then release the
+    // speculative allocation so overridden ports don't leak in PortManager.
     const nodeIndex = await this.portManager.findNextIndex();
     const allocatedPorts = await this.portManager.allocatePorts(nodeIndex);
-    
-    // Use detected ports if available, otherwise allocate new ones
     const finalPorts = {
       rpc: ports.rpc || allocatedPorts.rpc,
       p2p: ports.p2p || allocatedPorts.p2p,
       websocket: ports.websocket || allocatedPorts.websocket,
       metrics: ports.metrics || allocatedPorts.metrics,
     };
+    this.portManager.releasePorts(allocatedPorts);
 
     // Create node configuration
-    const nodeId = `node-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`;
+    const nodeId = `node-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
     const now = Date.now();
 
     // Determine paths - use detected paths
@@ -162,9 +164,6 @@ export class NodeManager extends EventEmitter {
    */
   private async attachToRunningProcess(nodeId: string, type: string): Promise<void> {
     try {
-      const { execSync } = require('node:child_process');
-      
-      // Try to find the process
       const processName = type === 'neo-cli' ? 'neo-cli' : 'neo-go';
       const result = execSync(`pgrep -f "${processName}" || true`, { encoding: 'utf8' });
       
@@ -215,7 +214,7 @@ export class NodeManager extends EventEmitter {
       : await this.portManager.allocatePorts(nodeIndex);
 
     // Create node configuration
-    const nodeId = `node-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`;
+    const nodeId = `node-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
     const now = Date.now();
 
     const config: NodeConfig = {
@@ -371,7 +370,7 @@ export class NodeManager extends EventEmitter {
     version: string;
     nodes: Array<Omit<NodeInstance, 'process' | 'metrics'>>;
   } {
-    const nodes = this.getAllNodes().map(({ process, metrics, ...config }) => config);
+    const nodes = this.getAllNodes().map(({ process: _process, metrics: _metrics, ...config }) => config);
 
     let version = "2.0.0";
     try {
@@ -458,7 +457,7 @@ export class NodeManager extends EventEmitter {
         }
 
         restoredCount++;
-      } catch (error) {
+      } catch {
         failedCount++;
       }
     }
@@ -476,11 +475,11 @@ export class NodeManager extends EventEmitter {
   async updateNode(nodeId: string, request: UpdateNodeRequest): Promise<NodeInstance> {
     const node = this.getNode(nodeId);
     if (!node) {
-      throw new Error(`Node ${nodeId} not found`);
+      throw Errors.nodeNotFound(nodeId);
     }
 
     if (node.process.status === 'running') {
-      throw new Error('Cannot update configuration while node is running');
+      throw Errors.nodeRunning();
     }
 
     const updates: string[] = [];
@@ -517,7 +516,7 @@ export class NodeManager extends EventEmitter {
   async deleteNode(nodeId: string, removeFiles = true): Promise<void> {
     const node = this.getNode(nodeId);
     if (!node) {
-      throw new Error(`Node ${nodeId} not found`);
+      throw Errors.nodeNotFound(nodeId);
     }
 
     // Stop if running
@@ -550,13 +549,13 @@ export class NodeManager extends EventEmitter {
   async startNode(nodeId: string): Promise<void> {
     const node = this.getNode(nodeId);
     if (!node) {
-      throw new Error(`Node ${nodeId} not found`);
+      throw Errors.nodeNotFound(nodeId);
     }
 
     // Check if already running
     const existingNode = this.nodes.get(nodeId);
     if (existingNode?.isRunning()) {
-      throw new Error('Node is already running');
+      throw Errors.nodeAlreadyRunning();
     }
 
     // Create appropriate node instance
@@ -593,7 +592,7 @@ export class NodeManager extends EventEmitter {
   async stopNode(nodeId: string, force = false): Promise<void> {
     const nodeInstance = this.nodes.get(nodeId);
     if (!nodeInstance) {
-      throw new Error('Node is not running');
+      throw Errors.nodeNotRunning();
     }
 
     await nodeInstance.stop(force);
@@ -631,7 +630,7 @@ export class NodeManager extends EventEmitter {
   async getStorageInfo(nodeId: string) {
     const node = this.getNode(nodeId);
     if (!node) {
-      throw new Error(`Node ${nodeId} not found`);
+      throw Errors.nodeNotFound(nodeId);
     }
 
     return StorageManager.getNodeStorageInfo(nodeId, node.paths);
@@ -643,15 +642,15 @@ export class NodeManager extends EventEmitter {
   async installPlugin(nodeId: string, pluginId: PluginId, config?: Record<string, unknown>): Promise<void> {
     const node = this.getNode(nodeId);
     if (!node) {
-      throw new Error(`Node ${nodeId} not found`);
+      throw Errors.nodeNotFound(nodeId);
     }
 
     if (node.type !== 'neo-cli') {
-      throw new Error('Plugins are only supported for neo-cli nodes');
+      throw Errors.pluginsCliOnly();
     }
 
     if (node.process.status === 'running') {
-      throw new Error('Cannot install plugins while node is running');
+      throw Errors.nodeRunning();
     }
 
     await this.pluginManager.installPlugin(nodeId, pluginId, node.version, config);
@@ -723,7 +722,7 @@ export class NodeManager extends EventEmitter {
   async syncNodeSecureSigner(nodeId: string): Promise<void> {
     const node = this.getNode(nodeId);
     if (!node) {
-      throw new Error(`Node ${nodeId} not found`);
+      throw Errors.nodeNotFound(nodeId);
     }
 
     const keyProtection = node.settings?.keyProtection;
@@ -736,7 +735,7 @@ export class NodeManager extends EventEmitter {
 
     const profile = this.secureSignerManager.getProfile(signerProfileId!);
     if (!profile || !profile.enabled) {
-      throw new Error(`Secure signer profile ${signerProfileId} is not available`);
+      throw Errors.signerNotAvailable(signerProfileId!);
     }
 
     const config = this.secureSignerManager.buildSignClientConfig(profile);
@@ -806,16 +805,16 @@ export class NodeManager extends EventEmitter {
     signerProfileId?: string,
   ): void {
     if (!signerProfileId) {
-      throw new Error("Secure signer protection requires a signer profile");
+      throw Errors.signerRequiresProfile();
     }
 
     if (nodeType !== "neo-cli") {
-      throw new Error("Secure signer protection currently requires a neo-cli node with SignClient support");
+      throw Errors.signerNeoCliOnly();
     }
 
     const profile = this.secureSignerManager.getProfile(signerProfileId);
     if (!profile || !profile.enabled) {
-      throw new Error(`Secure signer profile ${signerProfileId} is not available`);
+      throw Errors.signerNotAvailable(signerProfileId);
     }
   }
 }
