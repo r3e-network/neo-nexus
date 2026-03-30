@@ -1,5 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import type { CreateRemoteServerRequest, UpdateRemoteServerRequest } from "../../types";
+import { Errors } from '../errors';
+import { respondWithApiError } from '../respond';
 
 interface ServerProfilesOperations {
   listServersWithStatus(): Promise<unknown[]>;
@@ -17,7 +19,7 @@ export function createServersRouter(serverManager: ServerProfilesOperations): Ro
       const servers = await serverManager.listServersWithStatus();
       res.json({ servers });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      respondWithApiError(res, error);
     }
   });
 
@@ -26,7 +28,7 @@ export function createServersRouter(serverManager: ServerProfilesOperations): Ro
       const server = await serverManager.getServerSummary(req.params.id as string);
       res.json({ server });
     } catch (error) {
-      res.status(404).json({ error: error instanceof Error ? error.message : "Not found" });
+      respondWithApiError(res, error);
     }
   });
 
@@ -34,12 +36,12 @@ export function createServersRouter(serverManager: ServerProfilesOperations): Ro
     try {
       const { name, baseUrl } = req.body || {};
       if (!name || !baseUrl) {
-        return res.status(400).json({ error: "Missing required fields: name, baseUrl" });
+        throw Errors.serverFieldsRequired();
       }
       const server = serverManager.createServer(req.body as CreateRemoteServerRequest);
       res.status(201).json({ server });
     } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : "Bad request" });
+      respondWithApiError(res, error);
     }
   });
 
@@ -48,7 +50,7 @@ export function createServersRouter(serverManager: ServerProfilesOperations): Ro
       const server = serverManager.updateServer(req.params.id as string, req.body as UpdateRemoteServerRequest);
       res.json({ server });
     } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : "Bad request" });
+      respondWithApiError(res, error);
     }
   });
 
@@ -57,7 +59,7 @@ export function createServersRouter(serverManager: ServerProfilesOperations): Ro
       serverManager.deleteServer(req.params.id as string);
       res.status(204).send();
     } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : "Bad request" });
+      respondWithApiError(res, error);
     }
   });
 

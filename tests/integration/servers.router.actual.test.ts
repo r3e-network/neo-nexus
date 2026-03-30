@@ -89,6 +89,17 @@ describe("Actual servers router", () => {
     expect(response.body.server.name).toBe("Tokyo Updated");
   });
 
+  it("returns structured error when required fields are missing on create", async () => {
+    const response = await request(app)
+      .post("/api/servers")
+      .send({ name: "Incomplete" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("Missing required fields: name, baseUrl");
+    expect(response.body.code).toBe("MISSING_FIELDS");
+    expect(response.body.suggestion).toBeDefined();
+  });
+
   it("deletes a server profile", async () => {
     mockManager.deleteServer.mockReturnValue(undefined);
 
