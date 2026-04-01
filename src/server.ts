@@ -515,7 +515,7 @@ export async function startServer(config: ServerConfig): Promise<ReturnType<type
 
   let shuttingDown = false;
 
-  async function shutdown(signal: string): Promise<void> {
+  async function shutdown(_signal: string): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
 

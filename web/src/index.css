@@ -9,21 +9,21 @@
   --error: #ef4444;
   --info: #06b6d4;
 
-  --bg-primary: #0a0f1e;
-  --bg-secondary: #1a1f35;
-  --bg-tertiary: #2a2f45;
-  --bg-hover: #3a3f55;
+  --bg-primary: #050811;
+  --bg-secondary: rgba(18, 24, 43, 0.65);
+  --bg-tertiary: rgba(30, 38, 61, 0.65);
+  --bg-hover: rgba(41, 50, 77, 0.8);
 
   --text-primary: #f8fafc;
   --text-secondary: #cbd5e1;
   --text-muted: #64748b;
 
-  --border-color: #2a2f45;
-  --border-radius: 0.75rem;
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.2), 0 4px 6px -2px rgb(0 0 0 / 0.05);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.3), 0 10px 10px -5px rgb(0 0 0 / 0.04);
+  --border-color: rgba(255, 255, 255, 0.06);
+  --border-radius: 1rem;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.2), 0 2px 4px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 25px -3px rgb(0 0 0 / 0.3), 0 4px 10px -2px rgb(0 0 0 / 0.2);
+  --shadow-xl: 0 20px 40px -5px rgb(0 0 0 / 0.4), 0 10px 20px -5px rgb(0 0 0 / 0.3);
 }
 
 * {
@@ -35,25 +35,27 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
   background-color: var(--bg-primary);
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.08), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.05), transparent 25%);
+  background-attachment: fixed;
   color: var(--text-primary);
   line-height: 1.5;
 }
 
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
-  border-radius: 5px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--bg-tertiary);
-  border-radius: 5px;
-  border: 2px solid var(--bg-secondary);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -67,6 +69,8 @@ body {
   border-radius: var(--border-radius);
   padding: 1.5rem;
   box-shadow: var(--shadow-md);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -114,29 +118,51 @@ button.card:hover {
 .btn-primary {
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: white;
+  box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.39);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, var(--primary-dark), #1d4ed8);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary));
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+  transform: translateY(-2px);
 }
 
 .btn-secondary {
   background: var(--bg-tertiary);
   color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .btn-secondary:hover {
-  background: var(--text-muted);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
 }
 
 .btn-success {
   background: linear-gradient(135deg, var(--success), #059669);
   color: white;
+  box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.39);
+}
+
+.btn-success:hover {
+  background: linear-gradient(135deg, #34d399, var(--success));
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+  transform: translateY(-2px);
 }
 
 .btn-error {
   background: linear-gradient(135deg, var(--error), #dc2626);
   color: white;
+  box-shadow: 0 4px 14px 0 rgba(239, 68, 68, 0.39);
+}
+
+.btn-error:hover {
+  background: linear-gradient(135deg, #f87171, var(--error));
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+  transform: translateY(-2px);
 }
 
 .btn:disabled {
@@ -189,9 +215,11 @@ button.card:hover {
   padding: 0.625rem 0.875rem;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
+  border-radius: 0.75rem;
   color: var(--text-primary);
   font-size: 0.875rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -216,10 +244,12 @@ button.card:hover {
   padding: 0.5rem 0.75rem;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
+  border-radius: 0.75rem;
   color: var(--text-primary);
   font-size: 0.875rem;
   cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .select:focus {

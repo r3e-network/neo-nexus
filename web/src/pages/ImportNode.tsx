@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { FolderOpen, Search, CheckCircle, Loader2, Server } from "lucide-react";
+import { FolderOpen, Search, CheckCircle, Loader2, Server, ArrowLeft } from "lucide-react";
 import { FeedbackBanner } from "../components/FeedbackBanner";
 import { api, ApiRequestError } from "../utils/api";
 
@@ -147,18 +147,30 @@ export default function ImportNode() {
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white">Import Existing Node</h1>
-        <p className="text-slate-400 mt-2">
-          Import an existing neo-cli or neo-go installation into NeoNexus for management.
-        </p>
+      <div className="mb-6">
+        <Link to="/nodes" className="text-slate-400 hover:text-white flex items-center gap-2 text-sm">
+          <ArrowLeft className="w-4 h-4" />
+          Back to Nodes
+        </Link>
+      </div>
+
+      <div className="card mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+            <FolderOpen className="w-5 h-5 text-blue-400" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-white">Import Existing Node</h1>
+            <p className="text-slate-400 text-sm">Import an existing neo-cli or neo-go installation</p>
+          </div>
+        </div>
       </div>
 
       <FeedbackBanner error={error} suggestion={suggestion} code={code} />
 
       <div className="space-y-6">
         {/* Path Input */}
-        <div className="bg-slate-900 rounded-xl p-6 border border-slate-800">
+        <div className="card">
           <label className="block text-sm font-medium text-slate-300 mb-2">Node Directory Path</label>
           <div className="flex gap-3">
             <div className="flex-1 relative">
@@ -186,7 +198,7 @@ export default function ImportNode() {
         </div>
 
         {/* Scan Directory Option */}
-        <div className="bg-slate-900 rounded-xl p-6 border border-slate-800">
+        <div className="card">
           <label className="block text-sm font-medium text-slate-300 mb-2">Or Scan Directory for Nodes</label>
           <div className="flex gap-3">
             <button
@@ -228,7 +240,7 @@ export default function ImportNode() {
 
         {/* Detected Configuration */}
         {detected && (
-          <div className="bg-slate-900 rounded-xl p-6 border border-slate-800">
+          <div className="card">
             <div className="flex items-center gap-3 mb-4">
               <CheckCircle className="w-6 h-6 text-emerald-400" />
               <h2 className="text-xl font-semibold text-white">Configuration Detected</h2>

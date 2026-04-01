@@ -106,7 +106,7 @@ export default function Nodes() {
               </thead>
               <tbody>
                 {filteredNodes.map((node, i) => (
-                  <tr key={node.id} className={`border-b border-slate-800/50 hover:bg-slate-800/30 animate-fade-in-up`} style={{ animationDelay: `${i * 0.05}s` }}>
+                  <tr key={node.id} className={`border-b border-slate-700/30 bg-slate-800/10 backdrop-blur-sm hover:bg-slate-800/30 transition-colors duration-200 animate-fade-in-up`} style={{ animationDelay: `${i * 0.05}s` }}>
                     <td className="py-4 px-4">
                       <Link to={`/nodes/${node.id}`} className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
