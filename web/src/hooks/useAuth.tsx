@@ -50,7 +50,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!token) return null;
       try {
         return await api.get<{ user: User }>("/auth/me");
-      } catch (error) {
+      } catch {
         clearAuthState();
         return null;
       }

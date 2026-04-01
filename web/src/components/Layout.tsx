@@ -71,8 +71,8 @@ export default function Layout({ children }: LayoutProps) {
       {/* Sidebar */}
       <aside 
         className={`
-          fixed lg:static inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-800
-          transform transition-transform duration-200 ease-in-out
+          fixed lg:static inset-y-0 left-0 z-50 w-64 bg-slate-900/40 backdrop-blur-xl border-r border-slate-800/50
+          transform transition-transform duration-300 ease-in-out
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
@@ -129,7 +129,7 @@ export default function Layout({ children }: LayoutProps) {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="h-16 flex items-center justify-between px-4 lg:px-8 border-b border-slate-800 bg-slate-900">
+        <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 lg:px-8 border-b border-slate-800/50 bg-slate-900/40 backdrop-blur-xl">
           <div className="flex items-center lg:hidden">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -170,7 +170,7 @@ export default function Layout({ children }: LayoutProps) {
                     className="fixed inset-0 z-40"
                     onClick={() => setNotificationsOpen(false)}
                   />
-                  <div className="animate-slide-down absolute right-0 mt-2 w-96 max-w-[calc(100vw-2rem)] bg-slate-800 rounded-lg shadow-lg border border-slate-700 z-50 overflow-hidden">
+                  <div className="animate-slide-down absolute right-0 mt-2 w-96 max-w-[calc(100vw-2rem)] bg-slate-900/80 backdrop-blur-xl rounded-xl shadow-2xl border border-slate-700/50 z-50 overflow-hidden">
                     <div className="p-3 border-b border-slate-700 flex items-center justify-between">
                       <div>
                         <p className="text-white font-medium">Notifications</p>
@@ -240,7 +240,7 @@ export default function Layout({ children }: LayoutProps) {
                     className="fixed inset-0 z-40"
                     onClick={() => setUserMenuOpen(false)}
                   />
-                  <div className="animate-slide-down absolute right-0 mt-2 w-48 bg-slate-800 rounded-lg shadow-lg border border-slate-700 z-50">
+                  <div className="animate-slide-down absolute right-0 mt-2 w-48 bg-slate-900/80 backdrop-blur-xl rounded-xl shadow-2xl border border-slate-700/50 z-50">
                     <div className="p-3 border-b border-slate-700">
                       <p className="text-white font-medium">{user?.username}</p>
                       <p className="text-xs text-slate-400 capitalize">{user?.role}</p>

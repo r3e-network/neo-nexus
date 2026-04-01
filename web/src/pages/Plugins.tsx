@@ -64,6 +64,7 @@ export default function Plugins() {
       nextDrafts[plugin.id] = { ...base, ...existing };
     });
     setConfigDrafts(nextDrafts);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availablePlugins, installedPlugins, selectedNodeId]);
 
   const installPlugin = useInstallPlugin(selectedNodeId || undefined);

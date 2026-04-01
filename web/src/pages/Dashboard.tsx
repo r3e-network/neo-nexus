@@ -159,7 +159,28 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        {nodes.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="animate-pulse flex items-center justify-between p-4 bg-slate-800/30 backdrop-blur-md rounded-xl border border-slate-700/30">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-lg bg-slate-700/50"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 w-32 bg-slate-700/50 rounded"></div>
+                    <div className="h-3 w-48 bg-slate-700/50 rounded"></div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 hidden sm:flex">
+                  <div className="space-y-2 text-right">
+                    <div className="h-4 w-24 bg-slate-700/50 rounded ml-auto"></div>
+                    <div className="h-3 w-16 bg-slate-700/50 rounded ml-auto"></div>
+                  </div>
+                  <div className="w-20 h-6 bg-slate-700/50 rounded-full"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : nodes.length === 0 ? (
           <EmptyState
             icon={Server}
             title="No nodes yet"
@@ -175,7 +196,7 @@ export default function Dashboard() {
               <Link
                 key={node.id}
                 to={`/nodes/${node.id}`}
-                className="animate-fade-in flex items-center justify-between p-4 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-all duration-200 hover:shadow-md border border-transparent hover:border-slate-700"
+                className="animate-fade-in flex items-center justify-between p-4 bg-slate-800/30 backdrop-blur-md rounded-xl hover:bg-slate-800/50 transition-all duration-300 hover:shadow-lg border border-slate-700/50 hover:border-blue-500/50"
               >
                 <div className="flex items-center gap-4">
                   <div

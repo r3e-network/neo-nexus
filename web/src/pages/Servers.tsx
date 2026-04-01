@@ -38,7 +38,7 @@ export default function Servers() {
     if (!selectedServerId && servers[0]) {
       setSelectedServerId(servers[0].profile.id);
     }
-  }, [servers.length, selectedServerId]);
+  }, [servers, selectedServerId]);
 
   const selectedServer = useMemo(
     () => servers.find((server) => server.profile.id === selectedServerId) || null,
@@ -65,7 +65,7 @@ export default function Servers() {
     if (selectedServer) {
       hydrateForm(selectedServer);
     }
-  }, [selectedServerId]);
+  }, [selectedServer, selectedServerId]);
 
   const handleSubmit = async () => {
     setFeedback("");
