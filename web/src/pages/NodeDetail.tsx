@@ -184,9 +184,9 @@ export default function NodeDetail() {
               <div className="card">
                 <h3 className="text-lg font-semibold text-white mb-4">Metrics</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="bg-slate-800/50 rounded-lg p-4">
-                    <p className="text-slate-400 text-sm">Block Height</p>
-                    <p className="text-2xl font-bold text-white">{node.metrics.blockHeight.toLocaleString()}</p>
+                  <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 hover:bg-slate-800/80 transition-colors duration-300 shadow-sm group">
+                    <p className="text-slate-400 text-sm font-medium group-hover:text-slate-300 transition-colors">Block Height</p>
+                    <p className="text-2xl font-bold text-white group-hover:text-blue-50 transition-colors">{node.metrics.blockHeight.toLocaleString()}</p>
                     {(node.network === 'mainnet' || node.network === 'testnet') && (() => {
                       const networkHeight = node.network === 'mainnet'
                         ? networkHeightQuery.data?.mainnet
@@ -195,13 +195,13 @@ export default function NodeDetail() {
                       const syncPct = (node.metrics!.blockHeight / networkHeight * 100).toFixed(1);
                       return (
                         <div className="mt-2 space-y-1">
-                          <p className="text-xs text-slate-400">
+                          <p className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">
                             Network: {networkHeight.toLocaleString()}
                           </p>
-                          <p className="text-xs text-slate-400">Sync: {syncPct}%</p>
-                          <div className="h-1 rounded-full bg-slate-700 overflow-hidden">
+                          <p className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">Sync: {syncPct}%</p>
+                          <div className="h-1 rounded-full bg-slate-700/50 overflow-hidden">
                             <div
-                              className="h-full rounded-full bg-blue-500 transition-all duration-500"
+                              className="h-full rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)] transition-all duration-500"
                               style={{ width: `${Math.min(100, parseFloat(syncPct))}%` }}
                             />
                           </div>
@@ -209,17 +209,17 @@ export default function NodeDetail() {
                       );
                     })()}
                   </div>
-                  <div className="bg-slate-800/50 rounded-lg p-4">
-                    <p className="text-slate-400 text-sm">Peers</p>
-                    <p className="text-2xl font-bold text-white">{node.metrics.connectedPeers}</p>
+                  <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 hover:bg-slate-800/80 transition-colors duration-300 shadow-sm group">
+                    <p className="text-slate-400 text-sm font-medium group-hover:text-slate-300 transition-colors">Peers</p>
+                    <p className="text-2xl font-bold text-white group-hover:text-blue-50 transition-colors">{node.metrics.connectedPeers}</p>
                   </div>
-                  <div className="bg-slate-800/50 rounded-lg p-4">
-                    <p className="text-slate-400 text-sm">CPU</p>
-                    <p className="text-2xl font-bold text-white">{node.metrics.cpuUsage.toFixed(1)}%</p>
+                  <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 hover:bg-slate-800/80 transition-colors duration-300 shadow-sm group">
+                    <p className="text-slate-400 text-sm font-medium group-hover:text-slate-300 transition-colors">CPU</p>
+                    <p className="text-2xl font-bold text-white group-hover:text-blue-50 transition-colors">{node.metrics.cpuUsage.toFixed(1)}%</p>
                   </div>
-                  <div className="bg-slate-800/50 rounded-lg p-4">
-                    <p className="text-slate-400 text-sm">Memory</p>
-                    <p className="text-2xl font-bold text-white">{formatBytes(node.metrics.memoryUsage)}</p>
+                  <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 hover:bg-slate-800/80 transition-colors duration-300 shadow-sm group">
+                    <p className="text-slate-400 text-sm font-medium group-hover:text-slate-300 transition-colors">Memory</p>
+                    <p className="text-2xl font-bold text-white group-hover:text-blue-50 transition-colors">{formatBytes(node.metrics.memoryUsage)}</p>
                   </div>
                 </div>
               </div>
