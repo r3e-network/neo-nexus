@@ -127,7 +127,7 @@ export default function Nodes() {
                     </td>
                     <td className="py-4 px-4 text-slate-300 capitalize">{node.type}</td>
                     <td className="py-4 px-4 text-slate-300 capitalize">{node.network}</td>
-                    <td className="py-4 px-4 text-slate-300 text-sm">
+                    <td className="py-4 px-4 text-slate-300 text-sm font-mono">
                       RPC: {node.ports.rpc}
                       <br />
                       P2P: {node.ports.p2p}

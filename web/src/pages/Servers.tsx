@@ -311,21 +311,21 @@ export default function Servers() {
 
               {selectedServer.reachable && selectedServer.status && (
                 <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-                  <div className="card">
-                    <p className="text-sm text-slate-400">Total Nodes</p>
-                    <p className="text-2xl font-bold text-white mt-1">{selectedServer.status.totalNodes}</p>
+                  <div className="card-interactive group cursor-default">
+                    <p className="text-sm text-slate-400 font-medium group-hover:text-slate-300 transition-colors">Total Nodes</p>
+                    <p className="text-2xl font-bold text-white mt-1 group-hover:text-blue-50 transition-colors">{selectedServer.status.totalNodes}</p>
                   </div>
-                  <div className="card">
-                    <p className="text-sm text-slate-400">Running</p>
-                    <p className="text-2xl font-bold text-white mt-1">{selectedServer.status.runningNodes}</p>
+                  <div className="card-interactive group cursor-default">
+                    <p className="text-sm text-slate-400 font-medium group-hover:text-slate-300 transition-colors">Running</p>
+                    <p className="text-2xl font-bold text-white mt-1 group-hover:text-blue-50 transition-colors">{selectedServer.status.runningNodes}</p>
                   </div>
-                  <div className="card">
-                    <p className="text-sm text-slate-400">Errors</p>
-                    <p className="text-2xl font-bold text-white mt-1">{selectedServer.status.errorNodes}</p>
+                  <div className="card-interactive group cursor-default">
+                    <p className="text-sm text-slate-400 font-medium group-hover:text-slate-300 transition-colors">Errors</p>
+                    <p className="text-2xl font-bold text-white mt-1 group-hover:text-blue-50 transition-colors">{selectedServer.status.errorNodes}</p>
                   </div>
-                  <div className="card">
-                    <p className="text-sm text-slate-400">Blocks</p>
-                    <p className="text-2xl font-bold text-white mt-1">{formatNumber(selectedServer.status.totalBlocks)}</p>
+                  <div className="card-interactive group cursor-default">
+                    <p className="text-sm text-slate-400 font-medium group-hover:text-slate-300 transition-colors">Blocks</p>
+                    <p className="text-2xl font-bold text-white mt-1 group-hover:text-blue-50 transition-colors">{formatNumber(selectedServer.status.totalBlocks)}</p>
                   </div>
                 </div>
               )}
@@ -334,17 +334,17 @@ export default function Servers() {
                 <div className="card">
                   <h3 className="text-lg font-semibold text-white mb-4">Remote System Metrics</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-sm text-slate-400">CPU</p>
-                      <p className="text-xl font-semibold text-white mt-1">{selectedServer.systemMetrics.cpu.usage.toFixed(1)}%</p>
+                    <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 hover:bg-slate-800/80 transition-colors duration-300 shadow-sm group">
+                      <p className="text-sm text-slate-400 font-medium group-hover:text-slate-300 transition-colors">CPU</p>
+                      <p className="text-2xl font-bold text-white mt-1 group-hover:text-blue-50 transition-colors">{selectedServer.systemMetrics.cpu.usage.toFixed(1)}%</p>
                     </div>
-                    <div>
-                      <p className="text-sm text-slate-400">Memory</p>
-                      <p className="text-xl font-semibold text-white mt-1">{selectedServer.systemMetrics.memory.percentage.toFixed(1)}%</p>
+                    <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 hover:bg-slate-800/80 transition-colors duration-300 shadow-sm group">
+                      <p className="text-sm text-slate-400 font-medium group-hover:text-slate-300 transition-colors">Memory</p>
+                      <p className="text-2xl font-bold text-white mt-1 group-hover:text-blue-50 transition-colors">{selectedServer.systemMetrics.memory.percentage.toFixed(1)}%</p>
                     </div>
-                    <div>
-                      <p className="text-sm text-slate-400">Disk</p>
-                      <p className="text-xl font-semibold text-white mt-1">{selectedServer.systemMetrics.disk.percentage.toFixed(1)}%</p>
+                    <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 hover:bg-slate-800/80 transition-colors duration-300 shadow-sm group">
+                      <p className="text-sm text-slate-400 font-medium group-hover:text-slate-300 transition-colors">Disk</p>
+                      <p className="text-2xl font-bold text-white mt-1 group-hover:text-blue-50 transition-colors">{selectedServer.systemMetrics.disk.percentage.toFixed(1)}%</p>
                     </div>
                   </div>
                 </div>

@@ -19,10 +19,12 @@ export function EmptyState({ icon: Icon, title, description, action, actions }: 
   const allActions = actions ?? (action ? [action] : []);
 
   return (
-    <div className="text-center py-12">
-      <Icon className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+    <div className="text-center py-12 px-6 border-2 border-dashed border-slate-700/50 bg-slate-800/10 backdrop-blur-sm rounded-2xl animate-fade-in transition-all duration-300 hover:border-slate-600/50">
+      <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-700/50 shadow-inner">
+        <Icon className="w-8 h-8 text-slate-400" />
+      </div>
       <h3 className="text-white font-medium mb-1">{title}</h3>
-      {description && <p className="text-sm text-slate-400 mb-4">{description}</p>}
+      {description && <p className="text-sm text-slate-400 mb-6 max-w-md mx-auto">{description}</p>}
       {allActions.length > 0 && (
         <div className="flex items-center justify-center gap-3">
           {allActions.map((a) => {

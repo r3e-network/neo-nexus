@@ -102,13 +102,13 @@ export default function Dashboard() {
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat, i) => (
-            <div key={stat.label} className={`card animate-fade-in-up stagger-${i + 1}`}>
-              <div className="flex items-center justify-between">
+            <div key={stat.label} className={`card-interactive animate-fade-in-up stagger-${i + 1} group cursor-default`}>
+              <div className="flex items-center justify-between relative z-10">
                 <div>
-                  <p className="text-slate-400 text-sm">{stat.label}</p>
-                  <p className="text-2xl font-bold text-white mt-1">{stat.value}</p>
+                  <p className="text-slate-400 text-sm font-medium group-hover:text-slate-300 transition-colors">{stat.label}</p>
+                  <p className="text-3xl font-bold text-white mt-1 group-hover:text-blue-50 transition-colors">{stat.value}</p>
                 </div>
-                <div className={`w-12 h-12 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
+                <div className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center ring-1 ring-inset ring-white/5 group-hover:scale-110 transition-transform duration-300`}>
                   <stat.icon className={`w-6 h-6 ${stat.color}`} />
                 </div>
               </div>
