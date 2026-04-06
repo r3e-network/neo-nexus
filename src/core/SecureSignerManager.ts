@@ -625,7 +625,7 @@ export class SecureSignerManager {
     ];
   }
 
-  private buildAttestationArgs(profile: SecureSignerProfile, connection: SecureSignerConnectionInfo): string[] {
+  private buildAttestationArgs(_profile: SecureSignerProfile, connection: SecureSignerConnectionInfo): string[] {
     return [
       "recipient-attestation",
       ...(connection.cid ? ["--cid", String(connection.cid)] : []),
@@ -637,7 +637,7 @@ export class SecureSignerManager {
   }
 
   private buildStartRecipientArgs(
-    profile: SecureSignerProfile,
+    _profile: SecureSignerProfile,
     connection: SecureSignerConnectionInfo,
     ciphertextBase64: string,
   ): string[] {
@@ -671,7 +671,7 @@ export class SecureSignerManager {
 
   private defaultRunToolCommand(toolPath: string, args: string[]): Promise<ToolCommandResult> {
     return new Promise((resolve, reject) => {
-      execFile(toolPath, args, { maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+      execFile(toolPath, args, { maxBuffer: 10 * 1024 * 1024, timeout: 30_000 }, (error, stdout, stderr) => {
         if (error) {
           reject(new Error(stderr?.trim() || error.message));
           return;
@@ -720,6 +720,7 @@ export class SecureSignerManager {
       });
 
       socket.on("error", (error) => {
+        socket.destroy();
         resolve({
           ok: false,
           message: error.message,

@@ -280,9 +280,7 @@ export function createAppServer(config: ServerConfig) {
       clients.delete(ws);
     });
 
-    ws.send(
-      JSON.stringify(buildSystemMessage({ message: "Connected to NeoNexus Node Manager" })),
-    );
+    ws.send(JSON.stringify({ type: "welcome", message: "Connected to NeoNexus Node Manager", timestamp: Date.now() }));
   });
 
   // Broadcast function

@@ -160,6 +160,12 @@ export const Errors = {
       "Missing required fields: name, baseUrl",
       "Provide a display name and the base URL of the remote NeoNexus instance."),
 
+  // Generic
+  notFound: (resource: string) =>
+    new ApiError("NOT_FOUND",
+      `${resource} not found`,
+      `The requested ${resource.toLowerCase()} does not exist.`, 404),
+
   // System
   snapshotRequired: () =>
     new ApiError("SNAPSHOT_REQUIRED",

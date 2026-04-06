@@ -395,11 +395,23 @@ export class ConfigManager {
       const expectedConfig = await this.generateNeoCliConfig(node, installedPlugins);
       const onDiskPath = join(node.paths.base, 'config.json');
       if (existsSync(onDiskPath)) {
-        const onDisk = JSON.parse(readFileSync(onDiskPath, 'utf-8'));
+        let onDisk: Record<string, unknown>;
+        try {
+          onDisk = JSON.parse(readFileSync(onDiskPath, 'utf-8'));
+        } catch {
+          issues.push({ path: 'config.json', severity: 'error', message: 'Node config.json contains invalid JSON' });
+          return {
+            nodeId: node.id, nodeName: node.name, nodeType: node.type,
+            version: node.version, network: node.network,
+            issueCount: issues.length, errors: issues.length, warnings: 0, info: 0, issues,
+          };
+        }
         this.diffConfigs(expectedConfig, onDisk, '', issues);
 
         // Check Plugins.Enabled matches installed
-        const diskPlugins: string[] = onDisk?.ApplicationConfiguration?.Plugins?.Enabled || [];
+        const appConfig = onDisk?.ApplicationConfiguration as Record<string, unknown> | undefined;
+        const pluginsConfig = appConfig?.Plugins as Record<string, unknown> | undefined;
+        const diskPlugins: string[] = (pluginsConfig?.Enabled as string[]) || [];
         const expectedPluginIds = installedPlugins as string[];
         for (const p of diskPlugins) {
           if (!expectedPluginIds.includes(p)) {

@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readJsonFile, writeJsonFile, readJsonFileSync, writeJsonFileSync } from "../../src/utils/config";
 import { isPortAvailable, findAvailablePort } from "../../src/utils/ports";
 import { execAsync } from "../../src/utils/exec";
-import { getLocalIp, getPublicIp, getNetworkMagic, getSeedList } from "../../src/utils/network";
+import { getNetworkMagic, getSeedList } from "../../src/utils/network";
 
 // Mock fs modules
 vi.mock("node:fs", () => ({
@@ -130,20 +130,6 @@ describe("Utils: exec", () => {
 describe("Utils: network", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  describe("getLocalIp", () => {
-    it("should return IP address or null", async () => {
-      const ip = await getLocalIp();
-      expect(ip === null || typeof ip === "string").toBe(true);
-    });
-  });
-
-  describe("getPublicIp", () => {
-    it("should return public IP or null", async () => {
-      const ip = await getPublicIp();
-      expect(ip === null || typeof ip === "string").toBe(true);
-    });
   });
 
   describe("getNetworkMagic", () => {

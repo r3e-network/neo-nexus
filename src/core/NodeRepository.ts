@@ -158,7 +158,19 @@ export class NodeRepository {
     stmt.run(nodeId);
   }
 
+  private static readonly ALLOWED_UPDATE_COLUMNS = new Set([
+    'name', 'settings', 'version', 'updated_at',
+  ]);
+
   updateNode(_nodeId: string, updates: string[], values: (string | number)[]): void {
+    // Validate that all SET clauses use whitelisted columns with parameterized values
+    for (const clause of updates) {
+      const match = clause.match(/^(\w+)\s*=\s*\?$/);
+      if (!match || !NodeRepository.ALLOWED_UPDATE_COLUMNS.has(match[1])) {
+        throw new Error(`Invalid update clause: ${clause}`);
+      }
+    }
+
     const stmt = this.db.prepare(`
       UPDATE nodes
       SET ${updates.join(', ')}

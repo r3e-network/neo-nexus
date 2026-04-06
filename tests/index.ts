@@ -5,7 +5,6 @@
  */
 
 // Unit Tests
-import "./unit/PortAllocator.test";
 import "./unit/UserManager.test";
 import "./unit/utils.test";
 

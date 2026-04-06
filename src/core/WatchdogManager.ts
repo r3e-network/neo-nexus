@@ -30,6 +30,7 @@ export class WatchdogManager {
 
     const delay = this.getBackoffMs(nodeId);
     console.log(`[watchdog] scheduling restart of ${nodeId} in ${delay}ms (attempt ${state.failures + 1}/${MAX_CONSECUTIVE_FAILURES})`);
+    if (state.timer) clearTimeout(state.timer);
     state.timer = setTimeout(async () => {
       try {
         this.recordFailure(nodeId);

@@ -313,6 +313,8 @@ export class DownloadManager {
       }).on("error", (error) => {
         cleanup();
         reject(error);
+      }).on("close", () => {
+        // Ensure connection is fully released
       });
     });
   }

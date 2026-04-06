@@ -374,12 +374,11 @@ export interface LogEntry {
   message: string;
 }
 
-export interface WebSocketMessage {
-  type: 'log' | 'metrics' | 'status' | 'system';
-  nodeId?: string;
-  data: unknown;
-  timestamp: number;
-}
+export type WebSocketMessage =
+  | { type: 'log'; nodeId: string; data: LogEntry; timestamp: number }
+  | { type: 'metrics'; nodeId: string; data: NodeMetrics; timestamp: number }
+  | { type: 'status'; nodeId: string; data: { status: NodeStatus; previousStatus?: NodeStatus }; timestamp: number }
+  | { type: 'system'; nodeId?: undefined; data: SystemMetrics; timestamp: number };
 
 // Storage
 export interface StorageInfo {

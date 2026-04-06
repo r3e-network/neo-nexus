@@ -224,8 +224,15 @@ export class NodeDetector {
     return 'v3.6.0';
   }
 
-  private static detectNeoGoVersion(_basePath: string): string {
-    // TODO: run `./neo-go --version` to detect actual version
+  private static detectNeoGoVersion(basePath: string): string {
+    try {
+      const binary = join(basePath, 'neo-go');
+      const output = execSync(`"${binary}" --version 2>&1 || true`, { encoding: 'utf8', timeout: 5000 });
+      const match = output.match(/v?(\d+\.\d+\.\d+)/);
+      if (match) return match[1];
+    } catch {
+      // Fall through to default
+    }
     return '0.104.0';
   }
 
