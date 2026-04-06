@@ -1,5 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import type { IntegrationManager } from '../../integrations/IntegrationManager';
+import { Errors } from '../errors';
+import { respondWithApiError } from '../respond';
 
 export function createIntegrationsRouter(integrationManager: IntegrationManager): Router {
   const router = Router();
@@ -9,7 +11,7 @@ export function createIntegrationsRouter(integrationManager: IntegrationManager)
       const integrations = integrationManager.listAll();
       res.json({ integrations });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
+      respondWithApiError(res, error);
     }
   });
 
@@ -17,11 +19,11 @@ export function createIntegrationsRouter(integrationManager: IntegrationManager)
     try {
       const integration = integrationManager.getOne(req.params.id as string);
       if (!integration) {
-        return res.status(404).json({ error: 'Integration not found' });
+        throw Errors.notFound('Integration');
       }
       res.json({ integration });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
+      respondWithApiError(res, error);
     }
   });
 
@@ -29,15 +31,13 @@ export function createIntegrationsRouter(integrationManager: IntegrationManager)
     try {
       const { config, enabled } = req.body as { config?: Record<string, string>; enabled?: boolean };
       if (!config || typeof enabled !== 'boolean') {
-        return res.status(400).json({ error: 'Missing required fields: config (object), enabled (boolean)' });
+        throw Errors.missingFields('config', 'enabled');
       }
       integrationManager.saveConfig(req.params.id as string, config, enabled);
       const integration = integrationManager.getOne(req.params.id as string);
       res.json({ integration });
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Bad request';
-      const status = msg.includes('Unknown integration') ? 404 : 400;
-      res.status(status).json({ error: msg });
+      respondWithApiError(res, error);
     }
   });
 
@@ -46,7 +46,7 @@ export function createIntegrationsRouter(integrationManager: IntegrationManager)
       const result = await integrationManager.testProvider(req.params.id as string);
       res.json(result);
     } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Test failed' });
+      respondWithApiError(res, error);
     }
   });
 
@@ -55,9 +55,7 @@ export function createIntegrationsRouter(integrationManager: IntegrationManager)
       integrationManager.deleteConfig(req.params.id as string);
       res.status(204).send();
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Bad request';
-      const status = msg.includes('Unknown integration') ? 404 : 400;
-      res.status(status).json({ error: msg });
+      respondWithApiError(res, error);
     }
   });
 

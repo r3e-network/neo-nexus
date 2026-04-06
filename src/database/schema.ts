@@ -63,7 +63,7 @@ export async function initializeDatabase(): Promise<Database.Database> {
       name TEXT NOT NULL,
       description TEXT,
       category TEXT NOT NULL,
-      requires_config INTEGER DEFAULT 0,
+      requires_config INTEGER DEFAULT 0 CHECK (requires_config IN (0, 1)),
       dependencies TEXT, -- JSON array
       default_config TEXT -- JSON
     );
@@ -74,7 +74,7 @@ export async function initializeDatabase(): Promise<Database.Database> {
       version TEXT NOT NULL,
       config TEXT, -- JSON
       installed_at INTEGER NOT NULL,
-      enabled INTEGER DEFAULT 1,
+      enabled INTEGER DEFAULT 1 CHECK (enabled IN (0, 1)),
       PRIMARY KEY (node_id, plugin_id),
       FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE,
       FOREIGN KEY (plugin_id) REFERENCES plugins(id) ON DELETE CASCADE
@@ -104,6 +104,8 @@ export async function initializeDatabase(): Promise<Database.Database> {
     CREATE INDEX IF NOT EXISTS idx_metrics_history_node_time ON metrics_history(node_id, timestamp);
     CREATE INDEX IF NOT EXISTS idx_nodes_type ON nodes(type);
     CREATE INDEX IF NOT EXISTS idx_nodes_status ON node_processes(status);
+    CREATE INDEX IF NOT EXISTS idx_node_metrics_node_id ON node_metrics(node_id);
+    CREATE INDEX IF NOT EXISTS idx_node_plugins_plugin_id ON node_plugins(plugin_id);
 
     -- Users table for authentication
     CREATE TABLE IF NOT EXISTS users (

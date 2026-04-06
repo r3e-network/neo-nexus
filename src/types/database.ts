@@ -77,7 +77,7 @@ export function nodeRowToConfig(row: NodeRow) {
       config: row.config_path,
       wallet: row.wallet_path ?? undefined,
     },
-    settings: row.settings ? JSON.parse(row.settings) : {},
+    settings: row.settings ? (() => { try { return JSON.parse(row.settings!); } catch { return {}; } })() : {},
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

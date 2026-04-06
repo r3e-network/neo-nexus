@@ -1,4 +1,4 @@
-import { isPortAvailable } from '../utils/network';
+import { isPortAvailable } from '../utils/ports';
 import type { PortConfig } from '../types/index';
 import { Errors } from '../api/errors';
 

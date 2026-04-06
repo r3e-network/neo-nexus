@@ -7,6 +7,14 @@ import { DownloadManager } from './DownloadManager';
 import { ConfigManager } from './ConfigManager';
 import { PLUGIN_VERSIONS } from '../data/plugin-versions';
 
+function safeJsonParse(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+}
+
 export function resolvePluginReleaseVersion(nodeVersion: string, latestAvailableVersion: string): string {
   const normalized = nodeVersion.replace(/^v/, '');
   return PLUGIN_VERSIONS[normalized] || latestAvailableVersion;
@@ -28,8 +36,8 @@ export class PluginManager {
       description: row.description,
       category: row.category as PluginDefinition['category'],
       requiresConfig: row.requires_config === 1,
-      dependencies: row.dependencies ? JSON.parse(row.dependencies) : undefined,
-      defaultConfig: row.default_config ? JSON.parse(row.default_config) : undefined,
+      dependencies: row.dependencies ? safeJsonParse(row.dependencies) as PluginId[] : undefined,
+      defaultConfig: row.default_config ? safeJsonParse(row.default_config) as Record<string, unknown> : undefined,
     }));
   }
 
@@ -48,8 +56,8 @@ export class PluginManager {
       description: row.description,
       category: row.category as PluginDefinition['category'],
       requiresConfig: row.requires_config === 1,
-      dependencies: row.dependencies ? JSON.parse(row.dependencies) : undefined,
-      defaultConfig: row.default_config ? JSON.parse(row.default_config) : undefined,
+      dependencies: row.dependencies ? safeJsonParse(row.dependencies) as PluginId[] : undefined,
+      defaultConfig: row.default_config ? safeJsonParse(row.default_config) as Record<string, unknown> : undefined,
     };
   }
 
@@ -68,7 +76,7 @@ export class PluginManager {
     return rows.map(row => ({
       id: row.plugin_id as PluginId,
       version: row.version,
-      config: row.config ? JSON.parse(row.config) : {},
+      config: (row.config ? safeJsonParse(row.config) : null) as Record<string, unknown> ?? ({} as Record<string, unknown>),
       installedAt: row.installed_at,
       enabled: row.enabled === 1,
     }));

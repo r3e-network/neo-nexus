@@ -1,6 +1,6 @@
-import type { LogEntry, NodeMetrics, NodeStatus, WebSocketMessage } from "../types";
+import type { LogEntry, NodeMetrics, NodeStatus, SystemMetrics, WebSocketMessage } from "../types";
 
-export function buildSystemMessage(data: WebSocketMessage["data"]): WebSocketMessage {
+export function buildSystemMessage(data: SystemMetrics): WebSocketMessage {
   return {
     type: "system",
     data,

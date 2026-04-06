@@ -39,7 +39,11 @@ export default function NodeDetail() {
 
     if (lastMessage.type === 'log' && lastMessage.nodeId === id) {
       const entry = lastMessage.data as { timestamp: number; level: string; message: string };
-      setRealtimeLogs((current) => mergeNodeLogs(current, [entry]));
+      setRealtimeLogs((current) => {
+        const merged = mergeNodeLogs(current, [entry]);
+        // Cap buffer to prevent unbounded memory growth
+        return merged.length > 1000 ? merged.slice(-1000) : merged;
+      });
     }
   }, [id, lastMessage]);
 

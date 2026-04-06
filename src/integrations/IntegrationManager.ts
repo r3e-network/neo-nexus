@@ -17,6 +17,14 @@ import { integrationRegistry, registryMap } from './registry';
 
 const REDACTION_PREFIX = '••••••••...';
 
+function safeJsonParse(value: string): Record<string, string> {
+  try {
+    return JSON.parse(value) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
 export class IntegrationManager {
   private metricsProviders = new Map<string, MetricsProvider>();
   private logProviders = new Map<string, LogProvider>();
@@ -44,7 +52,7 @@ export class IntegrationManager {
     const definition = registryMap.get(row.id as IntegrationId);
     if (!definition) return;
 
-    const config = JSON.parse(row.config) as Record<string, string>;
+    const config = safeJsonParse(row.config);
 
     // Check that all required fields are present
     const missingFields = definition.configSchema
@@ -128,7 +136,7 @@ export class IntegrationManager {
     const row = this.db.prepare('SELECT * FROM integrations WHERE id = ?').get(id) as IntegrationRow | undefined;
     if (!row) return;
 
-    const config = JSON.parse(row.config) as Record<string, string>;
+    const config = safeJsonParse(row.config);
     const monitorId = config._monitorId;
     if (!monitorId) return;
 
@@ -216,7 +224,7 @@ export class IntegrationManager {
     return integrationRegistry.map(def => {
       const row = this.db.prepare('SELECT * FROM integrations WHERE id = ?').get(def.id) as IntegrationRow | undefined;
 
-      const rawConfig = row ? JSON.parse(row.config) as Record<string, string> : {};
+      const rawConfig = row ? safeJsonParse(row.config) : {};
       const configValues = this.redactSensitiveFields(def.id, rawConfig);
 
       return {
@@ -239,7 +247,7 @@ export class IntegrationManager {
     if (!def) return null;
 
     const row = this.db.prepare('SELECT * FROM integrations WHERE id = ?').get(id) as IntegrationRow | undefined;
-    const rawConfig = row ? JSON.parse(row.config) as Record<string, string> : {};
+    const rawConfig = row ? safeJsonParse(row.config) : {};
 
     return {
       id: def.id,
@@ -276,7 +284,7 @@ export class IntegrationManager {
     // Merge with existing config to preserve redacted fields the user didn't change
     let mergedConfig = config;
     if (existing) {
-      const existingConfig = JSON.parse(existing.config) as Record<string, string>;
+      const existingConfig = safeJsonParse(existing.config);
       mergedConfig = { ...existingConfig };
       for (const [key, value] of Object.entries(config)) {
         // Skip if the value looks like a redacted placeholder (starts with our redaction prefix)
@@ -314,7 +322,7 @@ export class IntegrationManager {
     const row = this.db.prepare('SELECT * FROM integrations WHERE id = ?').get(id) as IntegrationRow | undefined;
     if (!row) return { success: false, error: 'Not configured' };
 
-    const config = JSON.parse(row.config) as Record<string, string>;
+    const config = safeJsonParse(row.config);
 
     try {
       const provider = def.createProvider(config);

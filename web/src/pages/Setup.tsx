@@ -30,8 +30,8 @@ export default function Setup() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       return;
     }
 
@@ -112,7 +112,7 @@ export default function Setup() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="input pl-10"
-                  placeholder="Choose a password (min 6 chars)"
+                  placeholder="Choose a password (min 8 chars)"
                   required
                 />
               </div>

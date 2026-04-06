@@ -2,7 +2,7 @@
 
 > Self-hosted Neo N3 node management, simplified
 
-[![Version](https://img.shields.io/badge/version-2.2.0-green.svg)](https://github.com/r3e-network/neo-nexus)
+[![Version](https://img.shields.io/badge/version-2.2.1-green.svg)](https://github.com/r3e-network/neo-nexus)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org)
 [![Tests](https://img.shields.io/badge/tests-272%20passing-brightgreen.svg)](#)

@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import type { CreateRemoteServerRequest, UpdateRemoteServerRequest } from "../../types";
-import { Errors } from '../errors';
+import { ApiError, Errors } from '../errors';
 import { respondWithApiError } from '../respond';
 
 interface ServerProfilesOperations {
@@ -37,6 +37,15 @@ export function createServersRouter(serverManager: ServerProfilesOperations): Ro
       const { name, baseUrl } = req.body || {};
       if (!name || !baseUrl) {
         throw Errors.serverFieldsRequired();
+      }
+      try {
+        const parsed = new URL(baseUrl);
+        if (!['http:', 'https:'].includes(parsed.protocol)) {
+          throw Errors.missingField('baseUrl (must use http or https)');
+        }
+      } catch (e) {
+        if (e instanceof ApiError) throw e;
+        throw Errors.missingField('baseUrl (must be a valid URL)');
       }
       const server = serverManager.createServer(req.body as CreateRemoteServerRequest);
       res.status(201).json({ server });
