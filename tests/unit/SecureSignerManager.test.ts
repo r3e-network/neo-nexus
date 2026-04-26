@@ -2,9 +2,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 function createMockDb() {
   const profiles: any[] = [];
+  const auditRows: any[] = [];
 
   return {
+    auditRows,
     prepare: vi.fn((sql: string) => {
+      if (sql.includes("INSERT INTO audit_log")) {
+        return {
+          run: vi.fn((timestamp: number, action: string, resourceType: string, resourceId: string, details: string) => {
+            auditRows.push({ timestamp, action, resourceType, resourceId, details: JSON.parse(details) });
+          }),
+        };
+      }
+
       if (sql.includes("SELECT * FROM secure_signer_profiles WHERE id = ?")) {
         return {
           get: vi.fn((id: string) => profiles.find((profile) => profile.id === id)),
@@ -177,5 +187,103 @@ describe("SecureSignerManager", () => {
     expect(nitroResult.ok).toBe(true);
     expect(nitroResult.status).toBe("warning");
     expect(nitroResult.message).toMatch(/vsock/i);
+  });
+
+  it("declares signer capabilities without overstating software isolation", async () => {
+    const { SecureSignerManager } = await import("../../src/core/SecureSignerManager");
+    const manager = new SecureSignerManager(createMockDb() as never);
+
+    const software = manager.createProfile({
+      name: "Software fallback",
+      mode: "software",
+      endpoint: "http://127.0.0.1:9991",
+    });
+    const nitro = manager.createProfile({
+      name: "Nitro",
+      mode: "nitro",
+      endpoint: "vsock://2345:9991",
+      publicKey: "03b209fd4f53a7170ea4444e0cb0a6bb6a53c2bd016926989cf85f9b0fba17a70c",
+    });
+
+    expect(manager.getCapabilityDeclaration(software.id)).toMatchObject({
+      isolation: "software-fallback",
+      privateKeyExportable: false,
+      hardwareBacked: false,
+      experimental: true,
+    });
+    expect(manager.getCapabilityDeclaration(nitro.id)).toMatchObject({
+      isolation: "nitro-enclave",
+      privateKeyExportable: false,
+      hardwareBacked: true,
+      remoteAttestation: true,
+    });
+  });
+
+  it("embeds an explicit fail-closed SignClient policy even when no allowlist is supplied", async () => {
+    const { SecureSignerManager } = await import("../../src/core/SecureSignerManager");
+    const manager = new SecureSignerManager(createMockDb() as never);
+    const profile = manager.createProfile({
+      name: "Nitro",
+      mode: "nitro",
+      endpoint: "vsock://2345:9991",
+      publicKey: "03b209fd4f53a7170ea4444e0cb0a6bb6a53c2bd016926989cf85f9b0fba17a70c",
+    });
+
+    expect(manager.buildSignClientConfig(profile)).toEqual({
+      Name: "Nitro",
+      Endpoint: "vsock://2345:9991",
+      Policy: {
+        RequireHardwareProtection: false,
+        DenyByDefault: true,
+      },
+    });
+  });
+
+  it("embeds an explicit allowlist policy in SignClient config", async () => {
+    const { SecureSignerManager } = await import("../../src/core/SecureSignerManager");
+    const manager = new SecureSignerManager(createMockDb() as never);
+    const profile = manager.createProfile({
+      name: "Nitro",
+      mode: "nitro",
+      endpoint: "vsock://2345:9991",
+      publicKey: "03b209fd4f53a7170ea4444e0cb0a6bb6a53c2bd016926989cf85f9b0fba17a70c",
+    });
+
+    expect(manager.buildSignClientConfig(profile, {
+      allowedOperations: ["vote", "oracle-response"],
+      allowedContracts: ["0x1234567890abcdef1234567890abcdef12345678"],
+      allowedRecipients: ["NXV7ZhHiyM1aHXwpVsRZC6BwNFP2jghXAq"],
+      requireHardwareProtection: true,
+    })).toEqual({
+      Name: "Nitro",
+      Endpoint: "vsock://2345:9991",
+      Policy: {
+        AllowedOperations: ["vote", "oracle-response"],
+        AllowedContracts: ["0x1234567890abcdef1234567890abcdef12345678"],
+        AllowedRecipients: ["NXV7ZhHiyM1aHXwpVsRZC6BwNFP2jghXAq"],
+        RequireHardwareProtection: true,
+        DenyByDefault: true,
+      },
+    });
+  });
+
+  it("blocks hardware-required policies for software signers and writes an audit trail", async () => {
+    const { SecureSignerManager } = await import("../../src/core/SecureSignerManager");
+    const db = createMockDb();
+    const manager = new SecureSignerManager(db as never);
+    const profile = manager.createProfile({
+      name: "Software fallback",
+      mode: "software",
+      endpoint: "http://127.0.0.1:9991",
+    });
+
+    expect(() => manager.buildSignClientConfig(profile, { requireHardwareProtection: true })).toThrow(/hardware-backed/i);
+    expect(db.auditRows).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        action: "secure-signer.policy.block",
+        resourceId: profile.id,
+        details: expect.objectContaining({ reason: "hardware-protection-required" }),
+      }),
+    ]));
   });
 });

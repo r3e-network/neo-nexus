@@ -13,6 +13,15 @@ export interface NodeFormValues {
   secureSignerProfileId: string;
 }
 
+type KeyProtectionSettings = Record<string, unknown> & {
+  mode?: "standard" | "secure-signer";
+  signerProfileId?: string;
+};
+
+interface NormalizeNodeUpsertOptions {
+  existingKeyProtection?: KeyProtectionSettings;
+}
+
 interface NodeLike {
   name: string;
   type?: "neo-cli" | "neo-go";
@@ -25,10 +34,7 @@ interface NodeLike {
     relay?: boolean;
     debugMode?: boolean;
     customConfig?: Record<string, unknown>;
-    keyProtection?: {
-      mode?: "standard" | "secure-signer";
-      signerProfileId?: string;
-    };
+    keyProtection?: KeyProtectionSettings;
   };
 }
 
@@ -46,7 +52,7 @@ function parseOptionalInteger(value: string): number | undefined {
   return parsed;
 }
 
-export function normalizeNodeUpsertPayload(values: Partial<NodeFormValues>) {
+export function normalizeNodeUpsertPayload(values: Partial<NodeFormValues>, options: NormalizeNodeUpsertOptions = {}) {
   const name = values.name?.trim() || "";
   const settings: Record<string, unknown> = {};
 
@@ -76,8 +82,20 @@ export function normalizeNodeUpsertPayload(values: Partial<NodeFormValues>) {
     }
 
     settings.keyProtection = {
+      ...(options.existingKeyProtection || {}),
       mode: "secure-signer",
       signerProfileId,
+    };
+  } else if (values.keyProtectionMode === "standard") {
+    const existingKeyProtection = options.existingKeyProtection;
+    const shouldPreserveStandardFields =
+      existingKeyProtection &&
+      existingKeyProtection.mode !== "secure-signer" &&
+      typeof existingKeyProtection.signerProfileId !== "string";
+
+    settings.keyProtection = {
+      ...(shouldPreserveStandardFields ? existingKeyProtection : {}),
+      mode: "standard",
     };
   }
 

@@ -5,6 +5,7 @@ import type Database from "better-sqlite3";
 import type {
   CreateSecureSignerRequest,
   SecureSignerAttestationResult,
+  SecureSignerCapabilityDeclaration,
   SecureSignerCommandResult,
   SecureSignerConnectionInfo,
   SecureSignerMode,
@@ -13,6 +14,8 @@ import type {
   SecureSignerReadinessResult,
   SecureSignerTestResult,
   SecureSignerUnlockMode,
+  SignClientConfig,
+  SignClientPolicyRequest,
   UpdateSecureSignerRequest,
 } from "../types";
 
@@ -132,6 +135,12 @@ export class SecureSignerManager {
         profile.updatedAt,
       );
 
+    this.audit("secure-signer.profile.create", profile.id, {
+      mode: profile.mode,
+      enabled: profile.enabled,
+      unlockMode: profile.unlockMode,
+    });
+
     return profile;
   }
 
@@ -208,6 +217,11 @@ export class SecureSignerManager {
       };
 
       this.persistTestResult(id, result);
+      this.audit("secure-signer.profile.test", id, {
+        status: result.status,
+        ok: result.ok,
+        source: "vsock-format",
+      });
       return result;
     }
 
@@ -221,6 +235,11 @@ export class SecureSignerManager {
     };
 
     this.persistTestResult(id, result);
+    this.audit("secure-signer.profile.test", id, {
+      status: result.status,
+      ok: result.ok,
+      source: "probe",
+    });
     return result;
   }
 
@@ -360,11 +379,105 @@ export class SecureSignerManager {
     };
   }
 
-  buildSignClientConfig(profile: SecureSignerProfile): { Name: string; Endpoint: string } {
-    return {
+  buildSignClientConfig(profile: SecureSignerProfile, policy?: SignClientPolicyRequest): SignClientConfig {
+    const hardwareBacked = profile.mode === "nitro" || profile.mode === "sgx";
+    if (policy?.requireHardwareProtection && !hardwareBacked) {
+      this.audit("secure-signer.policy.block", profile.id, {
+        reason: "hardware-protection-required",
+        mode: profile.mode,
+      });
+      throw new Error("Secure signer policy requires hardware-backed protection");
+    }
+
+    const config: SignClientConfig = {
       Name: profile.name,
       Endpoint: profile.endpoint,
+      Policy: {
+        ...(policy?.allowedOperations?.length ? { AllowedOperations: [...policy.allowedOperations] } : {}),
+        ...(policy?.allowedContracts?.length ? { AllowedContracts: [...policy.allowedContracts] } : {}),
+        ...(policy?.allowedRecipients?.length ? { AllowedRecipients: [...policy.allowedRecipients] } : {}),
+        RequireHardwareProtection: policy?.requireHardwareProtection === true,
+        DenyByDefault: true,
+      },
     };
+
+    this.audit("secure-signer.policy.configure", profile.id, {
+      allowedOperationCount: policy?.allowedOperations?.length ?? 0,
+      allowedContractCount: policy?.allowedContracts?.length ?? 0,
+      allowedRecipientCount: policy?.allowedRecipients?.length ?? 0,
+      requireHardwareProtection: policy?.requireHardwareProtection === true,
+      defaultDenyOnly: !policy,
+    });
+
+    return config;
+  }
+
+  getCapabilityDeclaration(id: string): SecureSignerCapabilityDeclaration {
+    const profile = this.requireProfile(id);
+    const modeCapabilities: Record<SecureSignerMode, Omit<SecureSignerCapabilityDeclaration, "profileId" | "mode">> = {
+      software: {
+        isolation: "software-fallback",
+        privateKeyExportable: false,
+        hardwareBacked: false,
+        remoteAttestation: false,
+        policyEnforcedBy: "signer-service",
+        experimental: true,
+        notes: [
+          "Software fallback keeps private keys behind the signer process API, but it is not hardware-isolated from a host compromise.",
+          "Use Nitro, SGX, or an external HSM for stronger production isolation.",
+        ],
+      },
+      sgx: {
+        isolation: "sgx-enclave",
+        privateKeyExportable: false,
+        hardwareBacked: true,
+        remoteAttestation: true,
+        policyEnforcedBy: "signer-service",
+        experimental: true,
+        notes: ["SGX mode requires platform attestation and enclave runtime validation before production use."],
+      },
+      nitro: {
+        isolation: "nitro-enclave",
+        privateKeyExportable: false,
+        hardwareBacked: true,
+        remoteAttestation: true,
+        policyEnforcedBy: "signer-service",
+        experimental: false,
+        notes: ["Nitro mode supports recipient attestation and KMS-backed startup when configured."],
+      },
+      custom: {
+        isolation: "custom-remote-signer",
+        privateKeyExportable: false,
+        hardwareBacked: false,
+        remoteAttestation: false,
+        policyEnforcedBy: "external-provider",
+        experimental: true,
+        notes: ["Custom signer guarantees depend on the external provider and must be independently audited."],
+      },
+    };
+
+    const declaration = {
+      profileId: profile.id,
+      mode: profile.mode,
+      ...modeCapabilities[profile.mode],
+    };
+    this.audit("secure-signer.capability.read", profile.id, {
+      mode: declaration.mode,
+      isolation: declaration.isolation,
+      hardwareBacked: declaration.hardwareBacked,
+      experimental: declaration.experimental,
+    });
+    return declaration;
+  }
+
+  private audit(action: string, resourceId: string, details: Record<string, unknown>): void {
+    try {
+      this.db
+        .prepare('INSERT INTO audit_log (timestamp, action, resource_type, resource_id, details) VALUES (?, ?, ?, ?, ?)')
+        .run(Date.now(), action, 'secure-signer', resourceId, JSON.stringify(details));
+    } catch {
+      // Audit logging is best-effort for unit-test mocks and older databases; production schema creates audit_log.
+    }
   }
 
   private requireProfile(id: string): SecureSignerProfile {

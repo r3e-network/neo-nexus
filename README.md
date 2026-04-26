@@ -2,10 +2,10 @@
 
 > Self-hosted Neo N3 node management, simplified
 
-[![Version](https://img.shields.io/badge/version-2.2.1-green.svg)](https://github.com/r3e-network/neo-nexus)
+[![Version](https://img.shields.io/badge/version-2.3.0-green.svg)](https://github.com/r3e-network/neo-nexus)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org)
-[![Tests](https://img.shields.io/badge/tests-272%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-322%20passing-brightgreen.svg)](#)
 
 NeoNexus is a **self-hosted node management platform** for Neo N3. Deploy, monitor, and manage [neo-cli](https://github.com/neo-project/neo-node) and [neo-go](https://github.com/nspcc-dev/neo-go) nodes from a single web dashboard.
 

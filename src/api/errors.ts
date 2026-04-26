@@ -29,6 +29,18 @@ export const Errors = {
     new ApiError("NODE_NOT_RUNNING",
       "Node is not running",
       "The node is already stopped. Use start to launch it."),
+  nodeOwnershipDenied: (action: string, mode: string) =>
+    new ApiError("NODE_OWNERSHIP_DENIED",
+      `Imported node ownership mode ${mode} does not allow ${action}`,
+      "Change the node import ownership mode to managed-config or managed-process before attempting this operation.", 403),
+  importedNeoCliConfigStartUnsupported: (configPath: string) =>
+    new ApiError("IMPORTED_NEO_CLI_CONFIG_START_UNSUPPORTED",
+      `Cannot start imported neo-cli node with non-default config path ${configPath}`,
+      "neo-cli starts from its working directory config.json. Keep this node observe-only/managed-config, or re-import/adopt a layout whose active config is base/config.json.", 409),
+  nodeOwnershipNotImported: () =>
+    new ApiError("NODE_OWNERSHIP_NOT_IMPORTED",
+      "Only imported nodes have an ownership mode",
+      "NeoNexus-created nodes are fully managed already; ownership mode only applies to native nodes imported from an existing installation."),
 
   // Validation
   missingFields: (...fields: string[]) =>

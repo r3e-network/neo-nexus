@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { FolderOpen, Search, CheckCircle, Loader2, Server, ArrowLeft } from "lucide-react";
+import { FolderOpen, Search, CheckCircle, Loader2, Server, ArrowLeft, ShieldCheck } from "lucide-react";
 import { FeedbackBanner } from "../components/FeedbackBanner";
 import { api, ApiRequestError } from "../utils/api";
+import type { ImportedNodeOwnershipMode } from "../hooks/useNodes";
 
 interface DetectedConfig {
   type: "neo-cli" | "neo-go";
@@ -24,6 +25,7 @@ export default function ImportNode() {
   const [path, setPath] = useState("");
   const [name, setName] = useState("");
   const [pid, setPid] = useState("");
+  const [ownershipMode, setOwnershipMode] = useState<ImportedNodeOwnershipMode>("observe-only");
   const [detected, setDetected] = useState<DetectedConfig | null>(null);
   const [scanResults, setScanResults] = useState<Array<{ path: string; type: string }> | null>(null);
   const [error, setError] = useState("");
@@ -96,6 +98,7 @@ export default function ImportNode() {
         network: detected.network,
         version: detected.version,
         ports: detected.ports,
+        ownershipMode,
       });
     },
     onSuccess: () => {
@@ -300,6 +303,45 @@ export default function ImportNode() {
                 <p className="text-slate-500 text-sm mt-1">
                   If the node is running, you can specify its PID to attach to the existing process.
                 </p>
+              </div>
+
+              <div className="rounded-xl border border-amber-400/20 bg-amber-500/5 p-4">
+                <div className="mb-3 flex items-start gap-3">
+                  <ShieldCheck className="mt-0.5 h-5 w-5 text-amber-300" />
+                  <div>
+                    <p className="font-medium text-white">Import ownership</p>
+                    <p className="mt-1 text-sm text-slate-400">
+                      Start with the least privilege. You can upgrade later from the node detail page after reviewing the risk.
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  {([
+                    ['observe-only', 'Observe only', 'Read status, metrics, and logs. No writes.'],
+                    ['managed-config', 'Managed config', 'Allow config and plugin changes.'],
+                    ['managed-process', 'Managed process', 'Allow lifecycle control after PID/path validation.'],
+                  ] as Array<[ImportedNodeOwnershipMode, string, string]>).map(([mode, label, description]) => (
+                    <label
+                      key={mode}
+                      className={`cursor-pointer rounded-lg border p-3 transition-all ${
+                        ownershipMode === mode
+                          ? 'border-blue-400 bg-blue-500/15'
+                          : 'border-slate-700 bg-slate-950/30 hover:border-slate-500'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="ownershipMode"
+                        value={mode}
+                        checked={ownershipMode === mode}
+                        onChange={() => setOwnershipMode(mode)}
+                        className="sr-only"
+                      />
+                      <p className="text-sm font-semibold text-white">{label}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-400">{description}</p>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
 

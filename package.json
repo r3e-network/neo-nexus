@@ -1,6 +1,6 @@
 {
   "name": "neo-nexus",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "description": "Professional Neo Node Manager - Deploy and manage Neo N3 nodes locally",
   "main": "dist/index.js",
   "type": "module",

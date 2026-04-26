@@ -138,7 +138,7 @@ export function SecureSignerSection() {
   };
 
   return (
-    <div className="card">
+    <div id="secure-signers" className="card scroll-mt-24">
       <div className="flex items-center gap-3 mb-4">
         <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
           <Shield className="w-5 h-5 text-cyan-400" />

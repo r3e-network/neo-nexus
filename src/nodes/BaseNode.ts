@@ -332,10 +332,14 @@ export abstract class BaseNode extends EventEmitter {
   /**
    * Clean up resources
    */
+  detach(): void {
+    this.removeAllListeners();
+  }
+
   destroy(): void {
     if (this.isRunning()) {
       this.stop(true).catch(console.error);
     }
-    this.removeAllListeners();
+    this.detach();
   }
 }

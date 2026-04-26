@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import express from "express";
 import request from "supertest";
 import { createNodesRouter } from "../../src/api/routes/nodes";
+import { Errors } from "../../src/api/errors";
 
 type MockNodeManager = {
   createNode: ReturnType<typeof vi.fn>;
@@ -9,6 +10,7 @@ type MockNodeManager = {
   getNode: ReturnType<typeof vi.fn>;
   getAllNodes: ReturnType<typeof vi.fn>;
   updateNode: ReturnType<typeof vi.fn>;
+  updateImportedNodeOwnership: ReturnType<typeof vi.fn>;
   deleteNode: ReturnType<typeof vi.fn>;
   startNode: ReturnType<typeof vi.fn>;
   stopNode: ReturnType<typeof vi.fn>;
@@ -38,6 +40,7 @@ describe("Actual nodes router", () => {
       getNode: vi.fn(),
       getAllNodes: vi.fn(() => []),
       updateNode: vi.fn(),
+      updateImportedNodeOwnership: vi.fn(),
       deleteNode: vi.fn(),
       startNode: vi.fn(),
       stopNode: vi.fn(),
@@ -130,6 +133,90 @@ describe("Actual nodes router", () => {
     expect(response.body.node.id).toBe("node-imported");
   });
 
+  it("rejects import paths that only share an allowed prefix", async () => {
+    mockNodeManager.importExistingNode.mockResolvedValue({ id: "should-not-import" });
+
+    const response = await request(app).post("/api/nodes/import").send({
+      name: "Bad Import",
+      existingPath: "/home2/neo-node",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("PATH_NOT_ALLOWED");
+    expect(mockNodeManager.importExistingNode).not.toHaveBeenCalled();
+  });
+
+  it("forwards valid imported-node ownership modes", async () => {
+    mockNodeManager.importExistingNode.mockResolvedValue({ id: "node-imported" });
+
+    const response = await request(app).post("/api/nodes/import").send({
+      name: "Imported Node",
+      existingPath: "/home/neo/imported-node",
+      ownershipMode: "managed-process",
+    });
+
+    expect(response.status).toBe(201);
+    expect(mockNodeManager.importExistingNode).toHaveBeenCalledWith(expect.objectContaining({
+      ownershipMode: "managed-process",
+    }));
+  });
+
+  it("rejects invalid imported-node ownership modes", async () => {
+    const response = await request(app).post("/api/nodes/import").send({
+      name: "Imported Node",
+      existingPath: "/home/neo/imported-node",
+      ownershipMode: "root-everything",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("INVALID_OWNERSHIP_MODE");
+    expect(mockNodeManager.importExistingNode).not.toHaveBeenCalled();
+  });
+
+  it("updates imported-node ownership through the dedicated endpoint", async () => {
+    mockNodeManager.updateImportedNodeOwnership.mockResolvedValue({
+      id: "node-imported",
+      settings: { import: { imported: true, ownershipMode: "managed-config" } },
+    });
+
+    const response = await request(app).post("/api/nodes/node-imported/ownership").send({
+      ownershipMode: "managed-config",
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockNodeManager.updateImportedNodeOwnership).toHaveBeenCalledWith("node-imported", "managed-config");
+    expect(response.body.node.settings.import.ownershipMode).toBe("managed-config");
+  });
+
+  it("rejects ownership endpoint requests without an ownership mode", async () => {
+    const response = await request(app).post("/api/nodes/node-imported/ownership").send({});
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("MISSING_FIELDS");
+    expect(mockNodeManager.updateImportedNodeOwnership).not.toHaveBeenCalled();
+  });
+
+  it("rejects ownership endpoint requests with invalid ownership modes", async () => {
+    const response = await request(app).post("/api/nodes/node-imported/ownership").send({
+      ownershipMode: "root-everything",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("INVALID_OWNERSHIP_MODE");
+    expect(mockNodeManager.updateImportedNodeOwnership).not.toHaveBeenCalled();
+  });
+
+  it("maps non-imported ownership updates to a 400 permission error", async () => {
+    mockNodeManager.updateImportedNodeOwnership.mockRejectedValue(Errors.nodeOwnershipNotImported());
+
+    const response = await request(app).post("/api/nodes/managed-node/ownership").send({
+      ownershipMode: "managed-config",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("NODE_OWNERSHIP_NOT_IMPORTED");
+  });
+
   it("returns node details when the node exists", async () => {
     mockNodeManager.getNode.mockReturnValue({
       id: "node-1",
@@ -212,7 +299,7 @@ describe("Actual nodes router", () => {
     expect(mockNodeManager.createNode).not.toHaveBeenCalled();
   });
 
-  it("updates a node and syncs the secure signer when requested", async () => {
+  it("updates a node and delegates secure signer synchronization to NodeManager", async () => {
     getProfile.mockReturnValue({ id: "signer-1", enabled: true });
     mockNodeManager.getNode.mockReturnValue({ id: "node-1", type: "neo-cli" });
     mockNodeManager.updateNode.mockResolvedValue({
@@ -240,7 +327,7 @@ describe("Actual nodes router", () => {
         },
       },
     });
-    expect(mockNodeManager.syncNodeSecureSigner).toHaveBeenCalledWith("node-1");
+    expect(mockNodeManager.syncNodeSecureSigner).not.toHaveBeenCalled();
     expect(response.body.node.name).toBe("Updated Node");
   });
 

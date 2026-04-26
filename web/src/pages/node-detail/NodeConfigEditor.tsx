@@ -23,12 +23,19 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
     }
   }, [node, isEditing]);
 
+  const canEditConfiguration = !node.settings?.import || node.settings.import.ownershipMode === 'managed-config' || node.settings.import.ownershipMode === 'managed-process';
+  const editDisabledReason = !canEditConfiguration
+    ? 'This imported node is observe-only. Upgrade ownership before editing configuration or key protection.'
+    : node.process.status === 'running'
+      ? 'Stop the node to edit configuration'
+      : '';
+
   const handleSave = async () => {
     setConfigError('');
     setConfigSuccess('');
 
-    if (node.process.status === 'running') {
-      setConfigError('Stop the node before editing its configuration.');
+    if (editDisabledReason) {
+      setConfigError(editDisabledReason);
       return;
     }
 
@@ -48,6 +55,10 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
           relay: formData.relay,
           debugMode: formData.debugMode,
           customConfig: formData.customConfig,
+          keyProtectionMode: formData.keyProtectionMode,
+          secureSignerProfileId: formData.secureSignerProfileId,
+        }, {
+          existingKeyProtection: node.settings?.keyProtection,
         }),
       });
       setIsEditing(false);
@@ -79,7 +90,7 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
             <button
               type="button"
               onClick={handleSave}
-              disabled={updateNode.isPending}
+              disabled={updateNode.isPending || Boolean(editDisabledReason)}
               className="btn btn-primary"
             >
               <Save className="w-4 h-4" />
@@ -95,9 +106,9 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
               setFormData(toNodeFormValues(node));
               setIsEditing(true);
             }}
-            disabled={node.process.status === 'running'}
+            disabled={Boolean(editDisabledReason)}
             className="btn btn-secondary"
-            title={node.process.status === 'running' ? 'Stop the node to edit configuration' : 'Edit configuration'}
+            title={editDisabledReason || 'Edit configuration'}
           >
             <Pencil className="w-4 h-4" />
             Edit
@@ -106,6 +117,12 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
       </div>
 
       <FeedbackBanner error={configError} success={configSuccess} />
+
+      {!isEditing && editDisabledReason && (
+        <div className="mb-4 rounded-lg border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          {editDisabledReason}
+        </div>
+      )}
 
       {isEditing ? (
         <div className="space-y-4">

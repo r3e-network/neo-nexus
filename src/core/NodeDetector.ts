@@ -10,7 +10,7 @@
  */
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import YAML from 'js-yaml';
 import type { NodeType, NodeNetwork, PortConfig } from '../types';
@@ -227,7 +227,7 @@ export class NodeDetector {
   private static detectNeoGoVersion(basePath: string): string {
     try {
       const binary = join(basePath, 'neo-go');
-      const output = execSync(`"${binary}" --version 2>&1 || true`, { encoding: 'utf8', timeout: 5000 });
+      const output = execFileSync(binary, ['--version'], { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'pipe'] });
       const match = output.match(/v?(\d+\.\d+\.\d+)/);
       if (match) return match[1];
     } catch {
@@ -241,7 +241,7 @@ export class NodeDetector {
    */
   private static isProcessRunning(processName: string): boolean {
     try {
-      const result = execSync(`pgrep -f "${processName}" || true`, { encoding: 'utf8' });
+      const result = execFileSync('pgrep', ['-f', processName], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
       return result.trim().length > 0;
     } catch {
       return false;

@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../utils/api';
 import { REFETCH_INTERVALS } from '../config/constants';
 
+export type ImportedNodeOwnershipMode = 'observe-only' | 'managed-config' | 'managed-process';
+
 export interface Node {
   id: string;
   name: string;
@@ -45,6 +47,12 @@ export interface Node {
       accountAddress?: string;
       walletPath?: string;
       unlockMode?: 'manual' | 'interactive-passphrase' | 'recipient-attestation';
+    };
+    import?: {
+      importedAt?: number;
+      ownershipMode?: ImportedNodeOwnershipMode;
+      sourcePath?: string;
+      attachedProcessId?: number;
     };
   };
 }
@@ -131,6 +139,21 @@ export function useStopNode() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['nodes', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['nodes'] });
+    },
+  });
+}
+
+export function useUpdateNodeOwnership() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ownershipMode }: { id: string; ownershipMode: ImportedNodeOwnershipMode }) => {
+      const result = await api.post<{ node: Node }>(`/nodes/${id}/ownership`, { ownershipMode });
+      return result.node;
+    },
+    onSuccess: (_node, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['nodes'] });
+      queryClient.invalidateQueries({ queryKey: ['node', variables.id] });
     },
   });
 }

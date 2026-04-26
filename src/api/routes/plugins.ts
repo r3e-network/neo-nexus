@@ -10,6 +10,15 @@ interface NodeParams {
 export function createPluginsRouter(nodeManager: NodeManager): Router {
   const router = Router({ mergeParams: true });
   const pluginManager = nodeManager.getPluginManager();
+  const pluginErrorStatus = (error: unknown): number => {
+    if (error && typeof error === 'object' && 'status' in error && typeof (error as { status?: unknown }).status === 'number') {
+      return (error as { status: number }).status;
+    }
+    const message = error instanceof Error ? error.message : "Internal server error";
+    if (/not found/i.test(message)) return 404;
+    if (/already installed|only supported|cannot|running|ownership mode/i.test(message)) return 409;
+    return 500;
+  };
 
   // GET /api/nodes/:id/plugins - List installed plugins
   router.get('/', (req: Request<NodeParams>, res: Response) => {
@@ -17,7 +26,8 @@ export function createPluginsRouter(nodeManager: NodeManager): Router {
       const plugins = pluginManager.getInstalledPlugins(req.params.id);
       res.json({ plugins });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      const message = error instanceof Error ? error.message : "Internal server error";
+      res.status(pluginErrorStatus(error)).json({ error: message });
     }
   });
 
@@ -35,13 +45,7 @@ export function createPluginsRouter(nodeManager: NodeManager): Router {
       res.status(201).json({ plugins });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Internal server error";
-      if (/not found/i.test(message)) {
-        return res.status(404).json({ error: message });
-      }
-      if (/already installed|only supported|cannot|running/i.test(message)) {
-        return res.status(409).json({ error: message });
-      }
-      res.status(500).json({ error: message });
+      res.status(pluginErrorStatus(error)).json({ error: message });
     }
   });
 
@@ -51,7 +55,8 @@ export function createPluginsRouter(nodeManager: NodeManager): Router {
       const plugins = pluginManager.getAvailablePlugins();
       res.json({ plugins });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      const message = error instanceof Error ? error.message : "Internal server error";
+      res.status(pluginErrorStatus(error)).json({ error: message });
     }
   });
 
@@ -59,43 +64,47 @@ export function createPluginsRouter(nodeManager: NodeManager): Router {
   router.put('/:pluginId', (req: Request<NodeParams>, res: Response) => {
     try {
       const { config } = req.body;
-      pluginManager.updatePluginConfig(req.params.id, req.params.pluginId as PluginId, config);
+      nodeManager.updatePluginConfig(req.params.id, req.params.pluginId as PluginId, config);
       const plugins = pluginManager.getInstalledPlugins(req.params.id);
       res.json({ plugins });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      const message = error instanceof Error ? error.message : "Internal server error";
+      res.status(pluginErrorStatus(error)).json({ error: message });
     }
   });
 
   // DELETE /api/nodes/:id/plugins/:pluginId - Uninstall plugin
   router.delete('/:pluginId', async (req: Request<NodeParams>, res: Response) => {
     try {
-      await pluginManager.uninstallPlugin(req.params.id, req.params.pluginId as PluginId);
+      await nodeManager.uninstallPlugin(req.params.id, req.params.pluginId as PluginId);
       res.status(204).send();
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      const message = error instanceof Error ? error.message : "Internal server error";
+      res.status(pluginErrorStatus(error)).json({ error: message });
     }
   });
 
   // POST /api/nodes/:id/plugins/:pluginId/enable - Enable plugin
   router.post('/:pluginId/enable', (req: Request<NodeParams>, res: Response) => {
     try {
-      pluginManager.setPluginEnabled(req.params.id, req.params.pluginId as PluginId, true);
+      nodeManager.setPluginEnabled(req.params.id, req.params.pluginId as PluginId, true);
       const plugins = pluginManager.getInstalledPlugins(req.params.id);
       res.json({ plugins });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      const message = error instanceof Error ? error.message : "Internal server error";
+      res.status(pluginErrorStatus(error)).json({ error: message });
     }
   });
 
   // POST /api/nodes/:id/plugins/:pluginId/disable - Disable plugin
   router.post('/:pluginId/disable', (req: Request<NodeParams>, res: Response) => {
     try {
-      pluginManager.setPluginEnabled(req.params.id, req.params.pluginId as PluginId, false);
+      nodeManager.setPluginEnabled(req.params.id, req.params.pluginId as PluginId, false);
       const plugins = pluginManager.getInstalledPlugins(req.params.id);
       res.json({ plugins });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      const message = error instanceof Error ? error.message : "Internal server error";
+      res.status(pluginErrorStatus(error)).json({ error: message });
     }
   });
 
