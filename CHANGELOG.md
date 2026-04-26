@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.3.0] - 2026-04-26
+
+### Added
+- **Native node import ownership model** — Imported neo-cli/neo-go nodes now default to observe-only, with explicit managed-config and managed-process adoption paths.
+- **Secure Signer policy hardening** — Signer profiles and node bindings now preserve policy/account/unlock metadata and fail closed when requested hardware protection is unavailable.
+- **Professional operator console UI** — Login, Dashboard, Nodes, Node Detail, Plugins, Settings, and Secure Signer areas now share a polished cloud-console design system.
+- **Tailwind v4 Vite integration** — Frontend builds now use `@tailwindcss/vite` so utility classes are generated reliably in preview and production builds.
+
+### Changed
+- **Imported-node lifecycle safety** — Process lifecycle actions require explicit ownership mode plus PID, command, argv/cwd, and path-boundary validation before any stop/start behavior.
+- **Plugin mutation routing** — Plugin install/update/uninstall/enable/disable paths are aligned with node ownership guards instead of relying on route-level assumptions.
+- **Frontend ownership UX** — Observe-only and managed-config states now surface clearer disabled actions, risk copy, and upgrade paths before backend rejection.
+- **Config persistence semantics** — Imported node config paths and key-protection settings are preserved more carefully during updates.
+
+### Fixed
+- **PID/path prefix collisions** — Prevented trusted path checks such as `/opt/neo` from matching sibling paths like `/opt/neo-other`.
+- **Imported neo-cli config audit** — Audits now inspect adopted config files such as `config.mainnet.json` / `config.testnet.json` instead of assuming `base/config.json`.
+- **WebSocket login-page noise** — The frontend only opens authenticated WebSocket connections after both token and user state are present.
+- **Node detail layout balance** — Collapsed technical details no longer leave an empty right column; the toggle is integrated into the page control bar.
+- **Plugin catalog density** — Plugin cards avoid cramped two-column layouts at ordinary desktop widths.
+
 ## [2.2.0] - 2026-03-30
 
 ### Added

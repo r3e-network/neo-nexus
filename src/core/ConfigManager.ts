@@ -1,8 +1,9 @@
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import YAML from 'js-yaml';
 import type { NodeConfig, NodeNetwork, PluginId } from '../types/index';
 import { getNetworkMagic, getSeedList } from '../utils/network';
+import { getNodePath, paths } from '../utils/paths';
 import { NEO_GO_STANDBY_COMMITTEE, NEO_GO_HARDFORKS } from '../data/neo-committee';
 
 export class ConfigManager {
@@ -262,6 +263,9 @@ export class ConfigManager {
             (customConfig.PluginConfiguration as Record<string, unknown> | undefined)?.Endpoint ??
             customConfig.Endpoint ??
             'http://127.0.0.1:9991',
+          ...(((customConfig.PluginConfiguration as Record<string, unknown> | undefined)?.Policy ?? customConfig.Policy)
+            ? { Policy: (customConfig.PluginConfiguration as Record<string, unknown> | undefined)?.Policy ?? customConfig.Policy }
+            : {}),
         },
       },
       SQLiteWallet: {},
@@ -295,19 +299,26 @@ export class ConfigManager {
    * Write node configuration files
    */
   static async writeNodeConfig(node: NodeConfig, installedPlugins: PluginId[] = []): Promise<void> {
-    // Ensure config directory exists
-    mkdirSync(node.paths.config, { recursive: true });
+    const configFilePath = this.getPrimaryConfigFilePath(node);
+    mkdirSync(dirname(configFilePath), { recursive: true });
 
     if (node.type === 'neo-cli') {
       const config = await this.generateNeoCliConfig(node, installedPlugins);
       const configJson = JSON.stringify(config, null, 2);
-      writeFileSync(join(node.paths.config, 'config.json'), configJson);
-      // neo-cli looks for config.json in its working directory (the node base path)
-      writeFileSync(join(node.paths.base, 'config.json'), configJson);
+      writeFileSync(configFilePath, configJson);
+      // neo-cli looks for config.json in its working directory (the node base path).
+      // For NeoNexus-managed nodes keep the historical base copy. For imported
+      // native nodes, only write the detected config file so adopting
+      // config.testnet.json/config.mainnet.json does not create or overwrite an
+      // unrelated external base/config.json.
+      const workingDirectoryConfigPath = join(node.paths.base, 'config.json');
+      if (ConfigManager.isManagedNodeDirectory(node) && workingDirectoryConfigPath !== configFilePath) {
+        writeFileSync(workingDirectoryConfigPath, configJson);
+      }
     } else {
       const config = this.generateNeoGoConfig(node);
       writeFileSync(
-        join(node.paths.config, 'protocol.yml'),
+        configFilePath,
         YAML.dump(config, { lineWidth: -1 })
       );
     }
@@ -335,6 +346,22 @@ export class ConfigManager {
       join(pluginDir, `${pluginId}.json`),
       JSON.stringify(wrappedConfig, null, 2)
     );
+  }
+
+  /**
+   * Return the concrete primary config file path. Historical managed-node
+   * records store a config directory; imported native nodes can store the
+   * exact config file discovered on disk.
+   */
+  private static getPrimaryConfigFilePath(node: NodeConfig): string {
+    const configuredPath = node.paths.config;
+    const lowerConfiguredPath = configuredPath.toLowerCase();
+    if (node.type === 'neo-cli') {
+      return lowerConfiguredPath.endsWith('.json') ? configuredPath : join(configuredPath, 'config.json');
+    }
+    return lowerConfiguredPath.endsWith('.yml') || lowerConfiguredPath.endsWith('.yaml')
+      ? configuredPath
+      : join(configuredPath, 'protocol.yml');
   }
 
   /**
@@ -380,6 +407,27 @@ export class ConfigManager {
     return result;
   }
 
+  private static isManagedNodeDirectory(node: Pick<NodeConfig, 'id' | 'paths' | 'settings'>): boolean {
+    if (node.settings?.import || !/^node-[A-Za-z0-9-]+$/.test(node.id)) {
+      return false;
+    }
+
+    const managedRoot = resolve(paths.nodes);
+    const expectedNodePath = resolve(getNodePath(node.id));
+    const expectedRelativeToRoot = relative(managedRoot, expectedNodePath);
+    if (
+      expectedRelativeToRoot === '' ||
+      expectedRelativeToRoot.startsWith('..') ||
+      isAbsolute(expectedRelativeToRoot) ||
+      expectedRelativeToRoot.includes('/') ||
+      expectedRelativeToRoot.includes('\\')
+    ) {
+      return false;
+    }
+
+    return resolve(node.paths.base) === expectedNodePath;
+  }
+
   /**
    * Audit a node's on-disk config against the expected generated config.
    * Returns a list of differences so users know what changed, what might
@@ -393,13 +441,14 @@ export class ConfigManager {
 
     if (node.type === 'neo-cli') {
       const expectedConfig = await this.generateNeoCliConfig(node, installedPlugins);
-      const onDiskPath = join(node.paths.base, 'config.json');
+      const onDiskPath = this.getPrimaryConfigFilePath(node);
+      const configIssuePath = basename(onDiskPath);
       if (existsSync(onDiskPath)) {
         let onDisk: Record<string, unknown>;
         try {
           onDisk = JSON.parse(readFileSync(onDiskPath, 'utf-8'));
         } catch {
-          issues.push({ path: 'config.json', severity: 'error', message: 'Node config.json contains invalid JSON' });
+          issues.push({ path: configIssuePath, severity: 'error', message: `Node ${configIssuePath} contains invalid JSON` });
           return {
             nodeId: node.id, nodeName: node.name, nodeType: node.type,
             version: node.version, network: node.network,
@@ -424,7 +473,7 @@ export class ConfigManager {
           }
         }
       } else {
-        issues.push({ path: 'config.json', severity: 'error', message: 'Node config.json does not exist on disk' });
+        issues.push({ path: configIssuePath, severity: 'error', message: `Node ${configIssuePath} does not exist on disk` });
       }
 
       // Check each plugin config
@@ -441,7 +490,7 @@ export class ConfigManager {
     } else {
       // neo-go
       const expectedConfig = this.generateNeoGoConfig(node);
-      const onDiskPath = join(node.paths.config, 'protocol.yml');
+      const onDiskPath = this.getPrimaryConfigFilePath(node);
       if (existsSync(onDiskPath)) {
         const YAML = (await import('js-yaml')).default;
         const onDisk = YAML.load(readFileSync(onDiskPath, 'utf-8')) as Record<string, unknown>;

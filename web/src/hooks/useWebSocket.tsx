@@ -24,7 +24,7 @@ interface WebSocketProviderProps {
 
 export function WebSocketProvider({ children }: WebSocketProviderProps) {
   const queryClient = useQueryClient();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [connected, setConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | string | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -45,10 +45,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 
     const connect = () => {
       clearReconnect();
-      const token = localStorage.getItem('token');
-      if (!token) {
-        // No auth token — delay and retry after login
-        reconnectTimerRef.current = window.setTimeout(connect, 2000);
+      if (!token || !user) {
+        setConnected(false);
         return;
       }
       ws = new WebSocket(`${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`);
@@ -91,7 +89,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       clearReconnect();
       ws?.close();
     };
-  }, [token]);
+  }, [token, user]);
 
   useEffect(() => {
     if (!lastMessage || typeof lastMessage === 'string' || !lastMessage.nodeId) {

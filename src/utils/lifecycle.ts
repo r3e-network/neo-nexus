@@ -5,8 +5,8 @@
  * shutdown / signal-handling machinery in server.ts.
  */
 
-import { writeFileSync, readFileSync, unlinkSync, existsSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { writeFileSync, readFileSync, unlinkSync, existsSync, realpathSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 
 /**
  * Write the current process PID to `path` (creates or overwrites the file).
@@ -55,8 +55,35 @@ export function readPidFile(path: string): number | null {
  */
 export function getProcessCommand(pid: number): string | null {
   try {
-    return execSync(`ps -p ${pid} -o args= 2>/dev/null`, { encoding: 'utf-8' }).trim() || null;
+    return execFileSync('ps', ['-p', String(pid), '-o', 'args='], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null;
   } catch { return null; }
+}
+
+/**
+ * Return the current working directory for a running process on Linux, or null
+ * if /proc is unavailable or the process cannot be inspected.
+ */
+export function getProcessCwd(pid: number): string | null {
+  try {
+    return realpathSync(`/proc/${pid}/cwd`);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Return argv for a running process on Linux, or null if /proc cannot be read.
+ * /proc/<pid>/cmdline is NUL-delimited and preserves argument boundaries, which
+ * is safer than substring matching the shell-formatted command line.
+ */
+export function getProcessArgv(pid: number): string[] | null {
+  try {
+    return readFileSync(`/proc/${pid}/cmdline`, "utf-8")
+      .split("\0")
+      .filter((arg) => arg.length > 0);
+  } catch {
+    return null;
+  }
 }
 
 /**

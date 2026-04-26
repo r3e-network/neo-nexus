@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Info, Puzzle, Server } from "lucide-react";
+import { AlertTriangle, Info, Puzzle, Server, ShieldCheck } from "lucide-react";
 import { FeedbackBanner } from "../components/FeedbackBanner";
 import { CardSkeleton } from "../components/LoadingSkeleton";
 import { useNodes } from "../hooks/useNodes";
@@ -22,6 +22,10 @@ export default function Plugins() {
   const [configDrafts, setConfigDrafts] = useState<Record<string, Record<string, unknown>>>({});
   const [feedback, setFeedback] = useState<{ type: "error" | "success"; message: string } | null>(null);
   const selectedNode = neoCliNodes.find((node) => node.id === selectedNodeId) || null;
+  const selectedNodeOwnership = selectedNode?.settings?.import?.ownershipMode;
+  const pluginMutationDisabledReason = selectedNodeOwnership === "observe-only"
+    ? "This imported node is observe-only. Plugin changes are blocked until ownership is explicitly upgraded."
+    : undefined;
 
   useEffect(() => {
     if (!selectedNodeId && neoCliNodes[0]) {
@@ -74,6 +78,11 @@ export default function Plugins() {
   const installedById = new Map(installedPlugins.map((plugin) => [plugin.id, plugin]));
 
   const handleToggle = async (pluginId: string) => {
+    if (pluginMutationDisabledReason) {
+      setFeedback({ type: "error", message: pluginMutationDisabledReason });
+      return;
+    }
+
     const isInstalled = installedById.has(pluginId);
     try {
       setFeedback(null);
@@ -94,6 +103,11 @@ export default function Plugins() {
   };
 
   const handleSaveConfig = async (pluginId: string) => {
+    if (pluginMutationDisabledReason) {
+      setFeedback({ type: "error", message: pluginMutationDisabledReason });
+      return;
+    }
+
     try {
       setFeedback(null);
       const meta = getPluginMeta(pluginId);
@@ -130,7 +144,7 @@ export default function Plugins() {
   // ── Empty state ──
   if (neoCliNodes.length === 0) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-7">
         <div>
           <h1 className="text-2xl font-bold text-white">Node Features</h1>
           <p className="text-slate-400 mt-1">Plugin management is available for neo-cli nodes.</p>
@@ -157,16 +171,19 @@ export default function Plugins() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Node Features</h1>
-        <p className="text-slate-400 mt-1">
-          Enable and configure capabilities for your neo-cli node. Each feature installs and configures the corresponding plugin automatically.
+    <div className="space-y-7">
+      <section className="page-hero p-7 lg:p-8">
+        <div className="relative z-10">
+        <p className="console-kicker">Plugin catalog</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Node plugins</h1>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+          Enable RPC surfaces, storage engines, monitoring, wallets and tooling per neo-cli node. Ownership guards prevent accidental mutations on observe-only imports.
         </p>
-      </div>
+        </div>
+      </section>
 
       {/* Info banner */}
-      <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+      <div className="rounded-2xl border border-blue-300/15 bg-[linear-gradient(135deg,rgba(59,130,246,0.10),rgba(255,255,255,0.025))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
         <div className="flex items-start gap-3">
           <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
           <div className="space-y-1">
@@ -183,10 +200,16 @@ export default function Plugins() {
       </div>
 
       {/* Node selector */}
-      <div className="card flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="card flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-white">Target Node</h2>
           <p className="text-sm text-slate-400">Features are managed per node.</p>
+          {selectedNode && (
+            <p className="mt-2 inline-flex items-center gap-2 text-xs text-slate-500">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+              Ownership: {selectedNode.settings?.import?.ownershipMode ?? "NeoNexus managed"}
+            </p>
+          )}
         </div>
         <div className="w-full max-w-md">
           <select
@@ -202,6 +225,15 @@ export default function Plugins() {
           </select>
         </div>
       </div>
+
+      {pluginMutationDisabledReason && (
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+            <p>{pluginMutationDisabledReason}</p>
+          </div>
+        </div>
+      )}
 
       <FeedbackBanner
         error={feedback?.type === "error" ? feedback.message : undefined}
@@ -219,7 +251,7 @@ export default function Plugins() {
               <p className="text-sm text-slate-400">{section.description}</p>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4">
               {section.plugins.map((plugin) => (
                 <PluginCard
                   key={plugin.id}
@@ -230,6 +262,7 @@ export default function Plugins() {
                   onToggle={() => handleToggle(plugin.id)}
                   onSaveConfig={() => handleSaveConfig(plugin.id)}
                   isSaving={updatePlugin.isPending}
+                  disabledReason={pluginMutationDisabledReason}
                 />
               ))}
             </div>

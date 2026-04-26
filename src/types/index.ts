@@ -3,6 +3,7 @@ export type NodeType = 'neo-cli' | 'neo-go';
 export type NodeNetwork = 'mainnet' | 'testnet' | 'private';
 export type NodeStatus = 'stopped' | 'starting' | 'running' | 'stopping' | 'error' | 'syncing';
 export type SyncMode = 'full' | 'light';
+export type ImportedNodeOwnershipMode = 'observe-only' | 'managed-config' | 'managed-process';
 
 // Node Configuration
 export interface NodeConfig {
@@ -42,7 +43,15 @@ export interface NodeSettings {
   debugMode?: boolean;
   customConfig?: Record<string, unknown>;
   keyProtection?: NodeKeyProtectionSettings;
+  import?: ImportedNodeSettings;
   resourceLimits?: { maxMemoryMB?: number };
+}
+
+export interface ImportedNodeSettings {
+  imported: boolean;
+  ownershipMode: ImportedNodeOwnershipMode;
+  existingPath?: string;
+  importedAt?: number;
 }
 
 // Process Status
@@ -150,6 +159,7 @@ export interface ImportNodeRequest {
   network?: NodeNetwork;
   version?: string;
   ports?: Partial<PortConfig>;
+  ownershipMode?: ImportedNodeOwnershipMode;
 }
 
 export interface UpdateNodeRequest {
@@ -354,6 +364,39 @@ export interface SecureSignerCommandResult {
   checkedAt: number;
 }
 
+export interface SecureSignerCapabilityDeclaration {
+  profileId: string;
+  mode: SecureSignerMode;
+  isolation: 'software-fallback' | 'sgx-enclave' | 'nitro-enclave' | 'external-hsm' | 'custom-remote-signer';
+  privateKeyExportable: false;
+  hardwareBacked: boolean;
+  remoteAttestation: boolean;
+  policyEnforcedBy: 'signer-service' | 'external-provider';
+  experimental: boolean;
+  notes: string[];
+}
+
+export interface SignClientPolicyRequest {
+  allowedOperations?: string[];
+  allowedContracts?: string[];
+  allowedRecipients?: string[];
+  requireHardwareProtection?: boolean;
+}
+
+export interface SignClientPolicyConfig {
+  AllowedOperations?: string[];
+  AllowedContracts?: string[];
+  AllowedRecipients?: string[];
+  RequireHardwareProtection: boolean;
+  DenyByDefault: true;
+}
+
+export interface SignClientConfig extends Record<string, unknown> {
+  Name: string;
+  Endpoint: string;
+  Policy?: SignClientPolicyConfig;
+}
+
 export interface NodeKeyProtectionSettings {
   mode: NodeKeyProtectionMode;
   signerProfileId?: string;
@@ -364,6 +407,7 @@ export interface NodeKeyProtectionSettings {
   accountAddress?: string;
   walletPath?: string;
   unlockMode?: SecureSignerUnlockMode;
+  policy?: SignClientPolicyRequest;
 }
 
 // WebSocket Events

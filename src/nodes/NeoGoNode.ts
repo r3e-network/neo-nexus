@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { BaseNode } from './BaseNode';
 import { DownloadManager } from '../core/DownloadManager';
 import type { NodeConfig, LogEntry } from '../types/index';
@@ -19,7 +19,7 @@ export class NeoGoNode extends BaseNode {
   getStartArgs(): string[] {
     const args: string[] = [
       'node',
-      '--config-file', join(this.config.paths.config, 'protocol.yml'),
+      '--config-file', this.getConfigFilePath(),
       '--relative-path',
       this.config.paths.base,
     ];
@@ -37,6 +37,15 @@ export class NeoGoNode extends BaseNode {
 
   getWorkingDirectory(): string {
     return this.config.paths.base;
+  }
+
+  private getConfigFilePath(): string {
+    const configuredPath = this.config.paths.config;
+    const configuredFileName = basename(configuredPath).toLowerCase();
+    if (configuredFileName.endsWith('.yml') || configuredFileName.endsWith('.yaml')) {
+      return configuredPath;
+    }
+    return join(configuredPath, 'protocol.yml');
   }
 
   /**

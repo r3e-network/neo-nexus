@@ -1,8 +1,8 @@
 import { Router, type Request, type Response } from 'express';
-import { resolve } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 import type { NodeManager } from '../../core/NodeManager';
 import { ConfigManager } from '../../core/ConfigManager';
-import type { CreateNodeRequest, UpdateNodeRequest, ImportNodeRequest } from '../../types';
+import type { CreateNodeRequest, UpdateNodeRequest, ImportNodeRequest, ImportedNodeOwnershipMode } from '../../types';
 import { paths } from '../../utils/paths';
 import { ApiError, Errors } from '../errors';
 import { respondWithApiError } from '../respond';
@@ -16,11 +16,17 @@ function validateNodePath(inputPath: string): string {
     throw Errors.pathBlocked(resolved);
   }
 
-  if (!allowedPrefixes.some((prefix) => resolved.startsWith(prefix))) {
+  if (!allowedPrefixes.some((prefix) => isPathWithinOrEqual(resolved, prefix))) {
     throw Errors.pathNotAllowed();
   }
 
   return resolved;
+}
+
+function isPathWithinOrEqual(resolvedPath: string, allowedPrefix: string): boolean {
+  const resolvedPrefix = resolve(allowedPrefix);
+  const pathRelativeToPrefix = relative(resolvedPrefix, resolvedPath);
+  return pathRelativeToPrefix === '' || (!pathRelativeToPrefix.startsWith('..') && !isAbsolute(pathRelativeToPrefix));
 }
 
 interface NodeParams {
@@ -29,6 +35,19 @@ interface NodeParams {
 
 export function createNodesRouter(nodeManager: NodeManager): Router {
   const router = Router();
+
+  const validateOwnershipMode = (mode: unknown): void => {
+    if (mode === undefined) {
+      return;
+    }
+    if (mode !== 'observe-only' && mode !== 'managed-config' && mode !== 'managed-process') {
+      throw new ApiError(
+        'INVALID_OWNERSHIP_MODE',
+        'Invalid import ownership mode',
+        'Use observe-only, managed-config, or managed-process for imported native nodes.',
+      );
+    }
+  };
 
   const validateSecureSignerRequest = (
     request: Pick<CreateNodeRequest, "type" | "settings"> | Pick<UpdateNodeRequest, "settings">,
@@ -98,6 +117,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
         throw Errors.missingFields("name", "existingPath");
       }
 
+      validateOwnershipMode(request.ownershipMode);
       const validatedRequest = { ...request, existingPath: validateNodePath(request.existingPath) };
 
       const node = await nodeManager.importExistingNode(validatedRequest);
@@ -185,13 +205,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       if (secureSignerValidationError) {
         throw secureSignerValidationError;
       }
-      const keyProtection = request.settings?.keyProtection;
-
       const node = await nodeManager.updateNode(req.params.id, request);
-
-      if (keyProtection?.mode === "secure-signer") {
-        await nodeManager.syncNodeSecureSigner(req.params.id);
-      }
 
       res.json({ node });
     } catch (error) {
@@ -204,6 +218,22 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
     try {
       await nodeManager.deleteNode(req.params.id);
       res.status(204).send();
+    } catch (error) {
+      respondWithApiError(res, error);
+    }
+  });
+
+  // POST /api/nodes/:id/ownership - Explicitly adopt or downgrade imported native node ownership
+  router.post('/:id/ownership', async (req: Request<NodeParams>, res: Response) => {
+    try {
+      const ownershipMode = req.body?.ownershipMode as ImportedNodeOwnershipMode | undefined;
+      validateOwnershipMode(ownershipMode);
+      if (!ownershipMode) {
+        throw Errors.missingField('ownershipMode');
+      }
+
+      const node = await nodeManager.updateImportedNodeOwnership(req.params.id, ownershipMode);
+      res.json({ node });
     } catch (error) {
       respondWithApiError(res, error);
     }
@@ -294,8 +324,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       }
       const requestedMaxAge = Number(req.body?.maxAgeDays);
       const maxAgeDays = Number.isFinite(requestedMaxAge) && requestedMaxAge > 0 ? requestedMaxAge : 30;
-      const { StorageManager } = await import('../../core/StorageManager');
-      const cleanedFiles = await StorageManager.cleanOldLogs(node.paths.logs, maxAgeDays);
+      const cleanedFiles = await nodeManager.cleanNodeLogs(req.params.id, maxAgeDays);
       res.json({ success: true, cleanedFiles, maxAgeDays });
     } catch (error) {
       respondWithApiError(res, error);

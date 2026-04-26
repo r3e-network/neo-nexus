@@ -46,6 +46,7 @@ export interface PluginCardProps {
   onToggle: () => void;
   onSaveConfig: () => void;
   isSaving: boolean;
+  disabledReason?: string;
 }
 
 export function PluginCard({
@@ -56,6 +57,7 @@ export function PluginCard({
   onToggle,
   onSaveConfig,
   isSaving,
+  disabledReason,
 }: PluginCardProps) {
   const meta = getPluginMeta(plugin.id, plugin.name);
   const isActive = !!installed;
@@ -68,18 +70,18 @@ export function PluginCard({
 
   return (
     <div
-      className={`rounded-xl border p-5 transition-colors ${
+      className={`rounded-[1.15rem] border p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition-all hover:-translate-y-0.5 ${
         isActive
-          ? "border-emerald-500/30 bg-emerald-500/5"
-          : "border-slate-700/60 bg-slate-900/70"
+          ? "border-emerald-300/25 bg-[linear-gradient(135deg,rgba(16,185,129,0.10),rgba(255,255,255,0.03))]"
+          : "border-white/[0.075] bg-white/[0.03] hover:border-white/[0.14] hover:bg-white/[0.045]"
       }`}
     >
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-5">
         <div className="flex items-start gap-3.5">
           <div
-            className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-              isActive ? "bg-emerald-500/10" : "bg-slate-700/80"
+            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ring-1 ${
+              isActive ? "bg-emerald-400/10 ring-emerald-300/20" : "bg-white/[0.045] ring-white/[0.08]"
             }`}
           >
             <PluginIcon
@@ -97,12 +99,19 @@ export function PluginCard({
           checked={isActive}
           onChange={onToggle}
           label={`Toggle ${meta.featureName}`}
+          disabled={Boolean(disabledReason)}
         />
       </div>
 
       {/* Install note */}
+      {disabledReason && (
+        <div className="mt-3 rounded-xl border border-amber-300/18 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
+          {disabledReason}
+        </div>
+      )}
+
       {!isActive && (
-        <div className="mt-3 rounded-lg bg-slate-800/50 px-3 py-2 text-xs text-slate-500">
+        <div className="mt-3 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-2 text-xs leading-5 text-slate-500">
           <span className="text-slate-400 font-medium">When enabled:</span> {meta.installNote}
         </div>
       )}
@@ -162,7 +171,7 @@ export function PluginCard({
                     type="button"
                     className="btn btn-primary"
                     onClick={onSaveConfig}
-                    disabled={isSaving}
+                    disabled={isSaving || Boolean(disabledReason)}
                   >
                     {isSaving ? "Saving..." : "Save Configuration"}
                   </button>
