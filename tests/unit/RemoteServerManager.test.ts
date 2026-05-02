@@ -1,3 +1,5 @@
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 function createMockDb() {
@@ -69,9 +71,80 @@ function createMockDb() {
   };
 }
 
+async function startRemoteSummaryServer() {
+  const seenHosts: string[] = [];
+  const server = createServer((req, res) => {
+    seenHosts.push(req.headers.host ?? "");
+    res.setHeader("Content-Type", "application/json");
+    if (req.url === "/api/public/status") {
+      res.end(JSON.stringify({
+        status: {
+          totalNodes: 2,
+          runningNodes: 1,
+          syncingNodes: 0,
+          errorNodes: 0,
+          totalBlocks: 100,
+          totalPeers: 8,
+          timestamp: 123,
+        },
+      }));
+      return;
+    }
+    if (req.url === "/api/public/metrics/system") {
+      res.end(JSON.stringify({
+        metrics: {
+          cpu: { usage: 40, cores: 8 },
+          memory: { percentage: 50, used: 1, total: 2 },
+          disk: { percentage: 60, used: 3, total: 4 },
+        },
+      }));
+      return;
+    }
+    if (req.url === "/api/public/nodes") {
+      res.end(JSON.stringify({
+        nodes: [{ id: "node-1", name: "Remote Node", status: "running", metrics: { blockHeight: 100 } }],
+      }));
+      return;
+    }
+    res.statusCode = 404;
+    res.end(JSON.stringify({ error: "not found" }));
+  });
+  const port = await listen(server);
+  return {
+    port,
+    seenHosts,
+    close: () => closeServer(server),
+  };
+}
+
+async function getClosedPort(): Promise<number> {
+  const server = createServer();
+  const port = await listen(server);
+  await closeServer(server);
+  return port;
+}
+
+function listen(server: Server): Promise<number> {
+  return new Promise((resolve) => {
+    server.listen(0, "127.0.0.1", () => {
+      resolve((server.address() as AddressInfo).port);
+    });
+  });
+}
+
+function closeServer(server: Server): Promise<void> {
+  return new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}
+
 describe("RemoteServerManager", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    delete process.env.NEONEXUS_ALLOW_PRIVATE_REMOTE_SERVERS;
   });
 
   it("creates and lists normalized server profiles", async () => {
@@ -91,76 +164,102 @@ describe("RemoteServerManager", () => {
     expect(manager.listServers()).toEqual([created]);
   });
 
-  it("fetches remote status summaries for configured servers", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = String(input);
-        if (url.endsWith("/api/public/status")) {
-          return {
-            ok: true,
-            json: async () => ({
-              status: {
-                totalNodes: 2,
-                runningNodes: 1,
-                syncingNodes: 0,
-                errorNodes: 0,
-                totalBlocks: 100,
-                totalPeers: 8,
-                timestamp: 123,
-              },
-            }),
-          } as Response;
-        }
-        if (url.endsWith("/api/public/metrics/system")) {
-          return {
-            ok: true,
-            json: async () => ({
-              metrics: {
-                cpu: { usage: 40, cores: 8 },
-                memory: { percentage: 50, used: 1, total: 2 },
-                disk: { percentage: 60, used: 3, total: 4 },
-              },
-            }),
-          } as Response;
-        }
-        if (url.endsWith("/api/public/nodes")) {
-          return {
-            ok: true,
-            json: async () => ({
-              nodes: [{ id: "node-1", name: "Remote Node", status: "running", metrics: { blockHeight: 100 } }],
-            }),
-          } as Response;
-        }
-        throw new Error(`Unexpected URL ${url}`);
-      }),
-    );
-
+  it("rejects unsupported remote server URL protocols", async () => {
     const { RemoteServerManager } = await import("../../src/core/RemoteServerManager");
     const manager = new RemoteServerManager(createMockDb() as never);
+
+    expect(() => manager.createServer({
+      name: "File Target",
+      baseUrl: "file:///etc/passwd",
+    })).toThrow(/http or https/i);
+  });
+
+  it("blocks private and local remote server targets by default", async () => {
+    const { RemoteServerManager } = await import("../../src/core/RemoteServerManager");
+    const manager = new RemoteServerManager(createMockDb() as never);
+
+    expect(() => manager.createServer({
+      name: "Loopback",
+      baseUrl: "http://127.0.0.1:8080",
+    })).toThrow(/private or local/i);
+
+    expect(() => manager.createServer({
+      name: "Metadata",
+      baseUrl: "http://169.254.169.254",
+    })).toThrow(/private or local/i);
+
+    expect(() => manager.createServer({
+      name: "IPv4 mapped loopback",
+      baseUrl: "http://[::ffff:127.0.0.1]:8080",
+    })).toThrow(/private or local/i);
+  });
+
+  it("allows private remote server targets only when explicitly enabled", async () => {
+    process.env.NEONEXUS_ALLOW_PRIVATE_REMOTE_SERVERS = "true";
+    const { RemoteServerManager } = await import("../../src/core/RemoteServerManager");
+    const manager = new RemoteServerManager(createMockDb() as never);
+
+    const created = manager.createServer({
+      name: "LAN Manager",
+      baseUrl: "http://192.168.1.25:8080/",
+    });
+
+    expect(created.baseUrl).toBe("http://192.168.1.25:8080");
+  });
+
+  it("fetches remote status summaries for configured servers", async () => {
+    process.env.NEONEXUS_ALLOW_PRIVATE_REMOTE_SERVERS = "true";
+    const server = await startRemoteSummaryServer();
+    const { RemoteServerManager } = await import("../../src/core/RemoteServerManager");
+    const manager = new RemoteServerManager(createMockDb() as never, {
+      resolveHostname: vi.fn(async () => [{ address: "127.0.0.1", family: 4 }]),
+    });
     const profile = manager.createServer({
       name: "Tokyo Node Manager",
-      baseUrl: "https://tokyo.example.com",
+      baseUrl: `http://remote.example.test:${server.port}`,
+    });
+
+    try {
+      const summary = await manager.getServerSummary(profile.id);
+
+      expect(summary.reachable).toBe(true);
+      expect(summary.profile.name).toBe("Tokyo Node Manager");
+      expect(summary.status?.totalNodes).toBe(2);
+      expect(summary.nodes).toHaveLength(1);
+      expect(server.seenHosts).toContain(`remote.example.test:${server.port}`);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("marks DNS-private remote server targets unreachable before fetching", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { RemoteServerManager } = await import("../../src/core/RemoteServerManager");
+    const manager = new RemoteServerManager(createMockDb() as never, {
+      resolveHostname: vi.fn(async () => [{ address: "127.0.0.1", family: 4 }]),
+    });
+    const profile = manager.createServer({
+      name: "DNS Private",
+      baseUrl: "https://dns-private.example.com",
     });
 
     const summary = await manager.getServerSummary(profile.id);
 
-    expect(summary.reachable).toBe(true);
-    expect(summary.profile.name).toBe("Tokyo Node Manager");
-    expect(summary.status?.totalNodes).toBe(2);
-    expect(summary.nodes).toHaveLength(1);
+    expect(summary.reachable).toBe(false);
+    expect(summary.error).toMatch(/private or local/i);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("marks servers unreachable when public endpoints fail", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => {
-      throw new Error("connect ECONNREFUSED");
-    }));
-
+    process.env.NEONEXUS_ALLOW_PRIVATE_REMOTE_SERVERS = "true";
+    const port = await getClosedPort();
     const { RemoteServerManager } = await import("../../src/core/RemoteServerManager");
     const manager = new RemoteServerManager(createMockDb() as never);
     const profile = manager.createServer({
       name: "Offline Manager",
-      baseUrl: "https://offline.example.com",
+      baseUrl: `http://127.0.0.1:${port}`,
     });
 
     const summary = await manager.getServerSummary(profile.id);

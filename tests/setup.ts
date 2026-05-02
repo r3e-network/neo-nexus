@@ -118,7 +118,12 @@ vi.mock("child_process", () => ({
     kill: vi.fn(),
     pid: 12345,
   })),
-  exec: vi.fn((cmd: string, cb: Function) => cb(null, "output", "")),
+  exec: vi.fn(
+    (
+      cmd: string,
+      cb: (error: Error | null, stdout: string, stderr: string) => void,
+    ) => cb(null, "output", ""),
+  ),
   execSync: vi.fn(() => Buffer.from("output")),
 }));
 
@@ -134,16 +139,6 @@ vi.mock("fs/promises", () => ({
   unlink: vi.fn(() => Promise.resolve()),
   rm: vi.fn(() => Promise.resolve()),
   chmod: vi.fn(() => Promise.resolve()),
-}));
-
-// Mock node-cron
-vi.mock("node-cron", () => ({
-  schedule: vi.fn(() => ({
-    start: vi.fn(),
-    stop: vi.fn(),
-    destroy: vi.fn(),
-  })),
-  validate: vi.fn(() => true),
 }));
 
 // ============================================

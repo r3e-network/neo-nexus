@@ -1,5 +1,6 @@
 // src/integrations/providers/logging/GrafanaLokiProvider.ts
 import type { LogProvider, LogEntryWithContext, ConfigField } from '../../types';
+import { safeIntegrationFetch } from '../../safeFetch';
 
 export const grafanaLokiSchema: ConfigField[] = [
   { key: 'pushUrl', label: 'Loki Push URL', type: 'url', placeholder: 'https://logs-prod-006.grafana.net', required: true },
@@ -41,7 +42,7 @@ export class GrafanaLokiProvider implements LogProvider {
     const auth = Buffer.from(`${this.config.username}:${this.config.apiKey}`).toString('base64');
     const url = `${this.config.pushUrl.replace(/\/$/, '')}/loki/api/v1/push`;
 
-    const response = await fetch(url, {
+    const response = await safeIntegrationFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -60,7 +61,7 @@ export class GrafanaLokiProvider implements LogProvider {
     const auth = Buffer.from(`${this.config.username}:${this.config.apiKey}`).toString('base64');
     const url = `${this.config.pushUrl.replace(/\/$/, '')}/loki/api/v1/push`;
 
-    const response = await fetch(url, {
+    const response = await safeIntegrationFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

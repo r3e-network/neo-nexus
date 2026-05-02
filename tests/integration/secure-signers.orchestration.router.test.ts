@@ -88,4 +88,14 @@ describe("Secure signer orchestration router", () => {
     expect(response.status).toBe(200);
     expect(mockManager.startRecipientSigner).toHaveBeenCalledWith("signer-1", "ciphertext-value");
   });
+
+  it("rejects blank recipient ciphertext without calling the manager", async () => {
+    const response = await request(app)
+      .post("/api/secure-signers/signer-1/start-recipient")
+      .send({ ciphertextBase64: "   " });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("MISSING_FIELDS");
+    expect(mockManager.startRecipientSigner).not.toHaveBeenCalled();
+  });
 });

@@ -4,6 +4,7 @@ import { get, request as httpsRequest } from "node:https";
 import { join } from "node:path";
 import extractZip from "extract-zip";
 import { paths } from "../utils/paths";
+import { assertReleaseVersion } from "../utils/nodeValidation";
 import type { NodeType, ReleaseInfo } from "../types/index";
 
 const GITHUB_API_BASE = "https://api.github.com/repos";
@@ -42,7 +43,8 @@ export function getNeoGoAssetInfo(
   binaryName: string;
   downloadUrl: string;
 } {
-  const normalizedVersion = version.startsWith("v") ? version : `v${version}`;
+  const safeVersion = assertReleaseVersion(version);
+  const normalizedVersion = safeVersion.startsWith("v") ? safeVersion : `v${safeVersion}`;
 
   let assetName: string;
   let binaryName: string;
@@ -102,12 +104,13 @@ export class DownloadManager {
    * Download and extract neo-cli
    */
   static async downloadNeoCli(version: string, onProgress?: (percent: number) => void): Promise<string> {
+    const safeVersion = assertReleaseVersion(version);
     const platform = process.platform === "win32" ? "win-x64" : "linux-x64";
     const fileName = `neo-cli-${platform}.zip`;
-    const downloadUrl = `https://github.com/neo-project/neo-node/releases/download/${version}/${fileName}`;
+    const downloadUrl = `https://github.com/neo-project/neo-node/releases/download/${safeVersion}/${fileName}`;
 
-    const downloadPath = join(paths.downloads, `neo-cli-${version}.zip`);
-    const extractPath = join(paths.downloads, `neo-cli-${version}`);
+    const downloadPath = join(paths.downloads, `neo-cli-${safeVersion}.zip`);
+    const extractPath = join(paths.downloads, `neo-cli-${safeVersion}`);
 
     // Ensure downloads directory exists
     mkdirSync(paths.downloads, { recursive: true });
@@ -130,9 +133,10 @@ export class DownloadManager {
    * Download neo-go binary
    */
   static async downloadNeoGo(version: string, onProgress?: (percent: number) => void): Promise<string> {
-    const asset = getNeoGoAssetInfo(version, process.platform, process.arch);
+    const safeVersion = assertReleaseVersion(version);
+    const asset = getNeoGoAssetInfo(safeVersion, process.platform, process.arch);
     const downloadPath = join(paths.downloads, asset.downloadFileName);
-    const extractPath = join(paths.downloads, `neo-go-${version}`);
+    const extractPath = join(paths.downloads, `neo-go-${safeVersion}`);
     const binaryPath = join(extractPath, asset.binaryName);
 
     // Ensure downloads directory exists
@@ -161,7 +165,8 @@ export class DownloadManager {
    * checkout) before attempting to download from GitHub.
    */
   static async downloadPlugin(pluginId: string, version: string): Promise<string> {
-    const pluginDir = join(paths.plugins, pluginId, version);
+    const safeVersion = assertReleaseVersion(version);
+    const pluginDir = join(paths.plugins, pluginId, safeVersion);
 
     // Check for local build source first
     const localBuildDir = process.env.NEO_PLUGIN_BUILD_DIR;
@@ -180,9 +185,9 @@ export class DownloadManager {
 
     // neo-modules releases use format: v3.9.2/ApplicationLogs.zip
     const fileName = `${pluginId}.zip`;
-    const downloadUrl = `https://github.com/${PLUGIN_REPO.owner}/${PLUGIN_REPO.repo}/releases/download/${version}/${fileName}`;
+    const downloadUrl = `https://github.com/${PLUGIN_REPO.owner}/${PLUGIN_REPO.repo}/releases/download/${safeVersion}/${fileName}`;
 
-    const downloadPath = join(paths.downloads, `plugin-${pluginId}-${version}.zip`);
+    const downloadPath = join(paths.downloads, `plugin-${pluginId}-${safeVersion}.zip`);
 
     // Ensure directories exist
     mkdirSync(paths.downloads, { recursive: true });
@@ -233,12 +238,13 @@ export class DownloadManager {
    * Get binary path for a node
    */
   static getNodeBinaryPath(nodeType: NodeType, version: string): string | null {
+    const safeVersion = assertReleaseVersion(version);
     if (nodeType === "neo-cli") {
-      const path = join(paths.downloads, `neo-cli-${version}`, "neo-cli");
+      const path = join(paths.downloads, `neo-cli-${safeVersion}`, "neo-cli");
       return existsSync(path) ? path : null;
     } else {
       const binaryName = process.platform === "win32" ? "neo-go.exe" : "neo-go";
-      const path = join(paths.downloads, `neo-go-${version}`, binaryName);
+      const path = join(paths.downloads, `neo-go-${safeVersion}`, binaryName);
       return existsSync(path) ? path : null;
     }
   }
@@ -257,7 +263,18 @@ export class DownloadManager {
     url: string,
     destination: string,
     onProgress?: (percent: number) => void,
+    redirectsRemaining = 5,
   ): Promise<void> {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new Error(`Invalid download URL: ${url}`);
+    }
+    if (parsed.protocol !== "https:") {
+      throw new Error(`Refusing to download from non-HTTPS URL: ${url}`);
+    }
+
     return new Promise((resolve, reject) => {
       const file = createWriteStream(destination);
       const cleanup = () => {
@@ -273,11 +290,20 @@ export class DownloadManager {
 
       get(url, { headers: { "User-Agent": "NeoNexus-NodeManager/2.0" } }, (response) => {
         if (response.statusCode === 302 || response.statusCode === 301) {
+          if (redirectsRemaining <= 0) {
+            cleanup();
+            reject(new Error("Too many redirects"));
+            return;
+          }
           // Follow redirect
           const redirectUrl = response.headers.location;
           if (redirectUrl) {
             cleanup();
-            this.downloadFile(redirectUrl, destination, onProgress).then(resolve).catch(reject);
+            // Resolve relative redirect URLs against the original request URL
+            // so that strict protocol/host validation always sees the canonical
+            // form, regardless of how the upstream server formats Location.
+            const next = new URL(redirectUrl, url).toString();
+            this.downloadFile(next, destination, onProgress, redirectsRemaining - 1).then(resolve).catch(reject);
             return;
           }
         }

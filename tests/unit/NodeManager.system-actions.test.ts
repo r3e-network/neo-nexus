@@ -34,7 +34,7 @@ import { NodeManager } from "../../src/core/NodeManager";
 import { StorageManager } from "../../src/core/StorageManager";
 import { NeoCliNode } from "../../src/nodes/NeoCliNode";
 import * as lifecycle from "../../src/utils/lifecycle";
-import { getNodePath, paths } from "../../src/utils/paths";
+import { paths } from "../../src/utils/paths";
 import { execFileSync } from "node:child_process";
 
 const pkg = JSON.parse(
@@ -298,6 +298,74 @@ describe("NodeManager system actions", () => {
     expect(manager.repo.saveNode).toHaveBeenCalledOnce();
   });
 
+  it("rejects unsafe release versions before touching downloads or storage", async () => {
+    const manager = Object.create(NodeManager.prototype) as NodeManager & {
+      portManager: { findNextIndex: ReturnType<typeof vi.fn>; allocatePorts: ReturnType<typeof vi.fn> };
+      repo: { transaction: (fn: () => void) => void; saveNode: ReturnType<typeof vi.fn>; deleteNode: ReturnType<typeof vi.fn> };
+    };
+
+    manager.portManager = {
+      findNextIndex: vi.fn(),
+      allocatePorts: vi.fn(),
+    };
+    manager.repo = {
+      transaction: (fn: () => void) => fn(),
+      saveNode: vi.fn(),
+      deleteNode: vi.fn(),
+    };
+    const hasNodeBinary = vi.spyOn(DownloadManager, "hasNodeBinary").mockReturnValue(true);
+    const ensureNodeDirectories = vi.spyOn(StorageManager, "ensureNodeDirectories").mockImplementation(() => undefined);
+
+    await expect(manager.createNode({
+      name: "Unsafe Version",
+      type: "neo-cli",
+      network: "testnet",
+      version: "../neo-cli",
+    })).rejects.toMatchObject({ code: "INVALID_RELEASE_VERSION" });
+
+    expect(hasNodeBinary).not.toHaveBeenCalled();
+    expect(ensureNodeDirectories).not.toHaveBeenCalled();
+    expect(manager.repo.saveNode).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid custom ports before saving the node", async () => {
+    const manager = Object.create(NodeManager.prototype) as NodeManager & {
+      portManager: {
+        findNextIndex: ReturnType<typeof vi.fn>;
+        allocatePorts: ReturnType<typeof vi.fn>;
+        releasePorts: ReturnType<typeof vi.fn>;
+        reservePorts: ReturnType<typeof vi.fn>;
+      };
+      repo: { transaction: (fn: () => void) => void; saveNode: ReturnType<typeof vi.fn>; deleteNode: ReturnType<typeof vi.fn> };
+    };
+
+    manager.portManager = {
+      findNextIndex: vi.fn().mockResolvedValue(1),
+      allocatePorts: vi.fn().mockResolvedValue({ rpc: 20332, p2p: 20333, websocket: 20334, metrics: 20335 }),
+      releasePorts: vi.fn(),
+      reservePorts: vi.fn().mockRejectedValue(Object.assign(new Error("Invalid custom port"), { code: "INVALID_PORT_CONFIG" })),
+    };
+    manager.repo = {
+      transaction: (fn: () => void) => fn(),
+      saveNode: vi.fn(),
+      deleteNode: vi.fn(),
+    };
+    vi.spyOn(DownloadManager, "hasNodeBinary").mockReturnValue(true);
+    vi.spyOn(StorageManager, "ensureNodeDirectories").mockImplementation(() => undefined);
+    vi.spyOn(ConfigManager, "writeNodeConfig").mockResolvedValue(undefined);
+
+    await expect(manager.createNode({
+      name: "Bad Ports",
+      type: "neo-cli",
+      network: "testnet",
+      version: "3.9.2",
+      customPorts: { rpc: 0 },
+    })).rejects.toMatchObject({ code: "INVALID_PORT_CONFIG" });
+
+    expect(manager.portManager.releasePorts).toHaveBeenCalledWith({ rpc: 20332, p2p: 20333, websocket: 20334, metrics: 20335 });
+    expect(manager.repo.saveNode).not.toHaveBeenCalled();
+  });
+
   it("strips reserved import metadata while restoring managed snapshots", async () => {
     const manager = Object.create(NodeManager.prototype) as NodeManager & {
       createNode: ReturnType<typeof vi.fn>;
@@ -326,6 +394,39 @@ describe("NodeManager system actions", () => {
     expect(manager.createNode).toHaveBeenCalledWith(expect.objectContaining({
       settings: { debugMode: true },
     }));
+  });
+
+  it("validates all replace-existing restore nodes before resetting current data", async () => {
+    const manager = Object.create(NodeManager.prototype) as NodeManager & {
+      resetAllNodeData: ReturnType<typeof vi.fn>;
+      createNode: ReturnType<typeof vi.fn>;
+    };
+
+    manager.resetAllNodeData = vi.fn().mockResolvedValue({
+      deletedNodeCount: 2,
+      removedDirectoryCount: 2,
+      stoppedCount: 1,
+      alreadyStoppedCount: 1,
+    });
+    manager.createNode = vi.fn();
+
+    await expect(manager.restoreConfiguration({
+      version: "2.0.0",
+      nodes: [
+        {
+          name: "Valid",
+          type: "neo-cli",
+          network: "testnet",
+        },
+        {
+          name: "Missing network",
+          type: "neo-go",
+        } as never,
+      ],
+    }, { replaceExisting: true })).rejects.toMatchObject({ code: "SNAPSHOT_INVALID" });
+
+    expect(manager.resetAllNodeData).not.toHaveBeenCalled();
+    expect(manager.createNode).not.toHaveBeenCalled();
   });
 
   it("does not start a node when the repository PID still matches the imported native process", async () => {

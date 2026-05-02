@@ -22,12 +22,16 @@ export function createMetricsRouter(nodeManager: NodeManager, metricsCollector: 
   // GET /api/nodes/:id/metrics - Node metrics
   router.get('/nodes/:id/metrics', async (req: Request<NodeParams>, res: Response) => {
     try {
-      await nodeManager.updateMetrics(req.params.id);
       const node = nodeManager.getNode(req.params.id);
       if (!node) {
         return res.status(404).json({ error: 'Node not found' });
       }
-      res.json({ metrics: node.metrics });
+      await nodeManager.updateMetrics(req.params.id);
+      const refreshedNode = nodeManager.getNode(req.params.id);
+      if (!refreshedNode) {
+        return res.status(404).json({ error: 'Node not found' });
+      }
+      res.json({ metrics: refreshedNode.metrics });
     } catch (error) {
       res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }

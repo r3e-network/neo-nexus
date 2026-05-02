@@ -1,16 +1,28 @@
 // src/integrations/providers/metrics/DatadogProvider.ts
 import type { MetricsProvider, NodeMetricsWithContext, ConfigField } from '../../types';
 import type { SystemMetrics } from '../../../types/index';
+import { safeIntegrationFetch } from '../../safeFetch';
 
 export const datadogSchema: ConfigField[] = [
   { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'dd-api-key-...', required: true },
   { key: 'site', label: 'Datadog Site', type: 'text', placeholder: 'datadoghq.com', required: true },
 ];
 
+const DATADOG_SITE_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i;
+
 export class DatadogProvider implements MetricsProvider {
   readonly name = 'Datadog';
 
-  constructor(private config: { apiKey: string; site: string }) {}
+  constructor(private config: { apiKey: string; site: string }) {
+    // The Datadog site value is interpolated directly into a URL hostname
+    // (`https://api.${site}/...`). Without this guard a user could break out
+    // with characters like `@`, `/`, `#`, or `:` and redirect outbound requests
+    // — including the API key — to an attacker-controlled host. Restrict to
+    // strict DNS-label syntax.
+    if (!DATADOG_SITE_PATTERN.test(this.config.site.trim())) {
+      throw new Error(`Invalid Datadog site: ${this.config.site}`);
+    }
+  }
 
   async pushMetrics(system: SystemMetrics, nodes: NodeMetricsWithContext[]): Promise<void> {
     const now = Math.floor(Date.now() / 1000);
@@ -47,7 +59,7 @@ export class DatadogProvider implements MetricsProvider {
       addMetric('neonexus.node.cpu', node.metrics.cpuUsage, tags);
     }
 
-    const response = await fetch(`https://api.${this.config.site}/api/v2/series`, {
+    const response = await safeIntegrationFetch(`https://api.${this.config.site}/api/v2/series`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -63,7 +75,7 @@ export class DatadogProvider implements MetricsProvider {
   }
 
   async testConnection(): Promise<boolean> {
-    const response = await fetch(`https://api.${this.config.site}/api/v1/validate`, {
+    const response = await safeIntegrationFetch(`https://api.${this.config.site}/api/v1/validate`, {
       headers: { 'DD-API-KEY': this.config.apiKey },
       signal: AbortSignal.timeout(10_000),
     });

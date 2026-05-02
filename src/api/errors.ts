@@ -20,7 +20,7 @@ export const Errors = {
   nodeRunning: () =>
     new ApiError("NODE_RUNNING",
       "Cannot update configuration while node is running",
-      "Stop the node first, then retry the update."),
+      "Stop the node first, then retry the update.", 409),
   nodeAlreadyRunning: () =>
     new ApiError("NODE_ALREADY_RUNNING",
       "Node is already running",
@@ -51,6 +51,22 @@ export const Errors = {
     new ApiError("MISSING_FIELDS",
       `Missing required field: ${field}`,
       `The "${field}" field is required.`),
+  invalidNodeType: (type: string) =>
+    new ApiError("INVALID_NODE_TYPE",
+      `Invalid node type: ${type || "(empty)"}`,
+      'Use "neo-cli" or "neo-go" for node type.'),
+  invalidNodeNetwork: (network: string) =>
+    new ApiError("INVALID_NODE_NETWORK",
+      `Invalid node network: ${network || "(empty)"}`,
+      'Use "mainnet", "testnet", or "private" for node network.'),
+  invalidReleaseVersion: (version: string) =>
+    new ApiError("INVALID_RELEASE_VERSION",
+      `Invalid release version: ${version || "(empty)"}`,
+      "Use a release tag like v3.9.2 or v0.118.0. Path separators and arbitrary strings are not allowed."),
+  invalidPortConfig: (errors: string[]) =>
+    new ApiError("INVALID_PORT_CONFIG",
+      `Invalid port configuration: ${errors.join(", ")}`,
+      "Use unique TCP ports in the range 1-65535 that are not already assigned or bound by another process."),
   nameExists: (name: string) =>
     new ApiError("NAME_EXISTS",
       `Node name "${name}" already exists`,
@@ -103,6 +119,14 @@ export const Errors = {
     new ApiError("MISSING_FIELDS",
       "Missing required fields: name, mode, endpoint",
       "Provide a name, the signing mode (e.g. nitro), and the endpoint URL."),
+  signerWorkspaceNotAllowed: (path: string) =>
+    new ApiError("SIGNER_WORKSPACE_NOT_ALLOWED",
+      `Signer workspace path is not allowed: ${path}`,
+      "Place secure signer tooling under an approved workspace root, or configure NEONEXUS_SIGNER_WORKSPACE_ROOTS for this deployment.", 403),
+  signerEndpointPrivateTarget: (hostname: string) =>
+    new ApiError("SIGNER_ENDPOINT_PRIVATE_TARGET",
+      `Secure signer endpoint targets a private or local address: ${hostname}`,
+      "Use a public signer endpoint, or set NEONEXUS_ALLOW_PRIVATE_SIGNER_ENDPOINTS=true only for trusted private deployments."),
 
   // Auth
   noToken: () =>
@@ -120,7 +144,7 @@ export const Errors = {
   invalidCredentials: () =>
     new ApiError("INVALID_CREDENTIALS",
       "Invalid credentials",
-      "Username or password is incorrect. Default credentials are admin/admin if this is a fresh install.", 401),
+      "Username or password is incorrect. If this is a fresh install, use the setup page to create the first admin account.", 401),
   notAuthenticated: () =>
     new ApiError("NOT_AUTHENTICATED",
       "Not authenticated",
@@ -165,12 +189,30 @@ export const Errors = {
     new ApiError("PLUGINS_CLI_ONLY",
       "Plugins are only supported for neo-cli nodes",
       "neo-go has built-in equivalents for most plugins. Check the neo-go documentation for the feature you need."),
+  pluginNotInstalled: (pluginId: string, nodeId: string) =>
+    new ApiError("PLUGIN_NOT_INSTALLED",
+      `Plugin ${pluginId} is not installed on node ${nodeId}`,
+      "Install the plugin before updating, enabling, disabling, or removing it.", 404),
+
+  // Integrations
+  integrationUrlPrivateTarget: (hostname: string) =>
+    new ApiError("INTEGRATION_URL_PRIVATE_TARGET",
+      `Integration URL targets a private or local address: ${hostname}`,
+      "Use a public HTTPS endpoint, or set NEONEXUS_ALLOW_PRIVATE_INTEGRATION_TARGETS=true only for trusted private deployments."),
 
   // Servers
   serverFieldsRequired: () =>
     new ApiError("MISSING_FIELDS",
       "Missing required fields: name, baseUrl",
       "Provide a display name and the base URL of the remote NeoNexus instance."),
+  serverUrlProtocolInvalid: () =>
+    new ApiError("REMOTE_SERVER_URL_PROTOCOL_INVALID",
+      "Remote server URL must use http or https",
+      "Use the HTTP(S) base URL of a remote NeoNexus instance."),
+  serverUrlPrivateTarget: (hostname: string) =>
+    new ApiError("REMOTE_SERVER_URL_PRIVATE_TARGET",
+      `Remote server URL targets a private or local address: ${hostname}`,
+      "Use a public HTTPS endpoint, or set NEONEXUS_ALLOW_PRIVATE_REMOTE_SERVERS=true only for trusted private deployments."),
 
   // Generic
   notFound: (resource: string) =>
@@ -183,4 +225,12 @@ export const Errors = {
     new ApiError("SNAPSHOT_REQUIRED",
       "A valid snapshot payload is required",
       "POST a JSON body containing the configuration snapshot from a previous export."),
+  snapshotInvalid: (index: number) =>
+    new ApiError("SNAPSHOT_INVALID",
+      `Snapshot node at index ${index} is missing required fields`,
+      "Every node in a replace-existing restore must include name, type, and network before current data is deleted."),
+  snapshotRestoreFailed: (message: string) =>
+    new ApiError("SNAPSHOT_RESTORE_FAILED",
+      `Snapshot restore failed: ${message}`,
+      "The previous configuration was restored if rollback was possible. Check the snapshot and retry.", 500),
 };

@@ -5,9 +5,43 @@
 [![Version](https://img.shields.io/badge/version-2.3.0-green.svg)](https://github.com/r3e-network/neo-nexus)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org)
-[![Tests](https://img.shields.io/badge/tests-322%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-vitest-brightgreen.svg)](#)
 
 NeoNexus is a **self-hosted node management platform** for Neo N3. Deploy, monitor, and manage [neo-cli](https://github.com/neo-project/neo-node) and [neo-go](https://github.com/nspcc-dev/neo-go) nodes from a single web dashboard.
+
+## Screenshots
+
+**Operations dashboard** — fleet health, node lifecycle, plugins, monitoring, and signer posture in one workspace.
+
+![Operations dashboard](docs/screenshots/03-dashboard.png)
+
+**Node fleet** — search, filter, and operate every neo-cli / neo-go process you manage.
+
+![Nodes](docs/screenshots/04-nodes.png)
+
+**Plugins** — toggle RPC, storage, and tooling plugins per node with ownership-aware safety guards.
+
+![Plugins](docs/screenshots/06-plugins.png)
+
+**Integrations** — connect metrics, logging, uptime, alerting, and error services with private-target SSRF protection.
+
+![Integrations](docs/screenshots/05-integrations.png)
+
+**Servers** — federate multiple NeoNexus instances through their public status endpoints.
+
+![Servers](docs/screenshots/07-servers.png)
+
+**Settings** — storage management, secure-signer profiles, audit log, users, and guarded destructive operations.
+
+![Settings](docs/screenshots/08-settings.png)
+
+**Public status page** at `/status` — read-only fleet view safe to expose externally.
+
+![Public status page](docs/screenshots/01-public-status.png)
+
+**Sign-in** — bearer-token JWT, with WebSocket auth via the `neonexus.auth` subprotocol.
+
+![Sign-in](docs/screenshots/02-login.png)
 
 ## Features
 
@@ -42,7 +76,7 @@ npm run build
 npm start
 ```
 
-Open http://localhost:8080 — login with `admin` / `admin`, then change the password.
+Open http://localhost:8080 and create the first admin account in the setup screen.
 
 ### Deploy Your First Node
 
@@ -189,7 +223,12 @@ curl http://localhost:8080/api/nodes \
 
 ### WebSocket
 
-Connect to `ws://localhost:8080/ws?token=YOUR_TOKEN` for real-time events:
+Connect to `ws://localhost:8080/ws` with the `neonexus.auth` subprotocol and JWT token as the second protocol value:
+
+```js
+const ws = new WebSocket("ws://localhost:8080/ws", ["neonexus.auth", "YOUR_TOKEN"]);
+```
+
 - `system` — CPU, memory, disk metrics (every 5s)
 - `metrics` — Per-node block height, peers, sync progress
 - `log` — Live node log entries
@@ -209,6 +248,9 @@ Connect to `ws://localhost:8080/ws?token=YOUR_TOKEN` for real-time events:
 | `HTTPS_CERT_PATH` | — | TLS cert file |
 | `LOG_RETENTION_MAX_ROWS` | `50000` | Max log rows per node |
 | `NEO_PLUGIN_BUILD_DIR` | — | Local neo-node plugins build directory |
+| `NEONEXUS_ALLOW_PRIVATE_REMOTE_SERVERS` | `false` | Allow remote NeoNexus server profiles to target private/local networks |
+| `NEONEXUS_ALLOW_PRIVATE_SIGNER_ENDPOINTS` | `false` | Allow HTTP secure-signer endpoints on private/local networks |
+| `NEONEXUS_ALLOW_PRIVATE_INTEGRATION_TARGETS` | `false` | Allow integration webhooks/metrics/logging endpoints on private/local networks |
 
 ## Development
 
@@ -216,7 +258,7 @@ Connect to `ws://localhost:8080/ws?token=YOUR_TOKEN` for real-time events:
 # Development mode (hot reload)
 npm run dev
 
-# Run tests (272 tests)
+# Run tests
 npm test
 
 # Type checking

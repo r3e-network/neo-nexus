@@ -71,6 +71,19 @@ describe("Actual servers router", () => {
     expect(response.body.server.id).toBe("srv-1");
   });
 
+  it("rejects unsupported server URL protocols before create", async () => {
+    const response = await request(app)
+      .post("/api/servers")
+      .send({
+        name: "FTP",
+        baseUrl: "ftp://example.com",
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("REMOTE_SERVER_URL_PROTOCOL_INVALID");
+    expect(mockManager.createServer).not.toHaveBeenCalled();
+  });
+
   it("updates a server profile", async () => {
     mockManager.updateServer.mockReturnValue({
       id: "srv-1",
@@ -87,6 +100,18 @@ describe("Actual servers router", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.server.name).toBe("Tokyo Updated");
+  });
+
+  it("rejects invalid server URLs before update", async () => {
+    const response = await request(app)
+      .put("/api/servers/srv-1")
+      .send({
+        baseUrl: "not-a-url",
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("MISSING_FIELDS");
+    expect(mockManager.updateServer).not.toHaveBeenCalled();
   });
 
   it("returns structured error when required fields are missing on create", async () => {

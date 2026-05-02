@@ -1,12 +1,44 @@
 # NeoNexus API Reference
 
-Complete API documentation for NeoNexus Node Manager.
+Reference documentation for the currently documented NeoNexus API surface.
+
+This document is maintained to match the implemented route shapes, but it is not an exhaustive compatibility guarantee for every internal or newly added endpoint.
 
 **Base URL:** `http://localhost:8080/api`
 
 ## Authentication
 
 Most endpoints require authentication via JWT Bearer token.
+
+### Initial Setup
+
+Create the first admin account. This endpoint only works while no users exist.
+
+```http
+POST /auth/setup
+Content-Type: application/json
+```
+
+**Request:**
+```json
+{
+  "username": "admin",
+  "password": "strong-password-here"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Setup completed successfully",
+  "user": {
+    "id": "uuid",
+    "username": "admin",
+    "role": "admin"
+  },
+  "token": "eyJhbGciOiJIUzI1NiIs..."
+}
+```
 
 ### Login
 
@@ -20,7 +52,7 @@ POST /auth/login
 ```json
 {
   "username": "admin",
-  "password": "admin"
+  "password": "strong-password-here"
 }
 ```
 
@@ -422,6 +454,17 @@ Authorization: Bearer YOUR_TOKEN
 }
 ```
 
+### Additional Node Operations
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/nodes/scan` | Scan a directory for importable Neo node installations |
+| POST | `/nodes/:id/ownership` | Change an imported node ownership mode |
+| GET | `/nodes/:id/storage` | Get storage usage for a node |
+| POST | `/nodes/:id/storage/clean` | Remove old log files for a node |
+| GET | `/nodes/:id/config-audit` | Compare a node config against generated expectations |
+| GET | `/nodes/:id/signer-health` | Check the secure signer bound to a node |
+
 ---
 
 ## Plugin Management
@@ -457,6 +500,21 @@ GET /nodes/:id/plugins
 Authorization: Bearer YOUR_TOKEN
 ```
 
+**Response:**
+```json
+{
+  "plugins": [
+    {
+      "name": "ApplicationLogs",
+      "enabled": true,
+      "config": {
+        "Path": "Logs_App"
+      }
+    }
+  ]
+}
+```
+
 ### Install Plugin
 
 Install a plugin on a node.
@@ -488,7 +546,7 @@ Authorization: Bearer YOUR_TOKEN
 Update plugin configuration.
 
 ```http
-PUT /nodes/:id/plugins/:pluginId/config
+PUT /nodes/:id/plugins/:pluginId
 Authorization: Bearer YOUR_TOKEN
 Content-Type: application/json
 ```
@@ -496,9 +554,41 @@ Content-Type: application/json
 **Request:**
 ```json
 {
-  "Path": "Logs_App",
-  "ConsoleOutput": false
+  "config": {
+    "Path": "Logs_App",
+    "ConsoleOutput": false
+  }
 }
+```
+
+**Response:**
+```json
+{
+  "plugins": [
+    {
+      "name": "ApplicationLogs",
+      "enabled": true,
+      "config": {
+        "Path": "Logs_App",
+        "ConsoleOutput": false
+      }
+    }
+  ]
+}
+```
+
+### Enable Plugin
+
+```http
+POST /nodes/:id/plugins/:pluginId/enable
+Authorization: Bearer YOUR_TOKEN
+```
+
+### Disable Plugin
+
+```http
+POST /nodes/:id/plugins/:pluginId/disable
+Authorization: Bearer YOUR_TOKEN
 ```
 
 ---
@@ -599,10 +689,10 @@ GET /public/nodes
         "connectedPeers": 10,
         "syncProgress": 100
       },
+      "uptime": 3600,
       "lastUpdate": 1774400000000
     }
-  ],
-  "count": 1
+  ]
 }
 ```
 
@@ -660,11 +750,39 @@ GET /public/status
 **Response:**
 ```json
 {
-  "status": "healthy",
-  "totalNodes": 5,
-  "runningNodes": 4,
-  "errorNodes": 0,
-  "timestamp": 1774400000000
+  "status": {
+    "totalNodes": 5,
+    "runningNodes": 4,
+    "syncingNodes": 1,
+    "errorNodes": 0,
+    "totalBlocks": 25000000,
+    "totalPeers": 42,
+    "timestamp": 1774400000000
+  }
+}
+```
+
+### Node Metrics Summary (Public)
+
+```http
+GET /public/metrics/nodes
+```
+
+**Response:**
+```json
+{
+  "metrics": [
+    {
+      "id": "node-abc123",
+      "name": "Public Node",
+      "status": "running",
+      "blockHeight": 5000000,
+      "peers": 10,
+      "cpuUsage": 25.5,
+      "memoryUsage": 512,
+      "lastUpdate": 1774400000000
+    }
+  ]
 }
 ```
 
@@ -677,7 +795,7 @@ Real-time updates via WebSocket connection.
 ### Connect
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8080/ws');
+const ws = new WebSocket('ws://localhost:8080/ws', ['neonexus.auth', 'YOUR_TOKEN']);
 
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
@@ -724,6 +842,39 @@ ws.onmessage = (event) => {
 
 ---
 
+## Admin & Integration Routes
+
+These routes require an authenticated admin unless noted.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/auth/register` | Create an additional admin or viewer account |
+| GET | `/auth/users` | List users |
+| DELETE | `/auth/users/:id` | Delete a user account |
+| PUT | `/auth/password` | Change the current user's password |
+| POST | `/system/logs/clean` | Clean old managed node logs |
+| GET | `/system/export` | Download a configuration snapshot |
+| POST | `/system/restore` | Restore a configuration snapshot |
+| POST | `/system/nodes/stop-all` | Stop all running managed nodes |
+| POST | `/system/reset` | Delete all managed node definitions and managed directories |
+| GET | `/system/audit-log` | Read the audit log |
+| GET | `/servers` | List configured remote NeoNexus instances |
+| POST | `/servers` | Add a remote NeoNexus instance |
+| PUT | `/servers/:id` | Update a remote NeoNexus instance |
+| DELETE | `/servers/:id` | Delete a remote NeoNexus instance |
+| GET | `/secure-signers` | List secure signer profiles |
+| POST | `/secure-signers` | Create a secure signer profile |
+| POST | `/secure-signers/:id/test` | Test a secure signer profile |
+| POST | `/secure-signers/:id/attestation` | Fetch signer attestation metadata |
+| GET | `/integrations` | List SaaS integration configuration state |
+| PUT | `/integrations/:id` | Save and enable/disable an integration |
+| POST | `/integrations/:id/test` | Test an integration |
+| DELETE | `/integrations/:id` | Remove an integration configuration |
+
+Viewer accounts are limited to read-only routes. State-changing node, plugin, server, system, signer, and integration routes require admin access.
+
+---
+
 ## Error Handling
 
 All errors follow this format:
@@ -761,6 +912,9 @@ All errors follow this format:
 | `DOWNLOAD_FAILED` | Failed to download node binary |
 | `PORT_UNAVAILABLE` | Required port is in use |
 | `PLUGIN_NOT_FOUND` | The specified plugin doesn't exist |
+| `REMOTE_SERVER_URL_PRIVATE_TARGET` | Remote server URL targets a private or local address |
+| `SIGNER_ENDPOINT_PRIVATE_TARGET` | Secure signer endpoint targets a private or local address |
+| `INTEGRATION_URL_PRIVATE_TARGET` | Integration URL targets a private or local address |
 
 ---
 
@@ -772,13 +926,13 @@ API endpoints have rate limits to prevent abuse:
 |----------|-------|
 | Authentication | 5 requests per 15 minutes |
 | Node Control (start/stop) | 10 requests per minute |
-| Other endpoints | 100 requests per minute |
+| Other endpoints, including public routes | 1000 requests per 15 minutes |
 
 Rate limit headers are included in responses:
 
 ```http
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 95
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 995
 X-RateLimit-Reset: 1774400000
 ```
 

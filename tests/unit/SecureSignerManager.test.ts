@@ -1,3 +1,4 @@
+import { createServer as createTcpServer, type Server as TcpServer } from "node:net";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 function createMockDb() {
@@ -115,9 +116,37 @@ function createMockDb() {
   };
 }
 
+async function startTcpServer() {
+  const server = createTcpServer((socket) => {
+    socket.end();
+  });
+  const port = await new Promise<number>((resolve) => {
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (typeof address === "object" && address) {
+        resolve(address.port);
+      }
+    });
+  });
+  return {
+    port,
+    close: () => closeTcpServer(server),
+  };
+}
+
+function closeTcpServer(server: TcpServer): Promise<void> {
+  return new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}
+
 describe("SecureSignerManager", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    delete process.env.NEONEXUS_ALLOW_PRIVATE_SIGNER_ENDPOINTS;
   });
 
   it("creates and lists normalized secure signer profiles", async () => {
@@ -162,6 +191,7 @@ describe("SecureSignerManager", () => {
   });
 
   it("tests profiles and records warning status for vsock endpoints", async () => {
+    process.env.NEONEXUS_ALLOW_PRIVATE_SIGNER_ENDPOINTS = "true";
     const probeEndpoint = vi.fn(async () => ({ ok: true, message: "connected", latencyMs: 18 }));
     const { SecureSignerManager } = await import("../../src/core/SecureSignerManager");
     const manager = new SecureSignerManager(createMockDb() as never, { probeEndpoint });
@@ -189,6 +219,85 @@ describe("SecureSignerManager", () => {
     expect(nitroResult.message).toMatch(/vsock/i);
   });
 
+  it("blocks private and local HTTP signer endpoints by default", async () => {
+    const { SecureSignerManager } = await import("../../src/core/SecureSignerManager");
+    const manager = new SecureSignerManager(createMockDb() as never);
+
+    expect(() => manager.createProfile({
+      name: "Loopback signer",
+      mode: "software",
+      endpoint: "http://127.0.0.1:9991",
+    })).toThrow(/private or local/i);
+
+    expect(() => manager.createProfile({
+      name: "Metadata signer",
+      mode: "sgx",
+      endpoint: "http://169.254.169.254:9991",
+    })).toThrow(/private or local/i);
+
+    expect(() => manager.createProfile({
+      name: "IPv4 mapped metadata signer",
+      mode: "software",
+      endpoint: "http://[::ffff:169.254.169.254]:9991",
+    })).toThrow(/private or local/i);
+  });
+
+  it("allows private HTTP signer endpoints only when explicitly enabled", async () => {
+    process.env.NEONEXUS_ALLOW_PRIVATE_SIGNER_ENDPOINTS = "true";
+    const { SecureSignerManager } = await import("../../src/core/SecureSignerManager");
+    const manager = new SecureSignerManager(createMockDb() as never);
+
+    const profile = manager.createProfile({
+      name: "Local signer",
+      mode: "software",
+      endpoint: "http://127.0.0.1:9991",
+    });
+
+    expect(profile.endpoint).toBe("http://127.0.0.1:9991");
+  });
+
+  it("reports DNS-private signer endpoints unreachable before probing", async () => {
+    const { SecureSignerManager } = await import("../../src/core/SecureSignerManager");
+    const manager = new SecureSignerManager(createMockDb() as never, {
+      resolveHostname: vi.fn(async () => [{ address: "127.0.0.1", family: 4 }]),
+    });
+
+    const profile = manager.createProfile({
+      name: "DNS private signer",
+      mode: "software",
+      endpoint: "https://signer-private.example.com:9991",
+    });
+
+    const result = await manager.testProfile(profile.id);
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("unreachable");
+    expect(result.message).toMatch(/private or local/i);
+  });
+
+  it("connects signer probes to the already-resolved address when private targets are explicitly enabled", async () => {
+    process.env.NEONEXUS_ALLOW_PRIVATE_SIGNER_ENDPOINTS = "true";
+    const server = await startTcpServer();
+    const resolveHostname = vi.fn(async () => [{ address: "127.0.0.1", family: 4 as const }]);
+    const { SecureSignerManager } = await import("../../src/core/SecureSignerManager");
+    const manager = new SecureSignerManager(createMockDb() as never, { resolveHostname });
+    const profile = manager.createProfile({
+      name: "Pinned signer",
+      mode: "software",
+      endpoint: `http://signer.example.test:${server.port}`,
+    });
+
+    try {
+      const result = await manager.testProfile(profile.id);
+
+      expect(result.ok).toBe(true);
+      expect(result.status).toBe("reachable");
+      expect(resolveHostname).toHaveBeenCalledWith("signer.example.test");
+    } finally {
+      await server.close();
+    }
+  });
+
   it("declares signer capabilities without overstating software isolation", async () => {
     const { SecureSignerManager } = await import("../../src/core/SecureSignerManager");
     const manager = new SecureSignerManager(createMockDb() as never);
@@ -196,7 +305,7 @@ describe("SecureSignerManager", () => {
     const software = manager.createProfile({
       name: "Software fallback",
       mode: "software",
-      endpoint: "http://127.0.0.1:9991",
+      endpoint: "https://signer.example.com:9991",
     });
     const nitro = manager.createProfile({
       name: "Nitro",
@@ -274,7 +383,7 @@ describe("SecureSignerManager", () => {
     const profile = manager.createProfile({
       name: "Software fallback",
       mode: "software",
-      endpoint: "http://127.0.0.1:9991",
+      endpoint: "https://signer.example.com:9991",
     });
 
     expect(() => manager.buildSignClientConfig(profile, { requireHardwareProtection: true })).toThrow(/hardware-backed/i);
@@ -285,5 +394,20 @@ describe("SecureSignerManager", () => {
         details: expect.objectContaining({ reason: "hardware-protection-required" }),
       }),
     ]));
+  });
+
+  it("rejects signer workspace paths outside approved roots", async () => {
+    const { SecureSignerManager } = await import("../../src/core/SecureSignerManager");
+    const manager = new SecureSignerManager(createMockDb() as never, {
+      probeEndpoint: vi.fn(),
+      runToolCommand: vi.fn(),
+    });
+
+    expect(() => manager.createProfile({
+      name: "Injected Workspace",
+      mode: "software",
+      endpoint: "https://signer.example.com:9991",
+      workspacePath: "/tmp/attacker-controlled",
+    })).toThrow(/workspace path is not allowed/i);
   });
 });

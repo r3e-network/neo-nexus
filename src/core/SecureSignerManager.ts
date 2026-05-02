@@ -1,7 +1,10 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { existsSync, realpathSync } from "node:fs";
 import net from "node:net";
+import { isAbsolute, relative, resolve } from "node:path";
 import type Database from "better-sqlite3";
+import { Errors } from "../api/errors";
 import type {
   CreateSecureSignerRequest,
   SecureSignerAttestationResult,
@@ -18,6 +21,13 @@ import type {
   SignClientPolicyRequest,
   UpdateSecureSignerRequest,
 } from "../types";
+import { paths } from "../utils/paths";
+import {
+  assertLiteralPublicTarget,
+  assertResolvedPublicTarget,
+  defaultHostnameResolver,
+  type HostnameResolver,
+} from "../utils/outboundTargets";
 
 interface ProbeResult {
   ok: boolean;
@@ -33,6 +43,7 @@ interface ToolCommandResult {
 interface SecureSignerManagerOptions {
   probeEndpoint?: (endpoint: string) => Promise<ProbeResult>;
   runToolCommand?: (toolPath: string, args: string[]) => Promise<ToolCommandResult>;
+  resolveHostname?: HostnameResolver;
 }
 
 type ProfileRow = {
@@ -62,16 +73,27 @@ function isLocalHttpHost(host: string): boolean {
   return host === "127.0.0.1" || host === "localhost";
 }
 
+function shQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\"'\"'`)}'`;
+}
+
+function isPathWithinOrEqual(path: string, root: string): boolean {
+  const relativePath = relative(root, path);
+  return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
+}
+
 export class SecureSignerManager {
   private readonly probeEndpoint: (endpoint: string) => Promise<ProbeResult>;
   private readonly runToolCommand: (toolPath: string, args: string[]) => Promise<ToolCommandResult>;
+  private readonly resolveHostname: HostnameResolver;
 
   constructor(
     private readonly db: Database.Database,
     options: SecureSignerManagerOptions = {},
   ) {
-    this.probeEndpoint = options.probeEndpoint ?? this.defaultProbeEndpoint;
+    this.probeEndpoint = options.probeEndpoint ?? this.defaultProbeEndpoint.bind(this);
     this.runToolCommand = options.runToolCommand ?? this.defaultRunToolCommand;
+    this.resolveHostname = options.resolveHostname ?? defaultHostnameResolver;
   }
 
   listProfiles(): SecureSignerProfile[] {
@@ -548,7 +570,7 @@ export class SecureSignerManager {
       unlockMode,
       notes: this.normalizeOptional(input.notes),
       enabled: input.enabled ?? true,
-      workspacePath: this.normalizeOptional(input.workspacePath),
+      workspacePath: this.normalizeWorkspacePath(input.workspacePath),
       startupPort: this.normalizeOptionalInteger(input.startupPort),
       awsRegion: this.normalizeOptional(input.awsRegion),
       kmsKeyId: this.normalizeOptional(input.kmsKeyId),
@@ -585,6 +607,14 @@ export class SecureSignerManager {
       throw new Error("Secure signer endpoint must include an explicit port");
     }
 
+    if (["http:", "https:"].includes(parsed.protocol)) {
+      assertLiteralPublicTarget(
+        parsed.hostname,
+        Errors.signerEndpointPrivateTarget,
+        process.env.NEONEXUS_ALLOW_PRIVATE_SIGNER_ENDPOINTS === "true",
+      );
+    }
+
     return value;
   }
 
@@ -604,6 +634,35 @@ export class SecureSignerManager {
   private normalizeOptional(value?: string): string | undefined {
     const normalized = value?.trim();
     return normalized ? normalized : undefined;
+  }
+
+  private normalizeWorkspacePath(value?: string): string | undefined {
+    const normalized = this.normalizeOptional(value);
+    if (!normalized) {
+      return undefined;
+    }
+
+    const resolved = resolve(normalized);
+    const realPath = existsSync(resolved) ? realpathSync(resolved) : resolved;
+    const roots = this.getAllowedWorkspaceRoots();
+    if (!roots.some((root) => isPathWithinOrEqual(realPath, root))) {
+      throw Errors.signerWorkspaceNotAllowed(normalized);
+    }
+    return realPath;
+  }
+
+  private getAllowedWorkspaceRoots(): string[] {
+    const configured = process.env.NEONEXUS_SIGNER_WORKSPACE_ROOTS
+      ?.split(":")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    const roots = configured?.length
+      ? configured
+      : ["/opt/secure-sign-service-rs", "/opt/secure-signers", `${paths.base}/secure-signers`];
+    return roots.map((root) => {
+      const resolved = resolve(root);
+      return existsSync(resolved) ? realpathSync(resolved) : resolved;
+    });
   }
 
   private normalizeOptionalInteger(value?: number): number | undefined {
@@ -648,17 +707,17 @@ export class SecureSignerManager {
 
     if (profile.mode === "software") {
       return [
-        `cd ${profile.workspacePath} && ./target/secure-sign-tcp mock --wallet ${profile.walletPath || "config/nep6_wallet.json"} --port ${connection.servicePort}`,
+        `cd ${shQuote(profile.workspacePath)} && ./target/secure-sign-tcp mock --wallet ${shQuote(profile.walletPath || "config/nep6_wallet.json")} --port ${connection.servicePort}`,
       ];
     }
 
     if (profile.mode === "sgx") {
-      return [`cd ${profile.workspacePath} && ./scripts/sgx/run.sh --daemon`];
+      return [`cd ${shQuote(profile.workspacePath)} && ./scripts/sgx/run.sh --daemon`];
     }
 
     if (profile.mode === "nitro") {
       return [
-        `cd ${profile.workspacePath} && ./scripts/nitro/run.sh --cid ${connection.cid} --eif-path secure-sign-nitro.eif`,
+        `cd ${shQuote(profile.workspacePath)} && ./scripts/nitro/run.sh --cid ${connection.cid} --eif-path secure-sign-nitro.eif`,
       ];
     }
 
@@ -672,12 +731,12 @@ export class SecureSignerManager {
 
     if (profile.mode === "nitro" && profile.kmsCiphertextBlobPath) {
       return [
-        `cd ${profile.workspacePath} && SIGNER_CID=${connection.cid} SIGNER_SERVICE_PORT=${connection.servicePort} SIGNER_STARTUP_PORT=${connection.startupPort} AWS_REGION=${profile.awsRegion || "ap-southeast-1"}${profile.kmsKeyId ? ` KMS_KEY_ID=${profile.kmsKeyId}` : ""} KMS_CIPHERTEXT_BLOB_PATH=${profile.kmsCiphertextBlobPath}${profile.publicKey ? ` SIGNER_PUBLIC_KEY=${profile.publicKey}` : ""} ./scripts/auto-unlock-kms-recipient.sh`,
+        `cd ${shQuote(profile.workspacePath)} && SIGNER_CID=${connection.cid} SIGNER_SERVICE_PORT=${connection.servicePort} SIGNER_STARTUP_PORT=${connection.startupPort} AWS_REGION=${shQuote(profile.awsRegion || "ap-southeast-1")}${profile.kmsKeyId ? ` KMS_KEY_ID=${shQuote(profile.kmsKeyId)}` : ""} KMS_CIPHERTEXT_BLOB_PATH=${shQuote(profile.kmsCiphertextBlobPath)}${profile.publicKey ? ` SIGNER_PUBLIC_KEY=${shQuote(profile.publicKey)}` : ""} ./scripts/auto-unlock-kms-recipient.sh`,
       ];
     }
 
     return [
-      `cd ${profile.workspacePath} && ./target/secure-sign-tools decrypt${connection.cid ? ` --cid ${connection.cid}` : ""} --port ${connection.startupPort}`,
+      `cd ${shQuote(profile.workspacePath)} && ./target/secure-sign-tools decrypt${connection.cid ? ` --cid ${connection.cid}` : ""} --port ${connection.startupPort}`,
     ];
   }
 
@@ -687,7 +746,7 @@ export class SecureSignerManager {
     }
 
     return [
-      `cd ${profile.workspacePath} && ./target/secure-sign-tools status${connection.cid ? ` --cid ${connection.cid}` : ""} --port ${connection.servicePort} --public-key ${profile.publicKey}`,
+      `cd ${shQuote(profile.workspacePath)} && ./target/secure-sign-tools status${connection.cid ? ` --cid ${connection.cid}` : ""} --port ${connection.servicePort} --public-key ${shQuote(profile.publicKey)}`,
     ];
   }
 
@@ -697,7 +756,7 @@ export class SecureSignerManager {
     }
 
     return [
-      `cd ${profile.workspacePath} && ./target/secure-sign-tools recipient-attestation --cid ${connection.cid} --port ${connection.startupPort} --output -`,
+      `cd ${shQuote(profile.workspacePath)} && ./target/secure-sign-tools recipient-attestation --cid ${connection.cid} --port ${connection.startupPort} --output -`,
     ];
   }
 
@@ -707,7 +766,7 @@ export class SecureSignerManager {
     }
 
     return [
-      `cd ${profile.workspacePath} && ./target/secure-sign-tools start-recipient --cid ${connection.cid} --port ${connection.startupPort} --ciphertext-base64 <CiphertextForRecipient>`,
+      `cd ${shQuote(profile.workspacePath)} && ./target/secure-sign-tools start-recipient --cid ${connection.cid} --port ${connection.startupPort} --ciphertext-base64 ${shQuote("<CiphertextForRecipient>")}`,
     ];
   }
 
@@ -798,19 +857,36 @@ export class SecureSignerManager {
     });
   }
 
-  private defaultProbeEndpoint(endpoint: string): Promise<ProbeResult> {
-    return new Promise((resolve) => {
-      let parsed: URL;
-      try {
-        parsed = new URL(endpoint);
-      } catch {
-        resolve({ ok: false, message: "Endpoint could not be parsed" });
-        return;
-      }
+  private async defaultProbeEndpoint(endpoint: string): Promise<ProbeResult> {
+    let parsed: URL;
+    try {
+      parsed = new URL(endpoint);
+    } catch {
+      return { ok: false, message: "Endpoint could not be parsed" };
+    }
 
+    try {
+      const addresses = await assertResolvedPublicTarget(
+        parsed.hostname,
+        this.resolveHostname,
+        Errors.signerEndpointPrivateTarget,
+        process.env.NEONEXUS_ALLOW_PRIVATE_SIGNER_ENDPOINTS === "true",
+      );
+      const connectHost = addresses[0]?.address ?? parsed.hostname;
+      return this.probeTcpEndpoint(parsed, connectHost);
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : "Endpoint target is not allowed",
+      };
+    }
+  }
+
+  private probeTcpEndpoint(parsed: URL, connectHost: string): Promise<ProbeResult> {
+    return new Promise((resolve) => {
       const port = Number.parseInt(parsed.port, 10) || (parsed.protocol === "https:" ? 443 : 80);
       const startedAt = Date.now();
-      const socket = net.createConnection({ host: parsed.hostname, port });
+      const socket = net.createConnection({ host: connectHost, port });
 
       socket.setTimeout(1500);
 

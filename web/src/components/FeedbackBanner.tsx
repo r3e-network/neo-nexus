@@ -22,10 +22,11 @@ export function FeedbackBanner({ error, suggestion, code, success, actions }: Fe
 
   const isError = !!error;
   const Icon = isError ? AlertCircle : CheckCircle;
-  const borderColor = isError ? "border-red-500/20" : "border-emerald-500/20";
-  const bgColor = isError ? "bg-red-500/10" : "bg-emerald-500/10";
-  const textColor = isError ? "text-red-300" : "text-emerald-300";
-  const subtextColor = isError ? "text-red-400/70" : "text-emerald-400/70";
+  const borderColor = isError ? "border-red-200" : "border-emerald-200";
+  const bgColor = isError ? "bg-red-50" : "bg-emerald-50";
+  const textColor = isError ? "text-red-800" : "text-emerald-800";
+  const subtextColor = isError ? "text-red-700" : "text-emerald-700";
+  const hoverTextColor = isError ? "hover:text-red-900" : "hover:text-emerald-900";
 
   return (
     <div className={`${borderColor} ${bgColor} border rounded-lg p-4 mb-4 animate-fade-in`}>
@@ -45,7 +46,7 @@ export function FeedbackBanner({ error, suggestion, code, success, actions }: Fe
                   <a
                     key={action.label}
                     href={action.href}
-                    className="text-xs font-medium text-blue-400 hover:text-blue-300 underline"
+                    className="text-xs font-medium text-blue-700 hover:text-blue-900 underline"
                   >
                     {action.label}
                   </a>
@@ -54,7 +55,7 @@ export function FeedbackBanner({ error, suggestion, code, success, actions }: Fe
                     key={action.label}
                     type="button"
                     onClick={action.onClick}
-                    className="text-xs font-medium text-blue-400 hover:text-blue-300 underline"
+                    className="text-xs font-medium text-blue-700 hover:text-blue-900 underline"
                   >
                     {action.label}
                   </button>
@@ -65,7 +66,7 @@ export function FeedbackBanner({ error, suggestion, code, success, actions }: Fe
                 <button
                   type="button"
                   onClick={() => setCollapsed(!collapsed)}
-                  className={`text-xs ${subtextColor} hover:${textColor} flex items-center gap-1 ml-auto`}
+                  className={`text-xs ${subtextColor} ${hoverTextColor} flex items-center gap-1 ml-auto`}
                 >
                   {collapsed ? (
                     <>Show hint <ChevronDown className="w-3 h-3" /></>

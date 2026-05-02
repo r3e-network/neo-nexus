@@ -50,10 +50,12 @@ export default function Integrations() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <section className="page-hero pb-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Integrations</h1>
-          <p className="text-slate-400 mt-1">Connect NeoNexus to external monitoring, logging, and notification services.</p>
+          <p className="console-kicker">External systems</p>
+          <h1 className="mt-2 text-3xl font-semibold text-slate-950">Integrations</h1>
+          <p className="text-slate-600 mt-2 max-w-3xl text-sm leading-6">Connect NeoNexus to monitoring, logging, uptime, alerting, and error services.</p>
         </div>
         <button
           className="btn btn-secondary"
@@ -64,20 +66,20 @@ export default function Integrations() {
           Refresh
         </button>
       </div>
+      </section>
 
-      {/* Category tabs */}
-      <div className="flex gap-1 overflow-x-auto pb-1" role="tablist" aria-label="Integration categories">
-        {CATEGORIES.map(cat => (
+      {/* Category filters */}
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap" role="group" aria-label="Integration categories">
+        {CATEGORIES.map((cat) => (
           <button
             key={cat.key}
             type="button"
-            role="tab"
-            aria-selected={activeCategory === cat.key}
+            aria-pressed={activeCategory === cat.key}
             onClick={() => setActiveCategory(cat.key)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+            className={`inline-flex justify-center px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
               activeCategory === cat.key
-                ? 'bg-blue-500/10 text-blue-400'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                ? 'border border-teal-200 bg-teal-50 text-teal-950'
+                : 'border border-transparent text-slate-600 hover:text-slate-950 hover:bg-slate-100'
             }`}
           >
             {cat.label}
@@ -95,11 +97,13 @@ export default function Integrations() {
           description="Integration providers are not loaded."
         />
       ) : (
-        <div className="space-y-8">
+        <div
+          className="space-y-8"
+        >
           {grouped.map(group => (
             <div key={group.key}>
               {activeCategory === 'all' && (
-                <h2 className="text-lg font-semibold text-white mb-4 capitalize">{group.label}</h2>
+                <h2 className="text-lg font-semibold text-slate-950 mb-4 capitalize">{group.label}</h2>
               )}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 {group.items.map(integration => (

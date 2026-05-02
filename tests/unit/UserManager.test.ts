@@ -156,8 +156,21 @@ function createMockDb() {
         };
       }
 
+      if (sql.includes("DELETE FROM sessions WHERE user_id")) {
+        return {
+          run: vi.fn((userId: string) => {
+            for (let i = sessions.length - 1; i >= 0; i--) {
+              if (sessions[i].user_id === userId) {
+                sessions.splice(i, 1);
+              }
+            }
+          }),
+        };
+      }
+
       return { get: vi.fn(() => undefined), run: vi.fn(), all: vi.fn(() => []) };
     }),
+    transaction: vi.fn((fn: (...args: unknown[]) => unknown) => (...args: unknown[]) => fn(...args)),
     // Expose for testing
     _users: users,
     _sessions: sessions,
@@ -303,6 +316,21 @@ describe("UserManager", () => {
         userManager.updatePassword(user.id, "oldpassword", "1234567")
       ).rejects.toThrow("at least 8 characters");
     });
+
+    it("revokes all existing sessions after a successful password change", async () => {
+      const user = await userManager.createUser({
+        username: "testuser",
+        password: "oldpassword",
+      });
+
+      userManager.createSession(user.id, "token-one", 24);
+      userManager.createSession(user.id, "token-two", 24);
+
+      await userManager.updatePassword(user.id, "oldpassword", "newpassword123");
+
+      expect(userManager.verifySession("token-one")).toBeNull();
+      expect(userManager.verifySession("token-two")).toBeNull();
+    });
   });
 
   describe("hasUsers", () => {
@@ -370,7 +398,7 @@ describe("UserManager", () => {
   });
 
   describe("isUsingDefaultPassword", () => {
-    it("returns true when the admin account still uses the default password", async () => {
+    it("returns true when the admin account still uses the legacy default password", async () => {
       mockDb._users.push({
         id: "admin-id",
         username: "admin",

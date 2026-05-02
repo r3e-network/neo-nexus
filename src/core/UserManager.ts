@@ -165,9 +165,15 @@ export class UserManager {
       throw new Error("Current password is incorrect");
     }
 
-    // Hash new password
     const newHash = await bcrypt.hash(newPassword, 10);
-    this.db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(newHash, userId);
+    const updatePassword = this.db.prepare("UPDATE users SET password_hash = ? WHERE id = ?");
+    const revokeSessions = this.db.prepare("DELETE FROM sessions WHERE user_id = ?");
+    const updatePasswordAndRevokeSessions = this.db.transaction((passwordHash: string, targetUserId: string) => {
+      updatePassword.run(passwordHash, targetUserId);
+      revokeSessions.run(targetUserId);
+    });
+
+    updatePasswordAndRevokeSessions(newHash, userId);
   }
 
   /**
@@ -256,7 +262,7 @@ export class UserManager {
   }
 
   /**
-   * Check whether a user still uses the default admin password
+   * Check whether a user still uses the legacy default admin password.
    */
   async isUsingDefaultPassword(userId: string): Promise<boolean> {
     const row = this.db.prepare("SELECT password_hash FROM users WHERE id = ?").get(userId) as

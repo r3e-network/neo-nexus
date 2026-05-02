@@ -29,6 +29,7 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
     : node.process.status === 'running'
       ? 'Stop the node to edit configuration'
       : '';
+  const enabledSecureSigners = (secureSigners.data ?? []).filter((profile) => profile.enabled);
 
   const handleSave = async () => {
     setConfigError('');
@@ -71,7 +72,7 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
   return (
     <div className="card">
       <div className="flex items-center justify-between gap-4 mb-4">
-        <h3 className="text-lg font-semibold text-white">Configuration</h3>
+        <h3 className="text-lg font-semibold text-slate-950">Configuration</h3>
         {isEditing ? (
           <div className="flex items-center gap-2">
             <button
@@ -119,7 +120,7 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
       <FeedbackBanner error={configError} success={configSuccess} />
 
       {!isEditing && editDisabledReason && (
-        <div className="mb-4 rounded-lg border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {editDisabledReason}
         </div>
       )}
@@ -128,7 +129,7 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-2">Node Name</label>
+              <label className="block text-xs font-medium text-slate-600 mb-2">Node Name</label>
               <input
                 type="text"
                 value={formData.name}
@@ -137,22 +138,22 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-2">Version</label>
+              <label className="block text-xs font-medium text-slate-600 mb-2">Version</label>
               <input type="text" value={node.version} disabled className="input opacity-70" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-2">Type</label>
+              <label className="block text-xs font-medium text-slate-600 mb-2">Type</label>
               <input type="text" value={node.type} disabled className="input capitalize opacity-70" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-2">Network</label>
+              <label className="block text-xs font-medium text-slate-600 mb-2">Network</label>
               <input type="text" value={node.network} disabled className="input capitalize opacity-70" />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-2">Max Connections</label>
+              <label className="block text-xs font-medium text-slate-600 mb-2">Max Connections</label>
               <input
                 type="number"
                 min="1"
@@ -163,7 +164,7 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-2">Min Peers</label>
+              <label className="block text-xs font-medium text-slate-600 mb-2">Min Peers</label>
               <input
                 type="number"
                 min="0"
@@ -174,7 +175,7 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-2">Max Peers</label>
+              <label className="block text-xs font-medium text-slate-600 mb-2">Max Peers</label>
               <input
                 type="number"
                 min="0"
@@ -187,10 +188,10 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <label className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3">
+            <label className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-white">Relay Transactions</p>
-                <p className="text-xs text-slate-400">Allow transaction relay</p>
+                <p className="text-sm font-medium text-slate-950">Relay Transactions</p>
+                <p className="text-xs text-slate-600">Allow transaction relay</p>
               </div>
               <input
                 type="checkbox"
@@ -200,10 +201,10 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
               />
             </label>
 
-            <label className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3">
+            <label className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-white">Debug Mode</p>
-                <p className="text-xs text-slate-400">Enable verbose debug settings</p>
+                <p className="text-sm font-medium text-slate-950">Debug Mode</p>
+                <p className="text-xs text-slate-600">Enable verbose debug settings</p>
               </div>
               <input
                 type="checkbox"
@@ -215,10 +216,10 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
           </div>
 
           {node.type === 'neo-cli' && (
-            <div className="space-y-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-4">
+            <div className="space-y-3 rounded-lg border border-teal-200 bg-teal-50 p-4">
               <div>
-                <p className="text-sm font-medium text-cyan-200">Private Key Protection</p>
-                <p className="text-xs text-slate-400">
+                <p className="text-sm font-medium text-teal-950">Private Key Protection</p>
+                <p className="text-xs text-teal-900">
                   Bind this node to a secure signer profile instead of leaving signing to a local plaintext-oriented wallet flow.
                 </p>
               </div>
@@ -227,8 +228,8 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
                 <label
                   className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
                     formData.keyProtectionMode === 'standard'
-                      ? 'border-cyan-500 bg-cyan-500/10'
-                      : 'border-slate-700 hover:border-slate-600'
+                      ? 'border-teal-500 bg-white'
+                      : 'border-slate-200 bg-white/70 hover:border-slate-300'
                   }`}
                 >
                   <input
@@ -239,15 +240,15 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
                     onChange={() => setFormData({ ...formData, keyProtectionMode: 'standard', secureSignerProfileId: '' })}
                     className="sr-only"
                   />
-                  <p className="font-medium text-white">Standard Local Wallet</p>
-                  <p className="mt-1 text-xs text-slate-400">Keep this node on the regular local wallet path.</p>
+                  <p className="font-medium text-slate-950">Standard Local Wallet</p>
+                  <p className="mt-1 text-xs text-slate-600">Keep this node on the regular local wallet path.</p>
                 </label>
 
                 <label
                   className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
                     formData.keyProtectionMode === 'secure-signer'
-                      ? 'border-cyan-500 bg-cyan-500/10'
-                      : 'border-slate-700 hover:border-slate-600'
+                      ? 'border-teal-500 bg-white'
+                      : 'border-slate-200 bg-white/70 hover:border-slate-300'
                   }`}
                 >
                   <input
@@ -258,22 +259,21 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
                     onChange={() => setFormData({ ...formData, keyProtectionMode: 'secure-signer' })}
                     className="sr-only"
                   />
-                  <p className="font-medium text-white">Secure Signer / TEE</p>
-                  <p className="mt-1 text-xs text-slate-400">Attach a managed signer endpoint and auto-wire SignClient.</p>
+                  <p className="font-medium text-slate-950">Secure Signer / TEE</p>
+                  <p className="mt-1 text-xs text-slate-600">Attach a managed signer endpoint and auto-wire SignClient.</p>
                 </label>
               </div>
 
               {formData.keyProtectionMode === 'secure-signer' && (
                 <div className="space-y-2">
-                  <label className="block text-xs font-medium text-slate-400">Secure Signer Profile</label>
+                  <label className="block text-xs font-medium text-slate-600">Secure Signer Profile</label>
                   <select
                     value={formData.secureSignerProfileId}
                     onChange={(e) => setFormData({ ...formData, secureSignerProfileId: e.target.value })}
                     className="input"
                   >
                     <option value="">Select a secure signer profile</option>
-                    {(secureSigners.data ?? [])
-                      .filter((profile) => profile.enabled)
+                    {enabledSecureSigners
                       .map((profile) => (
                         <option key={profile.id} value={profile.id}>
                           {profile.name} · {profile.mode} · {profile.endpoint}
@@ -281,7 +281,10 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
                       ))}
                   </select>
                   {(secureSigners.data ?? []).length === 0 && (
-                    <p className="text-xs text-amber-300">Create a signer profile in Settings before enabling secure-signer protection.</p>
+                    <p className="text-xs text-amber-700">Create a signer profile in Settings before enabling secure-signer protection.</p>
+                  )}
+                  {(secureSigners.data ?? []).length > 0 && enabledSecureSigners.length === 0 && (
+                    <p className="text-xs text-amber-700">All signer profiles are disabled. Enable a profile in Settings before attaching secure-signer protection.</p>
                   )}
                 </div>
               )}
@@ -289,7 +292,7 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
           )}
 
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-2">Custom Config JSON</label>
+            <label className="block text-xs font-medium text-slate-600 mb-2">Custom Config JSON</label>
             <textarea
               value={formData.customConfig}
               onChange={(e) => setFormData({ ...formData, customConfig: e.target.value })}
@@ -303,57 +306,57 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="text-slate-400">Type</p>
-              <p className="text-white capitalize">{node.type}</p>
+              <p className="text-slate-600">Type</p>
+              <p className="text-slate-950 capitalize">{node.type}</p>
             </div>
             <div>
-              <p className="text-slate-400">Network</p>
-              <p className="text-white capitalize">{node.network}</p>
+              <p className="text-slate-600">Network</p>
+              <p className="text-slate-950 capitalize">{node.network}</p>
             </div>
             <div>
-              <p className="text-slate-400">Sync Mode</p>
-              <p className="text-white capitalize">{node.syncMode}</p>
+              <p className="text-slate-600">Sync Mode</p>
+              <p className="text-slate-950 capitalize">{node.syncMode}</p>
             </div>
             <div>
-              <p className="text-slate-400">Version</p>
-              <p className="text-white">{node.version}</p>
+              <p className="text-slate-600">Version</p>
+              <p className="text-slate-950">{node.version}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
             <div>
-              <p className="text-slate-400">Max Connections</p>
-              <p className="text-white">{node.settings?.maxConnections ?? 'Default'}</p>
+              <p className="text-slate-600">Max Connections</p>
+              <p className="text-slate-950">{node.settings?.maxConnections ?? 'Default'}</p>
             </div>
             <div>
-              <p className="text-slate-400">Min Peers</p>
-              <p className="text-white">{node.settings?.minPeers ?? 'Default'}</p>
+              <p className="text-slate-600">Min Peers</p>
+              <p className="text-slate-950">{node.settings?.minPeers ?? 'Default'}</p>
             </div>
             <div>
-              <p className="text-slate-400">Max Peers</p>
-              <p className="text-white">{node.settings?.maxPeers ?? 'Default'}</p>
+              <p className="text-slate-600">Max Peers</p>
+              <p className="text-slate-950">{node.settings?.maxPeers ?? 'Default'}</p>
             </div>
             <div>
-              <p className="text-slate-400">Relay</p>
-              <p className="text-white">{node.settings?.relay === false ? 'Disabled' : 'Enabled'}</p>
+              <p className="text-slate-600">Relay</p>
+              <p className="text-slate-950">{node.settings?.relay === false ? 'Disabled' : 'Enabled'}</p>
             </div>
             <div>
-              <p className="text-slate-400">Debug Mode</p>
-              <p className="text-white">{node.settings?.debugMode ? 'Enabled' : 'Disabled'}</p>
+              <p className="text-slate-600">Debug Mode</p>
+              <p className="text-slate-950">{node.settings?.debugMode ? 'Enabled' : 'Disabled'}</p>
             </div>
             <div>
-              <p className="text-slate-400">Custom Config</p>
-              <p className="text-white">{node.settings?.customConfig ? 'Present' : 'None'}</p>
+              <p className="text-slate-600">Custom Config</p>
+              <p className="text-slate-950">{node.settings?.customConfig ? 'Present' : 'None'}</p>
             </div>
             <div>
-              <p className="text-slate-400">Key Protection</p>
-              <p className="text-white">
+              <p className="text-slate-600">Key Protection</p>
+              <p className="text-slate-950">
                 {node.settings?.keyProtection?.mode === 'secure-signer' ? 'Secure signer / TEE' : 'Standard local wallet'}
               </p>
             </div>
             <div>
-              <p className="text-slate-400">Signer Profile</p>
-              <p className="text-white">
+              <p className="text-slate-600">Signer Profile</p>
+              <p className="text-slate-950">
                 {node.settings?.keyProtection?.signerProfileId || 'None'}
               </p>
             </div>

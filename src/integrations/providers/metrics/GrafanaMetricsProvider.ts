@@ -1,6 +1,7 @@
 // src/integrations/providers/metrics/GrafanaMetricsProvider.ts
 import type { MetricsProvider, NodeMetricsWithContext, ConfigField } from '../../types';
 import type { SystemMetrics } from '../../../types/index';
+import { safeIntegrationFetch } from '../../safeFetch';
 
 export const grafanaMetricsSchema: ConfigField[] = [
   { key: 'remoteWriteUrl', label: 'Remote Write URL', type: 'url', placeholder: 'https://prometheus-prod-01-prod-us-east-0.grafana.net/api/prom/push', required: true },
@@ -37,7 +38,7 @@ export class GrafanaMetricsProvider implements MetricsProvider {
     const body = lines.join('\n') + '\n';
     const auth = Buffer.from(`${this.config.username}:${this.config.apiKey}`).toString('base64');
 
-    const response = await fetch(this.config.remoteWriteUrl, {
+    const response = await safeIntegrationFetch(this.config.remoteWriteUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain',
@@ -54,7 +55,7 @@ export class GrafanaMetricsProvider implements MetricsProvider {
 
   async testConnection(): Promise<boolean> {
     const auth = Buffer.from(`${this.config.username}:${this.config.apiKey}`).toString('base64');
-    const response = await fetch(this.config.remoteWriteUrl, {
+    const response = await safeIntegrationFetch(this.config.remoteWriteUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain',

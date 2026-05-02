@@ -97,6 +97,8 @@ function createMockDb() {
 describe("SecureSignerManager orchestration", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    delete process.env.NEONEXUS_ALLOW_PRIVATE_SIGNER_ENDPOINTS;
+    delete process.env.NEONEXUS_SIGNER_WORKSPACE_ROOTS;
   });
 
   it("builds Nitro lifecycle commands from profile metadata", async () => {
@@ -131,6 +133,7 @@ describe("SecureSignerManager orchestration", () => {
   });
 
   it("reads signer readiness through secure-sign-tools status when local tooling is available", async () => {
+    process.env.NEONEXUS_ALLOW_PRIVATE_SIGNER_ENDPOINTS = "true";
     const runToolCommand = vi.fn(async () => ({
       stdout:
         "Account 03b209fd4f53a7170ea4444e0cb0a6bb6a53c2bd016926989cf85f9b0fba17a70c status: Single\n",
@@ -156,6 +159,34 @@ describe("SecureSignerManager orchestration", () => {
     expect(readiness.accountStatus).toBe("Single");
     expect(readiness.source).toBe("secure-sign-tools");
     expect(runToolCommand).toHaveBeenCalled();
+  });
+
+  it("quotes stored profile values in generated shell commands", async () => {
+    process.env.NEONEXUS_SIGNER_WORKSPACE_ROOTS = "/opt/secure signers";
+    const { SecureSignerManager } = await import("../../src/core/SecureSignerManager");
+    const manager = new SecureSignerManager(createMockDb() as never, {
+      probeEndpoint: vi.fn(async () => ({ ok: true, message: "connected" })),
+      runToolCommand: vi.fn(),
+    } as never);
+
+    const profile = manager.createProfile({
+      name: "Quoted Nitro",
+      mode: "nitro",
+      endpoint: "vsock://2345:9991",
+      publicKey: "03b209fd4f53a7170ea4444e0cb0a6bb6a53c2bd016926989cf85f9b0fba17a70c",
+      workspacePath: "/opt/secure signers/team's signer",
+      awsRegion: "ap-southeast-1",
+      kmsKeyId: "key id with ' quote",
+      kmsCiphertextBlobPath: "/secure/path with spaces/blob.bin",
+    });
+
+    const orchestration = manager.getOrchestration(profile.id);
+    const command = orchestration.commands.unlock[0];
+
+    expect(command).toContain("cd '/opt/secure signers/team'\"'\"'s signer'");
+    expect(command).toContain("AWS_REGION='ap-southeast-1'");
+    expect(command).toContain("KMS_KEY_ID='key id with '\"'\"' quote'");
+    expect(command).toContain("KMS_CIPHERTEXT_BLOB_PATH='/secure/path with spaces/blob.bin'");
   });
 
   it("fetches Nitro recipient attestation and starts the signer with recipient ciphertext", async () => {
@@ -195,5 +226,25 @@ describe("SecureSignerManager orchestration", () => {
       "/opt/secure-sign-service-rs/target/secure-sign-tools",
       ["start-recipient", "--cid", "2345", "--port", "9992", "--ciphertext-base64", "ciphertext-base64-value"],
     );
+  });
+
+  it("rejects recipient attestation and startup for non-Nitro signers", async () => {
+    const runToolCommand = vi.fn();
+    const { SecureSignerManager } = await import("../../src/core/SecureSignerManager");
+    const manager = new SecureSignerManager(createMockDb() as never, {
+      probeEndpoint: vi.fn(async () => ({ ok: true, message: "connected" })),
+      runToolCommand,
+    } as never);
+
+    const profile = manager.createProfile({
+      name: "SGX Council",
+      mode: "sgx",
+      endpoint: "https://signer.example.com:9991",
+      workspacePath: "/opt/secure-sign-service-rs",
+    });
+
+    await expect(manager.fetchRecipientAttestation(profile.id)).rejects.toThrow(/only available for Nitro/i);
+    await expect(manager.startRecipientSigner(profile.id, "ciphertext")).rejects.toThrow(/only available for Nitro/i);
+    expect(runToolCommand).not.toHaveBeenCalled();
   });
 });

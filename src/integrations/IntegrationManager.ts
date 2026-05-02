@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import { ApiError } from '../api/errors';
 import type { SystemMetrics } from '../types/index';
 import type {
   IntegrationId,
@@ -14,6 +15,7 @@ import type {
   LogEntryWithContext,
 } from './types';
 import { integrationRegistry, registryMap } from './registry';
+import { validateLiteralIntegrationUrl } from './safeFetch';
 
 const REDACTION_PREFIX = '••••••••...';
 
@@ -272,8 +274,11 @@ export class IntegrationManager {
       const value = config[field.key];
       if (field.type === 'url' && value && !value.startsWith(REDACTION_PREFIX)) {
         try {
-          new URL(value);
-        } catch {
+          validateLiteralIntegrationUrl(value);
+        } catch (error) {
+          if (error instanceof ApiError) {
+            throw error;
+          }
           throw new Error(`Invalid URL for ${field.label}: ${value}`);
         }
       }

@@ -587,9 +587,9 @@ export class ConfigManager {
       } else if (exp !== act) {
         // Report mismatches on critical fields
         if (['Network', 'Magic', 'ValidatorsCount', 'Engine'].includes(key)) {
-          issues.push({ path, severity: 'error', message: `Value mismatch: expected ${JSON.stringify(exp)}, found ${JSON.stringify(act)}` });
+          issues.push({ path, severity: 'error', message: 'Value mismatch with generated config' });
         } else if (['Port', 'MaxPeers', 'MinPeers', 'MaxConnections', 'Relay'].includes(key)) {
-          issues.push({ path, severity: 'info', message: `Value differs from default: expected ${JSON.stringify(exp)}, found ${JSON.stringify(act)} (may be intentional)` });
+          issues.push({ path, severity: 'info', message: 'Value differs from generated default (may be intentional)' });
         }
       }
     }
@@ -600,7 +600,7 @@ export class ConfigManager {
       if (expected[key] === undefined && typeof actual[key] !== 'object') {
         const path = prefix ? `${prefix}.${key}` : key;
         if (!['DownloadUrl', 'MaxKnownHashes', 'EnableCompression'].includes(key)) {
-          issues.push({ path, severity: 'info', message: `Extra key "${key}" found in on-disk config (value: ${JSON.stringify(actual[key])})` });
+          issues.push({ path, severity: 'info', message: `Extra key "${key}" found in on-disk config` });
         }
       }
     }

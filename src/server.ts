@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
+import type { IncomingHttpHeaders, IncomingMessage } from "node:http";
 import { createServer as createHttpServer } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
 import { WebSocketServer, WebSocket } from "ws";
@@ -17,7 +18,8 @@ import { createPluginsRouter } from "./api/routes/plugins";
 import { createMetricsRouter } from "./api/routes/metrics";
 import { createAuthRouter } from "./api/routes/auth";
 import { createPublicRouter } from "./api/routes/public";
-import { createAuthMiddleware, verifyToken, type AuthenticatedRequest } from "./api/middleware/auth";
+import { createAuthMiddleware, verifyToken } from "./api/middleware/auth";
+import { requireAdmin, requireAdminForUnsafeMethods } from "./api/middleware/roles";
 import { createSystemRouter } from "./api/routes/system";
 import { createServersRouter } from "./api/routes/servers";
 import { createSecureSignersRouter } from "./api/routes/secureSigners";
@@ -59,11 +61,51 @@ const FORCE_EXIT_TIMEOUT_MS = 30_000;
 const DEFAULT_LOG_RETENTION_MAX_ROWS = 50_000;
 const DEFAULT_AUDIT_LOG_MAX_ROWS = 100_000;
 const DEFAULT_LOG_PRUNE_BATCH_SIZE = 500_000;
+const WS_AUTH_PROTOCOL = "neonexus.auth";
 
 export interface ServerConfig {
   port: number;
   host: string;
   db: Database.Database;
+}
+
+export function getWebSocketAuthToken(req: Pick<IncomingMessage, "headers" | "url">): string | null {
+  const authHeader = firstHeaderValue(req.headers.authorization);
+  if (authHeader?.startsWith("Bearer ")) {
+    return authHeader.slice("Bearer ".length).trim() || null;
+  }
+
+  const protocolHeader = firstHeaderValue(req.headers["sec-websocket-protocol"]);
+  const protocolToken = tokenFromWebSocketProtocols(protocolHeader);
+  if (protocolToken) {
+    return protocolToken;
+  }
+
+  if (process.env.NEONEXUS_ALLOW_WS_QUERY_TOKEN === "true") {
+    const url = new URL(req.url || "", "http://localhost");
+    return url.searchParams.get("token");
+  }
+
+  return null;
+}
+
+function firstHeaderValue(value: IncomingHttpHeaders[string]): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function tokenFromWebSocketProtocols(protocolHeader: string | undefined): string | null {
+  if (!protocolHeader) {
+    return null;
+  }
+
+  const protocols = protocolHeader.split(",").map((protocol) => protocol.trim()).filter(Boolean);
+  for (let index = 0; index < protocols.length - 1; index += 1) {
+    if (protocols[index].toLowerCase() === WS_AUTH_PROTOCOL) {
+      return protocols[index + 1] || null;
+    }
+  }
+
+  return null;
 }
 
 export function createAppServer(config: ServerConfig) {
@@ -157,9 +199,9 @@ export function createAppServer(config: ServerConfig) {
   app.use("/api/auth", createAuthRouter(userManager));
 
   // Apply stricter rate limit to control endpoints
-  app.use("/api/nodes/:id/start", requireAuth, controlLimiter);
-  app.use("/api/nodes/:id/stop", requireAuth, controlLimiter);
-  app.use("/api/nodes/:id/restart", requireAuth, controlLimiter);
+  app.use("/api/nodes/:id/start", requireAuth, requireAdmin, controlLimiter);
+  app.use("/api/nodes/:id/stop", requireAuth, requireAdmin, controlLimiter);
+  app.use("/api/nodes/:id/restart", requireAuth, requireAdmin, controlLimiter);
 
   // Health check (public, with optional auth detection)
   app.get("/api/health", (req, res) => {
@@ -203,26 +245,17 @@ export function createAppServer(config: ServerConfig) {
     }
   });
 
-  // Admin-only middleware
-  function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
-    const user = (req as AuthenticatedRequest).user;
-    if (!user || user.role !== "admin") {
-      return res.status(403).json({ error: "Admin access required" });
-    }
-    next();
-  }
-
   // Protected API Routes
-  app.use("/api/nodes", requireAuth, createNodesRouter(nodeManager));
-  app.use("/api/nodes/:id/plugins", requireAuth, createPluginsRouter(nodeManager));
+  app.use("/api/nodes", requireAuth, requireAdminForUnsafeMethods, createNodesRouter(nodeManager));
+  app.use("/api/nodes/:id/plugins", requireAuth, requireAdminForUnsafeMethods, createPluginsRouter(nodeManager));
   app.use("/api/metrics", requireAuth, createMetricsRouter(nodeManager, metricsCollector));
   app.use("/api/system", requireAuth, requireAdmin, createSystemRouter(nodeManager));
-  app.use("/api/servers", requireAuth, createServersRouter(remoteServerManager));
+  app.use("/api/servers", requireAuth, requireAdminForUnsafeMethods, createServersRouter(remoteServerManager));
   app.use("/api/secure-signers", requireAuth, requireAdmin, createSecureSignersRouter(secureSignerManager));
   app.use("/api/integrations", requireAuth, requireAdmin, createIntegrationsRouter(integrationManager));
 
   // Audit log endpoint
-  app.get("/api/system/audit-log", requireAuth, (req, res) => {
+  app.get("/api/system/audit-log", requireAuth, requireAdmin, (req, res) => {
     const limit = Math.min(parseInt(String(req.query.limit ?? "100"), 10), 1000);
     const offset = parseInt(String(req.query.offset ?? "0"), 10);
     const entries = auditLogger.query({ limit, offset });
@@ -250,10 +283,9 @@ export function createAppServer(config: ServerConfig) {
   const clients = new Set<WebSocket>();
 
   wss.on("connection", (ws, req) => {
-    // Authenticate WebSocket connections via query parameter token
+    // Authenticate WebSocket connections without putting bearer tokens in URLs.
     try {
-      const url = new URL(req.url || "", `http://${req.headers.host}`);
-      const token = url.searchParams.get("token");
+      const token = getWebSocketAuthToken(req);
       if (!token) {
         ws.close(4001, "Authentication required");
         return;

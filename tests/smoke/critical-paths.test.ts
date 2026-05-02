@@ -4,7 +4,7 @@
  * End-to-end tests for the most critical user workflows
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 // These tests simulate real user workflows
 describe("Smoke Tests: Critical Paths", () => {
@@ -15,7 +15,7 @@ describe("Smoke Tests: Critical Paths", () => {
       const setupStatus = { setupRequired: false, hasUsers: true };
       expect(setupStatus.hasUsers).toBe(true);
 
-      // 2. Login with default credentials
+      // 2. Login with the admin credentials created during setup
       const loginResult = {
         success: true,
         token: "jwt-token",
@@ -24,7 +24,7 @@ describe("Smoke Tests: Critical Paths", () => {
       expect(loginResult.success).toBe(true);
       expect(loginResult.token).toBeDefined();
 
-      // 3. Change default password
+      // 3. Change password
       const passwordChange = { success: true };
       expect(passwordChange.success).toBe(true);
     });
@@ -99,8 +99,8 @@ describe("Smoke Tests: Critical Paths", () => {
       // 2. Verify no sensitive data exposed
       const node = publicNodes[0];
       expect(node.metrics).toBeDefined();
-      expect((node as any).configPath).toBeUndefined();
-      expect((node as any).walletPath).toBeUndefined();
+      expect("configPath" in node).toBe(false);
+      expect("walletPath" in node).toBe(false);
 
       // 3. Get system metrics
       const systemMetrics = {

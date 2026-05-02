@@ -9,9 +9,24 @@ import type {
   RemoteServerSystemMetrics,
   UpdateRemoteServerRequest,
 } from "../types";
+import { Errors } from "../api/errors";
+import {
+  assertLiteralPublicTarget,
+  defaultHostnameResolver,
+  type HostnameResolver,
+} from "../utils/outboundTargets";
+import { publicFetch } from "../utils/publicFetch";
+
+interface RemoteServerManagerOptions {
+  resolveHostname?: HostnameResolver;
+}
 
 export class RemoteServerManager {
-  constructor(private db: Database.Database) {}
+  private readonly resolveHostname: HostnameResolver;
+
+  constructor(private db: Database.Database, options: RemoteServerManagerOptions = {}) {
+    this.resolveHostname = options.resolveHostname ?? defaultHostnameResolver;
+  }
 
   createServer(request: CreateRemoteServerRequest): RemoteServerProfile {
     const id = randomUUID();
@@ -151,8 +166,13 @@ export class RemoteServerManager {
   }
 
   private async fetchJson<T>(baseUrl: string, path: string): Promise<T> {
-    const response = await fetch(`${baseUrl}${path}`, {
+    const url = new URL(`${baseUrl}${path}`);
+    const response = await publicFetch(url, {
       signal: AbortSignal.timeout(5000),
+    }, {
+      resolveHostname: this.resolveHostname,
+      makeError: Errors.serverUrlPrivateTarget,
+      allowPrivateTarget: process.env.NEONEXUS_ALLOW_PRIVATE_REMOTE_SERVERS === "true",
     });
     if (!response.ok) {
       throw new Error(`Remote request failed with status ${response.status}`);
@@ -162,6 +182,14 @@ export class RemoteServerManager {
 
   private normalizeBaseUrl(rawUrl: string): string {
     const url = new URL(rawUrl.trim());
+    if (!["http:", "https:"].includes(url.protocol)) {
+      throw Errors.serverUrlProtocolInvalid();
+    }
+    assertLiteralPublicTarget(
+      url.hostname,
+      Errors.serverUrlPrivateTarget,
+      process.env.NEONEXUS_ALLOW_PRIVATE_REMOTE_SERVERS === "true",
+    );
     const path = url.pathname === "/" ? "" : url.pathname.replace(/\/$/, "");
     return `${url.origin}${path}`;
   }

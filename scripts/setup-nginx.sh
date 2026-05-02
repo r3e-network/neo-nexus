@@ -46,7 +46,8 @@ NGINX_CONFIG="/etc/nginx/sites-available/neonexus"
 cat > "$NGINX_CONFIG" << EOF
 # NeoNexus Nginx Configuration
 
-# Rate limiting zones
+# This directive must be in the nginx http context. On Debian/Ubuntu site files,
+# the top level of this file is included from http already.
 limit_req_zone \$binary_remote_addr zone=login:10m rate=10r/m;
 
 # HTTP - Redirect to HTTPS
@@ -96,7 +97,7 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection \$connection_upgrade;
+        proxy_set_header Connection "upgrade";
         
         proxy_read_timeout 86400s;
         proxy_buffering off;

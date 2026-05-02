@@ -2,10 +2,12 @@ import { Router, type Request, type Response } from 'express';
 import { isAbsolute, relative, resolve } from 'node:path';
 import type { NodeManager } from '../../core/NodeManager';
 import { ConfigManager } from '../../core/ConfigManager';
-import type { CreateNodeRequest, UpdateNodeRequest, ImportNodeRequest, ImportedNodeOwnershipMode } from '../../types';
+import type { CreateNodeRequest, UpdateNodeRequest, ImportNodeRequest, ImportedNodeOwnershipMode, NodeInstance, NodeSettings } from '../../types';
 import { paths } from '../../utils/paths';
+import { assertNodeNetwork, assertNodeType } from '../../utils/nodeValidation';
 import { ApiError, Errors } from '../errors';
 import { respondWithApiError } from '../respond';
+import type { AuthenticatedRequest } from '../middleware/auth';
 
 function validateNodePath(inputPath: string): string {
   const resolved = resolve(inputPath);
@@ -31,6 +33,103 @@ function isPathWithinOrEqual(resolvedPath: string, allowedPrefix: string): boole
 
 interface NodeParams {
   id: string;
+}
+
+type MaybeAuthenticatedRequest = {
+  params: unknown;
+  user?: AuthenticatedRequest['user'];
+};
+
+function isViewerRequest(req: MaybeAuthenticatedRequest): boolean {
+  return req.user?.role === 'viewer';
+}
+
+function requireAdminRead(req: MaybeAuthenticatedRequest): void {
+  if (req.user && req.user.role !== 'admin') {
+    throw Errors.adminRequired();
+  }
+}
+
+function sanitizeNodeSettingsForViewer(settings: NodeSettings): Partial<NodeSettings> {
+  return {
+    ...(settings.maxConnections !== undefined ? { maxConnections: settings.maxConnections } : {}),
+    ...(settings.minPeers !== undefined ? { minPeers: settings.minPeers } : {}),
+    ...(settings.maxPeers !== undefined ? { maxPeers: settings.maxPeers } : {}),
+    ...(settings.relay !== undefined ? { relay: settings.relay } : {}),
+    ...(settings.debugMode !== undefined ? { debugMode: settings.debugMode } : {}),
+    ...(settings.resourceLimits ? { resourceLimits: settings.resourceLimits } : {}),
+    ...(settings.keyProtection ? { keyProtection: { mode: settings.keyProtection.mode } } : {}),
+    ...(settings.import ? {
+      import: {
+        imported: settings.import.imported,
+        ownershipMode: settings.import.ownershipMode,
+      },
+    } : {}),
+  };
+}
+
+function sanitizeNodeForViewer(node: NodeInstance): Omit<NodeInstance, 'paths' | 'settings' | 'plugins'> & {
+  settings: Partial<NodeSettings>;
+  plugins?: Array<Pick<NonNullable<NodeInstance['plugins']>[number], 'id' | 'version' | 'installedAt' | 'enabled'>>;
+} {
+  const { paths: _paths, settings, plugins, ...safeNode } = node;
+  return {
+    ...safeNode,
+    settings: sanitizeNodeSettingsForViewer(settings),
+    plugins: plugins?.map(({ id, version, installedAt, enabled }) => ({ id, version, installedAt, enabled })),
+  };
+}
+
+function nodeResponseForRequest(req: MaybeAuthenticatedRequest, node: NodeInstance): NodeInstance | ReturnType<typeof sanitizeNodeForViewer> {
+  return isViewerRequest(req) ? sanitizeNodeForViewer(node) : node;
+}
+
+function storageResponseForRequest<T extends { chain?: { path?: string }; wallets?: { path?: string } }>(
+  req: MaybeAuthenticatedRequest,
+  storage: T,
+): T | Omit<T, 'chain' | 'wallets'> & {
+  chain?: Omit<NonNullable<T['chain']>, 'path'>;
+  wallets?: Omit<NonNullable<T['wallets']>, 'path'>;
+} {
+  if (!isViewerRequest(req)) {
+    return storage;
+  }
+  const { chain, wallets, ...safeStorage } = storage;
+  return {
+    ...safeStorage,
+    ...(chain ? { chain: omitPath(chain) } : {}),
+    ...(wallets ? { wallets: omitPath(wallets) } : {}),
+  };
+}
+
+function signerHealthResponseForRequest<
+  T extends {
+    profile?: {
+      id?: string;
+      name: string;
+      mode: string;
+      endpoint?: string;
+    };
+  },
+>(req: MaybeAuthenticatedRequest, signerHealth: T): T | Omit<T, 'profile'> & {
+  profile?: Pick<NonNullable<T['profile']>, 'name' | 'mode'>;
+} {
+  if (!isViewerRequest(req) || !signerHealth.profile) {
+    return signerHealth;
+  }
+  const { profile, ...safeSignerHealth } = signerHealth;
+  return {
+    ...safeSignerHealth,
+    profile: {
+      name: profile.name,
+      mode: profile.mode,
+    },
+  };
+}
+
+function omitPath<T extends { path?: string }>(value: T): Omit<T, 'path'> {
+  const { path: _path, ...safeValue } = value;
+  return safeValue;
 }
 
 export function createNodesRouter(nodeManager: NodeManager): Router {
@@ -79,7 +178,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
   router.get('/', (_req: Request, res: Response) => {
     try {
       const nodes = nodeManager.getAllNodes();
-      res.json({ nodes });
+      res.json({ nodes: nodes.map((node) => nodeResponseForRequest(_req, node)) });
     } catch (error) {
       respondWithApiError(res, error);
     }
@@ -94,6 +193,8 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       if (!request.name || !request.type || !request.network) {
         throw Errors.missingFields("name", "type", "network");
       }
+      assertNodeType(request.type);
+      assertNodeNetwork(request.network);
 
       const secureSignerValidationError = validateSecureSignerRequest(request);
       if (secureSignerValidationError) {
@@ -186,7 +287,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       if (!node) {
         throw Errors.nodeNotFound(req.params.id);
       }
-      res.json({ node });
+      res.json({ node: nodeResponseForRequest(req, node) });
     } catch (error) {
       respondWithApiError(res, error);
     }
@@ -292,7 +393,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
   router.get('/:id/storage', async (req: Request<NodeParams>, res: Response) => {
     try {
       const info = await nodeManager.getStorageInfo(req.params.id);
-      res.json({ storage: info });
+      res.json({ storage: storageResponseForRequest(req, info) });
     } catch (error) {
       respondWithApiError(res, error);
     }
@@ -309,7 +410,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       if (!signerHealth) {
         return res.json({ signerHealth: null });
       }
-      res.json({ signerHealth });
+      res.json({ signerHealth: signerHealthResponseForRequest(req, signerHealth) });
     } catch (error) {
       respondWithApiError(res, error);
     }
@@ -334,6 +435,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
   // GET /api/nodes/:id/config-audit - Audit node configuration
   router.get('/:id/config-audit', async (req: Request<NodeParams>, res: Response) => {
     try {
+      requireAdminRead(req);
       const node = nodeManager.getNode(req.params.id);
       if (!node) {
         throw Errors.nodeNotFound(req.params.id);

@@ -1,7 +1,6 @@
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { paths } from "../utils/paths";
-import bcrypt from "bcrypt";
 
 export async function initializeDatabase(): Promise<Database.Database> {
   mkdirSync(paths.base, { recursive: true });
@@ -201,9 +200,6 @@ export async function initializeDatabase(): Promise<Database.Database> {
   // Initialize plugin catalog
   initializePlugins(db);
 
-  // Check if setup is needed and create default user
-  await checkInitialSetup(db);
-
   return db;
 }
 
@@ -360,30 +356,5 @@ function initializePlugins(db: Database.Database): void {
       plugin.requires_config,
       plugin.default_config || null,
     );
-  }
-}
-
-async function checkInitialSetup(db: Database.Database): Promise<void> {
-  // Check if any users exist
-  const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get() as { count: number };
-  
-  if (userCount.count === 0) {
-    // Create default admin user
-    const { randomUUID } = await import("node:crypto");
-    const userId = randomUUID();
-    const now = Date.now();
-    const passwordHash = await bcrypt.hash("admin", 10);
-
-    const stmt = db.prepare(`
-      INSERT INTO users (id, username, password_hash, role, created_at)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-    stmt.run(userId, "admin", passwordHash, "admin", now);
-
-    console.log("🔑 Default admin account created.");
-    console.log("   Username: admin");
-    console.log("   Password: admin");
-    console.log("   ⚠️  IMPORTANT: Please change the default password after first login!");
-    console.log("   Go to Settings → Change Password after logging in.\n");
   }
 }

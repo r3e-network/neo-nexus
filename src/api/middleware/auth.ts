@@ -41,6 +41,15 @@ export function verifyToken(token: string): JwtPayload {
   return jwt.verify(token, JWT_SECRET) as JwtPayload;
 }
 
+export function getTokenExpiresInHours(token: string, now = Date.now()): number {
+  const decoded = jwt.decode(token) as { exp?: number } | null;
+  if (decoded?.exp && Number.isFinite(decoded.exp)) {
+    const remainingMs = decoded.exp * 1000 - now;
+    return Math.max(0, remainingMs / (60 * 60 * 1000));
+  }
+  return 24;
+}
+
 function getBearerToken(req: Request): string | null {
   const authHeader = req.headers.authorization;
 

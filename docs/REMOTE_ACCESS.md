@@ -74,9 +74,17 @@ sudo cp docs/nginx-example.conf /etc/nginx/sites-available/neonexus
 sudo ln -s /etc/nginx/sites-available/neonexus /etc/nginx/sites-enabled/
 ```
 
+If `nginx -t` reports that `limit_req_zone` is not allowed in that file, move the zone declarations to the top-level `http { ... }` block in `/etc/nginx/nginx.conf` and keep only the `server` blocks in the site file.
+
 Edit `/etc/nginx/sites-available/neonexus`:
 
 ```nginx
+# `limit_req_zone` must be declared in the nginx `http` context.
+# On Debian/Ubuntu site files, the top level of this file is already included from `http`.
+# If your distro uses a different layout, move these lines into the main `http { ... }` block.
+limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;
+limit_req_zone $binary_remote_addr zone=api:10m rate=100r/m;
+
 server {
     listen 80;
     server_name your-domain.com;
@@ -103,10 +111,6 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-
-    # Rate Limiting
-    limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;
-    limit_req_zone $binary_remote_addr zone=api:10m rate=100r/m;
 
     location / {
         proxy_pass http://localhost:8080;
@@ -302,6 +306,7 @@ If real-time updates don't work:
    ```bash
    wss://your-domain.com/ws
    ```
+   Browser clients should pass authentication with the `neonexus.auth` WebSocket subprotocol instead of a `?token=` query string.
 
 ## Security Checklist
 

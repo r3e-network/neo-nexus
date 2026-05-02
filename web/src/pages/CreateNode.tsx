@@ -89,9 +89,9 @@ export default function CreateNode() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto animate-fade-in">
+    <div className="max-w-4xl mx-auto animate-fade-in">
       <div className="mb-6">
-        <Link to="/nodes" className="text-slate-400 hover:text-white flex items-center gap-2 text-sm">
+        <Link to="/nodes" className="text-slate-600 hover:text-slate-950 flex items-center gap-2 text-sm">
           <ArrowLeft className="w-4 h-4" />
           Back to Nodes
         </Link>
@@ -103,15 +103,15 @@ export default function CreateNode() {
             <Server className="w-5 h-5 text-blue-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">Create Node</h1>
-            <p className="text-slate-400 text-sm">Configure your new Neo node</p>
+            <h1 className="text-xl font-bold text-slate-950">Create Node</h1>
+            <p className="text-slate-600 text-sm">Configure your new Neo node</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Node Name */}
           <div className="animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
               Node Name
             </label>
             <input
@@ -126,7 +126,7 @@ export default function CreateNode() {
 
           {/* Node Type */}
           <div className="animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
               Node Type
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -136,7 +136,7 @@ export default function CreateNode() {
                   className={`cursor-pointer p-4 rounded-lg border-2 transition-all duration-200 ${
                     formData.type === type.value
                       ? 'border-blue-500 bg-blue-500/10'
-                      : 'border-slate-700 hover:border-slate-600'
+                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
                   <input
@@ -158,8 +158,8 @@ export default function CreateNode() {
                     }
                     className="sr-only"
                   />
-                  <p className="font-medium text-white">{type.label}</p>
-                  <p className="text-sm text-slate-400 mt-1">{type.description}</p>
+                  <p className="font-medium text-slate-950">{type.label}</p>
+                  <p className="text-sm text-slate-600 mt-1">{type.description}</p>
                 </label>
               ))}
             </div>
@@ -167,7 +167,7 @@ export default function CreateNode() {
 
           {/* Network */}
           <div className="animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
               Network
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -177,7 +177,7 @@ export default function CreateNode() {
                   className={`cursor-pointer p-4 rounded-lg border-2 transition-all duration-200 ${
                     formData.network === network.value
                       ? 'border-blue-500 bg-blue-500/10'
-                      : 'border-slate-700 hover:border-slate-600'
+                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
                   <input
@@ -188,8 +188,8 @@ export default function CreateNode() {
                     onChange={(e) => setFormData({ ...formData, network: e.target.value as 'mainnet' | 'testnet' | 'private' })}
                     className="sr-only"
                   />
-                  <p className="font-medium text-white">{network.label}</p>
-                  <p className="text-xs text-slate-400 mt-1">{network.description}</p>
+                  <p className="font-medium text-slate-950">{network.label}</p>
+                  <p className="text-xs text-slate-600 mt-1">{network.description}</p>
                 </label>
               ))}
             </div>
@@ -197,7 +197,7 @@ export default function CreateNode() {
 
           {/* Sync Mode */}
           <div className="animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
               Sync Mode
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -207,7 +207,7 @@ export default function CreateNode() {
                   className={`cursor-pointer p-4 rounded-lg border-2 transition-all duration-200 ${
                     formData.syncMode === mode.value
                       ? 'border-blue-500 bg-blue-500/10'
-                      : 'border-slate-700 hover:border-slate-600'
+                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
                   <input
@@ -218,25 +218,25 @@ export default function CreateNode() {
                     onChange={(e) => setFormData({ ...formData, syncMode: e.target.value as 'full' | 'light' })}
                     className="sr-only"
                   />
-                  <p className="font-medium text-white">{mode.label}</p>
-                  <p className="text-sm text-slate-400 mt-1">{mode.description}</p>
+                  <p className="font-medium text-slate-950">{mode.label}</p>
+                  <p className="text-sm text-slate-600 mt-1">{mode.description}</p>
                 </label>
               ))}
             </div>
           </div>
 
           {/* Info Box */}
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-            <p className="text-sm text-blue-300">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">
               <strong>Note:</strong> The node will be created with automatically assigned ports. 
               Ports will be allocated starting from 10332 (RPC) and 10333 (P2P).
             </p>
           </div>
 
-          <div className="space-y-4 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-4">
+          <div className="space-y-4 rounded-lg border border-teal-200 bg-teal-50 p-4">
             <div>
-              <h2 className="text-sm font-medium text-cyan-200">Private Key Protection</h2>
-              <p className="mt-1 text-sm text-slate-400">
+              <h2 className="text-sm font-medium text-teal-950">Private Key Protection</h2>
+              <p className="mt-1 text-sm text-teal-900">
                 NeoNexus can bind `neo-cli` nodes to a secure signer profile so node configs reference a signing endpoint instead of raw private keys.
               </p>
             </div>
@@ -247,8 +247,8 @@ export default function CreateNode() {
                   <label
                     className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
                       formData.keyProtectionMode === 'standard'
-                        ? 'border-cyan-500 bg-cyan-500/10'
-                        : 'border-slate-700 hover:border-slate-600'
+                        ? 'border-teal-500 bg-white'
+                        : 'border-slate-200 bg-white/70 hover:border-slate-300'
                     }`}
                   >
                     <input
@@ -259,15 +259,15 @@ export default function CreateNode() {
                       onChange={() => setFormData({ ...formData, keyProtectionMode: 'standard', secureSignerProfileId: '' })}
                       className="sr-only"
                     />
-                    <p className="font-medium text-white">Standard Local Wallet</p>
-                    <p className="mt-1 text-sm text-slate-400">Use the node's regular wallet flow without NeoNexus-managed signer binding.</p>
+                    <p className="font-medium text-slate-950">Standard Local Wallet</p>
+                    <p className="mt-1 text-sm text-slate-600">Use the node's regular wallet flow without NeoNexus-managed signer binding.</p>
                   </label>
 
                   <label
                     className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
                       formData.keyProtectionMode === 'secure-signer'
-                        ? 'border-cyan-500 bg-cyan-500/10'
-                        : 'border-slate-700 hover:border-slate-600'
+                        ? 'border-teal-500 bg-white'
+                        : 'border-slate-200 bg-white/70 hover:border-slate-300'
                     }`}
                   >
                     <input
@@ -278,19 +278,20 @@ export default function CreateNode() {
                       onChange={() => setFormData({ ...formData, keyProtectionMode: 'secure-signer' })}
                       className="sr-only"
                     />
-                    <p className="font-medium text-white">Secure Signer / TEE</p>
-                    <p className="mt-1 text-sm text-slate-400">Attach a software, SGX, or Nitro signer profile and auto-wire Neo SignClient.</p>
+                    <p className="font-medium text-slate-950">Secure Signer / TEE</p>
+                    <p className="mt-1 text-sm text-slate-600">Attach a software, SGX, or Nitro signer profile and auto-wire Neo SignClient.</p>
                   </label>
                 </div>
 
                 {formData.keyProtectionMode === 'secure-signer' && (
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Secure Signer Profile</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Secure Signer Profile</label>
                       <select
                         value={formData.secureSignerProfileId}
                         onChange={(e) => setFormData({ ...formData, secureSignerProfileId: e.target.value })}
                         className="input"
+                        disabled={!secureSigners.data?.some((profile) => profile.enabled)}
                       >
                         <option value="">Select a secure signer profile</option>
                         {(secureSigners.data ?? [])
@@ -304,19 +305,24 @@ export default function CreateNode() {
                     </div>
 
                     {(secureSigners.data ?? []).length === 0 && (
-                      <p className="text-sm text-amber-300">
+                    <p className="text-sm text-amber-700">
                         No secure signer profiles are configured yet. Add one in <Link to="/settings" className="underline">Settings</Link> before enabling TEE-backed signing.
                       </p>
                     )}
+                    {(secureSigners.data ?? []).length > 0 && !(secureSigners.data ?? []).some((profile) => profile.enabled) && (
+                      <p className="text-sm text-amber-700">
+                        All secure signer profiles are disabled. Enable a profile in <Link to="/settings" className="underline">Settings</Link> before attaching protected signing.
+                      </p>
+                    )}
 
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-600">
                       NeoNexus stores only the signer profile reference and endpoint metadata here. It does not store raw WIF or plaintext unlock material.
                     </p>
                   </div>
                 )}
               </>
             ) : (
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-teal-900">
                 Secure signer auto-wiring currently targets `neo-cli` nodes via the Neo `SignClient` plugin. `neo-go` remains standard-wallet only for now.
               </p>
             )}
@@ -325,10 +331,10 @@ export default function CreateNode() {
           {/* Advanced Settings */}
           <div className="space-y-4">
             <div>
-              <h2 className="text-sm font-medium text-slate-300 mb-3">Advanced Settings</h2>
+              <h2 className="text-sm font-medium text-slate-700 mb-3">Advanced Settings</h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-2">Max Connections</label>
+                  <label className="block text-xs font-medium text-slate-600 mb-2">Max Connections</label>
                   <input
                     type="number"
                     min="1"
@@ -339,7 +345,7 @@ export default function CreateNode() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-2">Min Peers</label>
+                  <label className="block text-xs font-medium text-slate-600 mb-2">Min Peers</label>
                   <input
                     type="number"
                     min="0"
@@ -350,7 +356,7 @@ export default function CreateNode() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-2">Max Peers</label>
+                  <label className="block text-xs font-medium text-slate-600 mb-2">Max Peers</label>
                   <input
                     type="number"
                     min="0"
@@ -364,10 +370,10 @@ export default function CreateNode() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <label className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3">
+              <label className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                 <div>
-                  <p className="text-sm font-medium text-white">Relay Transactions</p>
-                  <p className="text-xs text-slate-400">Allow the node to relay transactions</p>
+                  <p className="text-sm font-medium text-slate-950">Relay Transactions</p>
+                  <p className="text-xs text-slate-600">Allow the node to relay transactions</p>
                 </div>
                 <input
                   type="checkbox"
@@ -377,10 +383,10 @@ export default function CreateNode() {
                 />
               </label>
 
-              <label className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3">
+              <label className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                 <div>
-                  <p className="text-sm font-medium text-white">Debug Mode</p>
-                  <p className="text-xs text-slate-400">Enable verbose debugging where supported</p>
+                  <p className="text-sm font-medium text-slate-950">Debug Mode</p>
+                  <p className="text-xs text-slate-600">Enable verbose debugging where supported</p>
                 </div>
                 <input
                   type="checkbox"
@@ -392,7 +398,7 @@ export default function CreateNode() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Custom Config JSON</label>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Custom Config JSON</label>
               <textarea
                 value={formData.customConfig}
                 onChange={(e) => setFormData({ ...formData, customConfig: e.target.value })}
@@ -406,14 +412,14 @@ export default function CreateNode() {
           <FeedbackBanner error={error} suggestion={suggestion} code={code} />
 
           {/* Submit */}
-          <div className="flex gap-4">
-            <Link to="/nodes" className="btn btn-secondary flex-1 justify-center">
+          <div className="flex flex-col-reverse gap-3 sm:flex-row">
+            <Link to="/nodes" className="btn btn-secondary justify-center sm:flex-1">
               Cancel
             </Link>
             <button
               type="submit"
               disabled={createNode.isPending}
-              className="btn btn-primary flex-1 justify-center"
+              className="btn btn-primary justify-center sm:flex-1"
             >
               {createNode.isPending ? (
                 <>

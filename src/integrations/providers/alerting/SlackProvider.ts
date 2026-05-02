@@ -1,5 +1,6 @@
 // src/integrations/providers/alerting/SlackProvider.ts
 import type { NotificationProvider, IntegrationEvent, ConfigField } from '../../types';
+import { safeIntegrationFetch } from '../../safeFetch';
 
 export const slackSchema: ConfigField[] = [
   { key: 'webhookUrl', label: 'Webhook URL', type: 'url', placeholder: 'https://hooks.slack.com/services/T.../B.../...', required: true, sensitive: true },
@@ -39,7 +40,7 @@ export class SlackProvider implements NotificationProvider {
       }],
     };
 
-    const response = await fetch(this.config.webhookUrl, {
+    const response = await safeIntegrationFetch(this.config.webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -55,7 +56,7 @@ export class SlackProvider implements NotificationProvider {
     const payload = {
       text: ':white_check_mark: NeoNexus connection test successful.',
     };
-    const response = await fetch(this.config.webhookUrl, {
+    const response = await safeIntegrationFetch(this.config.webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

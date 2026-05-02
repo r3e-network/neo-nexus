@@ -24,7 +24,7 @@ vi.mock("node:fs/promises", () => ({
 
 vi.mock("node:net", () => ({
   createServer: vi.fn(() => ({
-    once: vi.fn((event: string, cb: Function) => {
+    once: vi.fn((event: string, cb: () => void) => {
       if (event === "listening") {
         setTimeout(() => cb(), 0);
       }

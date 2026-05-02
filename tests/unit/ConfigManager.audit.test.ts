@@ -134,4 +134,63 @@ describe("ConfigManager audit", () => {
     expect(existsSync(importedConfigPath)).toBe(true);
     expect(existsSync(baseConfigPath)).toBe(false);
   });
+
+  it("does not echo raw on-disk config values in audit messages", async () => {
+    const base = mkdtempSync(join(tmpdir(), "neonexus-audit-redaction-"));
+    tempDirs.push(base);
+    const configPath = join(base, "config.json");
+    const node: NodeConfig = {
+      id: "node-redact",
+      name: "Sensitive config",
+      type: "neo-cli",
+      network: "testnet",
+      syncMode: "full",
+      version: "3.8.0",
+      ports: { rpc: 20332, p2p: 20333 },
+      paths: {
+        base,
+        config: configPath,
+        data: join(base, "Chain"),
+        logs: join(base, "Logs"),
+      },
+      settings: {},
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const expectedConfig = await (ConfigManager as unknown as {
+      generateNeoCliConfig: (node: NodeConfig, plugins: string[]) => Promise<Record<string, unknown>>;
+    }).generateNeoCliConfig(node, []);
+    const applicationConfig = expectedConfig.ApplicationConfiguration as Record<string, unknown>;
+    const p2pConfig = applicationConfig.P2P as Record<string, unknown>;
+    writeFileSync(configPath, JSON.stringify({
+      ...expectedConfig,
+      ApplicationConfiguration: {
+        ...applicationConfig,
+        P2P: {
+          ...p2pConfig,
+          Port: 65535,
+          SecretPassword: "raw-rpc-secret",
+        },
+      },
+    }), "utf-8");
+
+    const result = await ConfigManager.auditNodeConfig(node);
+    const messages = result.issues.map((issue) => issue.message).join("\n");
+
+    expect(messages).not.toContain("raw-rpc-secret");
+    expect(messages).not.toContain("65535");
+    expect(messages).not.toContain("20332");
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "ApplicationConfiguration.P2P.Port",
+          message: expect.stringContaining("Value differs from generated default"),
+        }),
+        expect.objectContaining({
+          path: "ApplicationConfiguration.P2P.SecretPassword",
+          message: "Extra key \"SecretPassword\" found in on-disk config",
+        }),
+      ]),
+    );
+  });
 });

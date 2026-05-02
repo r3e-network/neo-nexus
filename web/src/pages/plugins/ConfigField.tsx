@@ -11,7 +11,7 @@ function HelpTooltip({ text }: { text: string }) {
     <span className="relative inline-flex">
       <button
         type="button"
-        className="text-slate-500 hover:text-slate-300 transition-colors"
+        className="text-slate-500 hover:text-slate-800 transition-colors"
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
         onClick={() => setOpen((v) => !v)}
@@ -20,7 +20,7 @@ function HelpTooltip({ text }: { text: string }) {
         <HelpCircle className="w-3.5 h-3.5" />
       </button>
       {open && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 rounded-lg bg-slate-800 border border-slate-700 p-3 text-xs text-slate-300 shadow-xl z-50 animate-slide-in-right">
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 rounded-lg bg-slate-950 border border-slate-800 p-3 text-xs text-slate-100 shadow-xl z-50 animate-slide-in-right">
           {text}
           <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-slate-700" />
         </div>
@@ -42,20 +42,20 @@ export function ConfigField({ field, value, onChange }: ConfigFieldProps) {
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-1.5">
-        <label htmlFor={id} className="text-sm font-medium text-slate-300">
+        <label htmlFor={id} className="text-sm font-medium text-slate-700">
           {field.label}
         </label>
         <HelpTooltip text={field.help} />
       </div>
 
       {field.type === "boolean" ? (
-        <div className="flex items-center gap-3 rounded-lg bg-slate-800/60 px-4 py-2.5">
+        <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5">
           <ToggleSwitch
             checked={value === true || value === "true"}
             onChange={(v) => onChange(field.key, v)}
             label={field.label}
           />
-          <span className="text-sm text-slate-400">
+          <span className="text-sm text-slate-600">
             {value === true || value === "true" ? "Enabled" : "Disabled"}
           </span>
         </div>
