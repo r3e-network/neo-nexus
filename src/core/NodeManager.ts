@@ -1,6 +1,6 @@
-import { existsSync, rmSync, readFileSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { isAbsolute, join, relative, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import type Database from 'better-sqlite3';
 import { EventEmitter } from 'node:events';
 import type {
@@ -14,15 +14,14 @@ import type {
   PluginId,
   LogEntry,
   ConfigurationSnapshot,
-  ConfigurationSnapshotNode,
   ImportedNodeOwnershipMode,
   NodeSettings,
   NodeKeyProtectionSettings,
 } from '../types/index';
 import { chainOf } from '../types/index';
-import { paths, getNodePath, getNodeDataPath, getNodeLogsPath, getNodeConfigPath, getNodeWalletPath } from '../utils/paths';
+import { getNodePath, getNodeDataPath, getNodeLogsPath, getNodeConfigPath, getNodeWalletPath } from '../utils/paths';
 import { NodeRepository } from './NodeRepository';
-import { isProcessAlive, getProcessCommand, getProcessCwd, getProcessArgv } from '../utils/lifecycle';
+import { isProcessAlive, getProcessCommand } from '../utils/lifecycle';
 import { PortManager } from './PortManager';
 import { ConfigManager } from './ConfigManager';
 import { StorageManager } from './StorageManager';
@@ -35,6 +34,19 @@ import { NeoXNode } from '../nodes/NeoXNode';
 import { BaseNode } from '../nodes/BaseNode';
 import { Errors } from '../api/errors';
 import { assertNodeNetwork, assertNodeType, assertReleaseVersion } from '../utils/nodeValidation';
+import {
+  getAttachedProcessState,
+  isManagedNodeDirectory,
+  parseProcessIds,
+  scoreAttachCandidate,
+} from './nodeProcessAttachment';
+import { collectRuntimeMetrics } from './nodeRuntimeMetrics';
+import {
+  NodeSnapshotService,
+  type ExportedConfigurationSnapshot,
+  type RestoreConfigurationResult,
+} from './NodeSnapshotService';
+import { normalizeImportedOwnershipMode, stripReservedImportSettings } from './nodeSettings';
 
 export interface NodeManagerEvents {
   nodeStatus: (event: { nodeId: string; status: NodeStatus; previousStatus: NodeStatus }) => void;
@@ -132,7 +144,7 @@ export class NodeManager extends EventEmitter {
       settings: {
         import: {
           imported: true,
-          ownershipMode: NodeManager.normalizeImportedOwnershipMode(request.ownershipMode),
+          ownershipMode: normalizeImportedOwnershipMode(request.ownershipMode),
           existingPath,
           importedAt: now,
         },
@@ -166,7 +178,7 @@ export class NodeManager extends EventEmitter {
       throw Errors.nodeNotFound(nodeId);
     }
 
-    if (this.getAttachedProcessState(node, pid) === 'active') {
+    if (getAttachedProcessState(node, pid) === 'active') {
       // Update database to reflect running status only after validating that
       // the PID is alive and matches the imported native node.
       this.repo.updateStatus(nodeId, 'running', pid);
@@ -189,16 +201,13 @@ export class NodeManager extends EventEmitter {
     try {
       const processName = type === 'neo-cli' ? 'neo-cli' : 'neo-go';
       const result = execFileSync('pgrep', ['-f', processName], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-      const candidates = result
-        .split('\n')
-        .map((line) => Number.parseInt(line.trim(), 10))
-        .filter((pid, index, all): pid is number => this.isValidProcessId(pid) && all.indexOf(pid) === index)
-        .map((pid) => ({ pid, score: this.scoreAttachCandidate(node, pid) }))
+      const candidates = parseProcessIds(result)
+        .map((pid) => ({ pid, score: scoreAttachCandidate(node, pid) }))
         .filter((candidate) => candidate.score > 0)
         .sort((a, b) => b.score - a.score);
 
       for (const candidate of candidates) {
-        if (this.getAttachedProcessState(node, candidate.pid) === 'active') {
+        if (getAttachedProcessState(node, candidate.pid) === 'active') {
           await this.attachToExistingProcess(nodeId, candidate.pid);
           return;
         }
@@ -273,7 +282,7 @@ export class NodeManager extends EventEmitter {
         config: getNodeConfigPath(nodeId),
         wallet: getNodeWalletPath(nodeId),
       },
-      settings: NodeManager.stripReservedImportSettings(request.settings) || {},
+      settings: stripReservedImportSettings(request.settings) || {},
       createdAt: now,
       updatedAt: now,
     };
@@ -427,24 +436,8 @@ export class NodeManager extends EventEmitter {
   /**
    * Export a configuration snapshot for all managed nodes
    */
-  exportConfiguration(): {
-    generatedAt: number;
-    version: string;
-    nodes: Array<Omit<NodeInstance, 'process' | 'metrics'>>;
-  } {
-    const nodes = this.getAllNodes().map(({ process: _process, metrics: _metrics, ...config }) => config);
-
-    let version = "2.0.0";
-    try {
-      const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf-8'));
-      version = pkg.version || version;
-    } catch { /* use default */ }
-
-    return {
-      generatedAt: Date.now(),
-      version,
-      nodes,
-    };
+  exportConfiguration(): ExportedConfigurationSnapshot {
+    return this.createSnapshotService().exportConfiguration();
   }
 
   /**
@@ -465,7 +458,7 @@ export class NodeManager extends EventEmitter {
       await this.deleteNode(node.id);
       deletedNodeCount++;
 
-      if (NodeManager.isManagedNodeDirectory(node)) {
+      if (isManagedNodeDirectory(node)) {
         rmSync(node.paths.base, { recursive: true, force: true });
         removedDirectoryCount++;
       }
@@ -485,100 +478,18 @@ export class NodeManager extends EventEmitter {
   async restoreConfiguration(
     snapshot: ConfigurationSnapshot,
     options: { replaceExisting?: boolean } = {},
-  ): Promise<{ restoredCount: number; skippedCount: number; failedCount: number }> {
-    if (options.replaceExisting) {
-      this.assertRestorableSnapshot(snapshot);
-      const rollbackSnapshot = this.safeExportConfiguration();
-      await this.resetAllNodeData();
-
-      try {
-        return await this.restoreSnapshotNodes(snapshot, { rejectInvalid: true, failFast: true });
-      } catch (error) {
-        if (rollbackSnapshot) {
-          await this.rollbackRestore(rollbackSnapshot);
-        }
-        throw error;
-      }
-    }
-
-    return this.restoreSnapshotNodes(snapshot, { rejectInvalid: false, failFast: false });
+  ): Promise<RestoreConfigurationResult> {
+    return this.createSnapshotService().restoreConfiguration(snapshot, options);
   }
 
-  private async restoreSnapshotNodes(
-    snapshot: ConfigurationSnapshot,
-    options: { rejectInvalid: boolean; failFast: boolean },
-  ): Promise<{ restoredCount: number; skippedCount: number; failedCount: number }> {
-    let restoredCount = 0;
-    let skippedCount = 0;
-    let failedCount = 0;
-
-    for (const [index, node] of snapshot.nodes.entries()) {
-      if (!this.isRestorableSnapshotNode(node)) {
-        if (options.rejectInvalid) {
-          throw Errors.snapshotInvalid(index);
-        }
-        skippedCount++;
-        continue;
-      }
-
-      try {
-        const restoredNode = await this.createNode({
-          name: node.name,
-          type: node.type,
-          network: node.network,
-          syncMode: node.syncMode,
-          version: node.version,
-          customPorts: node.ports,
-          settings: NodeManager.stripReservedImportSettings(node.settings),
-        });
-
-        for (const plugin of node.plugins ?? []) {
-          await this.installPlugin(restoredNode.id, plugin.id, plugin.config);
-          if (plugin.enabled === false) {
-            this.setPluginEnabled(restoredNode.id, plugin.id, false);
-          }
-        }
-
-        restoredCount++;
-      } catch (error) {
-        if (options.failFast) {
-          const message = error instanceof Error ? error.message : "Unknown restore error";
-          throw Errors.snapshotRestoreFailed(message);
-        }
-        failedCount++;
-      }
-    }
-
-    return {
-      restoredCount,
-      skippedCount,
-      failedCount,
-    };
-  }
-
-  private assertRestorableSnapshot(snapshot: ConfigurationSnapshot): void {
-    for (const [index, node] of snapshot.nodes.entries()) {
-      if (!this.isRestorableSnapshotNode(node)) {
-        throw Errors.snapshotInvalid(index);
-      }
-    }
-  }
-
-  private safeExportConfiguration(): ConfigurationSnapshot | null {
-    try {
-      return this.exportConfiguration();
-    } catch {
-      return null;
-    }
-  }
-
-  private async rollbackRestore(snapshot: ConfigurationSnapshot): Promise<void> {
-    try {
-      await this.resetAllNodeData();
-      await this.restoreSnapshotNodes(snapshot, { rejectInvalid: false, failFast: false });
-    } catch (rollbackError) {
-      console.error("Failed to rollback configuration restore:", rollbackError);
-    }
+  private createSnapshotService(): NodeSnapshotService {
+    return new NodeSnapshotService({
+      getAllNodes: () => this.getAllNodes(),
+      createNode: (request) => this.createNode(request),
+      installPlugin: (nodeId, pluginId, config) => this.installPlugin(nodeId, pluginId, config),
+      setPluginEnabled: (nodeId, pluginId, enabled) => this.setPluginEnabled(nodeId, pluginId, enabled),
+      resetAllNodeData: () => this.resetAllNodeData(),
+    });
   }
 
   /**
@@ -649,11 +560,11 @@ export class NodeManager extends EventEmitter {
       throw Errors.nodeNotFound(nodeId);
     }
 
-    if (NodeManager.isManagedNodeDirectory(node)) {
+    if (isManagedNodeDirectory(node)) {
       throw Errors.nodeOwnershipNotImported();
     }
 
-    const normalizedMode = NodeManager.normalizeImportedOwnershipMode(ownershipMode);
+    const normalizedMode = normalizeImportedOwnershipMode(ownershipMode);
     const nextSettings: NodeSettings = {
       ...(node.settings || {}),
       import: {
@@ -713,7 +624,7 @@ export class NodeManager extends EventEmitter {
     }
 
     // Clean up filesystem data for NeoNexus-managed nodes
-    if (removeFiles && NodeManager.isManagedNodeDirectory(node)) {
+    if (removeFiles && isManagedNodeDirectory(node)) {
       rmSync(node.paths.base, { recursive: true, force: true });
     }
   }
@@ -735,7 +646,7 @@ export class NodeManager extends EventEmitter {
     // child process wrapper after restart or attach. Reconcile stale or
     // untrusted PIDs instead of permanently blocking restart.
     if (node.process.status === 'running' || node.process.status === 'starting') {
-      if (this.getAttachedProcessState(node) === 'active') {
+      if (getAttachedProcessState(node) === 'active') {
         throw Errors.nodeAlreadyRunning();
       }
       this.repo.updateStatus(nodeId, 'stopped');
@@ -791,7 +702,7 @@ export class NodeManager extends EventEmitter {
       if (node.process.status === 'running' || node.process.status === 'starting') {
         this.assertCanManageImportedProcess(node, 'stopping processes');
 
-        if (this.getAttachedProcessState(node) !== 'active') {
+        if (getAttachedProcessState(node) !== 'active') {
           this.repo.updateStatus(nodeId, 'stopped');
           return;
         }
@@ -812,22 +723,10 @@ export class NodeManager extends EventEmitter {
     this.repo.updateStatus(nodeId, 'stopped');
   }
 
-  private getAttachedProcessState(node: NodeInstance, pid = node.process.pid): 'active' | 'stale' {
-    if (!this.isValidProcessId(pid)) {
-      return 'stale';
-    }
-
-    if (!isProcessAlive(pid)) {
-      return 'stale';
-    }
-
-    return this.isExpectedNodeProcess(node, pid) ? 'active' : 'stale';
-  }
-
   private getImportedOwnershipMode(node: Pick<NodeInstance, 'id' | 'paths' | 'settings'>): ImportedNodeOwnershipMode | null {
     const importSettings = node.settings?.import;
     if (importSettings) {
-      return NodeManager.normalizeImportedOwnershipMode(importSettings.ownershipMode);
+      return normalizeImportedOwnershipMode(importSettings.ownershipMode);
     }
 
     // Legacy databases can contain imported native nodes created before
@@ -839,7 +738,7 @@ export class NodeManager extends EventEmitter {
     if (!node.paths?.base) {
       return null;
     }
-    return NodeManager.isManagedNodeDirectory(node) ? null : 'observe-only';
+    return isManagedNodeDirectory(node) ? null : 'observe-only';
   }
 
   private sanitizeSettingsUpdate(node: NodeInstance, settings?: NodeSettings): NodeSettings | undefined {
@@ -847,7 +746,7 @@ export class NodeManager extends EventEmitter {
       return undefined;
     }
 
-    const mutableSettings = NodeManager.stripReservedImportSettings(settings) ?? {};
+    const mutableSettings = stripReservedImportSettings(settings) ?? {};
     if (node.settings?.import) {
       return {
         ...mutableSettings,
@@ -856,22 +755,6 @@ export class NodeManager extends EventEmitter {
     }
 
     return mutableSettings;
-  }
-
-  private static stripReservedImportSettings(settings?: NodeSettings): NodeSettings | undefined {
-    if (!settings) {
-      return undefined;
-    }
-
-    const { import: _reservedImport, ...mutableSettings } = settings;
-    return mutableSettings;
-  }
-
-  private static normalizeImportedOwnershipMode(mode: unknown): ImportedNodeOwnershipMode {
-    if (mode === 'managed-config' || mode === 'managed-process') {
-      return mode;
-    }
-    return 'observe-only';
   }
 
   private assertCanWriteImportedNode(node: NodeInstance, action: string): void {
@@ -902,93 +785,6 @@ export class NodeManager extends EventEmitter {
     if (resolve(primaryConfigPath) !== resolve(workingDirectoryConfigPath)) {
       throw Errors.importedNeoCliConfigStartUnsupported(primaryConfigPath);
     }
-  }
-
-  private scoreAttachCandidate(node: NodeInstance, pid: number): number {
-    if (!this.isValidProcessId(pid) || !isProcessAlive(pid)) {
-      return 0;
-    }
-
-    const command = getProcessCommand(pid);
-    if (!command || !this.commandMatchesNodeType(command, node.type)) {
-      return 0;
-    }
-
-    let score = 2;
-    const cwd = getProcessCwd(pid);
-    if (cwd && NodeManager.isPathWithinOrEqual(cwd, node.paths.base)) {
-      score += 4;
-    }
-
-    const argv = getProcessArgv(pid) ?? [];
-    const pathCandidates = argv.flatMap((arg) => NodeManager.extractPathCandidates(arg));
-    if (pathCandidates.some((candidate) => isAbsolute(candidate) && resolve(candidate) === resolve(node.paths.config))) {
-      score += 8;
-    }
-    if (pathCandidates.some((candidate) => this.pathCandidateMatchesNode(candidate, node))) {
-      score += 3;
-    }
-
-    const argvText = argv.join(' ');
-    const expectedPorts = [node.ports.rpc, node.ports.p2p, node.ports.websocket, node.ports.metrics]
-      .filter((port): port is number => Number.isInteger(port));
-    for (const port of expectedPorts) {
-      if (new RegExp(`(^|[^0-9])${port}([^0-9]|$)`).test(argvText)) {
-        score += 1;
-      }
-    }
-
-    return score;
-  }
-
-  private isValidProcessId(pid: unknown): pid is number {
-    return Number.isSafeInteger(pid) && Number(pid) > 0;
-  }
-
-  private isExpectedNodeProcess(node: NodeInstance, pid: number): boolean {
-    const command = getProcessCommand(pid);
-    if (!command || !this.commandMatchesNodeType(command, node.type)) {
-      return false;
-    }
-
-    const cwd = getProcessCwd(pid);
-    if (cwd && NodeManager.isPathWithinOrEqual(cwd, node.paths.base)) {
-      return true;
-    }
-
-    const argv = getProcessArgv(pid);
-    if (!argv) {
-      return false;
-    }
-
-    return argv
-      .flatMap((arg) => NodeManager.extractPathCandidates(arg))
-      .some((candidate) => this.pathCandidateMatchesNode(candidate, node));
-  }
-
-  private pathCandidateMatchesNode(candidate: string, node: NodeInstance): boolean {
-    if (!isAbsolute(candidate)) {
-      return false;
-    }
-
-    return NodeManager.isPathWithinOrEqual(candidate, node.paths.base);
-  }
-
-  private static extractPathCandidates(arg: string): string[] {
-    const candidates = [arg];
-    const equalsIndex = arg.indexOf('=');
-    if (equalsIndex >= 0) {
-      candidates.push(arg.slice(equalsIndex + 1));
-    }
-    return candidates.map((candidate) => candidate.trim()).filter(Boolean);
-  }
-
-  private commandMatchesNodeType(command: string, type: NodeConfig['type']): boolean {
-    const normalizedCommand = command.toLowerCase();
-    if (type === 'neo-cli') {
-      return normalizedCommand.includes('neo-cli') || normalizedCommand.includes('neo.cli');
-    }
-    return normalizedCommand.includes('neo-go');
   }
 
   private async stopAttachedProcess(nodeId: string, pid: number, force: boolean): Promise<void> {
@@ -1027,17 +823,6 @@ export class NodeManager extends EventEmitter {
     return !isProcessAlive(pid);
   }
 
-  private static isPathWithinOrEqual(pathToCheck: string, allowedPrefix: string): boolean {
-    const resolvedPath = resolve(pathToCheck);
-    const resolvedPrefix = resolve(allowedPrefix);
-    const pathRelativeToPrefix = relative(resolvedPrefix, resolvedPath);
-    return pathRelativeToPrefix === '' || (!pathRelativeToPrefix.startsWith('..') && !isAbsolute(pathRelativeToPrefix));
-  }
-
-  private static isSafeGeneratedNodeId(nodeId: string): boolean {
-    return /^node-[A-Za-z0-9-]+$/.test(nodeId);
-  }
-
   private static isOwnershipDeniedError(error: unknown): boolean {
     return Boolean(
       error &&
@@ -1045,27 +830,6 @@ export class NodeManager extends EventEmitter {
       'code' in error &&
       (error as { code?: unknown }).code === 'NODE_OWNERSHIP_DENIED',
     );
-  }
-
-  private static isManagedNodeDirectory(node: Pick<NodeInstance, 'id' | 'paths' | 'settings'>): boolean {
-    if (node.settings?.import || !NodeManager.isSafeGeneratedNodeId(node.id)) {
-      return false;
-    }
-
-    const managedRoot = resolve(paths.nodes);
-    const expectedNodePath = resolve(getNodePath(node.id));
-    const expectedRelativeToRoot = relative(managedRoot, expectedNodePath);
-    if (
-      expectedRelativeToRoot === '' ||
-      expectedRelativeToRoot.startsWith('..') ||
-      isAbsolute(expectedRelativeToRoot) ||
-      expectedRelativeToRoot.includes('/') ||
-      expectedRelativeToRoot.includes('\\')
-    ) {
-      return false;
-    }
-
-    return resolve(node.paths.base) === expectedNodePath;
   }
 
   /**
@@ -1136,6 +900,7 @@ export class NodeManager extends EventEmitter {
       throw Errors.nodeRunning();
     }
     this.assertCanWriteImportedNode(node, 'plugin configuration updates');
+    this.assertCanMutatePlugin(node, pluginId);
     this.pluginManager.updatePluginConfig(nodeId, pluginId, config ?? {});
   }
 
@@ -1148,6 +913,7 @@ export class NodeManager extends EventEmitter {
       throw Errors.nodeRunning();
     }
     this.assertCanWriteImportedNode(node, 'plugin removal');
+    this.assertCanMutatePlugin(node, pluginId);
     await this.pluginManager.uninstallPlugin(nodeId, pluginId);
   }
 
@@ -1160,8 +926,21 @@ export class NodeManager extends EventEmitter {
       throw Errors.nodeRunning();
     }
     this.assertCanWriteImportedNode(node, 'plugin enablement changes');
+    if (!enabled) {
+      this.assertCanMutatePlugin(node, pluginId);
+    }
+    const previousPlugin = this.pluginManager.getInstalledPlugins(nodeId).find((plugin) => plugin.id === pluginId);
     this.pluginManager.setPluginEnabled(nodeId, pluginId, enabled);
-    return ConfigManager.writeNodeConfig(node, this.getEnabledPluginIds(nodeId, node));
+    return ConfigManager.writeNodeConfig(node, this.getEnabledPluginIds(nodeId, node)).catch((error: unknown) => {
+      if (previousPlugin) {
+        try {
+          this.pluginManager.setPluginEnabled(nodeId, pluginId, previousPlugin.enabled);
+        } catch (rollbackError) {
+          console.error(`Failed to rollback plugin enablement for ${nodeId}/${pluginId}:`, rollbackError);
+        }
+      }
+      throw error;
+    });
   }
 
   /**
@@ -1267,6 +1046,12 @@ export class NodeManager extends EventEmitter {
       .map((plugin) => plugin.id);
   }
 
+  private assertCanMutatePlugin(node: NodeInstance, pluginId: PluginId): void {
+    if (pluginId === "SignClient" && node.settings?.keyProtection?.mode === "secure-signer") {
+      throw Errors.signerPluginRequired();
+    }
+  }
+
   /**
    * Update sync progress for the current metrics record.
    * Updates the node_metrics table which tracks current metrics per node.
@@ -1283,23 +1068,7 @@ export class NodeManager extends EventEmitter {
     if (!nodeInstance?.isRunning()) return;
 
     try {
-      const [blockHeight, peersCount] = await Promise.all([
-        nodeInstance.getBlockHeight(),
-        nodeInstance.getPeersCount(),
-      ]);
-
-      const resources = await nodeInstance.getResourceUsage();
-
-      const metrics: NodeMetrics = {
-        blockHeight: blockHeight ?? 0,
-        headerHeight: blockHeight ?? 0, // Simplified
-        connectedPeers: peersCount ?? 0,
-        unconnectedPeers: 0,
-        syncProgress: 0, // Would need to calculate based on network height
-        memoryUsage: resources?.memory ? resources.memory * 1024 * 1024 : 0, // Convert to bytes
-        cpuUsage: resources?.cpu ?? 0,
-        lastUpdate: Date.now(),
-      };
+      const metrics = await collectRuntimeMetrics(nodeInstance);
 
       this.repo.saveMetrics(nodeId, metrics);
       this.emit('nodeMetrics', { nodeId, metrics });
@@ -1310,10 +1079,6 @@ export class NodeManager extends EventEmitter {
 
   getRepository(): NodeRepository {
     return this.repo;
-  }
-
-  private isRestorableSnapshotNode(node: Partial<ConfigurationSnapshotNode>): node is ConfigurationSnapshotNode {
-    return Boolean(node.name && node.type && node.network);
   }
 
   private assertSecureSignerCompatibility(

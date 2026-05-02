@@ -111,6 +111,10 @@ export const Errors = {
     new ApiError("SIGNER_NOT_AVAILABLE",
       `Secure signer profile ${id} is not available`,
       "The profile may be disabled or deleted. Check Settings > Secure Signers to verify it is active."),
+  signerPluginRequired: () =>
+    new ApiError("SIGNER_PLUGIN_REQUIRED",
+      "SignClient plugin is required while secure signer protection is enabled",
+      "Switch the node back to standard key protection before changing, disabling, or uninstalling SignClient.", 409),
   signerProfileNotFound: () =>
     new ApiError("SIGNER_NOT_FOUND",
       "Secure signer profile not found",

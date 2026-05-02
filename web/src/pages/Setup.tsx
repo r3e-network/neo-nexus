@@ -63,7 +63,7 @@ export default function Setup() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-md animate-scale-in">
+      <div className="w-full max-w-[calc(100vw-2rem)] sm:max-w-md animate-scale-in">
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-teal-50 rounded-lg border border-teal-200 flex items-center justify-center mx-auto mb-4">
             <Activity className="w-6 h-6 text-teal-700" />

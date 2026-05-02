@@ -252,6 +252,8 @@ const ws = new WebSocket("ws://localhost:8080/ws", ["neonexus.auth", "YOUR_TOKEN
 |----------|---------|-------------|
 | `PORT` | `8080` | Server port |
 | `HOST` | `0.0.0.0` | Bind address |
+| `NEONEXUS_DATA_DIR` | `~/.neonexus` | Storage root for database, nodes, downloads, plugins, logs, and PID file |
+| `DATA_DIR` | — | Backward-compatible alias for `NEONEXUS_DATA_DIR`; ignored when `NEONEXUS_DATA_DIR` is set |
 | `JWT_SECRET` | random (dev) | JWT signing key (required in production) |
 | `JWT_EXPIRES_IN` | `24h` | Token expiration |
 | `CORS_ORIGIN` | — | Allowed CORS origins (comma-separated) |

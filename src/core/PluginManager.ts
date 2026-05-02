@@ -119,10 +119,7 @@ export class PluginManager {
     this.copyPluginFiles(pluginSourceDir, nodePluginDir, isLocalBuild ? pluginId : undefined);
 
     // Create/update config
-    const config = {
-      ...(plugin.defaultConfig || {}),
-      ...(customConfig || {}),
-    };
+    const config = customConfig || {};
     const stmt = this.db.prepare(`
       INSERT INTO node_plugins (node_id, plugin_id, version, config, installed_at, enabled)
       VALUES (?, ?, ?, ?, ?, 1)
@@ -259,7 +256,7 @@ export class PluginManager {
    */
   getStoragePlugin(nodeId: string): 'LevelDBStore' | 'RocksDBStore' {
     const plugins = this.getInstalledPlugins(nodeId);
-    if (plugins.some(p => p.id === 'RocksDBStore')) {
+    if (plugins.some(p => p.id === 'RocksDBStore' && p.enabled)) {
       return 'RocksDBStore';
     }
     return 'LevelDBStore';

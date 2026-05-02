@@ -75,7 +75,7 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-lg animate-scale-in">
+      <div className="w-full max-w-[calc(100vw-2rem)] sm:max-w-lg animate-scale-in">
         <div className="mb-7 text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg border border-teal-200 bg-teal-50">
             <Shield className="h-6 w-6 text-teal-700" />

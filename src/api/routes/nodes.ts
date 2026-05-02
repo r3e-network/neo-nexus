@@ -440,7 +440,9 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       if (!node) {
         throw Errors.nodeNotFound(req.params.id);
       }
-      const plugins = nodeManager.getPluginManager().getInstalledPlugins(req.params.id).map(p => p.id);
+      const plugins = nodeManager.getPluginManager().getInstalledPlugins(req.params.id)
+        .filter(p => p.enabled)
+        .map(p => p.id);
       const audit = await ConfigManager.auditNodeConfig(node, plugins);
       res.json({ audit });
     } catch (error) {
