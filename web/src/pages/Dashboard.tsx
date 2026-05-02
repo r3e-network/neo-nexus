@@ -58,7 +58,13 @@ export default function Dashboard() {
     ? { className: "status-stopped", label: "No nodes" }
     : errorNodes.length
       ? { className: "status-error", label: "Needs attention" }
-      : { className: "status-running", label: "Healthy" };
+      : runningNodes.length === 0
+        // Don't claim "Healthy" when nothing is actually running — that reads as
+        // a contradiction next to the 0% headline.
+        ? { className: "status-stopped", label: "All stopped" }
+        : runningNodes.length < nodes.length
+          ? { className: "status-syncing", label: "Partial" }
+          : { className: "status-running", label: "Healthy" };
 
   const stats = [
     { label: "Total nodes", value: nodes.length, detail: `${importedNodes.length} imported`, icon: Server, tone: "text-blue-700", bg: "bg-blue-50" },

@@ -18,6 +18,7 @@ import { useMemo, useState } from "react";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
 import { TableRowSkeleton } from "../components/LoadingSkeleton";
+import { formatVersion } from "../utils/format";
 import { NodeProtectionLabel } from "../components/NodeProtectionLabel";
 import { SignerStatus } from "../components/SignerStatus";
 import { SpinnerButton } from "../components/SpinnerButton";
@@ -225,7 +226,7 @@ export default function Nodes() {
                                 <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700 border border-violet-200">Neo X</span>
                               )}
                             </div>
-                            <p className="mt-1 text-xs text-slate-500">{node.type} · v{node.version} · {ownershipLabel(node)}</p>
+                            <p className="mt-1 text-xs text-slate-500">{node.type} · {formatVersion(node.version)} · {ownershipLabel(node)}</p>
                             {node.process.errorMessage && (
                               <p className="mt-1 inline-flex items-center gap-1 text-xs text-red-700"><AlertCircle className="h-3 w-3" /> {node.process.errorMessage}</p>
                             )}

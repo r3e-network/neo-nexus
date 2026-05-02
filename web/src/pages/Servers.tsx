@@ -5,6 +5,7 @@ import { FeedbackBanner } from "../components/FeedbackBanner";
 import { CardSkeleton } from "../components/LoadingSkeleton";
 import { EmptyState } from "../components/EmptyState";
 import { useCreateServer, useDeleteServer, useServers, useUpdateServer, type RemoteServerSummary } from "../hooks/useServers";
+import { formatVersion } from "../utils/format";
 
 interface ServerFormState {
   name: string;
@@ -366,7 +367,7 @@ export default function Servers() {
                             </div>
                             <div>
                               <p className="font-medium text-slate-950">{node.name}</p>
-                              <p className="text-xs text-slate-600">{node.type} • {node.network} • v{node.version}</p>
+                              <p className="text-xs text-slate-600">{node.type} • {node.network} • {formatVersion(node.version)}</p>
                             </div>
                           </div>
                           <span className={`status-badge status-${node.status === "running" ? "running" : node.status === "error" ? "error" : "stopped"}`}>
