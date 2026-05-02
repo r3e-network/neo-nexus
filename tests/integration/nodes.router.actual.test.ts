@@ -179,7 +179,7 @@ describe("Actual nodes router", () => {
     expect(mockNodeManager.getNode).not.toHaveBeenCalled();
   });
 
-  it("audits admin config using the current node and installed plugin IDs", async () => {
+  it("audits admin config using the current node and enabled plugin IDs", async () => {
     const node = {
       id: "node-1",
       name: "Node 1",
@@ -190,8 +190,9 @@ describe("Actual nodes router", () => {
       settings: {},
     };
     const getInstalledPlugins = vi.fn(() => [
-      { id: "RpcServer" },
-      { id: "ApplicationLogs" },
+      { id: "RpcServer", enabled: true },
+      { id: "ApplicationLogs", enabled: false },
+      { id: "StateService", enabled: true },
     ]);
     const audit = {
       nodeId: "node-1",
@@ -213,7 +214,7 @@ describe("Actual nodes router", () => {
 
     expect(response.status).toBe(200);
     expect(getInstalledPlugins).toHaveBeenCalledWith("node-1");
-    expect(auditSpy).toHaveBeenCalledWith(node, ["RpcServer", "ApplicationLogs"]);
+    expect(auditSpy).toHaveBeenCalledWith(node, ["RpcServer", "StateService"]);
     expect(response.body.audit).toEqual(audit);
   });
 

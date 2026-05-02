@@ -1,7 +1,8 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-const BASE_DIR = join(homedir(), '.neonexus');
+const configuredBaseDir = process.env.NEONEXUS_DATA_DIR || process.env.DATA_DIR;
+const BASE_DIR = configuredBaseDir?.trim() || join(homedir(), '.neonexus');
 
 export const paths = {
   base: BASE_DIR,
