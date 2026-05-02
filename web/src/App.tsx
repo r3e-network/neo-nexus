@@ -11,6 +11,7 @@ import ImportNode from './pages/ImportNode';
 import Servers from './pages/Servers';
 import Integrations from './pages/Integrations';
 import Plugins from './pages/Plugins';
+import Agent from './pages/Agent';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import Setup from './pages/Setup';
@@ -150,6 +151,7 @@ function AppRoutes() {
       <Route path="/servers" element={<ProtectedPage><Servers /></ProtectedPage>} />
       <Route path="/integrations" element={<ProtectedPage><Integrations /></ProtectedPage>} />
       <Route path="/plugins" element={<ProtectedPage><Plugins /></ProtectedPage>} />
+      <Route path="/agent" element={<ProtectedPage><Agent /></ProtectedPage>} />
       <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

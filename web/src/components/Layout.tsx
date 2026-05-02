@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   AlertOctagon,
   KeyRound,
+  Sparkles,
   X
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -33,6 +34,7 @@ const navItems = [
   { path: '/servers', icon: Network, label: 'Servers' },
   { path: '/plugins', icon: Puzzle, label: 'Plugins' },
   { path: '/integrations', icon: Plug, label: 'Integrations' },
+  { path: '/agent', icon: Sparkles, label: 'Hermes Agent' },
   { path: '/settings', icon: Settings, label: 'Settings' },
 ];
 
