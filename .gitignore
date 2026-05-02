@@ -62,3 +62,5 @@ archive/
 *.pid.lock
 /nodes/
 .superpowers/
+.omx/
+.gstack/

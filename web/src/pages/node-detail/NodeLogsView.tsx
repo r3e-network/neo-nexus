@@ -1,5 +1,5 @@
-import { useRef, useEffect } from 'react';
-import { FileText } from 'lucide-react';
+import { useRef, useEffect, useMemo, useState } from 'react';
+import { ClipboardCopy, FileText, Pause, Play, Trash2 } from 'lucide-react';
 import { useNodeLogs } from '../../hooks/useNodes';
 import { mergeNodeLogs } from '../../utils/realtime';
 import { EmptyState } from '../../components/EmptyState';
@@ -18,31 +18,102 @@ interface NodeLogsViewProps {
 
 function getLogColor(level: string) {
   switch (level.toLowerCase()) {
-    case 'error': return 'text-red-400';
-    case 'warn': return 'text-yellow-400';
+    case 'error': return 'text-red-300';
+    case 'warn': return 'text-amber-300';
     case 'debug': return 'text-slate-500';
-    default: return 'text-slate-300';
+    default: return 'text-slate-200';
   }
+}
+
+export function NodeLogsToolbar({
+  connected,
+  following,
+  onToggleFollow,
+  onCopy,
+  onClear,
+}: {
+  connected: boolean;
+  following: boolean;
+  onToggleFollow: () => void;
+  onCopy: () => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h3 className="text-lg font-semibold text-slate-950">Logs</h3>
+        <span className="text-sm text-slate-600">
+          {connected ? 'Live stream connected' : 'Reconnecting live stream'} · Last 50 entries
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn btn-secondary" onClick={onToggleFollow}>
+          {following ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          {following ? 'Pause follow' : 'Resume follow'}
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={onCopy}>
+          <ClipboardCopy className="h-4 w-4" />
+          Copy logs
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={onClear}>
+          <Trash2 className="h-4 w-4" />
+          Clear view
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export function NodeLogsView({ nodeId, realtimeLogs, connected }: NodeLogsViewProps) {
   const { data: logs = [] } = useNodeLogs(nodeId, 50);
   const logsEndRef = useRef<HTMLDivElement>(null);
-  const displayedLogs = mergeNodeLogs(logs, realtimeLogs);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [following, setFollowing] = useState(true);
+  const [hiddenThroughTimestamp, setHiddenThroughTimestamp] = useState(0);
+  const mergedLogs = useMemo(() => mergeNodeLogs(logs, realtimeLogs), [logs, realtimeLogs]);
+  const displayedLogs = mergedLogs.filter((log) => log.timestamp > hiddenThroughTimestamp);
 
   useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs, realtimeLogs]);
+    if (following) {
+      logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [displayedLogs, following]);
+
+  const handleScroll = () => {
+    const element = scrollContainerRef.current;
+    if (!element) return;
+    const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+    setFollowing(distanceFromBottom < 24);
+  };
+
+  const handleCopy = () => {
+    const text = displayedLogs
+      .map((log) => `${new Date(log.timestamp).toISOString()} ${log.level.toUpperCase()} ${log.message}`)
+      .join('\n');
+    void navigator.clipboard?.writeText(text);
+  };
+
+  const handleClear = () => {
+    const latest = mergedLogs.reduce((max, log) => Math.max(max, log.timestamp), hiddenThroughTimestamp);
+    setHiddenThroughTimestamp(latest);
+  };
 
   return (
     <div className="card animate-fade-in">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-white">Logs</h3>
-        <span className="text-sm text-slate-400">
-          {connected ? 'Live stream connected' : 'Reconnecting live stream'} · Last 50 entries
-        </span>
+      <div className="mb-4">
+        <NodeLogsToolbar
+          connected={connected}
+          following={following}
+          onToggleFollow={() => setFollowing((value) => !value)}
+          onCopy={handleCopy}
+          onClear={handleClear}
+        />
       </div>
-      <div className="bg-slate-950 rounded-lg p-4 font-mono text-xs max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="log-console rounded-lg p-4 font-mono text-xs max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent shadow-inner"
+      >
         {displayedLogs.length === 0 ? (
           <EmptyState
             icon={FileText}
@@ -59,7 +130,7 @@ export function NodeLogsView({ nodeId, realtimeLogs, connected }: NodeLogsViewPr
                 <span className={`uppercase text-xs font-bold shrink-0 w-12 ${getLogColor(log.level)}`}>
                   {log.level}
                 </span>
-                <span className={`${getLogColor(log.level)} break-all`}>
+                <span className={`${getLogColor(log.level)} whitespace-pre-wrap break-words`}>
                   {log.message}
                 </span>
               </div>

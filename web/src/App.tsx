@@ -35,10 +35,10 @@ class ErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-950 p-8">
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 p-8">
           <div className="max-w-md text-center">
-            <h1 className="text-2xl font-bold text-white mb-4">Something went wrong</h1>
-            <p className="text-slate-400 mb-6">{this.state.error?.message || 'An unexpected error occurred.'}</p>
+            <h1 className="text-2xl font-bold text-slate-950 mb-4">Something went wrong</h1>
+            <p className="text-slate-600 mb-6">{this.state.error?.message || 'An unexpected error occurred.'}</p>
             <button
               onClick={() => {
                 this.setState({ hasError: false, error: null });
@@ -71,7 +71,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
       </div>
     );
@@ -95,7 +95,7 @@ function LoginRoute({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
       </div>
     );
@@ -114,7 +114,7 @@ function SetupRoute({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
       </div>
     );

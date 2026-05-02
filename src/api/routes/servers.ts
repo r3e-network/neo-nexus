@@ -14,6 +14,22 @@ interface ServerProfilesOperations {
 export function createServersRouter(serverManager: ServerProfilesOperations): Router {
   const router = Router();
 
+  const validateRemoteServerBaseUrl = (baseUrl: unknown): void => {
+    if (typeof baseUrl !== "string" || baseUrl.trim() === "") {
+      throw Errors.missingField('baseUrl (must be a valid URL)');
+    }
+
+    try {
+      const parsed = new URL(baseUrl);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        throw Errors.serverUrlProtocolInvalid();
+      }
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw Errors.missingField('baseUrl (must be a valid URL)');
+    }
+  };
+
   router.get("/", async (_req: Request, res: Response) => {
     try {
       const servers = await serverManager.listServersWithStatus();
@@ -38,15 +54,7 @@ export function createServersRouter(serverManager: ServerProfilesOperations): Ro
       if (!name || !baseUrl) {
         throw Errors.serverFieldsRequired();
       }
-      try {
-        const parsed = new URL(baseUrl);
-        if (!['http:', 'https:'].includes(parsed.protocol)) {
-          throw Errors.missingField('baseUrl (must use http or https)');
-        }
-      } catch (e) {
-        if (e instanceof ApiError) throw e;
-        throw Errors.missingField('baseUrl (must be a valid URL)');
-      }
+      validateRemoteServerBaseUrl(baseUrl);
       const server = serverManager.createServer(req.body as CreateRemoteServerRequest);
       res.status(201).json({ server });
     } catch (error) {
@@ -56,6 +64,9 @@ export function createServersRouter(serverManager: ServerProfilesOperations): Ro
 
   router.put("/:id", (req: Request, res: Response) => {
     try {
+      if (req.body?.baseUrl !== undefined) {
+        validateRemoteServerBaseUrl(req.body.baseUrl);
+      }
       const server = serverManager.updateServer(req.params.id as string, req.body as UpdateRemoteServerRequest);
       res.json({ server });
     } catch (error) {

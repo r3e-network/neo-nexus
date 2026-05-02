@@ -1,6 +1,17 @@
 // src/integrations/providers/errors/SentryProvider.ts
 import type { ErrorProvider, ConfigField } from '../../types';
+import { safeIntegrationFetch } from '../../safeFetch';
 
+// Note on outbound target protection:
+// `testConnection` below uses `safeIntegrationFetch` and is therefore covered
+// by the same DNS-rebind / private-target guards as other providers. The actual
+// error reporting transport, however, is owned by `@sentry/node` once
+// `Sentry.init` runs — it builds its own HTTP client from the DSN host and
+// does not go through `safeIntegrationFetch`. Admins who configure a DSN
+// pointing at a hostname that resolves to private space will still send error
+// payloads there at runtime. Treat the DSN as a trusted, admin-supplied
+// credential boundary; SSRF protection is enforced at config time, not at
+// every captureException call.
 export const sentrySchema: ConfigField[] = [
   { key: 'dsn', label: 'DSN', type: 'password', placeholder: 'https://examplePublicKey@o0.ingest.sentry.io/0', required: true },
 ];
@@ -58,7 +69,7 @@ export class SentryProvider implements ErrorProvider {
       const publicKey = url.username;
       const storeUrl = `https://${host}/api/${projectId}/envelope/?sentry_key=${publicKey}&sentry_version=7`;
 
-      const response = await fetch(storeUrl, {
+      const response = await safeIntegrationFetch(storeUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-sentry-envelope' },
         body: `{"dsn":"${this.config.dsn}"}\n{"type":"check_in"}\n{"status":"ok"}`,

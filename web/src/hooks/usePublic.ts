@@ -3,6 +3,17 @@ import { REFETCH_INTERVALS } from '../config/constants';
 
 const API_BASE = '/api/public';
 
+async function readPublicResponse<T>(path: string, field: string): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${field} (${response.status})`);
+  }
+
+  const data = (await response.json()) as Record<string, T>;
+  return data[field];
+}
+
 export interface PublicNode {
   id: string;
   name: string;
@@ -52,12 +63,7 @@ export interface PublicSystemMetrics {
 export function usePublicStatus() {
   return useQuery({
     queryKey: ['public', 'status'],
-    queryFn: async (): Promise<SystemStatus> => {
-      const response = await fetch(`${API_BASE}/status`);
-      if (!response.ok) throw new Error('Failed to fetch status');
-      const data = await response.json();
-      return data.status;
-    },
+    queryFn: () => readPublicResponse<SystemStatus>('/status', 'status'),
     refetchInterval: REFETCH_INTERVALS.publicDashboard,
   });
 }
@@ -65,12 +71,7 @@ export function usePublicStatus() {
 export function usePublicNodes() {
   return useQuery({
     queryKey: ['public', 'nodes'],
-    queryFn: async (): Promise<PublicNode[]> => {
-      const response = await fetch(`${API_BASE}/nodes`);
-      if (!response.ok) throw new Error('Failed to fetch nodes');
-      const data = await response.json();
-      return data.nodes;
-    },
+    queryFn: () => readPublicResponse<PublicNode[]>('/nodes', 'nodes'),
     refetchInterval: REFETCH_INTERVALS.publicDashboard,
   });
 }
@@ -78,12 +79,7 @@ export function usePublicNodes() {
 export function usePublicNode(id: string) {
   return useQuery({
     queryKey: ['public', 'nodes', id],
-    queryFn: async (): Promise<PublicNode> => {
-      const response = await fetch(`${API_BASE}/nodes/${id}`);
-      if (!response.ok) throw new Error('Failed to fetch node');
-      const data = await response.json();
-      return data.node;
-    },
+    queryFn: () => readPublicResponse<PublicNode>(`/nodes/${id}`, 'node'),
     enabled: !!id,
     refetchInterval: REFETCH_INTERVALS.publicDashboard,
   });
@@ -92,13 +88,7 @@ export function usePublicNode(id: string) {
 export function usePublicSystemMetrics() {
   return useQuery({
     queryKey: ['public', 'metrics', 'system'],
-    queryFn: async (): Promise<PublicSystemMetrics> => {
-      const response = await fetch(`${API_BASE}/metrics/system`);
-      if (!response.ok) throw new Error('Failed to fetch metrics');
-      const data = await response.json();
-      return data.metrics;
-    },
+    queryFn: () => readPublicResponse<PublicSystemMetrics>('/metrics/system', 'metrics'),
     refetchInterval: REFETCH_INTERVALS.publicDashboard,
   });
 }
-

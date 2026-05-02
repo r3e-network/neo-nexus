@@ -62,8 +62,8 @@ export function PasswordSection() {
           <Lock className="w-5 h-5 text-emerald-400" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-white">Change Password</h2>
-          <p className="text-slate-400 text-sm">Update the administrator password used to access NeoNexus</p>
+          <h2 className="text-lg font-semibold text-slate-950">Change Password</h2>
+          <p className="text-slate-600 text-sm">Update the administrator password used to access NeoNexus</p>
         </div>
       </div>
 
@@ -71,33 +71,36 @@ export function PasswordSection() {
 
       <form className="grid grid-cols-1 gap-4 md:grid-cols-3" onSubmit={handlePasswordSubmit}>
         <div>
-          <label className="mb-2 block text-sm font-medium text-slate-300">Current Password</label>
+          <label className="mb-2 block text-sm font-medium text-slate-700">Current Password</label>
           <input
             type="password"
             value={currentPassword}
             onChange={(event) => setCurrentPassword(event.target.value)}
             className="input"
             placeholder="Current password"
+            autoComplete="current-password"
           />
         </div>
         <div>
-          <label className="mb-2 block text-sm font-medium text-slate-300">New Password</label>
+          <label className="mb-2 block text-sm font-medium text-slate-700">New Password</label>
           <input
             type="password"
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
             className="input"
             placeholder="At least 8 characters"
+            autoComplete="new-password"
           />
         </div>
         <div>
-          <label className="mb-2 block text-sm font-medium text-slate-300">Confirm Password</label>
+          <label className="mb-2 block text-sm font-medium text-slate-700">Confirm Password</label>
           <input
             type="password"
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
             className="input"
             placeholder="Repeat new password"
+            autoComplete="new-password"
           />
         </div>
 

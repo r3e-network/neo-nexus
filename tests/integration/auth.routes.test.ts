@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import request from "supertest";
-import express, { Request, Response, NextFunction } from "express";
+import express, { Request, Response } from "express";
 
 describe("Auth Routes Integration", () => {
   let app: express.Application;

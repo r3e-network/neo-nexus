@@ -6,6 +6,7 @@ import { NodeRow, PluginRow, InstalledPluginRow, nodeRowToConfig } from '../type
 import { DownloadManager } from './DownloadManager';
 import { ConfigManager } from './ConfigManager';
 import { PLUGIN_VERSIONS } from '../data/plugin-versions';
+import { Errors } from '../api/errors';
 
 function safeJsonParse(value: string): unknown {
   try {
@@ -138,7 +139,10 @@ export class PluginManager {
   async uninstallPlugin(nodeId: string, pluginId: PluginId): Promise<void> {
     // Remove from database
     const stmt = this.db.prepare('DELETE FROM node_plugins WHERE node_id = ? AND plugin_id = ?');
-    stmt.run(nodeId, pluginId);
+    const result = stmt.run(nodeId, pluginId);
+    if (result.changes === 0) {
+      throw Errors.pluginNotInstalled(pluginId, nodeId);
+    }
 
     // Remove plugin directory
     const pluginDir = join(this.getNodeBasePath(nodeId), 'Plugins', pluginId);
@@ -165,7 +169,10 @@ export class PluginManager {
       SET config = ?
       WHERE node_id = ? AND plugin_id = ?
     `);
-    stmt.run(JSON.stringify(config), nodeId, pluginId);
+    const result = stmt.run(JSON.stringify(config), nodeId, pluginId);
+    if (result.changes === 0) {
+      throw Errors.pluginNotInstalled(pluginId, nodeId);
+    }
 
     // Update config file
     ConfigManager.writePluginConfig(pluginId, this.getNodeConfig(nodeId), config);
@@ -180,7 +187,10 @@ export class PluginManager {
       SET enabled = ?
       WHERE node_id = ? AND plugin_id = ?
     `);
-    stmt.run(enabled ? 1 : 0, nodeId, pluginId);
+    const result = stmt.run(enabled ? 1 : 0, nodeId, pluginId);
+    if (result.changes === 0) {
+      throw Errors.pluginNotInstalled(pluginId, nodeId);
+    }
   }
 
   /**

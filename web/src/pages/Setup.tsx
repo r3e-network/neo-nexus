@@ -62,29 +62,27 @@ export default function Setup() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <div className="w-full max-w-md animate-scale-in">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Activity className="w-8 h-8 text-blue-500" />
+          <div className="w-12 h-12 bg-teal-50 rounded-lg border border-teal-200 flex items-center justify-center mx-auto mb-4">
+            <Activity className="w-6 h-6 text-teal-700" />
           </div>
-          <h1 className="text-2xl font-bold text-white">
-            <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">NeoNexus</span>
-          </h1>
-          <p className="text-slate-400 mt-2">Welcome to NeoNexus</p>
+          <h1 className="text-2xl font-semibold text-slate-950">NeoNexus</h1>
+          <p className="text-slate-600 mt-2">Welcome to NeoNexus</p>
         </div>
 
         <div className="card">
           <div className="mb-6">
-            <h2 className="text-lg font-semibold text-white">Create your admin account to get started</h2>
-            <p className="text-sm text-slate-400 mt-1">This will be the primary administrator account for your NeoNexus instance.</p>
+            <h2 className="text-lg font-semibold text-slate-950">Create your admin account to get started</h2>
+            <p className="text-sm text-slate-600 mt-1">This will be the primary administrator account for your NeoNexus instance.</p>
           </div>
 
           <FeedbackBanner error={error} suggestion={suggestion} code={code} />
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1">
                 Username
               </label>
               <div className="relative">
@@ -95,6 +93,7 @@ export default function Setup() {
                   onChange={(e) => setUsername(e.target.value)}
                   className="input pl-10"
                   placeholder="Choose a username"
+                  autoComplete="username"
                   required
                   autoFocus
                 />
@@ -102,7 +101,7 @@ export default function Setup() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1">
                 Password
               </label>
               <div className="relative">
@@ -113,13 +112,14 @@ export default function Setup() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="input pl-10"
                   placeholder="Choose a password (min 8 chars)"
+                  autoComplete="new-password"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1">
                 Confirm Password
               </label>
               <div className="relative">
@@ -130,6 +130,7 @@ export default function Setup() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="input pl-10"
                   placeholder="Confirm your password"
+                  autoComplete="new-password"
                   required
                 />
               </div>

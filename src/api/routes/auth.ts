@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import type { UserManager } from "../../core/UserManager";
-import { createAuthMiddleware, generateToken, type AuthenticatedRequest } from "../middleware/auth";
+import { createAuthMiddleware, generateToken, getTokenExpiresInHours, type AuthenticatedRequest } from "../middleware/auth";
 import { Errors } from '../errors';
 import { respondWithApiError } from '../respond';
 
@@ -38,7 +38,7 @@ export function createAuthRouter(userManager: UserManager): Router {
       });
 
       // Create session
-      userManager.createSession(user.id, token, 24);
+      userManager.createSession(user.id, token, getTokenExpiresInHours(token));
 
       res.status(201).json({
         message: "Setup completed successfully",
@@ -86,7 +86,7 @@ export function createAuthRouter(userManager: UserManager): Router {
       });
 
       // Create session
-      userManager.createSession(user.id, token, 24);
+      userManager.createSession(user.id, token, getTokenExpiresInHours(token));
       const usingDefaultPassword = await userManager.isUsingDefaultPassword(user.id);
 
       res.json({

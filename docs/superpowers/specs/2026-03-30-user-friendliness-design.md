@@ -103,7 +103,7 @@ export const Errors = {
 | `NO_TOKEN` | No token provided | Include a Bearer token in the Authorization header. Log in via POST /api/auth/login to get one. |
 | `TOKEN_INVALID` | Invalid or expired token | Your session has expired. Log in again to get a fresh token. |
 | `SESSION_INVALID` | Session expired or invalid | Your session was invalidated (password change or admin action). Please log in again. |
-| `INVALID_CREDENTIALS` | Invalid credentials | Username or password is incorrect. Default credentials are admin/admin if this is a fresh install. |
+| `INVALID_CREDENTIALS` | Invalid credentials | Username or password is incorrect. If this is a fresh install, use the setup page to create the first admin account. |
 
 #### Detection & Import
 | Code | Message | Suggestion |
@@ -292,7 +292,7 @@ interface RuntimeEnvironment {
 Detection methods:
 - Docker: check `/.dockerenv` existence or `/proc/1/cgroup` contains "docker"
 - Systemd: check `INVOCATION_ID` env var
-- First run: check if users table is empty (before default admin creation)
+- First run: check if users table is empty
 - Node/running counts: query database after initialization
 
 ### Startup Output Redesign
@@ -329,7 +329,7 @@ NeoNexus v2.2.0
   Data:  ~/.neonexus
 
   Warnings:
-    - Default admin password is still in use. Change it in Settings.
+    - Legacy default admin password is still in use. Change it in Settings.
     - Server is bound to all interfaces (0.0.0.0). Ensure firewall is configured.
 ```
 

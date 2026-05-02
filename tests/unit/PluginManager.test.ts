@@ -116,4 +116,47 @@ describe("PluginManager", () => {
       {},
     );
   });
+
+  it("rejects config updates for plugins that are not installed on the node", async () => {
+    const writePluginConfig = vi.fn();
+    vi.doMock("../../src/core/ConfigManager", () => ({
+      ConfigManager: {
+        writePluginConfig,
+      },
+    }));
+
+    const { PluginManager } = await import("../../src/core/PluginManager");
+    const db = {
+      prepare: vi.fn((sql: string) => {
+        if (sql.includes("UPDATE node_plugins")) {
+          return { run: vi.fn(() => ({ changes: 0 })) };
+        }
+        if (sql.includes("SELECT * FROM nodes WHERE id = ?")) {
+          return { get: vi.fn(() => ({ id: "node-1" })) };
+        }
+        throw new Error(`Unexpected SQL: ${sql}`);
+      }),
+    };
+
+    const manager = new PluginManager(db as never);
+
+    expect(() => manager.updatePluginConfig("node-1", "RpcServer", { Port: 10332 })).toThrow(/not installed/i);
+    expect(writePluginConfig).not.toHaveBeenCalled();
+  });
+
+  it("rejects enablement changes for plugins that are not installed on the node", async () => {
+    const { PluginManager } = await import("../../src/core/PluginManager");
+    const db = {
+      prepare: vi.fn((sql: string) => {
+        if (sql.includes("UPDATE node_plugins")) {
+          return { run: vi.fn(() => ({ changes: 0 })) };
+        }
+        throw new Error(`Unexpected SQL: ${sql}`);
+      }),
+    };
+
+    const manager = new PluginManager(db as never);
+
+    expect(() => manager.setPluginEnabled("node-1", "RpcServer", true)).toThrow(/not installed/i);
+  });
 });

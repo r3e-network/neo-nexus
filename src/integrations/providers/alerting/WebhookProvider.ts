@@ -1,5 +1,6 @@
 // src/integrations/providers/alerting/WebhookProvider.ts
 import type { NotificationProvider, IntegrationEvent, ConfigField } from '../../types';
+import { safeIntegrationFetch } from '../../safeFetch';
 
 export const webhookSchema: ConfigField[] = [
   { key: 'url', label: 'Webhook URL', type: 'url', placeholder: 'https://example.com/webhook', required: true, sensitive: true },
@@ -11,7 +12,7 @@ export class WebhookProvider implements NotificationProvider {
   constructor(private config: { url: string }) {}
 
   async notify(event: IntegrationEvent): Promise<void> {
-    const response = await fetch(this.config.url, {
+    const response = await safeIntegrationFetch(this.config.url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(event),
@@ -24,7 +25,7 @@ export class WebhookProvider implements NotificationProvider {
   }
 
   async testConnection(): Promise<boolean> {
-    const response = await fetch(this.config.url, {
+    const response = await safeIntegrationFetch(this.config.url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

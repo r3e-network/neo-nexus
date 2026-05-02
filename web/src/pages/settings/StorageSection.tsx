@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { HardDrive, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { FeedbackBanner } from "../../components/FeedbackBanner";
 import { useCleanLogs, useExportConfiguration, useRestoreConfiguration } from "../../hooks/useSystemActions";
 import type { ConfigurationSnapshot } from "../../../../src/types";
@@ -9,6 +10,7 @@ export function StorageSection() {
   const [storageError, setStorageError] = useState("");
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const [replaceExisting, setReplaceExisting] = useState(false);
+  const [pendingRestoreSnapshot, setPendingRestoreSnapshot] = useState<ConfigurationSnapshot | null>(null);
   const cleanLogs = useCleanLogs();
   const exportConfiguration = useExportConfiguration();
   const restoreConfiguration = useRestoreConfiguration();
@@ -54,21 +56,23 @@ export function StorageSection() {
         setStorageError("The selected file does not contain a valid NeoNexus snapshot.");
         return;
       }
+      setPendingRestoreSnapshot(snapshot);
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : "Failed to restore configuration.");
+    }
+  };
 
-      const confirmed = window.confirm(
-        replaceExisting
-          ? "Restore this snapshot and replace existing nodes? This will remove current node definitions first."
-          : "Restore this snapshot into the current installation?",
-      );
+  const confirmRestoreConfiguration = async () => {
+    if (!pendingRestoreSnapshot) {
+      return;
+    }
 
-      if (!confirmed) {
-        return;
-      }
-
+    try {
       const result = await restoreConfiguration.mutateAsync({
-        snapshot,
+        snapshot: pendingRestoreSnapshot,
         replaceExisting,
       });
+      setPendingRestoreSnapshot(null);
       setStorageMessage(
         `Restored ${result.restoredCount} nodes, skipped ${result.skippedCount}, failed ${result.failedCount}.`,
       );
@@ -80,36 +84,36 @@ export function StorageSection() {
   return (
     <div className="card">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-          <HardDrive className="w-5 h-5 text-purple-400" />
+        <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+          <HardDrive className="w-5 h-5 text-amber-400" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-white">Storage Management</h2>
-          <p className="text-slate-400 text-sm">Manage node data and logs</p>
+          <h2 className="text-lg font-semibold text-slate-950">Storage Management</h2>
+          <p className="text-slate-600 text-sm">Manage node data and logs</p>
         </div>
       </div>
 
       <div className="space-y-4">
         <FeedbackBanner error={storageError} success={storageMessage} />
 
-        <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
+        <div className="flex flex-col gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="font-medium text-white">Clean Old Logs</p>
-            <p className="text-sm text-slate-400">Remove log files older than 30 days</p>
+            <p className="font-medium text-slate-950">Clean Old Logs</p>
+            <p className="text-sm text-slate-600">Remove log files older than 30 days</p>
           </div>
-          <button className="btn btn-secondary" disabled={cleanLogs.isPending} onClick={handleCleanLogs} type="button">
+          <button className="btn btn-secondary justify-center sm:w-auto" disabled={cleanLogs.isPending} onClick={handleCleanLogs} type="button">
             <Trash2 className="w-4 h-4" />
             {cleanLogs.isPending ? "Cleaning..." : "Clean"}
           </button>
         </div>
 
-        <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
+        <div className="flex flex-col gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="font-medium text-white">Export Configuration</p>
-            <p className="text-sm text-slate-400">Download all node configurations</p>
+            <p className="font-medium text-slate-950">Export Configuration</p>
+            <p className="text-sm text-slate-600">Download all node configurations</p>
           </div>
           <button
-            className="btn btn-secondary"
+            className="btn btn-secondary justify-center sm:w-auto"
             disabled={exportConfiguration.isPending}
             onClick={handleExportConfiguration}
             type="button"
@@ -118,14 +122,14 @@ export function StorageSection() {
           </button>
         </div>
 
-        <div className="p-4 bg-slate-800/50 rounded-lg space-y-4">
-          <div className="flex items-start justify-between gap-4">
+        <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="font-medium text-white">Restore Configuration</p>
-              <p className="text-sm text-slate-400">Import a previously exported NeoNexus JSON snapshot</p>
+              <p className="font-medium text-slate-950">Restore Configuration</p>
+              <p className="text-sm text-slate-600">Import a previously exported NeoNexus JSON snapshot</p>
             </div>
             <button
-              className="btn btn-secondary"
+              className="btn btn-secondary justify-center sm:w-auto"
               disabled={restoreConfiguration.isPending}
               onClick={handleRestoreConfiguration}
               type="button"
@@ -139,10 +143,10 @@ export function StorageSection() {
               type="file"
               accept="application/json,.json"
               onChange={(event) => setRestoreFile(event.target.files?.[0] || null)}
-              className="block w-full text-sm text-slate-300 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-700 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-600"
+              className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200"
             />
 
-            <label className="flex items-center gap-3 text-sm text-slate-300">
+            <label className="flex items-center gap-3 text-sm text-slate-600">
               <input
                 type="checkbox"
                 checked={replaceExisting}
@@ -154,6 +158,21 @@ export function StorageSection() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(pendingRestoreSnapshot)}
+        title="Restore configuration snapshot?"
+        description={
+          replaceExisting
+            ? "This will restore the selected snapshot and replace existing node definitions first."
+            : "This will restore the selected snapshot into the current installation."
+        }
+        confirmLabel="Restore snapshot"
+        confirmVariant="primary"
+        isConfirming={restoreConfiguration.isPending}
+        onCancel={() => setPendingRestoreSnapshot(null)}
+        onConfirm={() => void confirmRestoreConfiguration()}
+      />
     </div>
   );
 }

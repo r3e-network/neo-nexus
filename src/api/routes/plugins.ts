@@ -1,10 +1,26 @@
 import { Router, type Request, type Response } from 'express';
 import type { NodeManager } from '../../core/NodeManager';
-import type { PluginId } from '../../types';
+import type { InstalledPlugin, PluginId } from '../../types';
+import type { AuthenticatedRequest } from '../middleware/auth';
 
 interface NodeParams {
   id: string;
   pluginId: string;
+}
+
+type MaybeAuthenticatedRequest = Request<NodeParams> & {
+  user?: AuthenticatedRequest['user'];
+};
+
+function isViewerRequest(req: MaybeAuthenticatedRequest): boolean {
+  return req.user?.role === 'viewer';
+}
+
+function pluginResponseForRequest(req: MaybeAuthenticatedRequest, plugins: InstalledPlugin[]): InstalledPlugin[] | Array<Omit<InstalledPlugin, 'config'>> {
+  if (!isViewerRequest(req)) {
+    return plugins;
+  }
+  return plugins.map(({ id, version, installedAt, enabled }) => ({ id, version, installedAt, enabled }));
 }
 
 export function createPluginsRouter(nodeManager: NodeManager): Router {
@@ -24,7 +40,7 @@ export function createPluginsRouter(nodeManager: NodeManager): Router {
   router.get('/', (req: Request<NodeParams>, res: Response) => {
     try {
       const plugins = pluginManager.getInstalledPlugins(req.params.id);
-      res.json({ plugins });
+      res.json({ plugins: pluginResponseForRequest(req, plugins) });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Internal server error";
       res.status(pluginErrorStatus(error)).json({ error: message });
@@ -85,9 +101,9 @@ export function createPluginsRouter(nodeManager: NodeManager): Router {
   });
 
   // POST /api/nodes/:id/plugins/:pluginId/enable - Enable plugin
-  router.post('/:pluginId/enable', (req: Request<NodeParams>, res: Response) => {
+  router.post('/:pluginId/enable', async (req: Request<NodeParams>, res: Response) => {
     try {
-      nodeManager.setPluginEnabled(req.params.id, req.params.pluginId as PluginId, true);
+      await nodeManager.setPluginEnabled(req.params.id, req.params.pluginId as PluginId, true);
       const plugins = pluginManager.getInstalledPlugins(req.params.id);
       res.json({ plugins });
     } catch (error) {
@@ -97,9 +113,9 @@ export function createPluginsRouter(nodeManager: NodeManager): Router {
   });
 
   // POST /api/nodes/:id/plugins/:pluginId/disable - Disable plugin
-  router.post('/:pluginId/disable', (req: Request<NodeParams>, res: Response) => {
+  router.post('/:pluginId/disable', async (req: Request<NodeParams>, res: Response) => {
     try {
-      nodeManager.setPluginEnabled(req.params.id, req.params.pluginId as PluginId, false);
+      await nodeManager.setPluginEnabled(req.params.id, req.params.pluginId as PluginId, false);
       const plugins = pluginManager.getInstalledPlugins(req.params.id);
       res.json({ plugins });
     } catch (error) {

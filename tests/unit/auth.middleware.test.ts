@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import jwt from "jsonwebtoken";
 import { createMockRequest, createMockResponse } from "../setup";
-import { createAuthMiddleware } from "../../src/api/middleware/auth";
+import { createAuthMiddleware, getTokenExpiresInHours } from "../../src/api/middleware/auth";
 
 describe("createAuthMiddleware", () => {
   it("rejects a valid jwt when the session has been deleted or expired", () => {
@@ -46,5 +47,16 @@ describe("createAuthMiddleware", () => {
     expect(verifySession).toHaveBeenCalledWith("valid-token");
     expect(req.user).toEqual(sessionUser);
     expect(next).toHaveBeenCalledOnce();
+  });
+
+  it("derives database session lifetime from the jwt exp claim", () => {
+    const now = 1_800_000_000_000;
+    vi.mocked(jwt.decode).mockReturnValue({
+      userId: "test-user-id",
+      username: "admin",
+      exp: Math.floor((now + 2 * 60 * 60 * 1000) / 1000),
+    });
+
+    expect(getTokenExpiresInHours("valid-token", now)).toBe(2);
   });
 });

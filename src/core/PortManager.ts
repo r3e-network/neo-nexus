@@ -75,6 +75,18 @@ export class PortManager {
     if (ports.metrics) this.usedPorts.delete(ports.metrics);
   }
 
+  async reservePorts(ports: PortConfig): Promise<void> {
+    const validation = await this.validateCustomPorts(ports);
+    if (!validation.valid) {
+      throw Errors.invalidPortConfig(validation.errors);
+    }
+
+    this.usedPorts.add(ports.rpc);
+    this.usedPorts.add(ports.p2p);
+    if (ports.websocket) this.usedPorts.add(ports.websocket);
+    if (ports.metrics) this.usedPorts.add(ports.metrics);
+  }
+
   /**
    * Find next available node index
    */
@@ -95,36 +107,32 @@ export class PortManager {
    */
   async validateCustomPorts(ports: Partial<PortConfig>): Promise<{ valid: boolean; errors: string[] }> {
     const errors: string[] = [];
+    const entries = [
+      { name: 'RPC', port: ports.rpc },
+      { name: 'P2P', port: ports.p2p },
+      { name: 'WebSocket', port: ports.websocket },
+      { name: 'Metrics', port: ports.metrics },
+    ].filter((entry): entry is { name: string; port: number } => entry.port !== undefined);
+    const seen = new Map<number, string>();
 
-    if (ports.rpc) {
-      if (this.usedPorts.has(ports.rpc)) {
-        errors.push(`RPC port ${ports.rpc} is already in use`);
-      } else if (!(await isPortAvailable(ports.rpc))) {
-        errors.push(`RPC port ${ports.rpc} is unavailable`);
+    for (const { name, port } of entries) {
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        errors.push(`${name} port ${port} is invalid`);
+        continue;
       }
+      const existingName = seen.get(port);
+      if (existingName) {
+        errors.push(`${name} port ${port} duplicates ${existingName} port`);
+        continue;
+      }
+      seen.set(port, name);
     }
 
-    if (ports.p2p) {
-      if (this.usedPorts.has(ports.p2p)) {
-        errors.push(`P2P port ${ports.p2p} is already in use`);
-      } else if (!(await isPortAvailable(ports.p2p))) {
-        errors.push(`P2P port ${ports.p2p} is unavailable`);
-      }
-    }
-
-    if (ports.websocket) {
-      if (this.usedPorts.has(ports.websocket)) {
-        errors.push(`WebSocket port ${ports.websocket} is already in use`);
-      } else if (!(await isPortAvailable(ports.websocket))) {
-        errors.push(`WebSocket port ${ports.websocket} is unavailable`);
-      }
-    }
-
-    if (ports.metrics) {
-      if (this.usedPorts.has(ports.metrics)) {
-        errors.push(`Metrics port ${ports.metrics} is already in use`);
-      } else if (!(await isPortAvailable(ports.metrics))) {
-        errors.push(`Metrics port ${ports.metrics} is unavailable`);
+    for (const { name, port } of entries) {
+      if (this.usedPorts.has(port)) {
+        errors.push(`${name} port ${port} is already in use`);
+      } else if (!(await isPortAvailable(port))) {
+        errors.push(`${name} port ${port} is unavailable`);
       }
     }
 

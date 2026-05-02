@@ -146,17 +146,17 @@ export default function Plugins() {
     return (
       <div className="space-y-7">
         <div>
-          <h1 className="text-2xl font-bold text-white">Node Features</h1>
-          <p className="text-slate-400 mt-1">Plugin management is available for neo-cli nodes.</p>
+          <h1 className="text-2xl font-bold text-slate-950">Node Features</h1>
+          <p className="text-slate-600 mt-1">Plugin management is available for neo-cli nodes.</p>
         </div>
         <div className="card">
           <div className="flex items-start gap-4">
-            <div className="rounded-xl bg-blue-500/10 p-3">
+            <div className="rounded-lg bg-teal-500/10 p-3">
               <Puzzle className="h-6 w-6 text-blue-400" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-white">No neo-cli nodes available</h2>
-              <p className="text-sm text-slate-400">
+              <h2 className="text-lg font-semibold text-slate-950">No neo-cli nodes available</h2>
+              <p className="text-sm text-slate-600">
                 Create or import a neo-cli node first, then return here to enable features.
               </p>
               <Link to="/nodes/create" className="btn btn-primary">
@@ -172,26 +172,26 @@ export default function Plugins() {
 
   return (
     <div className="space-y-7">
-      <section className="page-hero p-7 lg:p-8">
-        <div className="relative z-10">
+      <section className="page-hero pb-5">
+        <div>
         <p className="console-kicker">Plugin catalog</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Node plugins</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+        <h1 className="mt-2 text-3xl font-semibold text-slate-950">Node plugins</h1>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
           Enable RPC surfaces, storage engines, monitoring, wallets and tooling per neo-cli node. Ownership guards prevent accidental mutations on observe-only imports.
         </p>
         </div>
       </section>
 
       {/* Info banner */}
-      <div className="rounded-2xl border border-blue-300/15 bg-[linear-gradient(135deg,rgba(59,130,246,0.10),rgba(255,255,255,0.025))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
         <div className="flex items-start gap-3">
           <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <p className="text-blue-300 text-sm">
+            <p className="text-blue-800 text-sm">
               Stop your node before toggling features. Changes take effect on the next start.
             </p>
             {selectedNode && (
-              <p className="text-xs text-blue-200/80">
+              <p className="text-xs text-blue-700">
                 Active node: <span className="font-medium">{selectedNode.name}</span> · {selectedNode.process.status}
               </p>
             )}
@@ -202,11 +202,11 @@ export default function Plugins() {
       {/* Node selector */}
       <div className="card flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">Target Node</h2>
-          <p className="text-sm text-slate-400">Features are managed per node.</p>
+          <h2 className="text-lg font-semibold text-slate-950">Target Node</h2>
+          <p className="text-sm text-slate-600">Features are managed per node.</p>
           {selectedNode && (
             <p className="mt-2 inline-flex items-center gap-2 text-xs text-slate-500">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
               Ownership: {selectedNode.settings?.import?.ownershipMode ?? "NeoNexus managed"}
             </p>
           )}
@@ -227,9 +227,9 @@ export default function Plugins() {
       </div>
 
       {pluginMutationDisabledReason && (
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
             <p>{pluginMutationDisabledReason}</p>
           </div>
         </div>
@@ -247,8 +247,8 @@ export default function Plugins() {
         sections.map((section) => (
           <div key={section.title} className="space-y-4">
             <div>
-              <h2 className="text-lg font-semibold text-white">{section.title}</h2>
-              <p className="text-sm text-slate-400">{section.description}</p>
+              <h2 className="text-lg font-semibold text-slate-950">{section.title}</h2>
+              <p className="text-sm text-slate-600">{section.description}</p>
             </div>
 
             <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4">

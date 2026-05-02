@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Globe, Loader2, Network, Plus, RefreshCw, Server, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FeedbackBanner } from "../components/FeedbackBanner";
 import { CardSkeleton } from "../components/LoadingSkeleton";
 import { EmptyState } from "../components/EmptyState";
@@ -33,6 +34,7 @@ export default function Servers() {
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!selectedServerId && servers[0]) {
@@ -108,15 +110,12 @@ export default function Servers() {
       return;
     }
 
-    if (!window.confirm(`Delete remote server profile "${selectedServer.profile.name}"?`)) {
-      return;
-    }
-
     setFeedback("");
     setError("");
 
     try {
       await deleteServer.mutateAsync(selectedServer.profile.id);
+      setDeleteDialogOpen(false);
       setSelectedServerId("");
       setForm(EMPTY_FORM);
       setFormMode("create");
@@ -128,10 +127,12 @@ export default function Servers() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <section className="page-hero pb-5">
+      <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Servers</h1>
-          <p className="text-slate-400 mt-1">Monitor other NeoNexus instances through their public status endpoints.</p>
+          <p className="console-kicker">Host inventory</p>
+          <h1 className="mt-2 text-3xl font-semibold text-slate-950">Servers</h1>
+          <p className="text-slate-600 mt-2 max-w-3xl text-sm leading-6">Monitor other NeoNexus instances through their public status endpoints.</p>
         </div>
         <button
           className="btn btn-secondary"
@@ -142,14 +143,15 @@ export default function Servers() {
           Refresh
         </button>
       </div>
+      </section>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-6">
+      <div className={`grid grid-cols-1 gap-6 ${selectedServer ? "xl:grid-cols-[360px_minmax(0,1fr)]" : ""}`}>
         <div className="space-y-6">
           <div className="card space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">{formMode === "create" ? "Add Server" : "Edit Server"}</h2>
-                <p className="text-sm text-slate-400">Use the remote NeoNexus base URL that exposes `/api/public/*`.</p>
+                <h2 className="text-lg font-semibold text-slate-950">{formMode === "create" ? "Add Server" : "Edit Server"}</h2>
+                <p className="text-sm text-slate-600">Use the remote NeoNexus base URL that exposes `/api/public/*`.</p>
               </div>
               {formMode === "edit" && (
                 <button
@@ -173,7 +175,7 @@ export default function Servers() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Server Name</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Server Name</label>
                 <input
                   className="input"
                   value={form.name}
@@ -183,7 +185,7 @@ export default function Servers() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Base URL</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Base URL</label>
                 <input
                   className="input"
                   value={form.baseUrl}
@@ -193,7 +195,7 @@ export default function Servers() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Description</label>
                 <textarea
                   className="input min-h-24"
                   value={form.description}
@@ -202,7 +204,7 @@ export default function Servers() {
                 />
               </div>
 
-              <label className="flex items-center gap-3 text-sm text-slate-300">
+              <label className="flex items-center gap-3 text-sm text-slate-700">
                 <input
                   type="checkbox"
                   className="h-4 w-4"
@@ -230,7 +232,7 @@ export default function Servers() {
                 <button
                   className="btn btn-error"
                   disabled={deleteServer.isPending}
-                  onClick={handleDelete}
+                  onClick={() => setDeleteDialogOpen(true)}
                   type="button"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -240,7 +242,7 @@ export default function Servers() {
           </div>
 
           <div className="card">
-            <h2 className="text-lg font-semibold text-white mb-4">Server Profiles</h2>
+            <h2 className="text-lg font-semibold text-slate-950 mb-4">Server Profiles</h2>
             {isLoading ? (
               <CardSkeleton count={2} />
             ) : servers.length === 0 ? (
@@ -256,8 +258,8 @@ export default function Servers() {
                     key={server.profile.id}
                     className={`w-full text-left rounded-lg border px-4 py-3 transition-all duration-200 ${
                       server.profile.id === selectedServerId
-                        ? "border-blue-500 bg-blue-500/10 shadow-sm shadow-blue-500/10"
-                        : "border-slate-700 bg-slate-800/50 hover:bg-slate-800 hover:border-slate-600"
+                        ? "border-blue-500 bg-blue-50 shadow-sm"
+                        : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300"
                     }`}
                     onClick={() => {
                       setSelectedServerId(server.profile.id);
@@ -267,8 +269,8 @@ export default function Servers() {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="font-medium text-white">{server.profile.name}</p>
-                        <p className="text-xs text-slate-400 mt-1">{server.profile.baseUrl}</p>
+                        <p className="font-medium text-slate-950">{server.profile.name}</p>
+                        <p className="text-xs text-slate-600 mt-1">{server.profile.baseUrl}</p>
                       </div>
                       <span className={`status-badge ${server.reachable ? "status-running" : "status-error"}`}>
                         {server.reachable ? "reachable" : "offline"}
@@ -281,14 +283,13 @@ export default function Servers() {
           </div>
         </div>
 
-        <div className="space-y-6">
-          {selectedServer ? (
-            <>
-              <div className="card">
+        {selectedServer && (
+          <div className="space-y-6">
+            <div className="card">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-semibold text-white">{selectedServer.profile.name}</h2>
-                    <p className="text-sm text-slate-400 mt-1">{selectedServer.profile.description || selectedServer.profile.baseUrl}</p>
+                    <h2 className="text-xl font-semibold text-slate-950">{selectedServer.profile.name}</h2>
+                    <p className="text-sm text-slate-600 mt-1">{selectedServer.profile.description || selectedServer.profile.baseUrl}</p>
                   </div>
                   <a
                     href={selectedServer.profile.baseUrl}
@@ -302,70 +303,70 @@ export default function Servers() {
                 </div>
 
                 {!selectedServer.reachable && (
-                  <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300 flex items-center gap-2">
+                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0" />
                     <span>{selectedServer.error || "Failed to reach remote server."}</span>
                   </div>
                 )}
+            </div>
+
+            {selectedServer.reachable && selectedServer.status && (
+              <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+                  <div className="card-interactive group cursor-default">
+                    <p className="text-sm text-slate-600 font-medium">Total Nodes</p>
+                    <p className="text-2xl font-bold text-slate-950 mt-1">{selectedServer.status.totalNodes}</p>
+                  </div>
+                  <div className="card-interactive group cursor-default">
+                    <p className="text-sm text-slate-600 font-medium">Running</p>
+                    <p className="text-2xl font-bold text-slate-950 mt-1">{selectedServer.status.runningNodes}</p>
+                  </div>
+                  <div className="card-interactive group cursor-default">
+                    <p className="text-sm text-slate-600 font-medium">Errors</p>
+                    <p className="text-2xl font-bold text-slate-950 mt-1">{selectedServer.status.errorNodes}</p>
+                  </div>
+                  <div className="card-interactive group cursor-default">
+                    <p className="text-sm text-slate-600 font-medium">Blocks</p>
+                    <p className="text-2xl font-bold text-slate-950 mt-1">{formatNumber(selectedServer.status.totalBlocks)}</p>
+                  </div>
               </div>
+            )}
 
-              {selectedServer.reachable && selectedServer.status && (
-                <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-                  <div className="card-interactive group cursor-default">
-                    <p className="text-sm text-slate-400 font-medium group-hover:text-slate-300 transition-colors">Total Nodes</p>
-                    <p className="text-2xl font-bold text-white mt-1 group-hover:text-blue-50 transition-colors">{selectedServer.status.totalNodes}</p>
-                  </div>
-                  <div className="card-interactive group cursor-default">
-                    <p className="text-sm text-slate-400 font-medium group-hover:text-slate-300 transition-colors">Running</p>
-                    <p className="text-2xl font-bold text-white mt-1 group-hover:text-blue-50 transition-colors">{selectedServer.status.runningNodes}</p>
-                  </div>
-                  <div className="card-interactive group cursor-default">
-                    <p className="text-sm text-slate-400 font-medium group-hover:text-slate-300 transition-colors">Errors</p>
-                    <p className="text-2xl font-bold text-white mt-1 group-hover:text-blue-50 transition-colors">{selectedServer.status.errorNodes}</p>
-                  </div>
-                  <div className="card-interactive group cursor-default">
-                    <p className="text-sm text-slate-400 font-medium group-hover:text-slate-300 transition-colors">Blocks</p>
-                    <p className="text-2xl font-bold text-white mt-1 group-hover:text-blue-50 transition-colors">{formatNumber(selectedServer.status.totalBlocks)}</p>
-                  </div>
-                </div>
-              )}
-
-              {selectedServer.systemMetrics && (
-                <div className="card">
-                  <h3 className="text-lg font-semibold text-white mb-4">Remote System Metrics</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 hover:bg-slate-800/80 transition-colors duration-300 shadow-sm group">
-                      <p className="text-sm text-slate-400 font-medium group-hover:text-slate-300 transition-colors">CPU</p>
-                      <p className="text-2xl font-bold text-white mt-1 group-hover:text-blue-50 transition-colors">{selectedServer.systemMetrics.cpu.usage.toFixed(1)}%</p>
-                    </div>
-                    <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 hover:bg-slate-800/80 transition-colors duration-300 shadow-sm group">
-                      <p className="text-sm text-slate-400 font-medium group-hover:text-slate-300 transition-colors">Memory</p>
-                      <p className="text-2xl font-bold text-white mt-1 group-hover:text-blue-50 transition-colors">{selectedServer.systemMetrics.memory.percentage.toFixed(1)}%</p>
-                    </div>
-                    <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 hover:bg-slate-800/80 transition-colors duration-300 shadow-sm group">
-                      <p className="text-sm text-slate-400 font-medium group-hover:text-slate-300 transition-colors">Disk</p>
-                      <p className="text-2xl font-bold text-white mt-1 group-hover:text-blue-50 transition-colors">{selectedServer.systemMetrics.disk.percentage.toFixed(1)}%</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
+            {selectedServer.systemMetrics && (
               <div className="card">
-                <h3 className="text-lg font-semibold text-white mb-4">Remote Nodes</h3>
+                  <h3 className="text-lg font-semibold text-slate-950 mb-4">Remote System Metrics</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="metric-tile group">
+                      <p className="text-sm text-slate-600 font-medium">CPU</p>
+                      <p className="text-2xl font-bold text-slate-950 mt-1">{selectedServer.systemMetrics.cpu.usage.toFixed(1)}%</p>
+                    </div>
+                    <div className="metric-tile group">
+                      <p className="text-sm text-slate-600 font-medium">Memory</p>
+                      <p className="text-2xl font-bold text-slate-950 mt-1">{selectedServer.systemMetrics.memory.percentage.toFixed(1)}%</p>
+                    </div>
+                    <div className="metric-tile group">
+                      <p className="text-sm text-slate-600 font-medium">Disk</p>
+                      <p className="text-2xl font-bold text-slate-950 mt-1">{selectedServer.systemMetrics.disk.percentage.toFixed(1)}%</p>
+                    </div>
+                  </div>
+              </div>
+            )}
+
+            <div className="card">
+                <h3 className="text-lg font-semibold text-slate-950 mb-4">Remote Nodes</h3>
                 {!selectedServer.nodes || selectedServer.nodes.length === 0 ? (
-                  <p className="text-sm text-slate-400">No remote nodes reported.</p>
+                  <p className="text-sm text-slate-600">No remote nodes reported.</p>
                 ) : (
                   <div className="space-y-3">
                     {selectedServer.nodes.map((node) => (
-                      <div key={node.id} className="rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3">
+                      <div key={node.id} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
                               <Server className="w-4 h-4 text-blue-400" />
                             </div>
                             <div>
-                              <p className="font-medium text-white">{node.name}</p>
-                              <p className="text-xs text-slate-400">{node.type} • {node.network} • v{node.version}</p>
+                              <p className="font-medium text-slate-950">{node.name}</p>
+                              <p className="text-xs text-slate-600">{node.type} • {node.network} • v{node.version}</p>
                             </div>
                           </div>
                           <span className={`status-badge status-${node.status === "running" ? "running" : node.status === "error" ? "error" : "stopped"}`}>
@@ -376,16 +377,16 @@ export default function Servers() {
                         {node.metrics && (
                           <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
                             <div>
-                              <p className="text-slate-400">Block Height</p>
-                              <p className="text-white">{formatNumber(node.metrics.blockHeight)}</p>
+                              <p className="text-slate-600">Block Height</p>
+                              <p className="text-slate-950">{formatNumber(node.metrics.blockHeight)}</p>
                             </div>
                             <div>
-                              <p className="text-slate-400">Peers</p>
-                              <p className="text-white">{node.metrics.connectedPeers}</p>
+                              <p className="text-slate-600">Peers</p>
+                              <p className="text-slate-950">{node.metrics.connectedPeers}</p>
                             </div>
                             <div>
-                              <p className="text-slate-400">Sync</p>
-                              <p className="text-white">{node.metrics.syncProgress?.toFixed(1) ?? "0.0"}%</p>
+                              <p className="text-slate-600">Sync</p>
+                              <p className="text-slate-950">{node.metrics.syncProgress?.toFixed(1) ?? "0.0"}%</p>
                             </div>
                           </div>
                         )}
@@ -393,15 +394,24 @@ export default function Servers() {
                     ))}
                   </div>
                 )}
-              </div>
-            </>
-          ) : (
-            <div className="card">
-              <p className="text-sm text-slate-400">Select a remote server profile to inspect its status.</p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+
+      <ConfirmDialog
+        open={deleteDialogOpen && Boolean(selectedServer)}
+        title="Delete remote server profile?"
+        description={
+          selectedServer
+            ? `Delete remote server profile "${selectedServer.profile.name}"?`
+            : "Delete this remote server profile?"
+        }
+        confirmLabel="Delete profile"
+        isConfirming={deleteServer.isPending}
+        onCancel={() => setDeleteDialogOpen(false)}
+        onConfirm={() => void handleDelete()}
+      />
     </div>
   );
 }

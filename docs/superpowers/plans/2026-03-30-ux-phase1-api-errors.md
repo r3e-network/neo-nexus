@@ -268,7 +268,7 @@ export const Errors = {
   invalidCredentials: () =>
     new ApiError("INVALID_CREDENTIALS",
       "Invalid credentials",
-      "Username or password is incorrect. Default credentials are admin/admin if this is a fresh install.", 401),
+      "Username or password is incorrect. If this is a fresh install, use the setup page to create the first admin account.", 401),
   notAuthenticated: () =>
     new ApiError("NOT_AUTHENTICATED",
       "Not authenticated",

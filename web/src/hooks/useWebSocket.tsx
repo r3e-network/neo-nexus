@@ -49,7 +49,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
         setConnected(false);
         return;
       }
-      ws = new WebSocket(`${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`);
+      ws = new WebSocket(`${protocol}//${window.location.host}/ws`, ['neonexus.auth', token]);
 
       ws.onopen = () => {
         retryAttemptRef.current = 0;

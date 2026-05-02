@@ -32,6 +32,7 @@ import { NeoCliNode } from '../nodes/NeoCliNode';
 import { NeoGoNode } from '../nodes/NeoGoNode';
 import { BaseNode } from '../nodes/BaseNode';
 import { Errors } from '../api/errors';
+import { assertNodeNetwork, assertNodeType, assertReleaseVersion } from '../utils/nodeValidation';
 
 export interface NodeManagerEvents {
   nodeStatus: (event: { nodeId: string; status: NodeStatus; previousStatus: NodeStatus }) => void;
@@ -97,6 +98,7 @@ export class NodeManager extends EventEmitter {
       metrics: ports.metrics || allocatedPorts.metrics,
     };
     this.portManager.releasePorts(allocatedPorts);
+    await this.portManager.reservePorts(finalPorts);
 
     // Create node configuration
     const nodeId = `node-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
@@ -207,25 +209,27 @@ export class NodeManager extends EventEmitter {
    * Create a new node
    */
   async createNode(request: CreateNodeRequest): Promise<NodeInstance> {
+    const type = assertNodeType(request.type);
+    const network = assertNodeNetwork(request.network);
     const secureSignerBinding = request.settings?.keyProtection;
     if (secureSignerBinding?.mode === "secure-signer") {
-      this.assertSecureSignerCompatibility(request.type, secureSignerBinding.signerProfileId);
+      this.assertSecureSignerCompatibility(type, secureSignerBinding.signerProfileId);
     }
 
     // Validate version or get latest
-    let version = request.version;
+    let version = request.version ? assertReleaseVersion(request.version) : undefined;
     if (!version) {
-      const release = await DownloadManager.getLatestRelease(request.type);
+      const release = await DownloadManager.getLatestRelease(type);
       if (!release) {
-        throw new Error(`Could not determine latest version for ${request.type}`);
+        throw new Error(`Could not determine latest version for ${type}`);
       }
-      version = release.version;
+      version = assertReleaseVersion(release.version);
     }
 
     // Ensure binary is downloaded
-    if (!DownloadManager.hasNodeBinary(request.type, version)) {
-      console.log(`Downloading ${request.type} ${version}...`);
-      if (request.type === 'neo-cli') {
+    if (!DownloadManager.hasNodeBinary(type, version)) {
+      console.log(`Downloading ${type} ${version}...`);
+      if (type === 'neo-cli') {
         await DownloadManager.downloadNeoCli(version);
       } else {
         await DownloadManager.downloadNeoGo(version);
@@ -234,9 +238,14 @@ export class NodeManager extends EventEmitter {
 
     // Allocate ports
     const nodeIndex = await this.portManager.findNextIndex();
-    const ports = request.customPorts 
-      ? { ...await this.portManager.allocatePorts(nodeIndex), ...request.customPorts }
-      : await this.portManager.allocatePorts(nodeIndex);
+    const allocatedPorts = await this.portManager.allocatePorts(nodeIndex);
+    const ports = request.customPorts
+      ? { ...allocatedPorts, ...request.customPorts }
+      : allocatedPorts;
+    if (request.customPorts) {
+      this.portManager.releasePorts(allocatedPorts);
+      await this.portManager.reservePorts(ports);
+    }
 
     // Create node configuration
     const nodeId = `node-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
@@ -245,8 +254,8 @@ export class NodeManager extends EventEmitter {
     const config: NodeConfig = {
       id: nodeId,
       name: request.name,
-      type: request.type,
-      network: request.network,
+      type,
+      network,
       syncMode: request.syncMode || 'full',
       version,
       ports,
@@ -471,15 +480,36 @@ export class NodeManager extends EventEmitter {
     options: { replaceExisting?: boolean } = {},
   ): Promise<{ restoredCount: number; skippedCount: number; failedCount: number }> {
     if (options.replaceExisting) {
+      this.assertRestorableSnapshot(snapshot);
+      const rollbackSnapshot = this.safeExportConfiguration();
       await this.resetAllNodeData();
+
+      try {
+        return await this.restoreSnapshotNodes(snapshot, { rejectInvalid: true, failFast: true });
+      } catch (error) {
+        if (rollbackSnapshot) {
+          await this.rollbackRestore(rollbackSnapshot);
+        }
+        throw error;
+      }
     }
 
+    return this.restoreSnapshotNodes(snapshot, { rejectInvalid: false, failFast: false });
+  }
+
+  private async restoreSnapshotNodes(
+    snapshot: ConfigurationSnapshot,
+    options: { rejectInvalid: boolean; failFast: boolean },
+  ): Promise<{ restoredCount: number; skippedCount: number; failedCount: number }> {
     let restoredCount = 0;
     let skippedCount = 0;
     let failedCount = 0;
 
-    for (const node of snapshot.nodes) {
+    for (const [index, node] of snapshot.nodes.entries()) {
       if (!this.isRestorableSnapshotNode(node)) {
+        if (options.rejectInvalid) {
+          throw Errors.snapshotInvalid(index);
+        }
         skippedCount++;
         continue;
       }
@@ -503,7 +533,11 @@ export class NodeManager extends EventEmitter {
         }
 
         restoredCount++;
-      } catch {
+      } catch (error) {
+        if (options.failFast) {
+          const message = error instanceof Error ? error.message : "Unknown restore error";
+          throw Errors.snapshotRestoreFailed(message);
+        }
         failedCount++;
       }
     }
@@ -513,6 +547,31 @@ export class NodeManager extends EventEmitter {
       skippedCount,
       failedCount,
     };
+  }
+
+  private assertRestorableSnapshot(snapshot: ConfigurationSnapshot): void {
+    for (const [index, node] of snapshot.nodes.entries()) {
+      if (!this.isRestorableSnapshotNode(node)) {
+        throw Errors.snapshotInvalid(index);
+      }
+    }
+  }
+
+  private safeExportConfiguration(): ConfigurationSnapshot | null {
+    try {
+      return this.exportConfiguration();
+    } catch {
+      return null;
+    }
+  }
+
+  private async rollbackRestore(snapshot: ConfigurationSnapshot): Promise<void> {
+    try {
+      await this.resetAllNodeData();
+      await this.restoreSnapshotNodes(snapshot, { rejectInvalid: false, failFast: false });
+    } catch (rollbackError) {
+      console.error("Failed to rollback configuration restore:", rollbackError);
+    }
   }
 
   /**
@@ -562,7 +621,7 @@ export class NodeManager extends EventEmitter {
       }
 
       const updatedNode = this.getNode(nodeId)!;
-      await ConfigManager.writeNodeConfig(updatedNode, updatedNode.plugins?.map(p => p.id));
+      await ConfigManager.writeNodeConfig(updatedNode, this.getEnabledPluginIds(nodeId));
 
       return updatedNode;
     } catch (error) {
@@ -570,7 +629,7 @@ export class NodeManager extends EventEmitter {
         this.repo.updateNode(nodeId, ['settings = ?', 'updated_at = ?'], [JSON.stringify(previousSettings), Date.now(), nodeId]);
         const restoredNode = this.getNode(nodeId);
         if (restoredNode) {
-          await ConfigManager.writeNodeConfig(restoredNode, restoredNode.plugins?.map(p => p.id));
+          await ConfigManager.writeNodeConfig(restoredNode, this.getEnabledPluginIds(nodeId));
         }
       }
       throw error;
@@ -1056,14 +1115,16 @@ export class NodeManager extends EventEmitter {
     await this.pluginManager.installPlugin(nodeId, pluginId, node.version, config);
 
     // Update node config
-    const plugins = this.pluginManager.getInstalledPlugins(nodeId).map(p => p.id);
-    await ConfigManager.writeNodeConfig(node, plugins);
+    await ConfigManager.writeNodeConfig(node, this.getEnabledPluginIds(nodeId));
   }
 
   updatePluginConfig(nodeId: string, pluginId: PluginId, config?: Record<string, unknown>): void {
     const node = this.getNode(nodeId);
     if (!node) {
       throw Errors.nodeNotFound(nodeId);
+    }
+    if (node.process.status === 'running') {
+      throw Errors.nodeRunning();
     }
     this.assertCanWriteImportedNode(node, 'plugin configuration updates');
     this.pluginManager.updatePluginConfig(nodeId, pluginId, config ?? {});
@@ -1074,17 +1135,24 @@ export class NodeManager extends EventEmitter {
     if (!node) {
       throw Errors.nodeNotFound(nodeId);
     }
+    if (node.process.status === 'running') {
+      throw Errors.nodeRunning();
+    }
     this.assertCanWriteImportedNode(node, 'plugin removal');
     await this.pluginManager.uninstallPlugin(nodeId, pluginId);
   }
 
-  setPluginEnabled(nodeId: string, pluginId: PluginId, enabled: boolean): void {
+  setPluginEnabled(nodeId: string, pluginId: PluginId, enabled: boolean): Promise<void> {
     const node = this.getNode(nodeId);
     if (!node) {
       throw Errors.nodeNotFound(nodeId);
     }
+    if (node.process.status === 'running') {
+      throw Errors.nodeRunning();
+    }
     this.assertCanWriteImportedNode(node, 'plugin enablement changes');
     this.pluginManager.setPluginEnabled(nodeId, pluginId, enabled);
+    return ConfigManager.writeNodeConfig(node, this.getEnabledPluginIds(nodeId, node));
   }
 
   /**
@@ -1174,10 +1242,20 @@ export class NodeManager extends EventEmitter {
     if (existingSignClient) {
       this.pluginManager.updatePluginConfig(nodeId, "SignClient", config);
       this.pluginManager.setPluginEnabled(nodeId, "SignClient", true);
+      await ConfigManager.writeNodeConfig(node, this.getEnabledPluginIds(nodeId));
       return;
     }
 
     await this.pluginManager.installPlugin(nodeId, "SignClient", node.version, config);
+    await ConfigManager.writeNodeConfig(node, this.getEnabledPluginIds(nodeId));
+  }
+
+  private getEnabledPluginIds(nodeId: string, node?: Pick<NodeInstance, "plugins">): PluginId[] {
+    const pluginManager = (this as unknown as { pluginManager?: PluginManager }).pluginManager;
+    const plugins = pluginManager?.getInstalledPlugins(nodeId) ?? node?.plugins ?? [];
+    return plugins
+      .filter((plugin) => plugin.enabled)
+      .map((plugin) => plugin.id);
   }
 
   /**

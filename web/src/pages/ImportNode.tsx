@@ -151,7 +151,7 @@ export default function ImportNode() {
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
       <div className="mb-6">
-        <Link to="/nodes" className="text-slate-400 hover:text-white flex items-center gap-2 text-sm">
+        <Link to="/nodes" className="text-slate-600 hover:text-slate-950 flex items-center gap-2 text-sm">
           <ArrowLeft className="w-4 h-4" />
           Back to Nodes
         </Link>
@@ -163,8 +163,8 @@ export default function ImportNode() {
             <FolderOpen className="w-5 h-5 text-blue-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">Import Existing Node</h1>
-            <p className="text-slate-400 text-sm">Import an existing neo-cli or neo-go installation</p>
+            <h1 className="text-xl font-bold text-slate-950">Import Existing Node</h1>
+            <p className="text-slate-600 text-sm">Import an existing neo-cli or neo-go installation</p>
           </div>
         </div>
       </div>
@@ -174,8 +174,8 @@ export default function ImportNode() {
       <div className="space-y-6">
         {/* Path Input */}
         <div className="card">
-          <label className="block text-sm font-medium text-slate-300 mb-2">Node Directory Path</label>
-          <div className="flex gap-3">
+          <label className="block text-sm font-medium text-slate-700 mb-2">Node Directory Path</label>
+          <div className="flex flex-col gap-3 sm:flex-row">
             <div className="flex-1 relative">
               <FolderOpen className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
               <input
@@ -189,20 +189,20 @@ export default function ImportNode() {
             <button
               onClick={handleDetect}
               disabled={detectMutation.isPending}
-              className="btn btn-primary"
+              className="btn btn-primary justify-center sm:w-auto"
             >
               {detectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
               Detect
             </button>
           </div>
-          <p className="text-slate-500 text-sm mt-2">
+          <p className="text-slate-600 text-sm mt-2">
             Enter the full path to the node directory containing the executable and config files.
           </p>
         </div>
 
         {/* Scan Directory Option */}
         <div className="card">
-          <label className="block text-sm font-medium text-slate-300 mb-2">Or Scan Directory for Nodes</label>
+          <label className="block text-sm font-medium text-slate-700 mb-2">Or Scan Directory for Nodes</label>
           <div className="flex gap-3">
             <button
               onClick={handleScan}
@@ -217,18 +217,18 @@ export default function ImportNode() {
           {/* Scan Results */}
           {scanResults && scanResults.length > 0 && (
             <div className="mt-4 space-y-2">
-              <p className="text-sm text-slate-400">Found {scanResults.length} node installations:</p>
+              <p className="text-sm text-slate-600">Found {scanResults.length} node installations:</p>
               {scanResults.map((result) => (
                 <button
                   key={result.path}
                   onClick={() => handleSelectScanResult(result.path)}
-                  className="w-full text-left p-3 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors"
+                  className="w-full text-left p-3 bg-white hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <Server className="w-5 h-5 text-blue-400" />
                     <div>
-                      <p className="text-white font-medium">{result.type || "Unknown"}</p>
-                      <p className="text-slate-400 text-sm">{result.path}</p>
+                      <p className="text-slate-950 font-medium">{result.type || "Unknown"}</p>
+                      <p className="text-slate-600 text-sm">{result.path}</p>
                     </div>
                   </div>
                 </button>
@@ -237,7 +237,7 @@ export default function ImportNode() {
           )}
 
           {scanResults && scanResults.length === 0 && (
-            <p className="mt-4 text-amber-400 text-sm">No node installations found in this directory.</p>
+            <p className="mt-4 text-amber-700 text-sm">No node installations found in this directory.</p>
           )}
         </div>
 
@@ -245,43 +245,43 @@ export default function ImportNode() {
         {detected && (
           <div className="card">
             <div className="flex items-center gap-3 mb-4">
-              <CheckCircle className="w-6 h-6 text-emerald-400" />
-              <h2 className="text-xl font-semibold text-white">Configuration Detected</h2>
+              <CheckCircle className="w-6 h-6 text-emerald-600" />
+              <h2 className="text-xl font-semibold text-slate-950">Configuration Detected</h2>
             </div>
 
             <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-slate-800 rounded-lg p-4">
-                <p className="text-slate-400 text-sm">Node Type</p>
-                <p className="text-white font-medium capitalize">{detected.type}</p>
+              <div className="bg-slate-50 rounded-lg border border-slate-200 p-4">
+                <p className="text-slate-600 text-sm">Node Type</p>
+                <p className="text-slate-950 font-medium capitalize">{detected.type}</p>
               </div>
-              <div className="bg-slate-800 rounded-lg p-4">
-                <p className="text-slate-400 text-sm">Network</p>
-                <p className="text-white font-medium capitalize">{detected.network}</p>
+              <div className="bg-slate-50 rounded-lg border border-slate-200 p-4">
+                <p className="text-slate-600 text-sm">Network</p>
+                <p className="text-slate-950 font-medium capitalize">{detected.network}</p>
               </div>
-              <div className="bg-slate-800 rounded-lg p-4">
-                <p className="text-slate-400 text-sm">Version</p>
-                <p className="text-white font-medium">{detected.version}</p>
+              <div className="bg-slate-50 rounded-lg border border-slate-200 p-4">
+                <p className="text-slate-600 text-sm">Version</p>
+                <p className="text-slate-950 font-medium">{detected.version}</p>
               </div>
-              <div className="bg-slate-800 rounded-lg p-4">
-                <p className="text-slate-400 text-sm">Status</p>
-                <p className={`font-medium ${detected.isRunning ? "text-emerald-400" : "text-slate-400"}`}>
+              <div className="bg-slate-50 rounded-lg border border-slate-200 p-4">
+                <p className="text-slate-600 text-sm">Status</p>
+                <p className={`font-medium ${detected.isRunning ? "text-emerald-700" : "text-slate-600"}`}>
                   {detected.isRunning ? "Running" : "Stopped"}
                 </p>
               </div>
-              <div className="bg-slate-800 rounded-lg p-4">
-                <p className="text-slate-400 text-sm">RPC Port</p>
-                <p className="text-white font-medium">{detected.ports.rpc || "Auto"}</p>
+              <div className="bg-slate-50 rounded-lg border border-slate-200 p-4">
+                <p className="text-slate-600 text-sm">RPC Port</p>
+                <p className="text-slate-950 font-medium">{detected.ports.rpc || "Auto"}</p>
               </div>
-              <div className="bg-slate-800 rounded-lg p-4">
-                <p className="text-slate-400 text-sm">P2P Port</p>
-                <p className="text-white font-medium">{detected.ports.p2p || "Auto"}</p>
+              <div className="bg-slate-50 rounded-lg border border-slate-200 p-4">
+                <p className="text-slate-600 text-sm">P2P Port</p>
+                <p className="text-slate-950 font-medium">{detected.ports.p2p || "Auto"}</p>
               </div>
             </div>
 
             {/* Import Configuration */}
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Node Name *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Node Name *</label>
                 <input
                   type="text"
                   value={name}
@@ -292,7 +292,7 @@ export default function ImportNode() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Process ID (PID) - Optional</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Process ID (PID) - Optional</label>
                 <input
                   type="text"
                   value={pid}
@@ -300,17 +300,17 @@ export default function ImportNode() {
                   placeholder={detected.isRunning ? "Auto-detected" : "e.g., 12345"}
                   className="input"
                 />
-                <p className="text-slate-500 text-sm mt-1">
+                <p className="text-slate-600 text-sm mt-1">
                   If the node is running, you can specify its PID to attach to the existing process.
                 </p>
               </div>
 
-              <div className="rounded-xl border border-amber-400/20 bg-amber-500/5 p-4">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
                 <div className="mb-3 flex items-start gap-3">
-                  <ShieldCheck className="mt-0.5 h-5 w-5 text-amber-300" />
+                  <ShieldCheck className="mt-0.5 h-5 w-5 text-amber-700" />
                   <div>
-                    <p className="font-medium text-white">Import ownership</p>
-                    <p className="mt-1 text-sm text-slate-400">
+                    <p className="font-medium text-amber-950">Import ownership</p>
+                    <p className="mt-1 text-sm text-amber-800">
                       Start with the least privilege. You can upgrade later from the node detail page after reviewing the risk.
                     </p>
                   </div>
@@ -325,8 +325,8 @@ export default function ImportNode() {
                       key={mode}
                       className={`cursor-pointer rounded-lg border p-3 transition-all ${
                         ownershipMode === mode
-                          ? 'border-blue-400 bg-blue-500/15'
-                          : 'border-slate-700 bg-slate-950/30 hover:border-slate-500'
+                          ? 'border-blue-500 bg-white'
+                          : 'border-amber-200 bg-white/70 hover:border-amber-300'
                       }`}
                     >
                       <input
@@ -337,8 +337,8 @@ export default function ImportNode() {
                         onChange={() => setOwnershipMode(mode)}
                         className="sr-only"
                       />
-                      <p className="text-sm font-semibold text-white">{label}</p>
-                      <p className="mt-1 text-xs leading-5 text-slate-400">{description}</p>
+                      <p className="text-sm font-semibold text-slate-950">{label}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">{description}</p>
                     </label>
                   ))}
                 </div>
@@ -367,9 +367,9 @@ export default function ImportNode() {
         )}
 
         {/* Help Text */}
-        <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-          <h3 className="text-sm font-medium text-slate-300 mb-2">What gets imported?</h3>
-          <ul className="text-sm text-slate-400 space-y-1 list-disc list-inside">
+        <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+          <h3 className="text-sm font-medium text-slate-950 mb-2">What gets imported?</h3>
+          <ul className="text-sm text-slate-600 space-y-1 list-disc list-inside">
             <li>Node type (neo-cli or neo-go)</li>
             <li>Network configuration (mainnet/testnet/private)</li>
             <li>Port settings (RPC, P2P)</li>

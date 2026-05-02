@@ -153,7 +153,7 @@ export function useUpdateNodeOwnership() {
     },
     onSuccess: (_node, variables) => {
       queryClient.invalidateQueries({ queryKey: ['nodes'] });
-      queryClient.invalidateQueries({ queryKey: ['node', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['nodes', variables.id] });
     },
   });
 }
@@ -196,7 +196,7 @@ export function useNodeSignerHealth(id: string) {
             id: string;
             name: string;
             mode: 'software' | 'sgx' | 'nitro' | 'custom' | string;
-            endpoint: string;
+            endpoint?: string;
           };
           readiness: {
             ok: boolean;

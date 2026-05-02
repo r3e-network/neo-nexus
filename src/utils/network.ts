@@ -7,7 +7,7 @@ export function getNetworkMagic(network: 'mainnet' | 'testnet' | 'private'): num
     case 'private':
       return 56753;
     default:
-      return 860833102;
+      throw new Error(`Unsupported network: ${String(network)}`);
   }
 }
 

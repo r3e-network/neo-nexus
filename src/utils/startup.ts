@@ -31,7 +31,7 @@ export function printStartupBanner(info: StartupInfo): void {
   const warnings: string[] = [];
 
   if (info.hasDefaultPassword) {
-    warnings.push("Default admin password is still in use. Change it in Settings.");
+    warnings.push("Legacy default admin password is still in use. Change it in Settings.");
   }
 
   if (info.isBoundToAllInterfaces && !info.env.isDocker) {

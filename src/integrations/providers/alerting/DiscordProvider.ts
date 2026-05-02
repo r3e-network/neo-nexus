@@ -1,5 +1,6 @@
 // src/integrations/providers/alerting/DiscordProvider.ts
 import type { NotificationProvider, IntegrationEvent, ConfigField } from '../../types';
+import { safeIntegrationFetch } from '../../safeFetch';
 
 export const discordSchema: ConfigField[] = [
   { key: 'webhookUrl', label: 'Webhook URL', type: 'url', placeholder: 'https://discord.com/api/webhooks/...', required: true, sensitive: true },
@@ -38,7 +39,7 @@ export class DiscordProvider implements NotificationProvider {
       }],
     };
 
-    const response = await fetch(this.config.webhookUrl, {
+    const response = await safeIntegrationFetch(this.config.webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -59,7 +60,7 @@ export class DiscordProvider implements NotificationProvider {
         timestamp: new Date().toISOString(),
       }],
     };
-    const response = await fetch(this.config.webhookUrl, {
+    const response = await safeIntegrationFetch(this.config.webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

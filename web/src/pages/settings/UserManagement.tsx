@@ -1,12 +1,14 @@
 import { useState, type FormEvent } from "react";
 import { Users, Trash2, ChevronDown, ChevronUp, UserPlus } from "lucide-react";
 import { FeedbackBanner } from "../../components/FeedbackBanner";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useAuth } from "../../hooks/useAuth";
 import { useUsers, useCreateUser, useDeleteUser } from "../../hooks/useUsers";
 
 function formatCreatedAt(ts?: number): string {
   if (!ts) return "—";
-  return new Date(ts * 1000).toLocaleDateString(undefined, {
+  const normalizedTimestamp = ts > 1_000_000_000_000 ? ts : ts * 1000;
+  return new Date(normalizedTimestamp).toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -73,18 +75,18 @@ export function UserManagement() {
 
   return (
     <div className="card">
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center">
             <Users className="w-5 h-5 text-indigo-400" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">User Management</h2>
-            <p className="text-slate-400 text-sm">Manage accounts that can access NeoNexus</p>
+            <h2 className="text-lg font-semibold text-slate-950">User Management</h2>
+            <p className="text-slate-600 text-sm">Manage accounts that can access NeoNexus</p>
           </div>
         </div>
         <button
-          className="btn btn-secondary flex items-center gap-2 text-sm"
+          className="btn btn-secondary flex items-center justify-center gap-2 text-sm sm:self-auto"
           onClick={() => {
             setShowAddForm((v) => !v);
             setFormError("");
@@ -102,33 +104,34 @@ export function UserManagement() {
 
       {/* Collapsible add user form */}
       {showAddForm && (
-        <div className="mb-4 p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
-          <h3 className="text-sm font-medium text-slate-300 mb-3">New User</h3>
+        <div className="mb-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+          <h3 className="text-sm font-medium text-slate-950 mb-3">New User</h3>
           <FeedbackBanner error={formError} />
           <form className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3" onSubmit={handleAddUser}>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-400">Username</label>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Username</label>
               <input
                 type="text"
                 value={newUsername}
                 onChange={(e) => setNewUsername(e.target.value)}
                 className="input w-full"
                 placeholder="username"
-                autoComplete="off"
+                autoComplete="username"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-400">Password</label>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Password</label>
               <input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 className="input w-full"
                 placeholder="At least 8 characters"
+                autoComplete="new-password"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-400">Role</label>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Role</label>
               <select
                 value={newRole}
                 onChange={(e) => setNewRole(e.target.value as "admin" | "viewer")}
@@ -153,103 +156,127 @@ export function UserManagement() {
 
       {/* User table */}
       {isLoading ? (
-        <div className="text-slate-400 text-sm py-4 text-center">Loading users...</div>
+        <div className="text-slate-600 text-sm py-4 text-center">Loading users...</div>
       ) : users.length === 0 ? (
-        <div className="text-slate-400 text-sm py-4 text-center">No users found.</div>
+        <div className="text-slate-600 text-sm py-4 text-center">No users found.</div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-700/50">
-                <th className="pb-2 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Username</th>
-                <th className="pb-2 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Role</th>
-                <th className="pb-2 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Created</th>
-                <th className="pb-2 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700/30">
-              {users.map((u) => {
-                const isSelf = u.id === currentUser?.id;
-                return (
-                  <tr key={u.id} className="group">
-                    <td className="py-3 text-white font-medium">{u.username}</td>
-                    <td className="py-3">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                          u.role === "admin"
-                            ? "bg-indigo-500/15 text-indigo-300"
-                            : "bg-slate-500/20 text-slate-300"
-                        }`}
-                      >
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="py-3 text-slate-400">{formatCreatedAt(u.createdAt)}</td>
-                    <td className="py-3 text-right">
-                      <div className="relative inline-block group/del">
-                        <button
-                          onClick={() => {
-                            setDeleteError("");
-                            setPendingDeleteId(u.id);
-                          }}
-                          disabled={isSelf}
-                          className={`p-1.5 rounded transition-colors ${
-                            isSelf
-                              ? "opacity-30 cursor-not-allowed text-slate-500"
-                              : "text-slate-400 hover:text-red-400 hover:bg-red-400/10"
+        <>
+          <div className="space-y-3 sm:hidden">
+            {users.map((u) => {
+              const isSelf = u.id === currentUser?.id;
+              return (
+                <div key={u.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-slate-950">{u.username}</p>
+                      <p className="mt-1 text-sm text-slate-600">{formatCreatedAt(u.createdAt)}</p>
+                    </div>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        u.role === "admin"
+                          ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                          : "bg-slate-100 text-slate-700 border border-slate-200"
+                      }`}
+                    >
+                      {u.role}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setDeleteError("");
+                      setPendingDeleteId(u.id);
+                    }}
+                    disabled={isSelf}
+                    className={`mt-3 btn btn-secondary w-full justify-center ${
+                      isSelf ? "opacity-50 cursor-not-allowed" : "hover:text-red-700 hover:bg-red-50"
+                    }`}
+                    aria-label={isSelf ? "Cannot delete your own account" : `Delete ${u.username}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    {isSelf ? "Current account" : "Delete user"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto sm:block">
+            <table className="w-full min-w-[540px] text-sm">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="pb-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">Username</th>
+                  <th className="pb-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">Role</th>
+                  <th className="pb-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">Created</th>
+                  <th className="pb-2 text-right text-xs font-medium text-slate-500 uppercase tracking-wide">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {users.map((u) => {
+                  const isSelf = u.id === currentUser?.id;
+                  return (
+                    <tr key={u.id} className="group">
+                      <td className="py-3 text-slate-950 font-medium">{u.username}</td>
+                      <td className="py-3">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            u.role === "admin"
+                              ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                              : "bg-slate-100 text-slate-700 border border-slate-200"
                           }`}
-                          aria-label={isSelf ? "Cannot delete your own account" : `Delete ${u.username}`}
                         >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                        {isSelf && (
-                          <span className="pointer-events-none absolute right-full top-1/2 -translate-y-1/2 mr-2 hidden group-hover/del:block whitespace-nowrap rounded bg-slate-700 px-2 py-1 text-xs text-slate-200 shadow-lg z-10">
-                            Cannot delete your own account
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td className="py-3 text-slate-600">{formatCreatedAt(u.createdAt)}</td>
+                      <td className="py-3 text-right">
+                        <div className="relative inline-block group/del">
+                          <button
+                            onClick={() => {
+                              setDeleteError("");
+                              setPendingDeleteId(u.id);
+                            }}
+                            disabled={isSelf}
+                            className={`p-1.5 rounded transition-colors ${
+                              isSelf
+                                ? "opacity-30 cursor-not-allowed text-slate-500"
+                                : "text-slate-500 hover:text-red-700 hover:bg-red-50"
+                            }`}
+                            aria-label={isSelf ? "Cannot delete your own account" : `Delete ${u.username}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          {isSelf && (
+                            <span className="pointer-events-none absolute right-full top-1/2 -translate-y-1/2 mr-2 hidden group-hover/del:block whitespace-nowrap rounded bg-slate-950 px-2 py-1 text-xs text-slate-100 shadow-lg z-10">
+                              Cannot delete your own account
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
-      {/* Delete confirmation dialog */}
-      {pendingDeleteId && pendingDeleteUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="card max-w-sm w-full mx-4 border border-slate-700 shadow-2xl">
-            <h3 className="text-base font-semibold text-white mb-2">Delete User</h3>
-            <p className="text-slate-300 text-sm mb-4">
-              Are you sure you want to delete user{" "}
-              <span className="font-medium text-white">"{pendingDeleteUser.username}"</span>? This action cannot be
-              undone.
-            </p>
-            <FeedbackBanner error={deleteError} />
-            <div className="flex justify-end gap-3 mt-4">
-              <button
-                className="btn btn-secondary"
-                onClick={() => {
-                  setPendingDeleteId(null);
-                  setDeleteError("");
-                }}
-                disabled={deleteUser.isPending}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn bg-red-600 hover:bg-red-700 text-white border-0"
-                onClick={handleDeleteConfirm}
-                disabled={deleteUser.isPending}
-              >
-                {deleteUser.isPending ? "Deleting..." : "Delete User"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={Boolean(pendingDeleteId && pendingDeleteUser)}
+        title="Delete user?"
+        description={
+          pendingDeleteUser
+            ? `Delete user "${pendingDeleteUser.username}"? This action cannot be undone.`
+            : "Delete this user? This action cannot be undone."
+        }
+        confirmLabel="Delete user"
+        isConfirming={deleteUser.isPending}
+        error={deleteError}
+        onCancel={() => {
+          setPendingDeleteId(null);
+          setDeleteError("");
+        }}
+        onConfirm={() => void handleDeleteConfirm()}
+      />
     </div>
   );
 }

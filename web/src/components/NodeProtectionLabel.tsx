@@ -23,8 +23,8 @@ export function NodeProtectionLabel({ node, padding = "px-2.5 py-1" }: NodeProte
     <span
       className={`inline-flex items-center rounded-full ${padding} text-[11px] font-medium ${
         protection.tone === "secure"
-          ? "bg-cyan-500/10 text-cyan-300"
-          : "bg-slate-700 text-slate-400"
+          ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
+          : "bg-slate-100 text-slate-600 border border-slate-200"
       }`}
     >
       {protection.label}

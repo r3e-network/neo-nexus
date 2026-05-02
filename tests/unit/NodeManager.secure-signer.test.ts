@@ -1,7 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ConfigManager } from "../../src/core/ConfigManager";
 import { NodeManager } from "../../src/core/NodeManager";
 
 describe("NodeManager secure signer binding", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("installs SignClient when a neo-cli node uses secure signer protection", async () => {
     const manager = Object.create(NodeManager.prototype) as NodeManager & {
       getNode: ReturnType<typeof vi.fn>;
@@ -29,7 +34,9 @@ describe("NodeManager secure signer binding", () => {
       },
     }));
     manager.pluginManager = {
-      getInstalledPlugins: vi.fn(() => []),
+      getInstalledPlugins: vi.fn()
+        .mockReturnValueOnce([])
+        .mockReturnValueOnce([{ id: "SignClient", enabled: true }]),
       installPlugin: vi.fn().mockResolvedValue(undefined),
       updatePluginConfig: vi.fn(),
       setPluginEnabled: vi.fn(),
@@ -46,6 +53,7 @@ describe("NodeManager secure signer binding", () => {
         Endpoint: "vsock://2345:9991",
       })),
     };
+    const writeNodeConfig = vi.spyOn(ConfigManager, "writeNodeConfig").mockResolvedValue(undefined);
 
     await (manager as any).syncNodeSecureSigner("node-1");
 
@@ -58,6 +66,7 @@ describe("NodeManager secure signer binding", () => {
         Endpoint: "vsock://2345:9991",
       },
     );
+    expect(writeNodeConfig).toHaveBeenCalledWith(manager.getNode(), ["SignClient"]);
   });
 
   it("updates and enables SignClient when the plugin is already installed", async () => {
@@ -87,7 +96,9 @@ describe("NodeManager secure signer binding", () => {
       },
     }));
     manager.pluginManager = {
-      getInstalledPlugins: vi.fn(() => [{ id: "SignClient", enabled: false }]),
+      getInstalledPlugins: vi.fn()
+        .mockReturnValueOnce([{ id: "SignClient", enabled: false }])
+        .mockReturnValueOnce([{ id: "SignClient", enabled: true }]),
       installPlugin: vi.fn(),
       updatePluginConfig: vi.fn(),
       setPluginEnabled: vi.fn(),
@@ -104,6 +115,7 @@ describe("NodeManager secure signer binding", () => {
         Endpoint: "https://sgx.example.com:9443",
       })),
     };
+    const writeNodeConfig = vi.spyOn(ConfigManager, "writeNodeConfig").mockResolvedValue(undefined);
 
     await (manager as any).syncNodeSecureSigner("node-1");
 
@@ -113,6 +125,7 @@ describe("NodeManager secure signer binding", () => {
       Endpoint: "https://sgx.example.com:9443",
     });
     expect(manager.pluginManager.setPluginEnabled).toHaveBeenCalledWith("node-1", "SignClient", true);
+    expect(writeNodeConfig).toHaveBeenCalledWith(manager.getNode(), ["SignClient"]);
   });
 
   it("rejects secure signer protection for neo-go nodes", async () => {

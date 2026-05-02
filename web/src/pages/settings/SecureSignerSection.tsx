@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Shield } from "lucide-react";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { FeedbackBanner } from "../../components/FeedbackBanner";
 import {
   useCreateSecureSigner,
@@ -31,7 +32,7 @@ function createEmptySignerForm(): CreateSecureSignerRequest {
   return {
     name: "",
     mode: "software",
-    endpoint: "http://127.0.0.1:9991",
+    endpoint: "https://signer.example.com:9991",
     publicKey: "",
     accountAddress: "",
     walletPath: "",
@@ -56,6 +57,7 @@ export function SecureSignerSection() {
   const [editingSecureSignerId, setEditingSecureSignerId] = useState<string | null>(null);
   const [secureSignerMessage, setSecureSignerMessage] = useState("");
   const [secureSignerError, setSecureSignerError] = useState("");
+  const [pendingDeleteProfile, setPendingDeleteProfile] = useState<SecureSignerProfile | null>(null);
 
   const resetSecureSignerForm = () => {
     setEditingSecureSignerId(null);
@@ -106,8 +108,8 @@ export function SecureSignerSection() {
     });
   };
 
-  const handleDeleteSecureSigner = async (id: string) => {
-    if (!window.confirm("Delete this secure signer profile?")) {
+  const handleDeleteSecureSigner = async () => {
+    if (!pendingDeleteProfile) {
       return;
     }
 
@@ -115,9 +117,10 @@ export function SecureSignerSection() {
     setSecureSignerMessage("");
 
     try {
-      await deleteSecureSigner.mutateAsync(id);
+      await deleteSecureSigner.mutateAsync(pendingDeleteProfile.id);
+      setPendingDeleteProfile(null);
       setSecureSignerMessage("Secure signer profile deleted.");
-      if (editingSecureSignerId === id) {
+      if (editingSecureSignerId === pendingDeleteProfile.id) {
         resetSecureSignerForm();
       }
     } catch (error) {
@@ -144,8 +147,8 @@ export function SecureSignerSection() {
           <Shield className="w-5 h-5 text-cyan-400" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-white">Secure Signers / TEE Profiles</h2>
-          <p className="text-slate-400 text-sm">
+          <h2 className="text-lg font-semibold text-slate-950">Secure Signers / TEE Profiles</h2>
+          <p className="text-slate-600 text-sm">
             Register software, SGX, or Nitro signing endpoints. NeoNexus stores references and metadata only, never raw WIF.
           </p>
         </div>
@@ -156,7 +159,7 @@ export function SecureSignerSection() {
 
         <form className="grid grid-cols-1 gap-4 lg:grid-cols-2" onSubmit={handleSecureSignerSubmit}>
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-300">Profile Name</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Profile Name</label>
             <input
               type="text"
               value={secureSignerForm.name}
@@ -167,7 +170,7 @@ export function SecureSignerSection() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-300">Mode</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Mode</label>
             <select
               value={secureSignerForm.mode}
               onChange={(event) => {
@@ -175,7 +178,7 @@ export function SecureSignerSection() {
                 setSecureSignerForm({
                   ...secureSignerForm,
                   mode,
-                  endpoint: mode === "nitro" ? "vsock://2345:9991" : secureSignerForm.endpoint.startsWith("vsock://") ? "http://127.0.0.1:9991" : secureSignerForm.endpoint,
+                  endpoint: mode === "nitro" ? "vsock://2345:9991" : secureSignerForm.endpoint.startsWith("vsock://") ? "https://signer.example.com:9991" : secureSignerForm.endpoint,
                   unlockMode: mode === "nitro" ? "recipient-attestation" : secureSignerForm.unlockMode === "recipient-attestation" ? "manual" : secureSignerForm.unlockMode,
                 });
               }}
@@ -193,7 +196,7 @@ export function SecureSignerSection() {
           </div>
 
           <div className="lg:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-slate-300">Endpoint</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Endpoint</label>
             <input
               type="text"
               value={secureSignerForm.endpoint}
@@ -204,7 +207,7 @@ export function SecureSignerSection() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-300">Account Public Key</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Account Public Key</label>
             <input
               type="text"
               value={secureSignerForm.publicKey}
@@ -215,7 +218,7 @@ export function SecureSignerSection() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-300">Account Address</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Account Address</label>
             <input
               type="text"
               value={secureSignerForm.accountAddress}
@@ -226,7 +229,7 @@ export function SecureSignerSection() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-300">Encrypted Wallet Path</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Encrypted Wallet Path</label>
             <input
               type="text"
               value={secureSignerForm.walletPath}
@@ -237,7 +240,7 @@ export function SecureSignerSection() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-300">Unlock Mode</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Unlock Mode</label>
             <select
               value={secureSignerForm.unlockMode}
               onChange={(event) => setSecureSignerForm({ ...secureSignerForm, unlockMode: event.target.value as SecureSignerUnlockMode })}
@@ -252,7 +255,7 @@ export function SecureSignerSection() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-300">Workspace Path</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Workspace Path</label>
             <input
               type="text"
               value={secureSignerForm.workspacePath}
@@ -263,7 +266,7 @@ export function SecureSignerSection() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-300">Startup Port</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Startup Port</label>
             <input
               type="number"
               min="1"
@@ -280,7 +283,7 @@ export function SecureSignerSection() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-300">AWS Region</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">AWS Region</label>
             <input
               type="text"
               value={secureSignerForm.awsRegion}
@@ -291,7 +294,7 @@ export function SecureSignerSection() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-300">KMS Key ID</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">KMS Key ID</label>
             <input
               type="text"
               value={secureSignerForm.kmsKeyId}
@@ -302,7 +305,7 @@ export function SecureSignerSection() {
           </div>
 
           <div className="lg:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-slate-300">KMS Ciphertext Blob Path</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">KMS Ciphertext Blob Path</label>
             <input
               type="text"
               value={secureSignerForm.kmsCiphertextBlobPath}
@@ -313,7 +316,7 @@ export function SecureSignerSection() {
           </div>
 
           <div className="lg:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-slate-300">Notes</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Notes</label>
             <textarea
               value={secureSignerForm.notes}
               onChange={(event) => setSecureSignerForm({ ...secureSignerForm, notes: event.target.value })}
@@ -322,10 +325,10 @@ export function SecureSignerSection() {
             />
           </div>
 
-          <div className="lg:col-span-2 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/40 px-4 py-3">
+          <div className="lg:col-span-2 flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
             <div>
-              <p className="text-sm font-medium text-white">Profile Enabled</p>
-              <p className="text-xs text-slate-400">Disabled profiles cannot be attached to nodes.</p>
+              <p className="text-sm font-medium text-slate-950">Profile Enabled</p>
+              <p className="text-xs text-slate-600">Disabled profiles cannot be attached to nodes.</p>
             </div>
             <input
               type="checkbox"
@@ -355,7 +358,7 @@ export function SecureSignerSection() {
 
         <div className="space-y-3">
           {(secureSigners.data ?? []).length === 0 ? (
-            <div className="rounded-lg border border-slate-700 bg-slate-800/40 px-4 py-6 text-sm text-slate-400">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600">
               No secure signer profiles yet. Add a software, SGX, or Nitro signer endpoint here before attaching one to a node.
             </div>
           ) : (
@@ -364,7 +367,7 @@ export function SecureSignerSection() {
                 key={profile.id}
                 profile={profile}
                 onEdit={() => handleEditSecureSigner(profile)}
-                onDelete={() => handleDeleteSecureSigner(profile.id)}
+                onDelete={() => setPendingDeleteProfile(profile)}
                 onTest={() => handleTestSecureSigner(profile.id)}
                 testing={testSecureSigner.isPending}
               />
@@ -372,6 +375,20 @@ export function SecureSignerSection() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(pendingDeleteProfile)}
+        title="Delete secure signer profile?"
+        description={
+          pendingDeleteProfile
+            ? `Delete secure signer profile "${pendingDeleteProfile.name}"?`
+            : "Delete this secure signer profile?"
+        }
+        confirmLabel="Delete profile"
+        isConfirming={deleteSecureSigner.isPending}
+        onCancel={() => setPendingDeleteProfile(null)}
+        onConfirm={() => void handleDeleteSecureSigner()}
+      />
     </div>
   );
 }
@@ -423,17 +440,17 @@ function SecureSignerProfileCard({
   };
 
   return (
-    <div className="rounded-lg border border-slate-700 bg-slate-800/40 p-4 space-y-4">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium text-white">{profile.name}</p>
-            <span className="rounded-full bg-slate-700 px-2.5 py-1 text-xs uppercase tracking-wide text-slate-300">
+            <p className="font-medium text-slate-950">{profile.name}</p>
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs uppercase tracking-wide text-slate-700 border border-slate-200">
               {profile.mode}
             </span>
             <span
               className={`rounded-full px-2.5 py-1 text-xs ${
-                profile.enabled ? "bg-emerald-500/10 text-emerald-300" : "bg-slate-700 text-slate-400"
+                profile.enabled ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-600 border border-slate-200"
               }`}
             >
               {profile.enabled ? "Enabled" : "Disabled"}
@@ -446,8 +463,8 @@ function SecureSignerProfileCard({
               </span>
             )}
           </div>
-          <p className="text-sm text-slate-400 break-all">{profile.endpoint}</p>
-          <div className="grid grid-cols-1 gap-2 text-xs text-slate-500 sm:grid-cols-2">
+          <p className="font-mono text-sm text-slate-700 break-words">{profile.endpoint}</p>
+          <div className="grid grid-cols-1 gap-2 text-xs text-slate-500 xl:grid-cols-2">
             <span>Unlock: {profile.unlockMode}</span>
             <span>Public key: {profile.publicKey || "Not set"}</span>
             <span>Address: {profile.accountAddress || "Not set"}</span>
@@ -476,8 +493,8 @@ function SecureSignerProfileCard({
         <div
           className={`rounded-lg px-4 py-3 text-sm ${
             localError
-              ? "border border-red-500/20 bg-red-500/10 text-red-300"
-              : "border border-cyan-500/20 bg-cyan-500/10 text-cyan-300"
+              ? "border border-red-200 bg-red-50 text-red-800"
+              : "border border-cyan-200 bg-cyan-50 text-cyan-800"
           }`}
         >
           {localError || localMessage}
@@ -486,9 +503,9 @@ function SecureSignerProfileCard({
 
       {orchestration.data && (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-4 space-y-3">
+          <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
             <div>
-              <p className="text-sm font-medium text-white">Connection</p>
+              <p className="text-sm font-medium text-slate-950">Connection</p>
               <p className="text-xs text-slate-500">
                 {orchestration.data.connection.scheme} · service {orchestration.data.connection.servicePort} · startup {orchestration.data.connection.startupPort}
                 {orchestration.data.connection.cid ? ` · cid ${orchestration.data.connection.cid}` : ""}
@@ -498,7 +515,7 @@ function SecureSignerProfileCard({
             {orchestration.data.warnings.length > 0 && (
               <div className="space-y-2">
                 {orchestration.data.warnings.map((warning, index) => (
-                  <p key={index} className="text-xs text-amber-300">
+                  <p key={index} className="text-xs text-amber-700">
                     {warning}
                   </p>
                 ))}
@@ -512,23 +529,23 @@ function SecureSignerProfileCard({
             ] as Array<[string, string[]]>).map(([label, commands]) =>
               commands.length > 0 ? (
                 <div key={label}>
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-                  <pre className="overflow-x-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-300">{commands.join("\n")}</pre>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+                  <pre className="code-console overflow-x-auto rounded-lg p-3 text-xs">{commands.join("\n")}</pre>
                 </div>
               ) : null,
             )}
           </div>
 
-          <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-4 space-y-3">
+          <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
             <div>
-              <p className="text-sm font-medium text-white">Attestation / Ciphertext Startup</p>
+              <p className="text-sm font-medium text-slate-950">Attestation / Ciphertext Startup</p>
               <p className="text-xs text-slate-500">
                 Nitro profiles can fetch recipient attestation and start the signer from `CiphertextForRecipient` without exposing plaintext passphrases to NeoNexus.
               </p>
             </div>
 
             {orchestration.data.commands.attestation.length > 0 && (
-              <pre className="overflow-x-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-300">{orchestration.data.commands.attestation.join("\n")}</pre>
+              <pre className="code-console overflow-x-auto rounded-lg p-3 text-xs">{orchestration.data.commands.attestation.join("\n")}</pre>
             )}
 
             <div className="flex flex-wrap gap-2">
@@ -567,7 +584,7 @@ function SecureSignerProfileCard({
             </button>
 
             {orchestration.data.commands.startRecipient.length > 0 && (
-              <pre className="overflow-x-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-300">
+              <pre className="code-console overflow-x-auto rounded-lg p-3 text-xs">
                 {orchestration.data.commands.startRecipient.join("\n")}
               </pre>
             )}

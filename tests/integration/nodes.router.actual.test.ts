@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import express from "express";
+import type { RequestHandler } from "express";
 import request from "supertest";
 import { createNodesRouter } from "../../src/api/routes/nodes";
 import { Errors } from "../../src/api/errors";
+import type { AuthenticatedRequest } from "../../src/api/middleware/auth";
+import { ConfigManager } from "../../src/core/ConfigManager";
 
 type MockNodeManager = {
   createNode: ReturnType<typeof vi.fn>;
@@ -27,8 +30,21 @@ describe("Actual nodes router", () => {
   let app: express.Application;
   let mockNodeManager: MockNodeManager;
   let getProfile: ReturnType<typeof vi.fn>;
+  const viewerMiddleware: RequestHandler = (req, _res, next) => {
+    (req as AuthenticatedRequest).user = { id: "viewer-1", username: "viewer", role: "viewer" };
+    next();
+  };
+
+  const createViewerApp = () => {
+    const viewerApp = express();
+    viewerApp.use(express.json());
+    viewerApp.use(viewerMiddleware);
+    viewerApp.use("/api/nodes", createNodesRouter(mockNodeManager as never));
+    return viewerApp;
+  };
 
   beforeEach(() => {
+    vi.restoreAllMocks();
     app = express();
     app.use(express.json());
 
@@ -77,6 +93,130 @@ describe("Actual nodes router", () => {
     });
   });
 
+  it("redacts path, custom config, and plugin config data for viewer node lists", async () => {
+    const viewerApp = createViewerApp();
+    mockNodeManager.getAllNodes.mockReturnValue([
+      {
+        id: "node-1",
+        name: "Node 1",
+        type: "neo-cli",
+        network: "mainnet",
+        syncMode: "full",
+        version: "3.9.2",
+        ports: { rpc: 10332, p2p: 10333 },
+        paths: {
+          base: "/home/operator/.neonexus/nodes/node-1",
+          data: "/home/operator/.neonexus/nodes/node-1/data",
+          logs: "/home/operator/.neonexus/nodes/node-1/logs",
+          config: "/home/operator/.neonexus/nodes/node-1/config.json",
+          wallet: "/home/operator/.neonexus/nodes/node-1/wallet.json",
+        },
+        settings: {
+          customConfig: { RpcPassword: "raw-secret" },
+          keyProtection: { mode: "secure-signer", signerProfileId: "signer-secret" },
+          import: { imported: true, ownershipMode: "managed-config", existingPath: "/opt/secret-node", importedAt: 123 },
+        },
+        process: { status: "running", pid: 1234 },
+        metrics: { blockHeight: 1, headerHeight: 1, connectedPeers: 2, unconnectedPeers: 0, syncProgress: 100, memoryUsage: 10, cpuUsage: 1, lastUpdate: 456 },
+        plugins: [{ id: "RpcServer", version: "3.9.2", config: { Password: "plugin-secret" }, installedAt: 789, enabled: true }],
+        createdAt: 1,
+        updatedAt: 2,
+      },
+    ]);
+
+    const response = await request(viewerApp).get("/api/nodes");
+
+    expect(response.status).toBe(200);
+    const node = response.body.nodes[0];
+    expect(node.paths).toBeUndefined();
+    expect(node.settings.customConfig).toBeUndefined();
+    expect(node.settings.keyProtection).toEqual({ mode: "secure-signer" });
+    expect(node.settings.import).toEqual({ imported: true, ownershipMode: "managed-config" });
+    expect(node.plugins[0]).toEqual({ id: "RpcServer", version: "3.9.2", installedAt: 789, enabled: true });
+    expect(JSON.stringify(response.body)).not.toContain("raw-secret");
+    expect(JSON.stringify(response.body)).not.toContain("plugin-secret");
+    expect(JSON.stringify(response.body)).not.toContain("/home/operator");
+    expect(JSON.stringify(response.body)).not.toContain("/opt/secret-node");
+    expect(JSON.stringify(response.body)).not.toContain("signer-secret");
+  });
+
+  it("redacts path and custom config data for viewer node details", async () => {
+    const viewerApp = createViewerApp();
+    mockNodeManager.getNode.mockReturnValue({
+      id: "node-1",
+      name: "Node 1",
+      type: "neo-cli",
+      network: "mainnet",
+      syncMode: "full",
+      version: "3.9.2",
+      ports: { rpc: 10332, p2p: 10333 },
+      paths: { base: "/home/operator/node-1", data: "/home/operator/node-1/data", logs: "/home/operator/node-1/logs", config: "/home/operator/node-1/config.json" },
+      settings: { customConfig: { Password: "raw-secret" } },
+      process: { status: "stopped" },
+      plugins: [{ id: "RpcServer", version: "3.9.2", config: { Password: "plugin-secret" }, installedAt: 789, enabled: true }],
+      createdAt: 1,
+      updatedAt: 2,
+    });
+
+    const response = await request(viewerApp).get("/api/nodes/node-1");
+
+    expect(response.status).toBe(200);
+    expect(response.body.node.paths).toBeUndefined();
+    expect(response.body.node.settings.customConfig).toBeUndefined();
+    expect(response.body.node.plugins[0].config).toBeUndefined();
+    expect(JSON.stringify(response.body)).not.toContain("raw-secret");
+    expect(JSON.stringify(response.body)).not.toContain("plugin-secret");
+    expect(JSON.stringify(response.body)).not.toContain("/home/operator");
+  });
+
+  it("blocks config audit for viewer users", async () => {
+    const viewerApp = createViewerApp();
+
+    const response = await request(viewerApp).get("/api/nodes/node-1/config-audit");
+
+    expect(response.status).toBe(403);
+    expect(response.body.code).toBe("ADMIN_REQUIRED");
+    expect(mockNodeManager.getNode).not.toHaveBeenCalled();
+  });
+
+  it("audits admin config using the current node and installed plugin IDs", async () => {
+    const node = {
+      id: "node-1",
+      name: "Node 1",
+      type: "neo-cli",
+      network: "mainnet",
+      version: "3.9.2",
+      paths: { config: "/tmp/config.json" },
+      settings: {},
+    };
+    const getInstalledPlugins = vi.fn(() => [
+      { id: "RpcServer" },
+      { id: "ApplicationLogs" },
+    ]);
+    const audit = {
+      nodeId: "node-1",
+      nodeName: "Node 1",
+      nodeType: "neo-cli",
+      version: "3.9.2",
+      network: "mainnet",
+      issueCount: 0,
+      errors: 0,
+      warnings: 0,
+      info: 0,
+      issues: [],
+    };
+    const auditSpy = vi.spyOn(ConfigManager, "auditNodeConfig").mockResolvedValueOnce(audit);
+    mockNodeManager.getNode.mockReturnValue(node);
+    mockNodeManager.getPluginManager.mockReturnValue({ getInstalledPlugins });
+
+    const response = await request(app).get("/api/nodes/node-1/config-audit");
+
+    expect(response.status).toBe(200);
+    expect(getInstalledPlugins).toHaveBeenCalledWith("node-1");
+    expect(auditSpy).toHaveBeenCalledWith(node, ["RpcServer", "ApplicationLogs"]);
+    expect(response.body.audit).toEqual(audit);
+  });
+
   it("creates a node with valid input", async () => {
     mockNodeManager.createNode.mockResolvedValue({
       id: "node-new",
@@ -111,6 +251,30 @@ describe("Actual nodes router", () => {
     expect(response.body.error).toMatch(/missing required fields/i);
     expect(response.body.code).toBe("MISSING_FIELDS");
     expect(response.body.suggestion).toBeTruthy();
+    expect(mockNodeManager.createNode).not.toHaveBeenCalled();
+  });
+
+  it("rejects creation requests with invalid node type before touching the manager", async () => {
+    const response = await request(app).post("/api/nodes").send({
+      name: "Invalid Type",
+      type: "neo-js",
+      network: "mainnet",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("INVALID_NODE_TYPE");
+    expect(mockNodeManager.createNode).not.toHaveBeenCalled();
+  });
+
+  it("rejects creation requests with invalid network before touching the manager", async () => {
+    const response = await request(app).post("/api/nodes").send({
+      name: "Invalid Network",
+      type: "neo-cli",
+      network: "staging",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("INVALID_NODE_NETWORK");
     expect(mockNodeManager.createNode).not.toHaveBeenCalled();
   });
 
@@ -331,6 +495,41 @@ describe("Actual nodes router", () => {
     expect(response.body.node.name).toBe("Updated Node");
   });
 
+  it("rejects secure signer updates for existing neo-go nodes before mutating", async () => {
+    mockNodeManager.getNode.mockReturnValue({ id: "node-1", type: "neo-go" });
+
+    const response = await request(app).put("/api/nodes/node-1").send({
+      settings: {
+        keyProtection: {
+          mode: "secure-signer",
+          signerProfileId: "signer-1",
+        },
+      },
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("SIGNER_NEO_CLI_ONLY");
+    expect(mockNodeManager.updateNode).not.toHaveBeenCalled();
+  });
+
+  it("rejects secure signer updates when the referenced profile is unavailable", async () => {
+    mockNodeManager.getNode.mockReturnValue({ id: "node-1", type: "neo-cli" });
+    getProfile.mockReturnValue({ id: "signer-1", enabled: false });
+
+    const response = await request(app).put("/api/nodes/node-1").send({
+      settings: {
+        keyProtection: {
+          mode: "secure-signer",
+          signerProfileId: "signer-1",
+        },
+      },
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("SIGNER_NOT_AVAILABLE");
+    expect(mockNodeManager.updateNode).not.toHaveBeenCalled();
+  });
+
   it("returns 404 for update requests when the node does not exist", async () => {
     mockNodeManager.getNode.mockReturnValue(null);
 
@@ -409,6 +608,25 @@ describe("Actual nodes router", () => {
     expect(response.body.logs).toEqual(["Recent log"]);
   });
 
+  it("redacts storage paths for viewer storage reads", async () => {
+    const viewerApp = createViewerApp();
+    mockNodeManager.getStorageInfo.mockResolvedValue({
+      chain: { size: 1024, path: "/secret/node/data" },
+      logs: { size: 256, files: 3 },
+      wallets: { count: 1, path: "/secret/node/wallets" },
+    });
+
+    const response = await request(viewerApp).get("/api/nodes/node-1/storage");
+
+    expect(response.status).toBe(200);
+    expect(response.body.storage).toEqual({
+      chain: { size: 1024 },
+      logs: { size: 256, files: 3 },
+      wallets: { count: 1 },
+    });
+    expect(JSON.stringify(response.body)).not.toContain("/secret/node");
+  });
+
   it("returns null signer health for standard-wallet nodes", async () => {
     mockNodeManager.getNode.mockReturnValue({ id: "node-1" });
     mockNodeManager.getNodeSecureSignerHealth.mockResolvedValue(null);
@@ -444,5 +662,48 @@ describe("Actual nodes router", () => {
     expect(response.status).toBe(200);
     expect(response.body.signerHealth.profile.id).toBe("signer-1");
     expect(response.body.signerHealth.readiness.accountStatus).toBe("Single");
+  });
+
+  it("redacts signer profile identifiers and endpoints for viewer signer-health reads", async () => {
+    const viewerApp = createViewerApp();
+    mockNodeManager.getNode.mockReturnValue({ id: "node-1" });
+    mockNodeManager.getNodeSecureSignerHealth.mockResolvedValue({
+      nodeId: "node-1",
+      profile: {
+        id: "signer-secret",
+        name: "Nitro Council",
+        mode: "nitro",
+        endpoint: "vsock://2345:9991",
+      },
+      readiness: {
+        ok: true,
+        status: "reachable",
+        source: "secure-sign-tools",
+        accountStatus: "Single",
+        message: "Signer status checked.",
+        checkedAt: 123,
+      },
+    });
+
+    const response = await request(viewerApp).get("/api/nodes/node-1/signer-health");
+
+    expect(response.status).toBe(200);
+    expect(response.body.signerHealth).toEqual({
+      nodeId: "node-1",
+      profile: {
+        name: "Nitro Council",
+        mode: "nitro",
+      },
+      readiness: {
+        ok: true,
+        status: "reachable",
+        source: "secure-sign-tools",
+        accountStatus: "Single",
+        message: "Signer status checked.",
+        checkedAt: 123,
+      },
+    });
+    expect(JSON.stringify(response.body)).not.toContain("signer-secret");
+    expect(JSON.stringify(response.body)).not.toContain("vsock://2345:9991");
   });
 });
