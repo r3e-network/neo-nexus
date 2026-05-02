@@ -7,11 +7,13 @@ import type { WebSocketMessage } from '../../../src/types';
 interface WebSocketContextType {
   connected: boolean;
   lastMessage: WebSocketMessage | string | null;
+  sendMessage: (payload: unknown) => boolean;
 }
 
 const WebSocketContext = createContext<WebSocketContextType>({
   connected: false,
   lastMessage: null,
+  sendMessage: () => false,
 });
 
 export function useWebSocket() {
@@ -30,6 +32,14 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   const reconnectTimerRef = useRef<number | null>(null);
   const closedByEffectRef = useRef(false);
   const retryAttemptRef = useRef(0);
+  const wsRef = useRef<WebSocket | null>(null);
+
+  const sendMessage = (payload: unknown) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    ws.send(typeof payload === 'string' ? payload : JSON.stringify(payload));
+    return true;
+  };
 
   useEffect(() => {
     closedByEffectRef.current = false;
@@ -50,6 +60,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
         return;
       }
       ws = new WebSocket(`${protocol}//${window.location.host}/ws`, ['neonexus.auth', token]);
+      wsRef.current = ws;
 
       ws.onopen = () => {
         retryAttemptRef.current = 0;
@@ -88,6 +99,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       closedByEffectRef.current = true;
       clearReconnect();
       ws?.close();
+      wsRef.current = null;
     };
   }, [token, user]);
 
@@ -154,7 +166,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   }, [lastMessage, queryClient]);
 
   return (
-    <WebSocketContext.Provider value={{ connected, lastMessage }}>
+    <WebSocketContext.Provider value={{ connected, lastMessage, sendMessage }}>
       {children}
     </WebSocketContext.Provider>
   );

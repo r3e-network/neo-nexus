@@ -43,6 +43,11 @@ NeoNexus is a **self-hosted node management platform** for Neo N3. Deploy, monit
 
 ![Sign-in](docs/screenshots/02-login.png)
 
+**Hermes Agent** — bring your own Anthropic / OpenAI / OpenAI-compatible key. The agent talks to your fleet via streaming tool-calls (start/stop/restart nodes, toggle plugins, fetch logs/metrics/network height) with role-gated permissions and DNS-rebind-protected outbound calls.
+
+![Hermes setup](docs/screenshots/09-agent-setup.png)
+![Hermes chat](docs/screenshots/10-agent-chat.png)
+
 ## Features
 
 - **One-Click Deploy** — Deploy Neo nodes in minutes without CLI setup
@@ -56,6 +61,7 @@ NeoNexus is a **self-hosted node management platform** for Neo N3. Deploy, monit
 - **Audit Logging** — Track all state-changing operations
 - **Secure Signers** — TEE key protection via Intel SGX, AWS Nitro, or custom endpoints
 - **SaaS Integrations** — Optional Grafana Cloud, Datadog, Better Stack, Sentry, Slack, Discord, Telegram, and more — just add a token
+- **Hermes Agent** — Bring-your-own-key in-app AI agent (Anthropic, OpenAI, OpenAI-compatible) that operates the fleet on your behalf with role-gated tools and DNS-rebind-protected outbound calls — see the Hermes section below
 
 ## Quick Start
 
@@ -220,6 +226,10 @@ curl http://localhost:8080/api/nodes \
 | GET | `/api/system/audit-log` | Query audit log |
 | GET | `/api/servers` | List remote servers |
 | GET | `/api/secure-signers` | List signer profiles |
+| GET | `/api/agent/health` | Hermes feature-flag status |
+| PUT | `/api/agent/settings` | Save provider/model/API key |
+| POST | `/api/agent/conversations` | Start a new chat |
+| POST | `/api/agent/conversations/:id/messages` | Non-streaming send (WS preferred) |
 
 ### WebSocket
 
@@ -233,6 +243,7 @@ const ws = new WebSocket("ws://localhost:8080/ws", ["neonexus.auth", "YOUR_TOKEN
 - `metrics` — Per-node block height, peers, sync progress
 - `log` — Live node log entries
 - `status` — Node status changes
+- `agent.delta` / `agent.tool_use` / `agent.tool_result` / `agent.complete` — Hermes streaming events. Send `{"type":"agent.send","conversationId":"…","text":"…"}` and `{"type":"agent.cancel","conversationId":"…"}` over the same socket.
 
 ## Environment Variables
 
@@ -251,6 +262,7 @@ const ws = new WebSocket("ws://localhost:8080/ws", ["neonexus.auth", "YOUR_TOKEN
 | `NEONEXUS_ALLOW_PRIVATE_REMOTE_SERVERS` | `false` | Allow remote NeoNexus server profiles to target private/local networks |
 | `NEONEXUS_ALLOW_PRIVATE_SIGNER_ENDPOINTS` | `false` | Allow HTTP secure-signer endpoints on private/local networks |
 | `NEONEXUS_ALLOW_PRIVATE_INTEGRATION_TARGETS` | `false` | Allow integration webhooks/metrics/logging endpoints on private/local networks |
+| `NEONEXUS_ENABLE_HERMES_AGENT` | `false` | Turn on the Hermes in-app AI agent. Each user supplies their own API key via Settings; tools inherit the user's role (admin/viewer). |
 
 ## Development
 

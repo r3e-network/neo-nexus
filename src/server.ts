@@ -34,6 +34,9 @@ import { AuditLogger } from "./core/AuditLogger";
 import { WatchdogManager } from "./core/WatchdogManager";
 import { IntegrationManager } from "./integrations/IntegrationManager";
 import { createIntegrationsRouter } from "./api/routes/integrations";
+import { AgentManager } from "./agent/AgentManager";
+import { createAgentRouter } from "./api/routes/agent";
+import type { AgentEvent } from "./agent/types";
 import type { IntegrationEvent, LogEntryWithContext } from "./integrations/types";
 import { printShutdownMessage } from "./utils/startup";
 
@@ -145,6 +148,17 @@ export function createAppServer(config: ServerConfig) {
   const networkHeightTracker = new NetworkHeightTracker();
   const auditLogger = new AuditLogger(config.db);
   const integrationManager = new IntegrationManager(config.db);
+  const agentManager = new AgentManager(config.db, {
+    enabled: process.env.NEONEXUS_ENABLE_HERMES_AGENT === "true",
+    deps: {
+      nodeManager,
+      remoteServerManager,
+      integrationManager,
+      metricsCollector,
+      networkHeightTracker,
+      auditLogger,
+    },
+  });
   const logBuffer: LogEntryWithContext[] = [];
   const requireAuth = createAuthMiddleware(userManager);
 
@@ -253,6 +267,7 @@ export function createAppServer(config: ServerConfig) {
   app.use("/api/servers", requireAuth, requireAdminForUnsafeMethods, createServersRouter(remoteServerManager));
   app.use("/api/secure-signers", requireAuth, requireAdmin, createSecureSignersRouter(secureSignerManager));
   app.use("/api/integrations", requireAuth, requireAdmin, createIntegrationsRouter(integrationManager));
+  app.use("/api/agent", requireAuth, createAgentRouter(agentManager));
 
   // Audit log endpoint
   app.get("/api/system/audit-log", requireAuth, requireAdmin, (req, res) => {
@@ -282,6 +297,10 @@ export function createAppServer(config: ServerConfig) {
   // WebSocket handling
   const clients = new Set<WebSocket>();
 
+  // Per-connection state: which user, which agent run is active.
+  const wsUsers = new WeakMap<WebSocket, { id: string; username: string; role: "admin" | "viewer" }>();
+  const wsAgentRuns = new WeakMap<WebSocket, Map<string, AbortController>>();
+
   wss.on("connection", (ws, req) => {
     // Authenticate WebSocket connections without putting bearer tokens in URLs.
     try {
@@ -296,15 +315,22 @@ export function createAppServer(config: ServerConfig) {
         ws.close(4001, "Invalid or expired session");
         return;
       }
+      wsUsers.set(ws, sessionUser);
     } catch {
       ws.close(4001, "Invalid token");
       return;
     }
 
     clients.add(ws);
+    wsAgentRuns.set(ws, new Map());
 
     ws.on("close", () => {
       clients.delete(ws);
+      const runs = wsAgentRuns.get(ws);
+      if (runs) {
+        for (const [, ctl] of runs) ctl.abort();
+        runs.clear();
+      }
     });
 
     ws.on("error", (error) => {
@@ -312,8 +338,65 @@ export function createAppServer(config: ServerConfig) {
       clients.delete(ws);
     });
 
+    ws.on("message", (raw) => {
+      let parsed: { type?: string; conversationId?: string; text?: string };
+      try {
+        parsed = JSON.parse(raw.toString()) as typeof parsed;
+      } catch {
+        return;
+      }
+      if (parsed.type === "agent.send") handleAgentSend(ws, parsed.conversationId, parsed.text);
+      else if (parsed.type === "agent.cancel") handleAgentCancel(ws, parsed.conversationId);
+    });
+
     ws.send(JSON.stringify({ type: "welcome", message: "Connected to NeoNexus Node Manager", timestamp: Date.now() }));
   });
+
+  async function handleAgentSend(ws: WebSocket, conversationId?: string, text?: string) {
+    const user = wsUsers.get(ws);
+    if (!user || !conversationId || !text) {
+      ws.send(JSON.stringify({ type: "agent.error", conversationId, error: "Missing user, conversationId, or text" }));
+      return;
+    }
+    if (!agentManager.isEnabled()) {
+      ws.send(JSON.stringify({ type: "agent.error", conversationId, error: "Hermes agent is disabled. Set NEONEXUS_ENABLE_HERMES_AGENT=true." }));
+      return;
+    }
+    const runs = wsAgentRuns.get(ws);
+    if (!runs) return;
+    if (runs.has(conversationId)) {
+      ws.send(JSON.stringify({ type: "agent.error", conversationId, error: "A turn is already in progress for this conversation" }));
+      return;
+    }
+    const ctl = new AbortController();
+    runs.set(conversationId, ctl);
+
+    const onEvent = (event: AgentEvent) => {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      const { type, ...rest } = event;
+      ws.send(JSON.stringify({ type: `agent.${type}`, ...rest }));
+    };
+
+    try {
+      await agentManager.send({ user, conversationId, text, onEvent, signal: ctl.signal });
+    } catch (error) {
+      onEvent({ type: "error", conversationId, error: error instanceof Error ? error.message : String(error) });
+    } finally {
+      runs.delete(conversationId);
+    }
+  }
+
+  function handleAgentCancel(ws: WebSocket, conversationId?: string) {
+    if (!conversationId) return;
+    const runs = wsAgentRuns.get(ws);
+    if (!runs) return;
+    const ctl = runs.get(conversationId);
+    if (ctl) {
+      ctl.abort();
+      runs.delete(conversationId);
+      agentManager.cancel(conversationId);
+    }
+  }
 
   // Broadcast function
   function broadcast(message: object) {

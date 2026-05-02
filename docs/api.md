@@ -875,6 +875,53 @@ Viewer accounts are limited to read-only routes. State-changing node, plugin, se
 
 ---
 
+## Hermes Agent
+
+In-app AI agent. Per-user API key (Anthropic / OpenAI / OpenAI-compatible). Tools inherit the user's role: viewers get read-only fleet inspection; admins additionally get start/stop/restart and plugin enable/disable.
+
+Disabled by default. Set `NEONEXUS_ENABLE_HERMES_AGENT=true` on the server to turn on.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/agent/health` | Returns `{enabled: bool}` based on the feature flag |
+| GET | `/agent/settings` | Current user's settings (API key redacted to last 4 chars) |
+| PUT | `/agent/settings` | Save provider/model/apiKey/baseUrl |
+| DELETE | `/agent/settings` | Remove the user's settings |
+| GET | `/agent/conversations` | List the user's conversations |
+| POST | `/agent/conversations` | Create a new conversation |
+| GET | `/agent/conversations/:id` | Conversation header + full message list |
+| DELETE | `/agent/conversations/:id` | Delete a conversation |
+| POST | `/agent/conversations/:id/messages` | Non-streaming send (WS preferred for real-time) |
+| POST | `/agent/conversations/:id/cancel` | Cancel the in-flight turn for that conversation |
+
+### WebSocket message shape
+
+Send (client → server):
+```json
+{ "type": "agent.send", "conversationId": "<id>", "text": "what nodes do I have?" }
+{ "type": "agent.cancel", "conversationId": "<id>" }
+```
+
+Receive (server → client) — events use the prefix `agent.`:
+
+- `agent.message_start` — `{ messageId, role }`
+- `agent.delta` — `{ messageId, text }` for each streamed text chunk
+- `agent.tool_use` — `{ messageId, toolUseId, name, input }` when the model calls a tool
+- `agent.tool_result` — `{ messageId, toolUseId, output, isError }` after the tool runs
+- `agent.message_end` — `{ messageId }`
+- `agent.complete` — `{ conversationId }` once the turn finishes
+- `agent.error` — `{ conversationId, error }` if the provider or a tool fails
+
+### Tool surface
+
+Read tools (any role): `list_nodes`, `get_node`, `get_node_logs`, `list_plugins`, `get_system_metrics`, `get_network_height`, `list_remote_servers`, `list_integrations`.
+
+Control tools (admin only): `start_node`, `stop_node`, `restart_node`, `set_plugin_enabled`. Every control invocation writes to the audit log with action `agent.node.start` / `.stop` / `.restart` / `agent.plugin.toggle`.
+
+Out of scope for v1: deleting nodes, importing/creating nodes, password changes, snapshot restore, on-chain transaction signing.
+
+---
+
 ## Error Handling
 
 All errors follow this format:
