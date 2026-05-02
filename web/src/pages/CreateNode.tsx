@@ -7,17 +7,31 @@ import { Link } from 'react-router-dom';
 import { ApiRequestError } from '../utils/api';
 import { normalizeNodeUpsertPayload, toNodeFormValues } from '../utils/nodePayloads';
 import { useSecureSigners } from '../hooks/useSecureSigners';
+import { useFeatures } from '../hooks/useFeatures';
 
-const NODE_TYPES = [
-  { value: 'neo-cli', label: 'Neo CLI (C#)', description: 'Official Neo implementation with plugin support' },
-  { value: 'neo-go', label: 'Neo Go', description: 'High-performance Go implementation' },
+const N3_NODE_TYPES = [
+  { value: 'neo-cli', label: 'Neo CLI (C#)', description: 'Official Neo implementation with plugin support', chain: 'n3' as const },
+  { value: 'neo-go', label: 'Neo Go', description: 'High-performance Go implementation', chain: 'n3' as const },
 ];
 
-const NETWORKS = [
+const X_NODE_TYPES = [
+  { value: 'neox-go', label: 'Neo X (geth)', description: 'EVM-compatible sidechain — bane-labs/go-ethereum', chain: 'x' as const },
+];
+
+const N3_NETWORKS = [
   { value: 'mainnet', label: 'Mainnet', description: 'Production Neo N3 network' },
   { value: 'testnet', label: 'Testnet', description: 'Test network for development' },
   { value: 'private', label: 'Private', description: 'Local private network' },
 ];
+
+const X_NETWORKS = [
+  { value: 'neox-mainnet', label: 'Neo X Mainnet', description: 'Production Neo X network (chain id 47763)' },
+  { value: 'neox-testnet', label: 'Neo X Testnet', description: 'Neo X test network (chain id 12227332)' },
+];
+
+function networksForType(type: string) {
+  return type === 'neox-go' ? X_NETWORKS : N3_NETWORKS;
+}
 
 const SYNC_MODES = [
   { value: 'full', label: 'Full Sync', description: 'Download and verify entire blockchain' },
@@ -28,6 +42,8 @@ export default function CreateNode() {
   const navigate = useNavigate();
   const createNode = useCreateNode();
   const secureSigners = useSecureSigners();
+  const features = useFeatures();
+  const NODE_TYPES = features.neox ? [...N3_NODE_TYPES, ...X_NODE_TYPES] : N3_NODE_TYPES;
   
   const [error, setError] = useState('');
   const [suggestion, setSuggestion] = useState('');
@@ -144,18 +160,26 @@ export default function CreateNode() {
                     name="type"
                     value={type.value}
                     checked={formData.type === type.value}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const nextType = e.target.value as 'neo-cli' | 'neo-go' | 'neox-go';
+                      const isX = nextType === 'neox-go';
+                      const stillValidNetwork = isX
+                        ? formData.network.startsWith('neox-')
+                        : !formData.network.startsWith('neox-');
                       setFormData({
                         ...formData,
-                        type: e.target.value as 'neo-cli' | 'neo-go',
-                        ...(e.target.value === 'neo-go'
+                        type: nextType,
+                        network: stillValidNetwork
+                          ? formData.network
+                          : (isX ? 'neox-mainnet' : 'mainnet'),
+                        ...(nextType !== 'neo-cli'
                           ? {
                               keyProtectionMode: 'standard',
                               secureSignerProfileId: '',
                             }
                           : {}),
-                      })
-                    }
+                      });
+                    }}
                     className="sr-only"
                   />
                   <p className="font-medium text-slate-950">{type.label}</p>
@@ -171,7 +195,7 @@ export default function CreateNode() {
               Network
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {NETWORKS.map((network) => (
+              {networksForType(formData.type).map((network) => (
                 <label
                   key={network.value}
                   className={`cursor-pointer p-4 rounded-lg border-2 transition-all duration-200 ${
@@ -185,7 +209,7 @@ export default function CreateNode() {
                     name="network"
                     value={network.value}
                     checked={formData.network === network.value}
-                    onChange={(e) => setFormData({ ...formData, network: e.target.value as 'mainnet' | 'testnet' | 'private' })}
+                    onChange={(e) => setFormData({ ...formData, network: e.target.value as 'mainnet' | 'testnet' | 'private' | 'neox-mainnet' | 'neox-testnet' })}
                     className="sr-only"
                   />
                   <p className="font-medium text-slate-950">{network.label}</p>

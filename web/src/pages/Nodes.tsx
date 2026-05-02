@@ -221,6 +221,9 @@ export default function Nodes() {
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="font-medium text-slate-950">{node.name}</p>
                               <span className={`status-badge status-${node.process.status}`}>{node.process.status}</span>
+                              {node.chain === 'x' && (
+                                <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700 border border-violet-200">Neo X</span>
+                              )}
                             </div>
                             <p className="mt-1 text-xs text-slate-500">{node.type} · v{node.version} · {ownershipLabel(node)}</p>
                             {node.process.errorMessage && (

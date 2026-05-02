@@ -1,6 +1,6 @@
-import type { NodeNetwork } from '../types/index';
+import type { N3NodeNetwork } from '../types/index';
 
-export const NEO_GO_STANDBY_COMMITTEE: Record<Exclude<NodeNetwork, 'private'>, string[]> = {
+export const NEO_GO_STANDBY_COMMITTEE: Record<Exclude<N3NodeNetwork, 'private'>, string[]> = {
   mainnet: [
     '03b209fd4f53a7170ea4444e0cb0a6bb6a53c2bd016926989cf85f9b0fba17a70c',
     '02df48f60e8f3e01c48ff40b9b7f1310d7a8b2a193188befe1c2e3df740e895093',
@@ -49,7 +49,7 @@ export const NEO_GO_STANDBY_COMMITTEE: Record<Exclude<NodeNetwork, 'private'>, s
   ],
 };
 
-export const NEO_GO_HARDFORKS: Record<Exclude<NodeNetwork, 'private'>, Record<string, number>> = {
+export const NEO_GO_HARDFORKS: Record<Exclude<N3NodeNetwork, 'private'>, Record<string, number>> = {
   mainnet: {
     Aspidochelone: 1730000,
     Basilisk: 4120000,

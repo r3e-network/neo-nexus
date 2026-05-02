@@ -1,6 +1,11 @@
 // Node Types
-export type NodeType = 'neo-cli' | 'neo-go';
-export type NodeNetwork = 'mainnet' | 'testnet' | 'private';
+export type NodeChain = 'n3' | 'x';
+export type N3NodeType = 'neo-cli' | 'neo-go';
+export type XNodeType = 'neox-go';
+export type NodeType = N3NodeType | XNodeType;
+export type N3NodeNetwork = 'mainnet' | 'testnet' | 'private';
+export type XNodeNetwork = 'neox-mainnet' | 'neox-testnet';
+export type NodeNetwork = N3NodeNetwork | XNodeNetwork;
 export type NodeStatus = 'stopped' | 'starting' | 'running' | 'stopping' | 'error' | 'syncing';
 export type SyncMode = 'full' | 'light';
 export type ImportedNodeOwnershipMode = 'observe-only' | 'managed-config' | 'managed-process';
@@ -9,6 +14,7 @@ export type ImportedNodeOwnershipMode = 'observe-only' | 'managed-config' | 'man
 export interface NodeConfig {
   id: string;
   name: string;
+  chain: NodeChain;
   type: NodeType;
   network: NodeNetwork;
   syncMode: SyncMode;
@@ -18,6 +24,14 @@ export interface NodeConfig {
   settings: NodeSettings;
   createdAt: number;
   updatedAt: number;
+}
+
+export function chainOf(type: NodeType): NodeChain {
+  return type === 'neox-go' ? 'x' : 'n3';
+}
+
+export function defaultNetworkForChain(chain: NodeChain): NodeNetwork {
+  return chain === 'x' ? 'neox-mainnet' : 'mainnet';
 }
 
 export interface PortConfig {

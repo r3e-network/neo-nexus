@@ -3,10 +3,10 @@ import { execFileSync } from 'node:child_process';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import type Database from 'better-sqlite3';
 import { EventEmitter } from 'node:events';
-import type { 
-  NodeConfig, 
-  NodeInstance, 
-  CreateNodeRequest, 
+import type {
+  NodeConfig,
+  NodeInstance,
+  CreateNodeRequest,
   UpdateNodeRequest,
   ImportNodeRequest,
   NodeStatus,
@@ -19,6 +19,7 @@ import type {
   NodeSettings,
   NodeKeyProtectionSettings,
 } from '../types/index';
+import { chainOf } from '../types/index';
 import { paths, getNodePath, getNodeDataPath, getNodeLogsPath, getNodeConfigPath, getNodeWalletPath } from '../utils/paths';
 import { NodeRepository } from './NodeRepository';
 import { isProcessAlive, getProcessCommand, getProcessCwd, getProcessArgv } from '../utils/lifecycle';
@@ -30,6 +31,7 @@ import { PluginManager } from './PluginManager';
 import { SecureSignerManager } from './SecureSignerManager';
 import { NeoCliNode } from '../nodes/NeoCliNode';
 import { NeoGoNode } from '../nodes/NeoGoNode';
+import { NeoXNode } from '../nodes/NeoXNode';
 import { BaseNode } from '../nodes/BaseNode';
 import { Errors } from '../api/errors';
 import { assertNodeNetwork, assertNodeType, assertReleaseVersion } from '../utils/nodeValidation';
@@ -114,6 +116,7 @@ export class NodeManager extends EventEmitter {
     const config: NodeConfig = {
       id: nodeId,
       name: request.name,
+      chain: chainOf(type),
       type,
       network,
       syncMode: 'full', // Default for imported nodes
@@ -227,18 +230,21 @@ export class NodeManager extends EventEmitter {
     }
 
     // Ensure binary is downloaded
+    const chain = chainOf(type);
     if (!DownloadManager.hasNodeBinary(type, version)) {
       console.log(`Downloading ${type} ${version}...`);
       if (type === 'neo-cli') {
         await DownloadManager.downloadNeoCli(version);
+      } else if (type === 'neox-go') {
+        await DownloadManager.downloadNeoX(version);
       } else {
         await DownloadManager.downloadNeoGo(version);
       }
     }
 
-    // Allocate ports
-    const nodeIndex = await this.portManager.findNextIndex();
-    const allocatedPorts = await this.portManager.allocatePorts(nodeIndex);
+    // Allocate ports — Neo X uses a separate range so chains can coexist.
+    const nodeIndex = await this.portManager.findNextIndex(100, chain);
+    const allocatedPorts = await this.portManager.allocatePorts(nodeIndex, chain);
     const ports = request.customPorts
       ? { ...allocatedPorts, ...request.customPorts }
       : allocatedPorts;
@@ -254,6 +260,7 @@ export class NodeManager extends EventEmitter {
     const config: NodeConfig = {
       id: nodeId,
       name: request.name,
+      chain: chainOf(type),
       type,
       network,
       syncMode: request.syncMode || 'full',
@@ -741,9 +748,11 @@ export class NodeManager extends EventEmitter {
     }
 
     // Create appropriate node instance
-    const nodeInstance = node.type === 'neo-cli' 
+    const nodeInstance = node.type === 'neo-cli'
       ? new NeoCliNode(node)
-      : new NeoGoNode(node);
+      : node.type === 'neox-go'
+        ? new NeoXNode(node)
+        : new NeoGoNode(node);
 
     // Set up event handlers
     nodeInstance.on('status', (status, previous) => {

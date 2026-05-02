@@ -8,16 +8,17 @@ export class NodeRepository {
   saveNode(config: NodeConfig): void {
     const stmt = this.db.prepare(`
       INSERT INTO nodes (
-        id, name, type, network, sync_mode, version,
+        id, name, chain, type, network, sync_mode, version,
         rpc_port, p2p_port, websocket_port, metrics_port,
         base_path, data_path, logs_path, config_path, wallet_path,
         settings, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
       config.id,
       config.name,
+      config.chain,
       config.type,
       config.network,
       config.syncMode,

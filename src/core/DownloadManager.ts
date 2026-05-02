@@ -21,6 +21,11 @@ const REPOS: Record<NodeType, { owner: string; repo: string; binaryName: string 
     repo: "neo-go",
     binaryName: "neo-go",
   },
+  "neox-go": {
+    owner: "bane-labs",
+    repo: "go-ethereum",
+    binaryName: "geth",
+  },
 };
 
 // Plugin repository
@@ -31,6 +36,33 @@ const PLUGIN_REPO = {
 
 export function hasUsableDownloadFile(path: string): boolean {
   return existsSync(path) && statSync(path).size > 0;
+}
+
+export function getNeoXAssetInfo(
+  version: string,
+  platform: NodeJS.Platform,
+  arch: NodeJS.Architecture,
+): {
+  downloadFileName: string;
+  assetName: string;
+  binaryName: string;
+  downloadUrl: string;
+} {
+  // bane-labs/go-ethereum publishes Linux binaries only. Reject other platforms
+  // up-front so the failure is obvious instead of hitting a 404 mid-download.
+  if (platform !== "linux") {
+    throw new Error(`Neo X (geth) is published for Linux only; current platform is ${platform}.`);
+  }
+  const safeVersion = assertReleaseVersion(version);
+  const normalizedVersion = safeVersion.startsWith("v") ? safeVersion : `v${safeVersion}`;
+  const archSuffix = arch === "arm64" ? "arm64" : "amd64";
+  const assetName = `geth-linux-${archSuffix}`;
+  return {
+    downloadFileName: `${assetName}-${normalizedVersion}`,
+    assetName,
+    binaryName: "geth",
+    downloadUrl: `https://github.com/bane-labs/go-ethereum/releases/download/${normalizedVersion}/${assetName}`,
+  };
 }
 
 export function getNeoGoAssetInfo(
@@ -127,6 +159,33 @@ export class DownloadManager {
     }
 
     return join(extractPath, "neo-cli");
+  }
+
+  /**
+   * Download neox-go (Neo X geth) binary. The bane-labs releases ship the raw
+   * binary (no archive) alongside genesis JSON, so we download geth directly
+   * into a versioned directory.
+   */
+  static async downloadNeoX(version: string, onProgress?: (percent: number) => void): Promise<string> {
+    const safeVersion = assertReleaseVersion(version);
+    const asset = getNeoXAssetInfo(safeVersion, process.platform, process.arch);
+    const downloadPath = join(paths.downloads, asset.downloadFileName);
+    const extractPath = join(paths.downloads, `neox-go-${safeVersion}`);
+    const binaryPath = join(extractPath, asset.binaryName);
+
+    mkdirSync(paths.downloads, { recursive: true });
+    mkdirSync(extractPath, { recursive: true });
+
+    if (!hasUsableDownloadFile(downloadPath)) {
+      await this.downloadFile(asset.downloadUrl, downloadPath, onProgress);
+    }
+
+    if (!existsSync(binaryPath)) {
+      await copyFile(downloadPath, binaryPath);
+      await chmod(binaryPath, 0o755);
+    }
+
+    return binaryPath;
   }
 
   /**
@@ -242,11 +301,14 @@ export class DownloadManager {
     if (nodeType === "neo-cli") {
       const path = join(paths.downloads, `neo-cli-${safeVersion}`, "neo-cli");
       return existsSync(path) ? path : null;
-    } else {
-      const binaryName = process.platform === "win32" ? "neo-go.exe" : "neo-go";
-      const path = join(paths.downloads, `neo-go-${safeVersion}`, binaryName);
+    }
+    if (nodeType === "neox-go") {
+      const path = join(paths.downloads, `neox-go-${safeVersion}`, "geth");
       return existsSync(path) ? path : null;
     }
+    const binaryName = process.platform === "win32" ? "neo-go.exe" : "neo-go";
+    const path = join(paths.downloads, `neo-go-${safeVersion}`, binaryName);
+    return existsSync(path) ? path : null;
   }
 
   /**

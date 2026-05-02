@@ -1,4 +1,6 @@
-export function getNetworkMagic(network: 'mainnet' | 'testnet' | 'private'): number {
+import type { N3NodeNetwork } from '../types/index';
+
+export function getNetworkMagic(network: Exclude<N3NodeNetwork, 'neox-mainnet' | 'neox-testnet'>): number {
   switch (network) {
     case 'mainnet':
       return 860833102;
@@ -11,7 +13,7 @@ export function getNetworkMagic(network: 'mainnet' | 'testnet' | 'private'): num
   }
 }
 
-export function getSeedList(network: 'mainnet' | 'testnet'): string[] {
+export function getSeedList(network: Exclude<N3NodeNetwork, 'private'>): string[] {
   if (network === 'mainnet') {
     return [
       'seed1.neo.org:10333',
