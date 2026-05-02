@@ -1,5 +1,57 @@
 # Changelog
 
+## [2.4.0] - 2026-05-02
+
+### Added
+- **Hermes Agent** — In-app AI agent that operates the node fleet on your behalf. Bring your own API key (Anthropic, OpenAI, or any OpenAI-compatible base URL). Streaming responses, 12 typed tools (read: list_nodes, get_node, get_node_logs, list_plugins, get_system_metrics, get_network_height, list_remote_servers, list_integrations; admin: start_node, stop_node, restart_node, set_plugin_enabled), per-user conversations persisted in SQLite, role-gated tool access, audit-logged control actions. Disabled by default behind `NEONEXUS_ENABLE_HERMES_AGENT=true`.
+- **Neo X support (preview)** — Manage `neox-go` (geth fork from `bane-labs/go-ethereum`) alongside Neo N3. New `chain` axis above node type; mainnet (chain id 47763) and testnet (12227332); EVM JSON-RPC metrics (`eth_blockNumber`, `net_peerCount`, `eth_chainId`); separate port range (8551 RPC / 30303 P2P / 8571 WS / 8561 AuthRPC) so chains coexist on one host; Linux-only binaries downloaded from the bane-labs releases. Disabled by default behind `NEONEXUS_ENABLE_NEOX=true`.
+- **Role-based access control** — New `requireAdmin` / `requireAdminForUnsafeMethods` middleware wired into all mutating routes (`/api/nodes`, `/api/nodes/:id/start|stop|restart`, `/api/nodes/:id/plugins`, `/api/secure-signers`, `/api/integrations`, `/api/system`, `/api/system/audit-log`, `/api/servers`). Viewers retain read access; only admins can mutate state.
+- **WebSocket subprotocol auth** — Bearer tokens accepted via the `neonexus.auth` subprotocol (`new WebSocket(url, ['neonexus.auth', token])`) or the `Authorization` header. Query-string token (`?token=`) is now disabled by default.
+- **Outbound SSRF / DNS-rebind protection** — New `outboundTargets`, `publicFetch`, and `safeIntegrationFetch` utilities. Literal and DNS-resolved targets are checked against IPv4 private ranges (10/8, 127/8, 169.254/16, 172.16/12, 192.168/16, 100.64/10 CGNAT, 0/8, 224/4), IPv6 link-local (fe80::/10), unique-local (fc00::/7), multicast (ff00::/8), loopback (`::1`), zero (`::`), and IPv4-mapped IPv6 in both dotted (`::ffff:127.0.0.1`) and hex (`::ffff:7f00:1`) forms. Pinned-IP HTTP/HTTPS client preserves original Host header and TLS SNI so cert validation still works.
+- **GitHub Actions CI workflow** — `.github/workflows/ci.yml` runs lint + typecheck + test + coverage + build on every push to main and on pull requests.
+- **Frontend chat panel** at `/agent` — Setup form (provider, model, BYO key, optional base URL) and chat UI with streaming text deltas, tool-call rendering, conversation list with delete, cancellation, mobile-responsive layout (conversation list collapses to a horizontal pill bar on small screens).
+- **Sidebar entries** — "Hermes Agent" between Integrations and Settings; chain-aware violet "Neo X" badge on chain-X nodes in the fleet table.
+- **Datadog site validation** — Strict DNS-label regex on the `site` field rejects credential-leak vectors like `@evil.com`, `evil.com#`, paths, ports, and CRLF.
+- **DownloadManager redirect hardening** — HTTPS-only enforcement, 5-hop redirect cap with `Too many redirects` rejection, relative-redirect resolution against the original request URL.
+- **Schema migrations** — `chain` column on `nodes` table (default `'n3'` for existing rows); new tables `agent_settings` (per-user), `agent_conversations`, `agent_messages`.
+- **README screenshots** — 10 captures (public status, login, dashboard, nodes, plugins, integrations, servers, settings, agent setup, agent chat) embedded with relative paths so GitHub renders them.
+- **Environment variables** — `NEONEXUS_ENABLE_HERMES_AGENT`, `NEONEXUS_ENABLE_NEOX`, `NEONEXUS_ALLOW_PRIVATE_REMOTE_SERVERS`, `NEONEXUS_ALLOW_PRIVATE_SIGNER_ENDPOINTS`, `NEONEXUS_ALLOW_PRIVATE_INTEGRATION_TARGETS`, `NEONEXUS_ALLOW_WS_QUERY_TOKEN`, `NEONEXUS_SIGNER_WORKSPACE_ROOTS`.
+
+### Changed
+- **Integration providers route through `safeIntegrationFetch`** — Webhook, Slack, Discord, Sentry (testConnection), Grafana Loki, Datadog, and Grafana Cloud now use the pinned outbound client. User-supplied URLs/sites can no longer reach private/local targets without an explicit override.
+- **`RemoteServerManager` and `SecureSignerManager`** — Resolve hostnames once and pin TCP/HTTP probes to the resolved address; resolver is injectable for tests.
+- **Type definitions** — `NodeChain` introduced; `NodeType` widened to include `neox-go`; `NodeNetwork` widened to include `neox-mainnet` / `neox-testnet`. N3-specific data structures (committee, hardforks, seed lists, network magic) narrowed to `N3NodeNetwork` so they cannot accidentally process X networks.
+- **PortManager** — Now chain-aware; `allocatePorts(index, chain)` and `findNextIndex(max, chain)` route X nodes to a separate port range.
+- **NetworkHeightTracker** — Returns null for Neo X networks (per-node height is fetched directly via `eth_blockNumber` inside `NeoXNode`).
+- **Frontend Node form** — Chain selector at the top; switching to Neo X auto-selects `neox-mainnet` and clears N3-only signer state. The Neo X option only shows when `NEONEXUS_ENABLE_NEOX=true`.
+
+### Fixed
+- **IPv6 fe80::/10 link-local check incomplete** — Previously `startsWith("fe80:")` only blocked the canonical `fe80::` range. Now `fe80–febf` (the full /10) is matched, blocking `fe93::`, `fea0::`, `febf::`.
+- **Version display showed `vv0.118.0`** — Stored version already starts with `v` and the UI was prepending another. New `formatVersion()` helper handles both forms; applied to Nodes, NodeDetail, Servers, and PublicDashboard.
+- **Dashboard fleet-health badge contradicting itself** — When all nodes were stopped the page showed a red `0%` next to a green "Healthy" badge. Badge logic now distinguishes No nodes / Needs attention / All stopped / Partial / Healthy.
+- **Mobile `/agent` page broken** — Fixed-width conversation sidebar consumed the entire 375 px viewport, hiding the chat. Switched to `flex-col` on small screens with the conversation list collapsed to a horizontal-scrolling pill bar.
+- **Empty assistant bubble after early provider error** — When the LLM returned 401 before any text streamed, the persisted assistant message rendered as a blank cloud next to the error banner. `isVisibleMessage` filter now drops empty assistant/tool messages.
+- **`publicFetch` missing response error handler** — Added `res.on("error")` listener with `cleanupAbortListener` + `reject` so a truncated response stream rejects the promise instead of leaking an unhandled error.
+- **Misleading test assertion** — `tests/unit/integration-outbound.test.ts` asserted `fetchMock` was not called, but the implementation switched to raw `http.request`/`https.request` so the assertion always passed. Replaced with `vi.spyOn(http, "request")` and `vi.spyOn(https, "request")` checks.
+
+### Security
+- **SSRF / DNS-rebind protection** centralized in one helper used by every user-URL provider, remote-server manager, and secure-signer probe. Closes a class of issues where an attacker-controlled webhook URL could resolve to AWS metadata (`169.254.169.254`) or other private targets.
+- **RBAC enforced** on every mutating route. Viewer accounts now cannot start/stop nodes, install plugins, edit servers, configure integrations, or read the audit log.
+- **WebSocket auth tokens out of URL query strings** — Default behavior; the legacy `?token=` path is gated behind `NEONEXUS_ALLOW_WS_QUERY_TOKEN=true`.
+- **Datadog site input** is now strict DNS-label syntax to prevent confused-deputy hostname injection that would leak the API key to an attacker-controlled host.
+
+### Tested
+- Backend: 59 test files / 413 tests pass (was 55 / 389 in 2.3.0).
+- Frontend: 2 test files / 12 tests pass.
+- Multi-viewport QA: 12 pages × 4 viewports (desktop/laptop/tablet/mobile) screenshot pass with 0 console errors, 0 failed requests, 0 horizontal-overflow layouts.
+- Functional smoke: 8/8 sidebar links navigate without ErrorBoundary; Neo X chain selector swaps networks; agent send hits real Anthropic with stub key and surfaces error event; public status page renders all sections.
+
+### Migration notes
+- **No schema changes that affect existing data.** The `chain` column on `nodes` is auto-backfilled to `'n3'` for pre-existing rows. New agent tables are unused unless `NEONEXUS_ENABLE_HERMES_AGENT=true`.
+- **WebSocket clients using `?token=`** must either switch to the `neonexus.auth` subprotocol (recommended), use the `Authorization` Bearer header, or set `NEONEXUS_ALLOW_WS_QUERY_TOKEN=true` to retain legacy behavior.
+- **Viewers** that previously had write access via direct API calls will receive 403 from mutating endpoints. Promote them to `admin` if they need write access.
+- **Integration credentials** that target private/local hosts (rare) now require `NEONEXUS_ALLOW_PRIVATE_INTEGRATION_TARGETS=true`. Same gate exists for remote server profiles (`_REMOTE_SERVERS`) and secure-signer endpoints (`_SIGNER_ENDPOINTS`).
+
 ## [2.3.0] - 2026-04-26
 
 ### Added
