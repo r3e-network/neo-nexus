@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { usePublicStatus, usePublicNodes, usePublicSystemMetrics } from '../hooks/usePublic';
 import { Link } from 'react-router-dom';
-import { formatBytes, formatDuration } from '../utils/format';
+import { formatBytes, formatDuration, formatVersion } from '../utils/format';
 import { ProgressBar } from '../components/ProgressBar';
 import { StatSkeleton, CardSkeleton } from '../components/LoadingSkeleton';
 import { EmptyState } from '../components/EmptyState';
@@ -374,7 +374,7 @@ export default function PublicDashboard() {
                       <div>
                         <h3 className="font-medium text-slate-950">{node.name}</h3>
                         <p className="text-sm text-slate-600">
-                          {node.type} • {node.network} • v{node.version}
+                          {node.type} • {node.network} • {formatVersion(node.version)}
                         </p>
                       </div>
                     </div>

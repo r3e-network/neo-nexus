@@ -215,19 +215,19 @@ export default function Agent() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] gap-4 p-4">
-      {/* Conversation list */}
-      <aside className="w-64 flex-shrink-0 flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="p-3 border-b border-slate-200">
+    <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)] gap-4 p-4">
+      {/* Conversation list — collapses to a horizontally-scrolling pill bar on mobile */}
+      <aside className="md:w-64 md:flex-shrink-0 flex md:flex-col bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="p-3 border-b-0 md:border-b md:border-slate-200 md:w-full">
           <button
             onClick={newConversation}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
             New chat
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-x-auto md:overflow-x-visible md:overflow-y-auto flex md:block">
           {conversations.length === 0 && (
             <div className="p-4 text-sm text-slate-500">No conversations yet.</div>
           )}
@@ -235,7 +235,7 @@ export default function Agent() {
             <button
               key={c.id}
               onClick={() => setActiveId(c.id)}
-              className={`w-full px-3 py-2 text-left flex items-start gap-2 group hover:bg-slate-50 ${activeId === c.id ? 'bg-slate-100' : ''}`}
+              className={`shrink-0 md:shrink md:w-full px-3 py-2 text-left flex items-start gap-2 group hover:bg-slate-50 ${activeId === c.id ? 'bg-slate-100' : ''}`}
             >
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-slate-900 truncate">{c.title || 'Untitled'}</div>
@@ -255,7 +255,7 @@ export default function Agent() {
             </button>
           ))}
         </div>
-        <div className="p-3 border-t border-slate-200 text-xs text-slate-500">
+        <div className="hidden md:block p-3 border-t border-slate-200 text-xs text-slate-500">
           <div className="flex items-center gap-1.5">
             <span className={`inline-block w-1.5 h-1.5 rounded-full ${connected ? 'bg-emerald-500' : 'bg-slate-300'}`} />
             {connected ? 'Streaming live' : 'Disconnected'}
@@ -283,7 +283,7 @@ export default function Agent() {
               <p className="text-xs mt-1">Examples: "what nodes do I have?", "show recent errors on NeoCLI-Testnet", "stop NeoGo-Testnet"</p>
             </div>
           )}
-          {messages.map((m) => (
+          {messages.filter(isVisibleMessage).map((m) => (
             <MessageRow key={m.id} message={m} />
           ))}
           {error && (
@@ -338,6 +338,15 @@ export default function Agent() {
       </main>
     </div>
   );
+}
+
+function isVisibleMessage(m: AgentMessage): boolean {
+  // Drop assistant messages that ended up empty (e.g. provider error before any
+  // text or tool call streamed). Otherwise the chat shows a blank bubble next
+  // to the error banner, which reads as a layout glitch.
+  if (m.role === 'assistant' && m.content.length === 0) return false;
+  if (m.role === 'tool' && m.content.length === 0) return false;
+  return true;
 }
 
 function MessageRow({ message }: { message: AgentMessage }) {

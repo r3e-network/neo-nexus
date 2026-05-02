@@ -6,6 +6,17 @@ export function formatBytes(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 
+/**
+ * Render a release tag as "v1.2.3" regardless of whether the stored value
+ * already has a leading "v". Without this, places like "v{node.version}"
+ * render "vv1.2.3" when the stored version is "v1.2.3".
+ */
+export function formatVersion(version: string | undefined | null): string {
+  const trimmed = (version ?? '').trim();
+  if (!trimmed) return '';
+  return trimmed.startsWith('v') ? trimmed : `v${trimmed}`;
+}
+
 export function formatDuration(ms: number): string {
   const seconds = Math.floor(ms / 1000);
   const minutes = Math.floor(seconds / 60);

@@ -4,7 +4,7 @@ import { useNode, useStartNode, useStopNode, useDeleteNode, useNodeSignerHealth,
 import { useState, useEffect } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { mergeNodeLogs } from '../utils/realtime';
-import { formatBytes, formatDuration } from '../utils/format';
+import { formatBytes, formatDuration, formatVersion } from '../utils/format';
 import { NodeConfigEditor } from './node-detail/NodeConfigEditor';
 import { NodeLogsView } from './node-detail/NodeLogsView';
 import { NodeProtectionLabel } from '../components/NodeProtectionLabel';
@@ -173,7 +173,7 @@ export default function NodeDetail() {
                 <NodeProtectionLabel node={node} />
               </div>
               <p className="mt-2 text-sm text-slate-600">
-                {node.type} · {node.network} · v{node.version} · {ownershipLabel(node)}
+                {node.type} · {node.network} · {formatVersion(node.version)} · {ownershipLabel(node)}
               </p>
               {!canControlLifecycle && (
                 <p className="mt-3 inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
