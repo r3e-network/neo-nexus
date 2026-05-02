@@ -1,8 +1,10 @@
-import type { NodeType, NodeNetwork, SyncMode, NodeStatus } from './index';
+import type { NodeChain, NodeType, NodeNetwork, SyncMode, NodeStatus } from './index';
+import { chainOf } from './index';
 
 export interface NodeRow {
   id: string;
   name: string;
+  chain: NodeChain | null;
   type: NodeType;
   network: NodeNetwork;
   sync_mode: SyncMode;
@@ -60,6 +62,7 @@ export function nodeRowToConfig(row: NodeRow) {
   return {
     id: row.id,
     name: row.name,
+    chain: row.chain ?? chainOf(row.type),
     type: row.type,
     network: row.network,
     syncMode: row.sync_mode,

@@ -78,17 +78,27 @@ const READ_TOOLS: ToolDefinition[] = [
   {
     name: "get_network_height",
     description:
-      "Get the cached Neo network block height for mainnet or testnet from this control plane's seed-node tracker. Use to compare against per-node block height for sync progress.",
+      "Get the cached network block height. For Neo N3 (mainnet/testnet) the value comes from the seed-node tracker; for Neo X chains the tracker returns 0 because EVM heights are read directly from each running node — use get_node on a Neo X node to read its eth_blockNumber.",
     inputSchema: {
       type: "object",
-      properties: { network: { type: "string", enum: ["mainnet", "testnet"] } },
+      properties: {
+        network: {
+          type: "string",
+          enum: ["mainnet", "testnet", "neox-mainnet", "neox-testnet"],
+        },
+      },
       required: ["network"],
     },
     requiresAdmin: false,
     async execute(input, ctx) {
       const network = stringInput(input, "network");
-      if (network !== "mainnet" && network !== "testnet") {
-        throw new Error("network must be mainnet or testnet");
+      if (
+        network !== "mainnet" &&
+        network !== "testnet" &&
+        network !== "neox-mainnet" &&
+        network !== "neox-testnet"
+      ) {
+        throw new Error("network must be one of mainnet, testnet, neox-mainnet, neox-testnet");
       }
       return { network, height: ctx.deps.networkHeightTracker.getHeight(network) };
     },
@@ -242,6 +252,7 @@ function summarizeNode(node: NodeInstance) {
   return {
     id: node.id,
     name: node.name,
+    chain: node.chain,
     type: node.type,
     network: node.network,
     status: node.process.status,

@@ -235,6 +235,10 @@ export function createAppServer(config: ServerConfig) {
       timestamp: Date.now(),
       nodes: nodeManager.getAllNodes().length,
       authenticated,
+      features: {
+        hermesAgent: process.env.NEONEXUS_ENABLE_HERMES_AGENT === "true",
+        neox: process.env.NEONEXUS_ENABLE_NEOX === "true",
+      },
     });
   });
 

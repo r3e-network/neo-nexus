@@ -71,7 +71,11 @@ export class NetworkHeightTracker {
    */
   async fetchNetworkHeight(network: NodeNetwork): Promise<number | null> {
     if (network === 'private') return null;
-
+    if (network !== 'mainnet' && network !== 'testnet') {
+      // Neo X heights are tracked per-node via JSON-RPC eth_blockNumber inside
+      // NeoXNode; the seed-based aggregator only knows N3 mainnet/testnet.
+      return null;
+    }
     const seeds = getSeedList(network);
     const rpcPort = network === 'mainnet' ? 10332 : 20332;
 

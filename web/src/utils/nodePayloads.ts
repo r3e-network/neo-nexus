@@ -1,7 +1,7 @@
 export interface NodeFormValues {
   name: string;
-  type: "neo-cli" | "neo-go";
-  network: "mainnet" | "testnet" | "private";
+  type: "neo-cli" | "neo-go" | "neox-go";
+  network: "mainnet" | "testnet" | "private" | "neox-mainnet" | "neox-testnet";
   syncMode: "full" | "light";
   maxConnections: string;
   minPeers: string;
@@ -24,8 +24,8 @@ interface NormalizeNodeUpsertOptions {
 
 interface NodeLike {
   name: string;
-  type?: "neo-cli" | "neo-go";
-  network?: "mainnet" | "testnet" | "private";
+  type?: "neo-cli" | "neo-go" | "neox-go";
+  network?: "mainnet" | "testnet" | "private" | "neox-mainnet" | "neox-testnet";
   syncMode?: "full" | "light";
   settings?: {
     maxConnections?: number;

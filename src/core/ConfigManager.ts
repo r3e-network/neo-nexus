@@ -1,22 +1,33 @@
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import YAML from 'js-yaml';
-import type { NodeConfig, NodeNetwork, PluginId } from '../types/index';
+import type { NodeConfig, N3NodeNetwork, NodeNetwork, PluginId } from '../types/index';
 import { getNetworkMagic, getSeedList } from '../utils/network';
 import { getNodePath, paths } from '../utils/paths';
 import { NEO_GO_STANDBY_COMMITTEE, NEO_GO_HARDFORKS } from '../data/neo-committee';
 
+function assertN3Network(network: NodeNetwork): N3NodeNetwork {
+  if (network === 'mainnet' || network === 'testnet' || network === 'private') {
+    return network;
+  }
+  throw new Error(`ConfigManager only writes Neo N3 configs; got network ${network}`);
+}
+
 export class ConfigManager {
   static getExpectedHardforks(network: NodeNetwork): Record<string, number> | undefined {
     if (network === 'private') return undefined;
-    return NEO_GO_HARDFORKS[network];
+    if (network === 'mainnet' || network === 'testnet') {
+      return NEO_GO_HARDFORKS[network];
+    }
+    return undefined;
   }
 
   /**
    * Generate neo-cli config.json
    */
   static async generateNeoCliConfig(node: NodeConfig, installedPlugins: PluginId[] = []): Promise<Record<string, unknown>> {
-    const networkMagic = getNetworkMagic(node.network);
+    const network = assertN3Network(node.network);
+    const networkMagic = getNetworkMagic(network);
 
     // Try to load the official config from the downloaded neo-cli binary as a base.
     // neo-cli ships with config.testnet.json / config.mainnet.json that contain the
@@ -26,7 +37,7 @@ export class ConfigManager {
       const { DownloadManager } = await import('./DownloadManager');
       const binaryDir = DownloadManager.getNodeBinaryPath('neo-cli', node.version);
       if (binaryDir) {
-        const networkSuffix = node.network === 'private' ? 'mainnet' : node.network;
+        const networkSuffix = network === 'private' ? 'mainnet' : network;
         const officialConfigPath = join(binaryDir, `config.${networkSuffix}.json`);
         if (existsSync(officialConfigPath)) {
           baseConfig = JSON.parse(readFileSync(officialConfigPath, 'utf-8'));
@@ -86,7 +97,7 @@ export class ConfigManager {
           '02635c9f5b5b23730f9ff3f83b0da4592a74b5f44f3ce47a50f95c8ad950cf2150',
           '038b3d1535c76c6f6d24c0d1dd871b05b5274ec08f7840b8b222b50e3e6724dd20',
         ],
-        SeedList: node.network === 'private' ? [] : getSeedList(node.network),
+        SeedList: network === 'private' ? [] : getSeedList(network),
       },
     };
 
@@ -98,10 +109,11 @@ export class ConfigManager {
    * Generate neo-go protocol.yml
    */
   static generateNeoGoConfig(node: NodeConfig): Record<string, unknown> {
-    const networkMagic = getNetworkMagic(node.network);
+    const network = assertN3Network(node.network);
+    const networkMagic = getNetworkMagic(network);
     const standbyCommittee =
-      node.network === 'private' ? [] : NEO_GO_STANDBY_COMMITTEE[node.network];
-    const hardforks = node.network === 'private' ? undefined : NEO_GO_HARDFORKS[node.network];
+      network === 'private' ? [] : NEO_GO_STANDBY_COMMITTEE[network];
+    const hardforks = network === 'private' ? undefined : NEO_GO_HARDFORKS[network];
 
     const config: Record<string, unknown> = {
       ProtocolConfiguration: {
@@ -116,7 +128,7 @@ export class ConfigManager {
         MemPoolSize: 50000,
         ValidatorsCount: 7,
         StandbyCommittee: standbyCommittee,
-        SeedList: node.network === 'private' ? [] : getSeedList(node.network),
+        SeedList: network === 'private' ? [] : getSeedList(network),
         VerifyTransactions: false,
         P2PSigExtensions: false,
         Hardforks: hardforks,
@@ -190,7 +202,8 @@ export class ConfigManager {
     node: NodeConfig,
     customConfig: Record<string, unknown> = {},
   ): object {
-    const networkMagic = getNetworkMagic(node.network);
+    const network = assertN3Network(node.network);
+    const networkMagic = getNetworkMagic(network);
 
     const configs: Record<PluginId, object> = {
       ApplicationLogs: {

@@ -14,6 +14,7 @@ export async function initializeDatabase(): Promise<Database.Database> {
     CREATE TABLE IF NOT EXISTS nodes (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
+      chain TEXT NOT NULL DEFAULT 'n3',
       type TEXT NOT NULL,
       network TEXT NOT NULL,
       sync_mode TEXT NOT NULL DEFAULT 'full',
@@ -225,6 +226,7 @@ export async function initializeDatabase(): Promise<Database.Database> {
     CREATE INDEX IF NOT EXISTS idx_agent_messages_conv ON agent_messages(conversation_id, created_at);
   `);
 
+  ensureChainColumn(db);
   ensureColumn(db, "secure_signer_profiles", "workspace_path", "TEXT");
   ensureColumn(db, "secure_signer_profiles", "startup_port", "INTEGER");
   ensureColumn(db, "secure_signer_profiles", "aws_region", "TEXT");
@@ -235,6 +237,20 @@ export async function initializeDatabase(): Promise<Database.Database> {
   initializePlugins(db);
 
   return db;
+}
+
+/**
+ * Add the `chain` column to existing nodes tables. New databases get this from
+ * the CREATE TABLE above; pre-existing rows backfill to 'n3'.
+ */
+function ensureChainColumn(db: Database.Database): void {
+  try {
+    db.exec("ALTER TABLE nodes ADD COLUMN chain TEXT NOT NULL DEFAULT 'n3'");
+  } catch (error) {
+    if (!String(error).includes("duplicate column")) {
+      throw error;
+    }
+  }
 }
 
 const VALID_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;

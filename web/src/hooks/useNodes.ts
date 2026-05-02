@@ -7,8 +7,9 @@ export type ImportedNodeOwnershipMode = 'observe-only' | 'managed-config' | 'man
 export interface Node {
   id: string;
   name: string;
-  type: 'neo-cli' | 'neo-go';
-  network: 'mainnet' | 'testnet' | 'private';
+  chain?: 'n3' | 'x';
+  type: 'neo-cli' | 'neo-go' | 'neox-go';
+  network: 'mainnet' | 'testnet' | 'private' | 'neox-mainnet' | 'neox-testnet';
   syncMode: 'full' | 'light';
   version: string;
   ports: {

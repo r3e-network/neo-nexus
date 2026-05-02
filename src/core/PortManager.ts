@@ -1,5 +1,5 @@
 import { isPortAvailable } from '../utils/ports';
-import type { PortConfig } from '../types/index';
+import type { NodeChain, PortConfig } from '../types/index';
 import { Errors } from '../api/errors';
 
 const BASE_RPC_PORT = 10332;
@@ -7,6 +7,14 @@ const BASE_P2P_PORT = 10333;
 const BASE_WS_PORT = 10334;
 const BASE_METRICS_PORT = 2112;
 const PORT_INCREMENT = 10;
+
+// Neo X (geth) defaults to a separate port range so N3 + X can coexist on the
+// same host without bumping each other.
+const NEOX_BASE_RPC_PORT = 8551;
+const NEOX_BASE_P2P_PORT = 30303;
+const NEOX_BASE_WS_PORT = 8571;
+const NEOX_BASE_AUTHRPC_PORT = 8561;
+const NEOX_PORT_INCREMENT = 10;
 
 export class PortManager {
   private usedPorts: Set<number> = new Set();
@@ -22,11 +30,14 @@ export class PortManager {
   }
 
   /**
-   * Allocate ports for a new node
+   * Allocate ports for a new node. Pass `chain` so Neo X nodes get the
+   * geth-style 8551/30303 range instead of the Neo N3 10332/10333 range.
    */
-  async allocatePorts(nodeIndex: number): Promise<PortConfig> {
+  async allocatePorts(nodeIndex: number, chain: NodeChain = 'n3'): Promise<PortConfig> {
+    if (chain === 'x') return this.allocateNeoXPorts(nodeIndex);
+
     const baseOffset = nodeIndex * PORT_INCREMENT;
-    
+
     const rpc = BASE_RPC_PORT + baseOffset;
     const p2p = BASE_P2P_PORT + baseOffset;
     const websocket = BASE_WS_PORT + baseOffset;
@@ -65,6 +76,29 @@ export class PortManager {
     };
   }
 
+  private async allocateNeoXPorts(nodeIndex: number): Promise<PortConfig> {
+    const offset = nodeIndex * NEOX_PORT_INCREMENT;
+    const rpc = NEOX_BASE_RPC_PORT + offset;
+    const p2p = NEOX_BASE_P2P_PORT + offset;
+    const websocket = NEOX_BASE_WS_PORT + offset;
+    const metrics = NEOX_BASE_AUTHRPC_PORT + offset;
+    const portsToCheck = [
+      { name: 'RPC', port: rpc },
+      { name: 'P2P', port: p2p },
+      { name: 'WebSocket', port: websocket },
+      { name: 'AuthRPC', port: metrics },
+    ];
+    for (const { name, port } of portsToCheck) {
+      if (this.usedPorts.has(port)) throw Errors.portConflictNode(port, name);
+      if (!(await isPortAvailable(port))) throw Errors.portConflictSystem(port, name);
+    }
+    this.usedPorts.add(rpc);
+    this.usedPorts.add(p2p);
+    this.usedPorts.add(websocket);
+    this.usedPorts.add(metrics);
+    return { rpc, p2p, websocket, metrics };
+  }
+
   /**
    * Release ports when a node is removed
    */
@@ -90,11 +124,11 @@ export class PortManager {
   /**
    * Find next available node index
    */
-  async findNextIndex(maxNodes = 100): Promise<number> {
+  async findNextIndex(maxNodes = 100, chain: NodeChain = 'n3'): Promise<number> {
+    const base = chain === 'x' ? NEOX_BASE_RPC_PORT : BASE_RPC_PORT;
+    const inc = chain === 'x' ? NEOX_PORT_INCREMENT : PORT_INCREMENT;
     for (let i = 0; i < maxNodes; i++) {
-      const baseOffset = i * PORT_INCREMENT;
-      const rpcPort = BASE_RPC_PORT + baseOffset;
-      
+      const rpcPort = base + i * inc;
       if (!this.usedPorts.has(rpcPort) && await isPortAvailable(rpcPort)) {
         return i;
       }
