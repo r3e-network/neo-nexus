@@ -43,6 +43,11 @@ import { FastSyncManager } from "./core/FastSyncManager";
 import { createFastSyncRouter } from "./api/routes/fastSync";
 import { PrivateNetworkManager } from "./core/PrivateNetworkManager";
 import { createPrivateNetworksRouter } from "./api/routes/privateNetworks";
+import { NodeRoleManager } from "./core/NodeRoleManager";
+import { NodeDataContextManager } from "./core/NodeDataContextManager";
+import { NodeRoleApplicationService } from "./core/NodeRoleApplicationService";
+import { createNodeRoleApplicationsRouter, createNodeRolesRouter } from "./api/routes/nodeRoles";
+import { createNodeDataContextsRouter } from "./api/routes/nodeDataContexts";
 
 const pkg = JSON.parse(readFileSync(join(import.meta.dirname ?? ".", "..", "package.json"), "utf-8"));
 const APP_VERSION: string = pkg.version || "0.0.0";
@@ -154,6 +159,13 @@ export function createAppServer(config: ServerConfig) {
   const integrationManager = new IntegrationManager(config.db);
   const fastSyncManager = new FastSyncManager(config.db);
   const privateNetworkManager = new PrivateNetworkManager(config.db);
+  const nodeRoleManager = new NodeRoleManager(config.db);
+  const nodeDataContextManager = new NodeDataContextManager(config.db);
+  const nodeRoleApplicationService = new NodeRoleApplicationService({
+    roleManager: nodeRoleManager,
+    dataContextManager: nodeDataContextManager,
+    nodeManager,
+  });
   const agentManager = new AgentManager(config.db, {
     enabled: process.env.NEONEXUS_ENABLE_HERMES_AGENT === "true",
     deps: {
@@ -272,6 +284,24 @@ export function createAppServer(config: ServerConfig) {
   // Protected API Routes
   app.use("/api/nodes", requireAuth, requireAdminForUnsafeMethods, createNodesRouter(nodeManager));
   app.use("/api/nodes/:id/plugins", requireAuth, requireAdminForUnsafeMethods, createPluginsRouter(nodeManager));
+  app.use(
+    "/api/nodes/:id/data-contexts",
+    requireAuth,
+    requireAdmin,
+    createNodeDataContextsRouter({ nodeManager, dataContextManager: nodeDataContextManager }),
+  );
+  app.use(
+    "/api/nodes/:id/role-applications",
+    requireAuth,
+    requireAdmin,
+    createNodeRoleApplicationsRouter({ nodeManager, roleManager: nodeRoleManager }),
+  );
+  app.use(
+    "/api/node-roles",
+    requireAuth,
+    requireAdmin,
+    createNodeRolesRouter({ roleManager: nodeRoleManager, applicationService: nodeRoleApplicationService }),
+  );
   app.use("/api/metrics", requireAuth, createMetricsRouter(nodeManager, metricsCollector));
   app.use("/api/system", requireAuth, requireAdmin, createSystemRouter(nodeManager));
   app.use("/api/servers", requireAuth, requireAdminForUnsafeMethods, createServersRouter(remoteServerManager));
