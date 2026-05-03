@@ -13,6 +13,13 @@ function assertN3Network(network: NodeNetwork): N3NodeNetwork {
   throw new Error(`ConfigManager only writes Neo N3 configs; got network ${network}`);
 }
 
+interface PrivateNetworkConfig {
+  networkMagic: number;
+  validatorsCount: number;
+  standbyCommittee: string[];
+  seedList: string[];
+}
+
 export class ConfigManager {
   static getExpectedHardforks(network: NodeNetwork): Record<string, number> | undefined {
     if (network === 'private') return undefined;
@@ -37,12 +44,65 @@ export class ConfigManager {
       : 'LevelDBStore';
   }
 
+  private static getPrivateNetworkConfig(node: NodeConfig): PrivateNetworkConfig | undefined {
+    if (node.network !== 'private') return undefined;
+    const value = node.settings.customConfig?.privateNetwork;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+
+    const config = value as Record<string, unknown>;
+    if (
+      typeof config.networkMagic !== 'number' ||
+      !Number.isInteger(config.networkMagic) ||
+      config.networkMagic <= 0 ||
+      typeof config.validatorsCount !== 'number' ||
+      !Number.isInteger(config.validatorsCount) ||
+      config.validatorsCount <= 0 ||
+      !Array.isArray(config.standbyCommittee) ||
+      !config.standbyCommittee.every((item) => typeof item === 'string') ||
+      !Array.isArray(config.seedList) ||
+      !config.seedList.every((item) => typeof item === 'string')
+    ) {
+      return undefined;
+    }
+
+    return {
+      networkMagic: config.networkMagic,
+      validatorsCount: config.validatorsCount,
+      standbyCommittee: [...config.standbyCommittee],
+      seedList: [...config.seedList],
+    };
+  }
+
+  private static getEffectiveNetworkMagic(node: NodeConfig, network: N3NodeNetwork): number {
+    return this.getPrivateNetworkConfig(node)?.networkMagic ?? getNetworkMagic(network);
+  }
+
+  private static applyPrivateNeoCliProtocolConfig(
+    protocolConfig: Record<string, unknown>,
+    network: N3NodeNetwork,
+    privateNetwork: PrivateNetworkConfig | undefined,
+  ): Record<string, unknown> {
+    if (network !== 'private') return protocolConfig;
+    return {
+      Network: privateNetwork?.networkMagic ?? getNetworkMagic(network),
+      AddressVersion: typeof protocolConfig.AddressVersion === 'number' ? protocolConfig.AddressVersion : 53,
+      MillisecondsPerBlock: typeof protocolConfig.MillisecondsPerBlock === 'number' ? protocolConfig.MillisecondsPerBlock : 15000,
+      MaxTransactionsPerBlock: typeof protocolConfig.MaxTransactionsPerBlock === 'number' ? protocolConfig.MaxTransactionsPerBlock : 512,
+      MemoryPoolMaxTransactions: typeof protocolConfig.MemoryPoolMaxTransactions === 'number' ? protocolConfig.MemoryPoolMaxTransactions : 50000,
+      MaxTraceableBlocks: typeof protocolConfig.MaxTraceableBlocks === 'number' ? protocolConfig.MaxTraceableBlocks : 2102400,
+      ValidatorsCount: privateNetwork?.validatorsCount ?? 7,
+      StandbyCommittee: privateNetwork?.standbyCommittee ?? [],
+      SeedList: privateNetwork?.seedList ?? [],
+    };
+  }
+
   /**
    * Generate neo-cli config.json
    */
   static async generateNeoCliConfig(node: NodeConfig, installedPlugins: PluginId[] = []): Promise<Record<string, unknown>> {
     const network = assertN3Network(node.network);
-    const networkMagic = getNetworkMagic(network);
+    const networkMagic = this.getEffectiveNetworkMagic(node, network);
+    const privateNetwork = this.getPrivateNetworkConfig(node);
 
     // Try to load the official config from the downloaded neo-cli binary as a base.
     // neo-cli ships with config.testnet.json / config.mainnet.json that contain the
@@ -95,7 +155,7 @@ export class ConfigManager {
           Enabled: installedPlugins,
         },
       },
-      ProtocolConfiguration: (baseConfig as Record<string, unknown>)?.ProtocolConfiguration || {
+      ProtocolConfiguration: this.applyPrivateNeoCliProtocolConfig(((baseConfig as Record<string, unknown>)?.ProtocolConfiguration as Record<string, unknown> | undefined) || {
         Network: networkMagic,
         AddressVersion: 53,
         MillisecondsPerBlock: 15000,
@@ -113,7 +173,7 @@ export class ConfigManager {
           '038b3d1535c76c6f6d24c0d1dd871b05b5274ec08f7840b8b222b50e3e6724dd20',
         ],
         SeedList: network === 'private' ? [] : getSeedList(network),
-      },
+      }, network, privateNetwork),
     };
 
     // Remove undefined values
@@ -125,9 +185,10 @@ export class ConfigManager {
    */
   static generateNeoGoConfig(node: NodeConfig): Record<string, unknown> {
     const network = assertN3Network(node.network);
-    const networkMagic = getNetworkMagic(network);
-    const standbyCommittee =
-      network === 'private' ? [] : NEO_GO_STANDBY_COMMITTEE[network];
+    const privateNetwork = this.getPrivateNetworkConfig(node);
+    const networkMagic = privateNetwork?.networkMagic ?? getNetworkMagic(network);
+    const standbyCommittee = privateNetwork?.standbyCommittee ??
+      (network === 'private' ? [] : NEO_GO_STANDBY_COMMITTEE[network]);
     const hardforks = network === 'private' ? undefined : NEO_GO_HARDFORKS[network];
 
     const config: Record<string, unknown> = {
@@ -141,9 +202,9 @@ export class ConfigManager {
           TimePerBlock: '15s',
         },
         MemPoolSize: 50000,
-        ValidatorsCount: 7,
+        ValidatorsCount: privateNetwork?.validatorsCount ?? 7,
         StandbyCommittee: standbyCommittee,
-        SeedList: network === 'private' ? [] : getSeedList(network),
+        SeedList: privateNetwork?.seedList ?? (network === 'private' ? [] : getSeedList(network)),
         VerifyTransactions: false,
         P2PSigExtensions: false,
         Hardforks: hardforks,
@@ -218,7 +279,7 @@ export class ConfigManager {
     customConfig: Record<string, unknown> = {},
   ): object {
     const network = assertN3Network(node.network);
-    const networkMagic = getNetworkMagic(network);
+    const networkMagic = this.getEffectiveNetworkMagic(node, network);
 
     const configs: Record<PluginId, object> = {
       ApplicationLogs: {
