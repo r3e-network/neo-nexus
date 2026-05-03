@@ -17,6 +17,9 @@ import type {
   ImportedNodeOwnershipMode,
   NodeSettings,
   NodeKeyProtectionSettings,
+  StorageEngine,
+  RoleSyncStrategy,
+  SyncMode,
 } from '../types/index';
 import { chainOf } from '../types/index';
 import { getNodePath, getNodeDataPath, getNodeLogsPath, getNodeConfigPath, getNodeWalletPath } from '../utils/paths';
@@ -223,6 +226,8 @@ export class NodeManager extends EventEmitter {
   async createNode(request: CreateNodeRequest): Promise<NodeInstance> {
     const type = assertNodeType(request.type);
     const network = assertNodeNetwork(request.network);
+    this.assertSyncMode(request.syncMode);
+    this.assertSettingsRuntimeValues(request.settings);
     const secureSignerBinding = request.settings?.keyProtection;
     if (secureSignerBinding?.mode === "secure-signer") {
       this.assertSecureSignerCompatibility(type, secureSignerBinding.signerProfileId);
@@ -265,6 +270,7 @@ export class NodeManager extends EventEmitter {
     // Create node configuration
     const nodeId = `node-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
     const now = Date.now();
+    const sanitizedSettings = stripReservedImportSettings(request.settings) || {};
 
     const config: NodeConfig = {
       id: nodeId,
@@ -282,33 +288,42 @@ export class NodeManager extends EventEmitter {
         config: getNodeConfigPath(nodeId),
         wallet: getNodeWalletPath(nodeId),
       },
-      settings: stripReservedImportSettings(request.settings) || {},
+      settings: {
+        storageEngine: request.settings?.storageEngine ?? "leveldb",
+        syncStrategy: request.settings?.syncStrategy ?? request.syncMode ?? "full",
+        ...sanitizedSettings,
+      },
       createdAt: now,
       updatedAt: now,
     };
 
-    // Create directories
-    StorageManager.ensureNodeDirectories(config.paths, {
-      activeDataContextId: config.settings.activeDataContextId,
-    });
-
-    // Write initial config
-    await ConfigManager.writeNodeConfig(config);
-
     try {
+      // Create directories
+      StorageManager.ensureNodeDirectories(config.paths, {
+        activeDataContextId: config.settings.activeDataContextId,
+      });
+
       // Save to database in a transaction
       this.repo.transaction(() => {
         this.repo.saveNode(config);
       });
 
+      if (type === 'neo-cli' && config.settings.storageEngine === 'rocksdb') {
+        await this.pluginManager.upsertPlugin(nodeId, 'RocksDBStore', version, {});
+        this.disableConflictingStoragePlugin(nodeId, 'rocksdb');
+      }
+
       if (secureSignerBinding?.mode === "secure-signer") {
         await this.syncNodeSecureSigner(nodeId);
       }
 
-      return this.getNode(nodeId)!;
+      const createdNode = this.getNode(nodeId)!;
+      await ConfigManager.writeNodeConfig(createdNode, this.getEnabledPluginIds(nodeId));
+      return createdNode;
     } catch (error) {
       // Clean up all related tables (CASCADE handles node_processes and node_metrics)
       this.repo.deleteNode(nodeId);
+      this.portManager.releasePorts(ports);
       rmSync(config.paths.base, { recursive: true, force: true });
       throw error;
     }
@@ -508,6 +523,13 @@ export class NodeManager extends EventEmitter {
     }
 
     this.assertCanWriteImportedNode(node, 'configuration updates');
+    this.assertSettingsRuntimeValues(request.settings);
+
+    if (request.settings && Object.hasOwn(request.settings, 'storageEngine')) {
+      this.assertStorageEngineUpdateIsolated(request);
+      const storageEngine = this.assertStorageEngine(request.settings.storageEngine);
+      return this.ensureStorageEngine(nodeId, storageEngine);
+    }
 
     const updates: string[] = [];
     const values: (string | number)[] = [];
@@ -553,6 +575,79 @@ export class NodeManager extends EventEmitter {
         }
       }
       throw error;
+    }
+  }
+
+  async ensureStorageEngine(nodeId: string, storageEngine: StorageEngine): Promise<NodeInstance> {
+    const node = this.getNode(nodeId);
+    if (!node) {
+      throw Errors.nodeNotFound(nodeId);
+    }
+    if (node.process.status === 'running') {
+      throw Errors.nodeRunning();
+    }
+    this.assertCanWriteImportedNode(node, 'storage engine updates');
+    const nextStorageEngine = this.assertStorageEngine(storageEngine);
+
+    const previousSettings = node.settings || {};
+    const previousInstalledPlugins = this.pluginManager.getInstalledPlugins(nodeId);
+    const previousRocksDBStore = previousInstalledPlugins.find((plugin) => plugin.id === 'RocksDBStore');
+    const previousLevelDBStore = previousInstalledPlugins.find((plugin) => plugin.id === 'LevelDBStore');
+    const nextSettings: NodeSettings = { ...previousSettings, storageEngine: nextStorageEngine };
+    this.repo.updateNode(nodeId, ['settings = ?', 'updated_at = ?'], [JSON.stringify(nextSettings), Date.now(), nodeId]);
+
+    try {
+      if (node.type === 'neo-cli' && nextStorageEngine === 'rocksdb') {
+        await this.pluginManager.upsertPlugin(nodeId, 'RocksDBStore', node.version, {});
+      }
+      if (node.type === 'neo-cli') {
+        this.disableConflictingStoragePlugin(nodeId, nextStorageEngine);
+      }
+
+      const updatedNode = this.getNode(nodeId)!;
+      await ConfigManager.writeNodeConfig(updatedNode, this.getEnabledPluginIds(nodeId));
+      return updatedNode;
+    } catch (error) {
+      this.repo.updateNode(nodeId, ['settings = ?', 'updated_at = ?'], [JSON.stringify(previousSettings), Date.now(), nodeId]);
+      if (previousRocksDBStore) {
+        try {
+          this.pluginManager.setPluginEnabled(nodeId, 'RocksDBStore', previousRocksDBStore.enabled);
+        } catch (rollbackError) {
+          console.error(`Failed to rollback RocksDBStore enablement for ${nodeId}:`, rollbackError);
+        }
+      } else if (this.pluginManager.getInstalledPlugins(nodeId).some((plugin) => plugin.id === 'RocksDBStore')) {
+        try {
+          await this.pluginManager.uninstallPlugin(nodeId, 'RocksDBStore');
+        } catch (rollbackError) {
+          console.error(`Failed to rollback RocksDBStore installation for ${nodeId}:`, rollbackError);
+        }
+      }
+      if (previousLevelDBStore) {
+        try {
+          this.pluginManager.setPluginEnabled(nodeId, 'LevelDBStore', previousLevelDBStore.enabled);
+        } catch (rollbackError) {
+          console.error(`Failed to rollback LevelDBStore enablement for ${nodeId}:`, rollbackError);
+        }
+      }
+      const restoredNode = this.getNode(nodeId);
+      if (restoredNode) {
+        try {
+          await ConfigManager.writeNodeConfig(restoredNode, this.getEnabledPluginIds(nodeId));
+        } catch (rollbackError) {
+          console.error(`Failed to rewrite restored node config for ${nodeId}:`, rollbackError);
+        }
+      }
+      throw error;
+    }
+  }
+
+  private disableConflictingStoragePlugin(nodeId: string, storageEngine: StorageEngine): void {
+    const conflictingPluginId: PluginId = storageEngine === 'rocksdb' ? 'LevelDBStore' : 'RocksDBStore';
+    const conflictingPlugin = this.pluginManager
+      .getInstalledPlugins(nodeId)
+      .find((plugin) => plugin.id === conflictingPluginId);
+    if (conflictingPlugin?.enabled) {
+      this.pluginManager.setPluginEnabled(nodeId, conflictingPluginId, false);
     }
   }
 
@@ -757,6 +852,52 @@ export class NodeManager extends EventEmitter {
     }
 
     return mutableSettings;
+  }
+
+  private assertSettingsRuntimeValues(settings?: Partial<NodeSettings>): void {
+    if (!settings) {
+      return;
+    }
+    if (Object.hasOwn(settings, 'storageEngine')) {
+      this.assertStorageEngine(settings.storageEngine);
+    }
+    if (Object.hasOwn(settings, 'syncStrategy')) {
+      this.assertSyncStrategy(settings.syncStrategy);
+    }
+  }
+
+  private assertStorageEngineUpdateIsolated(request: UpdateNodeRequest): void {
+    if (!request.settings || !Object.hasOwn(request.settings, 'storageEngine')) {
+      return;
+    }
+    const hasOtherSettings = Object.keys(request.settings).some((key) => key !== 'storageEngine');
+    if (request.name || hasOtherSettings) {
+      throw new Error('Storage engine updates must be submitted separately');
+    }
+  }
+
+  private assertStorageEngine(storageEngine: unknown): StorageEngine {
+    if (storageEngine === 'leveldb' || storageEngine === 'rocksdb') {
+      return storageEngine;
+    }
+    throw new Error('Invalid storage engine: use leveldb or rocksdb');
+  }
+
+  private assertSyncStrategy(syncStrategy: unknown): RoleSyncStrategy {
+    if (syncStrategy === 'full' || syncStrategy === 'light' || syncStrategy === 'fast-sync') {
+      return syncStrategy;
+    }
+    throw new Error('Invalid sync strategy: use full, light, or fast-sync');
+  }
+
+  private assertSyncMode(syncMode: unknown): SyncMode | undefined {
+    if (syncMode === undefined) {
+      return undefined;
+    }
+    if (syncMode === 'full' || syncMode === 'light') {
+      return syncMode;
+    }
+    throw new Error('Invalid sync mode: use full or light');
   }
 
   private assertCanWriteImportedNode(node: NodeInstance, action: string): void {
