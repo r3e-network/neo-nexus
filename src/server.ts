@@ -39,6 +39,8 @@ import { createAgentRouter } from "./api/routes/agent";
 import type { AgentEvent } from "./agent/types";
 import type { IntegrationEvent, LogEntryWithContext } from "./integrations/types";
 import { printShutdownMessage } from "./utils/startup";
+import { FastSyncManager } from "./core/FastSyncManager";
+import { createFastSyncRouter } from "./api/routes/fastSync";
 
 const pkg = JSON.parse(readFileSync(join(import.meta.dirname ?? ".", "..", "package.json"), "utf-8"));
 const APP_VERSION: string = pkg.version || "0.0.0";
@@ -148,6 +150,7 @@ export function createAppServer(config: ServerConfig) {
   const networkHeightTracker = new NetworkHeightTracker();
   const auditLogger = new AuditLogger(config.db);
   const integrationManager = new IntegrationManager(config.db);
+  const fastSyncManager = new FastSyncManager(config.db);
   const agentManager = new AgentManager(config.db, {
     enabled: process.env.NEONEXUS_ENABLE_HERMES_AGENT === "true",
     deps: {
@@ -270,6 +273,7 @@ export function createAppServer(config: ServerConfig) {
   app.use("/api/system", requireAuth, requireAdmin, createSystemRouter(nodeManager));
   app.use("/api/servers", requireAuth, requireAdminForUnsafeMethods, createServersRouter(remoteServerManager));
   app.use("/api/secure-signers", requireAuth, requireAdmin, createSecureSignersRouter(secureSignerManager));
+  app.use("/api/fast-sync", requireAuth, requireAdmin, createFastSyncRouter(fastSyncManager));
   app.use("/api/integrations", requireAuth, requireAdmin, createIntegrationsRouter(integrationManager));
   app.use("/api/agent", requireAuth, createAgentRouter(agentManager));
 
