@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 const configuredBaseDir = process.env.NEONEXUS_DATA_DIR || process.env.DATA_DIR;
 const BASE_DIR = configuredBaseDir?.trim() || join(homedir(), '.neonexus');
+const DATA_CONTEXT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 
 export const paths = {
   base: BASE_DIR,
@@ -26,8 +27,15 @@ export function getNodeDataContextsRoot(nodeId: string): string {
   return join(getNodePath(nodeId), 'data-contexts');
 }
 
+export function validateDataContextId(contextId: unknown): string {
+  if (typeof contextId !== 'string' || !DATA_CONTEXT_ID_PATTERN.test(contextId)) {
+    throw new Error(`Invalid data context id ${JSON.stringify(contextId)}`);
+  }
+  return contextId;
+}
+
 export function getNodeDataContextPath(nodeId: string, contextId: string): string {
-  return join(getNodeDataContextsRoot(nodeId), contextId);
+  return join(getNodeDataContextsRoot(nodeId), validateDataContextId(contextId));
 }
 
 export function getNodeLogsPath(nodeId: string): string {
