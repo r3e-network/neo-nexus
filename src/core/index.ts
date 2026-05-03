@@ -5,3 +5,4 @@ export { StorageManager } from './StorageManager';
 export { DownloadManager } from './DownloadManager';
 export { PluginManager } from './PluginManager';
 export { NodeDetector } from './NodeDetector';
+export { NodeRoleManager } from './NodeRoleManager';
