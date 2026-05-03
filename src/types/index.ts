@@ -9,6 +9,13 @@ export type NodeNetwork = N3NodeNetwork | XNodeNetwork;
 export type NodeStatus = 'stopped' | 'starting' | 'running' | 'stopping' | 'error' | 'syncing';
 export type SyncMode = 'full' | 'light';
 export type ImportedNodeOwnershipMode = 'observe-only' | 'managed-config' | 'managed-process';
+export type StorageEngine = 'leveldb' | 'rocksdb';
+export type RoleSyncStrategy = 'full' | 'light' | 'fast-sync';
+export type NodeRoleKind = 'builtin' | 'custom';
+export type RoleApplicationStatus = 'planned' | 'applied' | 'failed';
+export type FastSyncSourceType = 'local' | 'url' | 'catalog';
+export type PrivateNetworkTemplate = 'single' | 'four' | 'seven';
+export type PrivateNetworkPlanStatus = 'draft' | 'applied' | 'failed';
 
 // Node Configuration
 export interface NodeConfig {
@@ -55,6 +62,13 @@ export interface NodeSettings {
   maxPeers?: number;
   relay?: boolean;
   debugMode?: boolean;
+  storageEngine?: StorageEngine;
+  activeDataContextId?: string;
+  role?: {
+    id: string;
+    name: string;
+    appliedAt: number;
+  };
   customConfig?: Record<string, unknown>;
   keyProtection?: NodeKeyProtectionSettings;
   import?: ImportedNodeSettings;
@@ -152,6 +166,122 @@ export interface InstalledPlugin {
   config: Record<string, unknown>;
   installedAt: number;
   enabled: boolean;
+}
+
+export interface NodeRolePluginDesiredState {
+  id: PluginId;
+  enabled: boolean;
+  config?: Record<string, unknown>;
+}
+
+export interface NodeRoleProfileBody {
+  storageEngine?: StorageEngine;
+  settings?: Partial<NodeSettings>;
+  plugins?: NodeRolePluginDesiredState[];
+  dataContext?: {
+    mode: 'reuse-or-create' | 'always-create';
+    labelTemplate: string;
+  };
+  sync?: {
+    strategy: RoleSyncStrategy;
+    allowCheckpoint?: boolean;
+  };
+  warnings?: string[];
+  prerequisites?: string[];
+}
+
+export interface NodeRoleProfile {
+  id: string;
+  name: string;
+  description?: string;
+  kind: NodeRoleKind;
+  nodeTypes: NodeType[];
+  profile: NodeRoleProfileBody;
+  createdBy?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface NodeRoleApplication {
+  id: string;
+  nodeId: string;
+  roleId: string;
+  roleName: string;
+  applicationPlan: NodeRoleApplicationPlan;
+  previousState?: Record<string, unknown>;
+  appliedAt: number;
+  appliedBy?: string;
+  status: RoleApplicationStatus;
+  errorMessage?: string;
+}
+
+export interface NodeRoleApplicationPlan {
+  nodeId: string;
+  roleId: string;
+  roleName: string;
+  requiresRestart: boolean;
+  changes: Array<{
+    type: 'settings' | 'plugin' | 'storage' | 'data-context' | 'fast-sync';
+    summary: string;
+  }>;
+  warnings: string[];
+}
+
+export interface NodeDataContext {
+  id: string;
+  nodeId: string;
+  label: string;
+  storageEngine: StorageEngine;
+  syncStrategy: RoleSyncStrategy;
+  checkpointHeight?: number;
+  checkpointHash?: string;
+  snapshotId?: string;
+  active: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface FastSyncSnapshot {
+  id: string;
+  name: string;
+  sourceType: FastSyncSourceType;
+  source: string;
+  chain: NodeChain;
+  network: NodeNetwork;
+  nodeType: NodeType;
+  storageEngine: StorageEngine;
+  height: number;
+  blockHash?: string;
+  sha256: string;
+  sizeBytes?: number;
+  signature?: string;
+  trusted: boolean;
+  createdAt: number;
+  lastVerifiedAt?: number;
+}
+
+export interface PrivateNetworkPlan {
+  id: string;
+  name: string;
+  template: PrivateNetworkTemplate;
+  networkMagic: number;
+  plan: {
+    nodes: Array<{
+      name: string;
+      type: N3NodeType;
+      roleIds: string[];
+      storageEngine: StorageEngine;
+      ports: Partial<PortConfig>;
+      publicKey: string;
+      address: string;
+    }>;
+    seedList: string[];
+    validatorsCount: number;
+    standbyCommittee: string[];
+  };
+  status: PrivateNetworkPlanStatus;
+  createdAt: number;
+  appliedAt?: number;
 }
 
 // API Types

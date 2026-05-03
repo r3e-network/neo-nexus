@@ -107,6 +107,81 @@ export async function initializeDatabase(): Promise<Database.Database> {
     CREATE INDEX IF NOT EXISTS idx_node_metrics_node_id ON node_metrics(node_id);
     CREATE INDEX IF NOT EXISTS idx_node_plugins_plugin_id ON node_plugins(plugin_id);
 
+    CREATE TABLE IF NOT EXISTS node_role_profiles (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      kind TEXT NOT NULL CHECK (kind IN ('builtin', 'custom')),
+      node_types TEXT NOT NULL,
+      profile TEXT NOT NULL,
+      created_by TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS node_role_applications (
+      id TEXT PRIMARY KEY,
+      node_id TEXT NOT NULL,
+      role_id TEXT NOT NULL,
+      role_name TEXT NOT NULL,
+      application_plan TEXT NOT NULL,
+      previous_state TEXT,
+      applied_at INTEGER NOT NULL,
+      applied_by TEXT,
+      status TEXT NOT NULL CHECK (status IN ('planned', 'applied', 'failed')),
+      error_message TEXT,
+      FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_node_role_applications_node ON node_role_applications(node_id, applied_at);
+
+    CREATE TABLE IF NOT EXISTS node_data_contexts (
+      id TEXT PRIMARY KEY,
+      node_id TEXT NOT NULL,
+      label TEXT NOT NULL,
+      storage_engine TEXT NOT NULL CHECK (storage_engine IN ('leveldb', 'rocksdb')),
+      sync_strategy TEXT NOT NULL CHECK (sync_strategy IN ('full', 'light', 'fast-sync')),
+      checkpoint_height INTEGER,
+      checkpoint_hash TEXT,
+      snapshot_id TEXT,
+      active INTEGER NOT NULL DEFAULT 0 CHECK (active IN (0, 1)),
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_node_data_contexts_node ON node_data_contexts(node_id, active);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_node_data_contexts_one_active ON node_data_contexts(node_id) WHERE active = 1;
+
+    CREATE TABLE IF NOT EXISTS fast_sync_snapshots (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      source_type TEXT NOT NULL CHECK (source_type IN ('local', 'url', 'catalog')),
+      source TEXT NOT NULL,
+      chain TEXT NOT NULL,
+      network TEXT NOT NULL,
+      node_type TEXT NOT NULL,
+      storage_engine TEXT NOT NULL CHECK (storage_engine IN ('leveldb', 'rocksdb')),
+      height INTEGER NOT NULL,
+      block_hash TEXT,
+      sha256 TEXT NOT NULL,
+      size_bytes INTEGER,
+      signature TEXT,
+      trusted INTEGER NOT NULL DEFAULT 0 CHECK (trusted IN (0, 1)),
+      created_at INTEGER NOT NULL,
+      last_verified_at INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_fast_sync_snapshots_network ON fast_sync_snapshots(chain, network, node_type, storage_engine);
+
+    CREATE TABLE IF NOT EXISTS private_network_plans (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      template TEXT NOT NULL CHECK (template IN ('single', 'four', 'seven')),
+      network_magic INTEGER NOT NULL,
+      plan TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('draft', 'applied', 'failed')),
+      created_at INTEGER NOT NULL,
+      applied_at INTEGER
+    );
+
     -- Users table for authentication
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,

@@ -39,4 +39,11 @@ describe("paths", () => {
 
     expect(paths.base).toBe("/tmp/neonexus-explicit-data-dir");
   });
+
+  it("builds deterministic data context and fast sync staging paths", async () => {
+    const { getFastSyncStagingPath, getNodeDataContextPath } = await import("../../src/utils/paths");
+
+    expect(getNodeDataContextPath("node-1", "ctx-mainnet")).toContain("node-1/data-contexts/ctx-mainnet");
+    expect(getFastSyncStagingPath("snapshot-1")).toContain("fast-sync/staging/snapshot-1");
+  });
 });

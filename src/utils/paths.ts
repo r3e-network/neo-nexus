@@ -22,6 +22,14 @@ export function getNodeDataPath(nodeId: string): string {
   return join(getNodePath(nodeId), 'data');
 }
 
+export function getNodeDataContextsRoot(nodeId: string): string {
+  return join(getNodePath(nodeId), 'data-contexts');
+}
+
+export function getNodeDataContextPath(nodeId: string, contextId: string): string {
+  return join(getNodeDataContextsRoot(nodeId), contextId);
+}
+
 export function getNodeLogsPath(nodeId: string): string {
   return join(getNodePath(nodeId), 'logs');
 }
@@ -40,4 +48,12 @@ export function getPluginPath(pluginId: string): string {
 
 export function getDownloadPath(filename: string): string {
   return join(paths.downloads, filename);
+}
+
+export function getFastSyncRoot(): string {
+  return join(paths.base, 'fast-sync');
+}
+
+export function getFastSyncStagingPath(snapshotId: string): string {
+  return join(getFastSyncRoot(), 'staging', snapshotId);
 }
