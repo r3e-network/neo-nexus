@@ -58,6 +58,75 @@ export interface InstalledPluginRow {
   enabled: number;
 }
 
+export interface NodeRoleProfileRow {
+  id: string;
+  name: string;
+  description: string | null;
+  kind: string;
+  node_types: string;
+  profile: string;
+  created_by: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface NodeRoleApplicationRow {
+  id: string;
+  node_id: string;
+  role_id: string;
+  role_name: string;
+  application_plan: string;
+  previous_state: string | null;
+  applied_at: number;
+  applied_by: string | null;
+  status: string;
+  error_message: string | null;
+}
+
+export interface NodeDataContextRow {
+  id: string;
+  node_id: string;
+  label: string;
+  storage_engine: string;
+  sync_strategy: string;
+  checkpoint_height: number | null;
+  checkpoint_hash: string | null;
+  snapshot_id: string | null;
+  active: number;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface FastSyncSnapshotRow {
+  id: string;
+  name: string;
+  source_type: string;
+  source: string;
+  chain: string;
+  network: string;
+  node_type: string;
+  storage_engine: string;
+  height: number;
+  block_hash: string | null;
+  sha256: string;
+  size_bytes: number | null;
+  signature: string | null;
+  trusted: number;
+  created_at: number;
+  last_verified_at: number | null;
+}
+
+export interface PrivateNetworkPlanRow {
+  id: string;
+  name: string;
+  template: string;
+  network_magic: number;
+  plan: string;
+  status: string;
+  created_at: number;
+  applied_at: number | null;
+}
+
 export function nodeRowToConfig(row: NodeRow) {
   return {
     id: row.id,
