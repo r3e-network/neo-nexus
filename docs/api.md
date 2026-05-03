@@ -152,8 +152,7 @@ Authorization: Bearer YOUR_TOKEN
       "createdAt": 1774400000000,
       "updatedAt": 1774400000000
     }
-  ],
-  "count": 1
+  ]
 }
 ```
 
@@ -342,7 +341,11 @@ Content-Type: application/json
   "type": "neo-cli",
   "network": "testnet",
   "syncMode": "full",
-  "version": "v3.9.2"
+  "version": "v3.9.2",
+  "settings": {
+    "storageEngine": "rocksdb",
+    "syncStrategy": "fast-sync"
+  }
 }
 ```
 
@@ -355,6 +358,8 @@ Content-Type: application/json
 | `network` | string | Yes | `mainnet`, `testnet`, or `private` |
 | `syncMode` | string | No | `full` (default) or `light` |
 | `version` | string | No | Node version (auto-detected if not specified) |
+| `settings.storageEngine` | string | No | `leveldb` (default) or `rocksdb` |
+| `settings.syncStrategy` | string | No | `full`, `light`, or `fast-sync` |
 
 **Response:**
 ```json
@@ -364,8 +369,13 @@ Content-Type: application/json
     "name": "My Test Node",
     "type": "neo-cli",
     "network": "testnet",
-    "status": "stopped",
-    ...
+    "process": {
+      "status": "stopped"
+    },
+    "settings": {
+      "storageEngine": "rocksdb",
+      "syncStrategy": "fast-sync"
+    }
   }
 }
 ```
@@ -399,9 +409,13 @@ Authorization: Bearer YOUR_TOKEN
 **Response:**
 ```json
 {
-  "success": true,
-  "message": "Node started",
-  "pid": 12345
+  "node": {
+    "id": "node-abc123",
+    "process": {
+      "status": "running",
+      "pid": 12345
+    }
+  }
 }
 ```
 
@@ -417,8 +431,12 @@ Authorization: Bearer YOUR_TOKEN
 **Response:**
 ```json
 {
-  "success": true,
-  "message": "Node stopped"
+  "node": {
+    "id": "node-abc123",
+    "process": {
+      "status": "stopped"
+    }
+  }
 }
 ```
 
@@ -436,13 +454,12 @@ Authorization: Bearer YOUR_TOKEN
 Retrieve node log output.
 
 ```http
-GET /nodes/:id/logs?lines=100&since=1234567890
+GET /nodes/:id/logs?count=100
 Authorization: Bearer YOUR_TOKEN
 ```
 
 **Query Parameters:**
-- `lines` — Number of lines to return (default: 100)
-- `since` — Timestamp to fetch logs from
+- `count` — Number of entries to return, clamped to 1-1000 (default: 100)
 
 **Response:**
 ```json
@@ -464,6 +481,476 @@ Authorization: Bearer YOUR_TOKEN
 | POST | `/nodes/:id/storage/clean` | Remove old log files for a node |
 | GET | `/nodes/:id/config-audit` | Compare a node config against generated expectations |
 | GET | `/nodes/:id/signer-health` | Check the secure signer bound to a node |
+
+---
+
+## Role Orchestration
+
+All role orchestration endpoints require an authenticated admin. Roles let operators save or apply a complete node identity: storage engine, sync strategy, plugin desired state, node settings, data-context policy, warnings, and prerequisites.
+
+### Built-in Roles
+
+| Role ID | Name | Notes |
+|---------|------|-------|
+| `builtin-rpc-api` | RPC / API Node | Enables RPC and fast-sync oriented defaults |
+| `builtin-state` | State Node | Enables StateService, RPC, RocksDB, and fast sync |
+| `builtin-oracle` | Oracle Node | Enables OracleService, RPC, and fast sync |
+| `builtin-consensus` | Consensus Node | Enables DBFTPlugin and full sync; warns about validator signing material |
+| `builtin-indexer` | Indexer Node | Enables ApplicationLogs, TokensTracker, RPC, RocksDB |
+| `builtin-secure-signer-client` | Secure Signer Client | Enables SignClient and requires a signer profile |
+
+### List Roles
+
+```http
+GET /node-roles
+Authorization: Bearer YOUR_TOKEN
+```
+
+**Response:**
+```json
+{
+  "roles": [
+    {
+      "id": "builtin-rpc-api",
+      "name": "RPC / API Node",
+      "kind": "builtin",
+      "nodeTypes": ["neo-cli"],
+      "profile": {
+        "storageEngine": "leveldb",
+        "plugins": [{ "id": "RpcServer", "enabled": true, "config": {} }],
+        "dataContext": {
+          "mode": "reuse-or-create",
+          "labelTemplate": "rpc-{network}-{storageEngine}"
+        },
+        "sync": { "strategy": "fast-sync", "allowCheckpoint": true }
+      }
+    }
+  ]
+}
+```
+
+### Get Role
+
+```http
+GET /node-roles/:roleId
+Authorization: Bearer YOUR_TOKEN
+```
+
+### Create Custom Role
+
+```http
+POST /node-roles
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
+```
+
+**Request:**
+```json
+{
+  "name": "Archive RPC",
+  "description": "RPC node with application logs and full sync",
+  "nodeTypes": ["neo-cli"],
+  "profile": {
+    "storageEngine": "rocksdb",
+    "settings": {
+      "relay": true,
+      "maxConnections": 100
+    },
+    "plugins": [
+      { "id": "RpcServer", "enabled": true, "config": {} },
+      { "id": "ApplicationLogs", "enabled": true, "config": {} }
+    ],
+    "dataContext": {
+      "mode": "reuse-or-create",
+      "labelTemplate": "archive-rpc-{network}-{storageEngine}"
+    },
+    "sync": {
+      "strategy": "full",
+      "allowCheckpoint": false
+    },
+    "warnings": ["Requires enough disk for archive data."]
+  }
+}
+```
+
+Custom role plugins are supported for `neo-cli` roles. Supported plugin ids are `ApplicationLogs`, `DBFTPlugin`, `LevelDBStore`, `OracleService`, `RestServer`, `RocksDBStore`, `RpcServer`, `SignClient`, `SQLiteWallet`, `StateService`, `StorageDumper`, and `TokensTracker`.
+
+### Preview Role Application
+
+```http
+POST /node-roles/:roleId/plan
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
+```
+
+**Request:**
+```json
+{
+  "nodeId": "node-abc123",
+  "storageEngine": "rocksdb"
+}
+```
+
+**Response:**
+```json
+{
+  "plan": {
+    "nodeId": "node-abc123",
+    "roleId": "builtin-state",
+    "roleName": "State Node",
+    "requiresRestart": true,
+    "changes": [
+      { "type": "storage", "summary": "Switch storage engine to rocksdb" },
+      { "type": "plugin", "summary": "Enable StateService" }
+    ],
+    "warnings": []
+  }
+}
+```
+
+### Apply Role
+
+```http
+POST /node-roles/:roleId/apply
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
+```
+
+**Request:**
+```json
+{
+  "nodeId": "node-abc123",
+  "storageEngine": "rocksdb"
+}
+```
+
+**Response:**
+```json
+{
+  "application": {
+    "id": "role-application-uuid",
+    "nodeId": "node-abc123",
+    "roleId": "builtin-state",
+    "roleName": "State Node",
+    "status": "applied"
+  },
+  "node": {
+    "id": "node-abc123",
+    "settings": {
+      "storageEngine": "rocksdb",
+      "syncStrategy": "fast-sync",
+      "activeDataContextId": "ctx-state-testnet-rocksdb"
+    }
+  }
+}
+```
+
+### List Role Application History
+
+```http
+GET /nodes/:id/role-applications
+Authorization: Bearer YOUR_TOKEN
+```
+
+**Response:**
+```json
+{
+  "applications": [
+    {
+      "id": "role-application-uuid",
+      "nodeId": "node-abc123",
+      "roleId": "builtin-state",
+      "roleName": "State Node",
+      "status": "applied",
+      "appliedAt": 1774400000000
+    }
+  ]
+}
+```
+
+---
+
+## Data Contexts
+
+Data contexts isolate blockchain data for a node. Each context records storage engine, sync strategy, optional checkpoint metadata, and optional fast-sync snapshot id. The node must be stopped before creating the first active context or activating a different context.
+
+### List Data Contexts
+
+```http
+GET /nodes/:id/data-contexts
+Authorization: Bearer YOUR_TOKEN
+```
+
+**Response:**
+```json
+{
+  "contexts": [
+    {
+      "id": "ctx-state-testnet-rocksdb",
+      "nodeId": "node-abc123",
+      "label": "state-testnet-rocksdb",
+      "storageEngine": "rocksdb",
+      "syncStrategy": "fast-sync",
+      "checkpointHeight": 5000000,
+      "checkpointHash": "0xabc123",
+      "snapshotId": "snapshot-uuid",
+      "active": true
+    }
+  ],
+  "activeContext": {
+    "id": "ctx-state-testnet-rocksdb",
+    "active": true
+  }
+}
+```
+
+### Create Data Context
+
+```http
+POST /nodes/:id/data-contexts
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
+```
+
+**Request:**
+```json
+{
+  "label": "rpc-mainnet-fast",
+  "storageEngine": "leveldb",
+  "syncStrategy": "fast-sync",
+  "checkpointHeight": 5000000,
+  "checkpointHash": "0xabc123",
+  "snapshotId": "snapshot-uuid"
+}
+```
+
+**Response:** `201 Created`
+```json
+{
+  "context": {
+    "id": "ctx-rpc-mainnet-fast",
+    "label": "rpc-mainnet-fast",
+    "storageEngine": "leveldb",
+    "syncStrategy": "fast-sync",
+    "active": false
+  }
+}
+```
+
+### Activate Data Context
+
+```http
+POST /nodes/:id/data-contexts/:contextId/activate
+Authorization: Bearer YOUR_TOKEN
+```
+
+**Response:**
+```json
+{
+  "context": {
+    "id": "ctx-rpc-mainnet-fast",
+    "active": true
+  },
+  "node": {
+    "id": "node-abc123",
+    "settings": {
+      "storageEngine": "leveldb",
+      "syncStrategy": "fast-sync",
+      "activeDataContextId": "ctx-rpc-mainnet-fast"
+    }
+  }
+}
+```
+
+---
+
+## Fast Sync Snapshots
+
+Fast-sync snapshots are manifest records. NeoNexus can register local, HTTPS URL, or catalog sources, verify the SHA-256 checksum, and download HTTPS packages into the managed downloads directory. Clients cannot set `trusted`; verification records `lastVerifiedAt` and size metadata after the server validates the digest.
+
+### List Snapshots
+
+```http
+GET /fast-sync/snapshots
+Authorization: Bearer YOUR_TOKEN
+```
+
+### Register Snapshot
+
+```http
+POST /fast-sync/snapshots
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
+```
+
+**Request:**
+```json
+{
+  "name": "N3 testnet rocksdb 5M",
+  "sourceType": "url",
+  "source": "https://snapshots.example.com/n3-testnet-rocksdb-5000000.tar.zst",
+  "chain": "n3",
+  "network": "testnet",
+  "nodeType": "neo-cli",
+  "storageEngine": "rocksdb",
+  "height": 5000000,
+  "blockHash": "0xabc123",
+  "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "sizeBytes": 1073741824,
+  "signature": "optional-detached-signature"
+}
+```
+
+**Response:** `201 Created`
+```json
+{
+  "snapshot": {
+    "id": "snapshot-uuid",
+    "name": "N3 testnet rocksdb 5M",
+    "sourceType": "url",
+    "trusted": false,
+    "height": 5000000
+  }
+}
+```
+
+Valid `sourceType` values are `local`, `url`, and `catalog`. `chain` can be `n3` or `x`; N3 snapshots use `mainnet`, `testnet`, or `private` with `neo-cli`/`neo-go`, while Neo X snapshots use `neox-mainnet` or `neox-testnet` with `neox-go`.
+
+### Verify Snapshot
+
+```http
+POST /fast-sync/snapshots/:id/verify
+Authorization: Bearer YOUR_TOKEN
+```
+
+### Download Snapshot
+
+```http
+POST /fast-sync/snapshots/:id/download
+Authorization: Bearer YOUR_TOKEN
+```
+
+Download currently requires an HTTPS `source`. The returned `snapshot` includes updated verification metadata when checksum validation succeeds.
+
+---
+
+## Private Network Plans
+
+Private network plans generate complete Neo N3 local network layouts. Supported templates are `single`, `four`, and `seven`. Plans include network magic, per-node ports, seed list, validator count, standby committee public keys, generated N3 addresses, storage engine, and neo-cli plugin presets for the selected roles.
+
+### List Plans
+
+```http
+GET /private-networks/plans
+Authorization: Bearer YOUR_TOKEN
+```
+
+### Create Plan
+
+```http
+POST /private-networks/plans
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
+```
+
+**Request:**
+```json
+{
+  "name": "local-single",
+  "template": "single",
+  "nodeType": "neo-cli",
+  "storageEngine": "rocksdb",
+  "networkMagic": 123456789,
+  "baseRpcPort": 20332,
+  "baseP2pPort": 20333,
+  "baseWebsocketPort": 20334,
+  "baseMetricsPort": 22112,
+  "nodeNamePrefix": "local-single"
+}
+```
+
+**Response:** `201 Created`
+```json
+{
+  "plan": {
+    "id": "private-plan-uuid",
+    "name": "local-single",
+    "template": "single",
+    "networkMagic": 123456789,
+    "status": "draft",
+    "plan": {
+      "seedList": ["127.0.0.1:20333"],
+      "validatorsCount": 1,
+      "nodes": [
+        {
+          "name": "local-single-1",
+          "type": "neo-cli",
+          "roleIds": ["builtin-consensus", "builtin-rpc-api"],
+          "storageEngine": "rocksdb",
+          "ports": {
+            "rpc": 20332,
+            "p2p": 20333,
+            "websocket": 20334,
+            "metrics": 22112
+          },
+          "publicKey": "02...",
+          "address": "N..."
+        }
+      ]
+    }
+  }
+}
+```
+
+`nodeType` defaults to `neo-cli`, `storageEngine` defaults to `leveldb`, `networkMagic` is generated when omitted, and generated ports increment by 10 for each node. `POST /private-networks/plan` is accepted as a compatibility alias for creating a plan.
+
+### Get Plan
+
+```http
+GET /private-networks/plans/:id
+Authorization: Bearer YOUR_TOKEN
+```
+
+### Preview Configuration Snapshot
+
+```http
+GET /private-networks/plans/:id/configuration-snapshot
+Authorization: Bearer YOUR_TOKEN
+```
+
+The snapshot is compatible with the system restore shape and can be inspected before applying a plan.
+
+### Apply Plan
+
+```http
+POST /private-networks/plans/:id/apply
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
+```
+
+**Request:**
+```json
+{
+  "replaceExisting": false
+}
+```
+
+**Response:**
+```json
+{
+  "result": {
+    "restoredCount": 1,
+    "skippedCount": 0,
+    "failedCount": 0
+  },
+  "plan": {
+    "id": "private-plan-uuid",
+    "status": "applied"
+  }
+}
+```
+
+`POST /private-networks/:planId/apply` is accepted as a compatibility alias.
 
 ---
 
@@ -956,9 +1443,27 @@ All errors follow this format:
 | `NODE_NOT_RUNNING` | Cannot stop a node that's not running |
 | `INVALID_NODE_TYPE` | Unsupported node type |
 | `INVALID_NETWORK` | Unsupported network |
+| `INVALID_STORAGE_ENGINE` | Storage engine must be `leveldb` or `rocksdb` |
+| `INVALID_SYNC_STRATEGY` | Sync strategy must be `full`, `light`, or `fast-sync` |
 | `DOWNLOAD_FAILED` | Failed to download node binary |
 | `PORT_UNAVAILABLE` | Required port is in use |
 | `PLUGIN_NOT_FOUND` | The specified plugin doesn't exist |
+| `NODE_NOT_STOPPED` | Node must be stopped before changing role or data context |
+| `NODE_ROLE_NOT_FOUND` | The requested role does not exist |
+| `NODE_ROLE_REQUEST_INVALID` | Custom role or role application request is invalid |
+| `NODE_ROLE_INCOMPATIBLE` | Role does not support the target node type |
+| `NODE_ROLE_PLUGIN_UNSUPPORTED` | Role plugin changes are not supported for the target node type |
+| `NODE_ROLE_PREREQUISITE_MISSING` | A role prerequisite, such as signer configuration, is missing |
+| `DATA_CONTEXT_INVALID` | Data context request is invalid |
+| `FAST_SYNC_SNAPSHOT_INVALID` | Snapshot manifest is invalid |
+| `FAST_SYNC_SNAPSHOT_NOT_FOUND` | Snapshot manifest does not exist |
+| `FAST_SYNC_VERIFY_UNSUPPORTED` | Snapshot cannot be verified by the requested method |
+| `FAST_SYNC_DOWNLOAD_UNSUPPORTED` | Snapshot source cannot be downloaded automatically |
+| `FAST_SYNC_SNAPSHOT_HASH_MISMATCH` | Snapshot checksum did not match the manifest |
+| `FAST_SYNC_DOWNLOAD_FAILED` | Snapshot download failed |
+| `PRIVATE_NETWORK_PLAN_INVALID` | Private network plan request is invalid |
+| `PRIVATE_NETWORK_PLAN_NOT_FOUND` | Private network plan does not exist |
+| `PRIVATE_NETWORK_PLAN_CORRUPT` | Stored private network plan cannot be parsed safely |
 | `REMOTE_SERVER_URL_PRIVATE_TARGET` | Remote server URL targets a private or local address |
 | `SIGNER_ENDPOINT_PRIVATE_TARGET` | Secure signer endpoint targets a private or local address |
 | `INTEGRATION_URL_PRIVATE_TARGET` | Integration URL targets a private or local address |
