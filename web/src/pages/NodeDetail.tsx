@@ -7,6 +7,7 @@ import { mergeNodeLogs } from '../utils/realtime';
 import { formatBytes, formatDuration, formatVersion } from '../utils/format';
 import { NodeConfigEditor } from './node-detail/NodeConfigEditor';
 import { NodeLogsView } from './node-detail/NodeLogsView';
+import { NodeOrchestrationPanel } from './node-detail/NodeOrchestrationPanel';
 import { NodeProtectionLabel } from '../components/NodeProtectionLabel';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ApiRequestError } from '../utils/api';
@@ -386,6 +387,8 @@ export default function NodeDetail() {
                 </div>
               </div>
             )}
+
+            <NodeOrchestrationPanel node={node} />
 
             <NodeConfigEditor node={node} />
           </div>

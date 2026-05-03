@@ -1,6 +1,9 @@
 import crypto from "node:crypto";
-import { createReadStream } from "node:fs";
-import { open } from "node:fs/promises";
+import { createReadStream, createWriteStream } from "node:fs";
+import { mkdir, open, unlink } from "node:fs/promises";
+import { join } from "node:path";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import type Database from "better-sqlite3";
 import type {
   FastSyncSnapshot,
@@ -13,6 +16,7 @@ import type {
 } from "../types";
 import type { FastSyncSnapshotRow } from "../types/database";
 import { ApiError } from "../api/errors";
+import { getFastSyncStagingPath } from "../utils/paths";
 
 const SOURCE_TYPES = ["local", "url", "catalog"] as const satisfies readonly FastSyncSourceType[];
 const CHAINS = ["n3", "x"] as const satisfies readonly NodeChain[];
@@ -146,6 +150,70 @@ export class FastSyncManager {
     };
   }
 
+  async downloadSnapshot(id: string): Promise<FastSyncSnapshot> {
+    const snapshot = this.getSnapshot(id);
+    if (!snapshot) {
+      throw new ApiError(
+        "FAST_SYNC_SNAPSHOT_NOT_FOUND",
+        `Fast sync snapshot ${id} not found`,
+        "Register the snapshot manifest first, then retry download.",
+        404,
+      );
+    }
+    if (snapshot.sourceType === "local") {
+      return this.verifySnapshot(id);
+    }
+    if (snapshot.sourceType !== "url" && snapshot.sourceType !== "catalog") {
+      throw new ApiError(
+        "FAST_SYNC_DOWNLOAD_UNSUPPORTED",
+        `Fast sync snapshot ${id} cannot be downloaded because sourceType is ${snapshot.sourceType}`,
+        "Use a URL or catalog snapshot manifest for automatic downloads.",
+      );
+    }
+
+    const parsed = this.assertHttpsUrl(snapshot.source);
+    const stagingDir = getFastSyncStagingPath(snapshot.id);
+    await mkdir(stagingDir, { recursive: true });
+    const destination = join(stagingDir, this.snapshotFileName(parsed, snapshot));
+
+    try {
+      await this.downloadToFile(parsed, destination);
+      const { sha256: actualSha256, sizeBytes } = await this.hashLocalFile(destination);
+      if (actualSha256 !== snapshot.sha256.toLowerCase()) {
+        await unlink(destination).catch(() => undefined);
+        throw new ApiError(
+          "FAST_SYNC_SNAPSHOT_HASH_MISMATCH",
+          `Fast sync snapshot ${id} sha256 mismatch after download: expected ${snapshot.sha256}, got ${actualSha256}`,
+          "Check the snapshot manifest or replace the remote archive before retrying.",
+          409,
+        );
+      }
+
+      const lastVerifiedAt = Date.now();
+      this.db
+        .prepare("UPDATE fast_sync_snapshots SET source_type = ?, source = ?, size_bytes = ?, last_verified_at = ? WHERE id = ?")
+        .run("local", destination, sizeBytes, lastVerifiedAt, id);
+
+      return {
+        ...snapshot,
+        sourceType: "local",
+        source: destination,
+        sizeBytes,
+        lastVerifiedAt,
+      };
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      await unlink(destination).catch(() => undefined);
+      throw new ApiError(
+        "FAST_SYNC_DOWNLOAD_FAILED",
+        `Fast sync snapshot ${id} could not be downloaded`,
+        error instanceof Error ? error.message : "Check the URL and retry.",
+      );
+    }
+  }
+
   assertCompatible(snapshot: FastSyncSnapshot, node: FastSyncCompatibleNode): void {
     const nodeStorageEngine = node.storageEngine ?? node.settings?.storageEngine ?? "leveldb";
     const mismatches: string[] = [];
@@ -265,6 +333,43 @@ export class FastSyncManager {
     if (nodeType !== "neox-go") {
       throw this.invalidManifest(`nodeType ${nodeType} is not valid for chain x`);
     }
+  }
+
+  private assertHttpsUrl(source: string): URL {
+    let parsed: URL;
+    try {
+      parsed = new URL(source);
+    } catch {
+      throw new ApiError(
+        "FAST_SYNC_DOWNLOAD_URL_INVALID",
+        `Fast sync snapshot source is not a valid URL: ${source}`,
+        "Use an HTTPS URL for automatic downloads.",
+      );
+    }
+    if (parsed.protocol !== "https:") {
+      throw new ApiError(
+        "FAST_SYNC_DOWNLOAD_URL_INVALID",
+        `Fast sync snapshot source must use HTTPS: ${source}`,
+        "Use an HTTPS URL for automatic downloads.",
+      );
+    }
+    return parsed;
+  }
+
+  private snapshotFileName(source: URL, snapshot: FastSyncSnapshot): string {
+    const candidate = source.pathname.split("/").filter(Boolean).at(-1);
+    const fileName = candidate && /^[A-Za-z0-9._-]+$/.test(candidate)
+      ? candidate
+      : `${snapshot.id}.snapshot`;
+    return fileName;
+  }
+
+  private async downloadToFile(source: URL, destination: string): Promise<void> {
+    const response = await fetch(source);
+    if (!response.ok || !response.body) {
+      throw new Error(`Download failed with HTTP ${response.status}`);
+    }
+    await pipeline(Readable.fromWeb(response.body), createWriteStream(destination));
   }
 
   private async hashLocalFile(filePath: string): Promise<{ sha256: string; sizeBytes: number }> {

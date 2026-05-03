@@ -1,5 +1,29 @@
-import si from 'systeminformation';
 import type { SystemMetrics } from '../types/index';
+
+interface SystemInformationFacade {
+  currentLoad(): Promise<{ currentLoad: number }>;
+  cpu(): Promise<{ cores: number }>;
+  mem(): Promise<{ total: number; used: number; free: number }>;
+  fsSize(): Promise<Array<{ size: number; used: number; use: number }>>;
+  networkStats(): Promise<Array<{ rx_bytes: number; tx_bytes: number }>>;
+  processes(): Promise<{
+    list: Array<{
+      pid: number;
+      name?: string;
+      command?: string;
+      cpu: number;
+      memRss: number;
+    }>;
+  }>;
+}
+
+let systemInformationModule: Promise<SystemInformationFacade> | null = null;
+const systemInformationPackageName: string = 'systeminformation';
+
+async function getSystemInformation(): Promise<SystemInformationFacade> {
+  systemInformationModule ??= import(systemInformationPackageName) as Promise<SystemInformationFacade>;
+  return systemInformationModule;
+}
 
 export class MetricsCollector {
   private lastNetworkStats: { rx: number; tx: number; time: number } | null = null;
@@ -27,6 +51,7 @@ export class MetricsCollector {
    * Get CPU metrics
    */
   private async getCpuMetrics(): Promise<{ usage: number; cores: number }> {
+    const si = await getSystemInformation();
     const [currentLoad, cpuInfo] = await Promise.all([
       si.currentLoad(),
       si.cpu(),
@@ -42,6 +67,7 @@ export class MetricsCollector {
    * Get memory metrics
    */
   private async getMemoryMetrics(): Promise<SystemMetrics['memory']> {
+    const si = await getSystemInformation();
     const mem = await si.mem();
 
     return {
@@ -56,6 +82,7 @@ export class MetricsCollector {
    * Get disk metrics
    */
   private async getDiskMetrics(): Promise<SystemMetrics['disk']> {
+    const si = await getSystemInformation();
     const fs = await si.fsSize();
     const mainFs = fs[0]; // Use first filesystem
 
@@ -75,6 +102,7 @@ export class MetricsCollector {
    * Get network metrics (delta since last call)
    */
   private async getNetworkMetrics(): Promise<{ rx: number; tx: number }> {
+    const si = await getSystemInformation();
     const network = await si.networkStats();
     const mainInterface = network[0];
 
@@ -110,6 +138,7 @@ export class MetricsCollector {
    */
   async getProcessMetrics(pid: number): Promise<{ cpu: number; memory: number; ppid?: number } | null> {
     try {
+      const si = await getSystemInformation();
       const processes = await si.processes();
       const process = processes.list.find(p => p.pid === pid);
 
@@ -136,6 +165,7 @@ export class MetricsCollector {
     command?: string;
   }>> {
     try {
+      const si = await getSystemInformation();
       const processes = await si.processes();
       return processes.list
         .filter(p => p.cpu > 0 || p.memRss > 0)

@@ -32,6 +32,7 @@ interface LayoutProps {
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Overview' },
   { path: '/nodes', icon: Server, label: 'Nodes' },
+  { path: '/private-networks', icon: Network, label: 'Private nets' },
   { path: '/servers', icon: Network, label: 'Servers' },
   { path: '/plugins', icon: Puzzle, label: 'Plugins' },
   { path: '/integrations', icon: Plug, label: 'Integrations' },

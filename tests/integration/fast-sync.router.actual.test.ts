@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import crypto from "node:crypto";
 import express from "express";
 import fs from "node:fs";
 import os from "node:os";
@@ -66,6 +67,7 @@ describe("Actual fast sync router", () => {
     listSnapshots: ReturnType<typeof vi.fn>;
     registerSnapshot: ReturnType<typeof vi.fn>;
     verifySnapshot: ReturnType<typeof vi.fn>;
+    downloadSnapshot: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -76,9 +78,14 @@ describe("Actual fast sync router", () => {
       listSnapshots: vi.fn(),
       registerSnapshot: vi.fn(),
       verifySnapshot: vi.fn(),
+      downloadSnapshot: vi.fn(),
     };
 
     app.use("/api/fast-sync", createFastSyncRouter(mockManager as never));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   const createProtectedApp = (user: SessionUser | null) => {
@@ -132,6 +139,23 @@ describe("Actual fast sync router", () => {
     expect(response.status).toBe(200);
     expect(response.body.snapshot.lastVerifiedAt).toBe(123456);
     expect(mockManager.verifySnapshot).toHaveBeenCalledWith("snap-1");
+  });
+
+  it("downloads a remote snapshot manifest", async () => {
+    mockManager.downloadSnapshot.mockResolvedValue({
+      id: "snap-1",
+      name: "N3 mainnet",
+      sourceType: "local",
+      source: "/tmp/neonexus-fast-sync/snap-1/snapshot.tar.zst",
+      sizeBytes: 128,
+      lastVerifiedAt: 123456,
+    });
+
+    const response = await request(app).post("/api/fast-sync/snapshots/snap-1/download");
+
+    expect(response.status).toBe(200);
+    expect(response.body.snapshot.sourceType).toBe("local");
+    expect(mockManager.downloadSnapshot).toHaveBeenCalledWith("snap-1");
   });
 
   it("returns structured errors from manager failures", async () => {
@@ -238,5 +262,30 @@ describe("Actual fast sync router", () => {
 
     expect(response.status).toBe(409);
     expect(response.body.code).toBe("FAST_SYNC_SNAPSHOT_HASH_MISMATCH");
+  });
+
+  it("downloads and verifies URL snapshots with the real manager", async () => {
+    const manager = createManager();
+    const bytes = Buffer.from("actual snapshot bytes");
+    const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
+    const snapshot = manager.registerSnapshot(validPayload({
+      sourceType: "url",
+      source: "https://snapshots.example.test/mainnet.tar.zst",
+      sha256,
+    }));
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(bytes)));
+    const realApp = express();
+    realApp.use(express.json());
+    realApp.use("/api/fast-sync", createFastSyncRouter(manager));
+
+    const response = await request(realApp).post(`/api/fast-sync/snapshots/${snapshot.id}/download`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.snapshot).toMatchObject({
+      sourceType: "local",
+      sizeBytes: bytes.length,
+    });
+    expect(response.body.snapshot.source).toMatch(/mainnet\.tar\.zst$/);
+    expect(response.body.snapshot.lastVerifiedAt).toBeTypeOf("number");
   });
 });

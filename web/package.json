@@ -10,7 +10,7 @@
     "test": "vitest run --config vitest.config.ts",
     "test:coverage": "vitest run --config vitest.config.ts --coverage",
     "preview": "vite preview",
-    "lint": "eslint ."
+    "lint": "eslint src tests *.config.*"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.95.2",

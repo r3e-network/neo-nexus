@@ -8,6 +8,8 @@ import { ApiRequestError } from '../utils/api';
 import { normalizeNodeUpsertPayload, toNodeFormValues } from '../utils/nodePayloads';
 import { useSecureSigners } from '../hooks/useSecureSigners';
 import { useFeatures } from '../hooks/useFeatures';
+import { useApplyNodeRole, useNodeRoles, type RoleSyncStrategy, type StorageEngine } from '../hooks/useNodeOrchestration';
+import { STORAGE_ENGINE_OPTIONS, SYNC_STRATEGY_OPTIONS, roleSupportsNode, summarizeRole } from '../utils/orchestration';
 
 const N3_NODE_TYPES = [
   { value: 'neo-cli', label: 'Neo CLI (C#)', description: 'Official Neo implementation with plugin support', chain: 'n3' as const },
@@ -41,6 +43,8 @@ const SYNC_MODES = [
 export default function CreateNode() {
   const navigate = useNavigate();
   const createNode = useCreateNode();
+  const applyRole = useApplyNodeRole();
+  const rolesQuery = useNodeRoles();
   const secureSigners = useSecureSigners();
   const features = useFeatures();
   const NODE_TYPES = features.neox ? [...N3_NODE_TYPES, ...X_NODE_TYPES] : N3_NODE_TYPES;
@@ -61,6 +65,9 @@ export default function CreateNode() {
       },
     }),
   );
+  const [initialRoleId, setInitialRoleId] = useState('');
+  const compatibleRoles = (rolesQuery.data ?? []).filter((role) => roleSupportsNode(role, formData.type));
+  const selectedInitialRole = compatibleRoles.find((role) => role.id === initialRoleId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,8 +96,27 @@ export default function CreateNode() {
     }
 
     try {
-      await createNode.mutateAsync(normalizeNodeUpsertPayload(formData));
-      navigate('/nodes');
+      const node = await createNode.mutateAsync(normalizeNodeUpsertPayload(formData));
+      if (selectedInitialRole) {
+        try {
+          await applyRole.mutateAsync({
+            roleId: selectedInitialRole.id,
+            nodeId: node.id,
+            storageEngine: formData.storageEngine,
+          });
+        } catch (roleError) {
+          setError(`Node was created, but ${selectedInitialRole.name} could not be applied.`);
+          if (roleError instanceof ApiRequestError) {
+            setSuggestion(roleError.suggestion ?? roleError.message);
+            setCode(roleError.code ?? '');
+          } else {
+            setSuggestion(roleError instanceof Error ? roleError.message : 'Open the node detail page and retry the role application after the node is stopped.');
+            setCode('');
+          }
+          return;
+        }
+      }
+      navigate(`/nodes/${node.id}`);
     } catch (err) {
       if (err instanceof ApiRequestError) {
         setError(err.message);
@@ -179,6 +205,7 @@ export default function CreateNode() {
                             }
                           : {}),
                       });
+                      setInitialRoleId('');
                     }}
                     className="sr-only"
                   />
@@ -219,6 +246,52 @@ export default function CreateNode() {
             </div>
           </div>
 
+          {/* Role Preset */}
+          <div className="animate-fade-in-up" style={{ animationDelay: '0.18s' }}>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Role Preset
+            </label>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
+                <div>
+                  <select
+                    className="input"
+                    value={initialRoleId}
+                    onChange={(e) => {
+                      const roleId = e.target.value;
+                      const role = compatibleRoles.find((candidate) => candidate.id === roleId);
+                      setInitialRoleId(roleId);
+                      setFormData((current) => ({
+                        ...current,
+                        ...(role?.profile.storageEngine ? { storageEngine: role.profile.storageEngine } : {}),
+                        ...(role?.profile.sync?.strategy ? { syncStrategy: role.profile.sync.strategy } : {}),
+                      }));
+                    }}
+                    disabled={rolesQuery.isLoading || compatibleRoles.length === 0}
+                  >
+                    <option value="">No role preset</option>
+                    {compatibleRoles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name} · {role.kind}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-xs text-slate-600">
+                    {selectedInitialRole
+                      ? summarizeRole(selectedInitialRole)
+                      : compatibleRoles.length === 0
+                        ? 'No compatible saved roles for this implementation yet. Create one from a node detail page.'
+                        : 'Optionally apply plugins, config, storage, sync, and data context immediately after creation.'}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700">
+                  <p className="font-medium text-slate-950">Apply timing</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">The new node is created first, then the role is applied while it is stopped.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Sync Mode */}
           <div className="animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
             <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -246,6 +319,67 @@ export default function CreateNode() {
                   <p className="text-sm text-slate-600 mt-1">{mode.description}</p>
                 </label>
               ))}
+            </div>
+          </div>
+
+          <div className="animate-fade-in-up rounded-lg border border-slate-200 bg-slate-50 p-4" style={{ animationDelay: '0.23s' }}>
+            <div className="mb-3">
+              <h2 className="text-sm font-medium text-slate-950">Storage and Initial Sync Strategy</h2>
+              <p className="mt-1 text-sm text-slate-600">Choose the node database engine and the strategy NeoNexus records for role/data-context orchestration.</p>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-2">Storage Engine</label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {STORAGE_ENGINE_OPTIONS.map((engine) => (
+                    <label
+                      key={engine.value}
+                      className={`cursor-pointer rounded-lg border p-4 transition-all ${
+                        formData.storageEngine === engine.value
+                          ? 'border-teal-500 bg-white'
+                          : 'border-slate-200 bg-white/70 hover:border-slate-300'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="storageEngine"
+                        value={engine.value}
+                        checked={formData.storageEngine === engine.value}
+                        onChange={(e) => setFormData({ ...formData, storageEngine: e.target.value as StorageEngine })}
+                        className="sr-only"
+                      />
+                      <p className="font-medium text-slate-950">{engine.label}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">{engine.description}</p>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-2">Sync Strategy</label>
+                <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                  {SYNC_STRATEGY_OPTIONS.map((strategy) => (
+                    <label
+                      key={strategy.value}
+                      className={`cursor-pointer rounded-lg border p-4 transition-all ${
+                        formData.syncStrategy === strategy.value
+                          ? 'border-teal-500 bg-white'
+                          : 'border-slate-200 bg-white/70 hover:border-slate-300'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="syncStrategy"
+                        value={strategy.value}
+                        checked={formData.syncStrategy === strategy.value}
+                        onChange={(e) => setFormData({ ...formData, syncStrategy: e.target.value as RoleSyncStrategy })}
+                        className="sr-only"
+                      />
+                      <p className="font-medium text-slate-950">{strategy.label}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">{strategy.description}</p>
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -442,16 +576,16 @@ export default function CreateNode() {
             </Link>
             <button
               type="submit"
-              disabled={createNode.isPending}
+              disabled={createNode.isPending || applyRole.isPending}
               className="btn btn-primary justify-center sm:flex-1"
             >
-              {createNode.isPending ? (
+              {createNode.isPending || applyRole.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Creating...
+                  {applyRole.isPending ? 'Applying role...' : 'Creating...'}
                 </>
               ) : (
-                'Create Node'
+                selectedInitialRole ? 'Create and Apply Role' : 'Create Node'
               )}
             </button>
           </div>
