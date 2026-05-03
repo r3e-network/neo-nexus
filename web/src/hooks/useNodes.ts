@@ -37,6 +37,14 @@ export interface Node {
     maxPeers?: number;
     relay?: boolean;
     debugMode?: boolean;
+    storageEngine?: 'leveldb' | 'rocksdb';
+    syncStrategy?: 'full' | 'light' | 'fast-sync';
+    activeDataContextId?: string;
+    role?: {
+      id: string;
+      name: string;
+      appliedAt: number;
+    };
     customConfig?: Record<string, unknown>;
     keyProtection?: {
       mode: 'standard' | 'secure-signer';

@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 import type { FastSyncManager, RegisterFastSyncSnapshotInput } from "../../core/FastSyncManager";
 import { respondWithApiError } from "../respond";
 
-type FastSyncOperations = Pick<FastSyncManager, "listSnapshots" | "registerSnapshot" | "verifySnapshot">;
+type FastSyncOperations = Pick<FastSyncManager, "listSnapshots" | "registerSnapshot" | "verifySnapshot" | "downloadSnapshot">;
 
 export function createFastSyncRouter(fastSyncManager: FastSyncOperations): Router {
   const router = Router();
@@ -28,6 +28,15 @@ export function createFastSyncRouter(fastSyncManager: FastSyncOperations): Route
   router.post("/snapshots/:id/verify", async (req: Request, res: Response) => {
     try {
       const snapshot = await fastSyncManager.verifySnapshot(req.params.id as string);
+      res.json({ snapshot });
+    } catch (error) {
+      respondWithApiError(res, error);
+    }
+  });
+
+  router.post("/snapshots/:id/download", async (req: Request, res: Response) => {
+    try {
+      const snapshot = await fastSyncManager.downloadSnapshot(req.params.id as string);
       res.json({ snapshot });
     } catch (error) {
       respondWithApiError(res, error);

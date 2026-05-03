@@ -5,6 +5,7 @@ import {
   Eye,
   FolderOpen,
   Gauge,
+  Network,
   Plus,
   Play,
   Search,
@@ -109,6 +110,9 @@ export default function Nodes() {
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
+            <Link to="/private-networks" className="btn btn-secondary justify-center">
+              <Network className="h-4 w-4" /> Private network
+            </Link>
             <Link to="/nodes/import" className="btn btn-secondary justify-center">
               <FolderOpen className="h-4 w-4" /> Import existing
             </Link>

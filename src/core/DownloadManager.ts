@@ -2,7 +2,6 @@ import { createWriteStream, existsSync, mkdirSync, readdirSync, statSync, unlink
 import { copyFile, chmod } from "node:fs/promises";
 import { get, request as httpsRequest } from "node:https";
 import { join } from "node:path";
-import extractZip from "extract-zip";
 import { paths } from "../utils/paths";
 import { assertReleaseVersion } from "../utils/nodeValidation";
 import type { NodeType, ReleaseInfo } from "../types/index";
@@ -36,6 +35,11 @@ const PLUGIN_REPO = {
 
 export function hasUsableDownloadFile(path: string): boolean {
   return existsSync(path) && statSync(path).size > 0;
+}
+
+async function extractArchive(source: string, destination: string): Promise<void> {
+  const { default: extractZip } = await import("extract-zip");
+  await extractZip(source, { dir: destination });
 }
 
 export function getNeoXAssetInfo(
@@ -155,7 +159,7 @@ export class DownloadManager {
     // Extract
     if (!existsSync(extractPath)) {
       mkdirSync(extractPath, { recursive: true });
-      await extractZip(downloadPath, { dir: extractPath });
+      await extractArchive(downloadPath, extractPath);
     }
 
     return join(extractPath, "neo-cli");
@@ -258,7 +262,7 @@ export class DownloadManager {
     }
 
     // Extract
-    await extractZip(downloadPath, { dir: pluginDir });
+    await extractArchive(downloadPath, pluginDir);
 
     return pluginDir;
   }

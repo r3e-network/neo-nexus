@@ -221,6 +221,29 @@ describe("NodeRoleApplicationService", () => {
     expect(roleManager.listApplications("node-1")).toEqual([]);
   });
 
+  it("applies secure signer client roles when the node already has a signer profile", async () => {
+    node = createNode({
+      settings: {
+        keyProtection: {
+          mode: "secure-signer",
+          signerProfileId: "signer-prod",
+          signerName: "Production signer",
+        },
+      },
+    });
+
+    const result = await service.apply("builtin-secure-signer-client", "node-1", {}, "admin-1");
+
+    expect(result.application.status).toBe("applied");
+    expect(result.node.settings.keyProtection).toMatchObject({
+      mode: "secure-signer",
+      signerProfileId: "signer-prod",
+      signerName: "Production signer",
+    });
+    expect(nodeManager.installPlugin).toHaveBeenCalledWith("node-1", "SignClient", {});
+    expect(nodeManager.setPluginEnabled).toHaveBeenCalledWith("node-1", "SignClient", true);
+  });
+
   it("records a failed application when plugin installation fails", async () => {
     nodeManager.installPlugin.mockRejectedValueOnce(new ApiError("PLUGIN_INSTALL_FAILED", "plugin install failed", "Try again."));
 

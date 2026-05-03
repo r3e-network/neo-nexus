@@ -7,6 +7,7 @@ import {
   FolderOpen,
   Gauge,
   KeyRound,
+  Network,
   PlugZap,
   Plus,
   Server,
@@ -75,6 +76,7 @@ export default function Dashboard() {
 
   const quickActions = [
     { title: "Create native node", description: "Provision neo-cli or neo-go with safe defaults.", href: "/nodes/create", icon: Plus, accent: "text-blue-700" },
+    { title: "Plan private network", description: "Generate 1, 4, or 7 N3 nodes with addresses and ports.", href: "/private-networks", icon: Network, accent: "text-cyan-700" },
     { title: "Import existing node", description: "Attach observe-only first, then adopt safely.", href: "/nodes/import", icon: FolderOpen, accent: "text-amber-700" },
     { title: "Configure plugins", description: "Enable RPC, storage, monitoring and tooling.", href: "/plugins", icon: PlugZap, accent: "text-teal-700" },
     { title: "Protect private keys", description: "Register TEE, Nitro, SGX or HSM signer profiles.", href: "/settings#secure-signers", icon: KeyRound, accent: "text-teal-700" },

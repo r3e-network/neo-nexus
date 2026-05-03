@@ -109,6 +109,24 @@ function settingsWithoutStorageEngine(settings: Partial<NodeSettings> | undefine
   return rest;
 }
 
+function roleSettingsForNode(role: NodeRoleProfile, node: NodeInstance): Partial<NodeSettings> {
+  const settings = settingsWithoutStorageEngine(role.profile.settings);
+  if (
+    settings.keyProtection?.mode === "secure-signer"
+    && !settings.keyProtection.signerProfileId
+    && node.settings.keyProtection?.mode === "secure-signer"
+  ) {
+    return {
+      ...settings,
+      keyProtection: {
+        ...node.settings.keyProtection,
+        ...settings.keyProtection,
+      },
+    };
+  }
+  return settings;
+}
+
 export class NodeRoleApplicationService {
   constructor(private readonly deps: NodeRoleApplicationServiceDeps) {}
 
@@ -137,7 +155,7 @@ export class NodeRoleApplicationService {
     if (node.process.status !== "stopped") {
       throw nodeNotStopped(node);
     }
-    this.preflightRole(role);
+    this.preflightRole(role, node);
 
     const storageEngineOverride = this.normalizeStorageEngine(options.storageEngine);
     const activeDataContext = this.deps.dataContextManager.getActiveContext(nodeId) ?? undefined;
@@ -178,7 +196,7 @@ export class NodeRoleApplicationService {
         node = await this.applyPlugins(role, node);
       }
 
-      const roleSettings = settingsWithoutStorageEngine(role.profile.settings);
+      const roleSettings = roleSettingsForNode(role, node);
       node = await this.deps.nodeManager.updateNode(nodeId, {
         settings: {
           ...roleSettings,
@@ -241,9 +259,12 @@ export class NodeRoleApplicationService {
     return role;
   }
 
-  private preflightRole(role: NodeRoleProfile): void {
+  private preflightRole(role: NodeRoleProfile, node: NodeInstance): void {
     const keyProtection = role.profile.settings?.keyProtection;
-    if (keyProtection?.mode === "secure-signer" && !keyProtection.signerProfileId) {
+    const existingSignerProfileId = node.settings.keyProtection?.mode === "secure-signer"
+      ? node.settings.keyProtection.signerProfileId
+      : undefined;
+    if (keyProtection?.mode === "secure-signer" && !keyProtection.signerProfileId && !existingSignerProfileId) {
       throw rolePrerequisiteMissing(`Role ${role.name} requires a secure signer profile before it can be applied`);
     }
   }
