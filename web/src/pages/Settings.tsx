@@ -9,6 +9,7 @@ import { DangerZoneSection } from "./settings/DangerZoneSection";
 import { UserManagement } from "./settings/UserManagement";
 import { AuditLogSection } from "./settings/AuditLogSection";
 import { useAuth } from "../hooks/useAuth";
+import { PROJECT_LINKS } from "../config/constants";
 
 export default function SettingsPage() {
   const { data: systemMetrics } = useSystemMetrics();
@@ -92,7 +93,7 @@ export default function SettingsPage() {
         <div className="space-y-2 text-sm text-slate-600">
           <p>Version: <span className="text-slate-950">{__APP_VERSION__}</span></p>
           <p>License: <span className="text-slate-950">MIT</span></p>
-          <p>Repository: <a href="https://github.com/r3e-network/neonexus" className="text-blue-700 hover:underline" target="_blank" rel="noopener noreferrer">github.com/r3e-network/neonexus</a></p>
+          <p>Repository: <a href={PROJECT_LINKS.repositoryUrl} className="text-teal-700 hover:text-teal-900 hover:underline" target="_blank" rel="noopener noreferrer">{PROJECT_LINKS.repositoryLabel}</a></p>
         </div>
       </div>
     </div>

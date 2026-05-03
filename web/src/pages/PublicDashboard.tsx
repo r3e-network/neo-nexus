@@ -452,7 +452,7 @@ export default function PublicDashboard() {
           <p>NeoNexus Node Manager v{__APP_VERSION__} • Public Status Page</p>
           <p className="mt-1">
             This is a read-only view.{' '}
-            <Link to="/login" className="text-blue-700 hover:text-blue-900">
+            <Link to="/login" className="text-teal-700 hover:text-teal-900">
               Login
             </Link>{' '}
             to manage nodes.

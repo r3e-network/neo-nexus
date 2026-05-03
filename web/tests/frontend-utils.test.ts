@@ -4,6 +4,7 @@ import { hasPluginConfigChanges } from "../src/pages/plugins/PluginCard";
 import { nextSaveAndTestEnabledState } from "../src/components/IntegrationCard";
 import { getPublicDashboardFreshness, PUBLIC_DASHBOARD_STALE_AFTER_MS } from "../src/pages/PublicDashboard";
 import { mergeNodeLogs, type RealtimeLogEntry } from "../src/utils/realtime";
+import { PROJECT_LINKS } from "../src/config/constants";
 
 describe("frontend formatting utilities", () => {
   it("formats byte counts for dashboard resource cards", () => {
@@ -40,6 +41,13 @@ describe("realtime log merging", () => {
 });
 
 describe("operator surface helpers", () => {
+  it("uses the canonical NeoNexus repository link across the frontend", () => {
+    expect(PROJECT_LINKS).toMatchObject({
+      repositoryUrl: "https://github.com/r3e-network/neo-nexus",
+      repositoryLabel: "github.com/r3e-network/neo-nexus",
+    });
+  });
+
   it("does not mark installed plugin config dirty when the draft matches saved config", () => {
     expect(hasPluginConfigChanges({ Port: 10332, Enabled: true }, { Port: 10332, Enabled: true })).toBe(false);
   });

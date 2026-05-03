@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useNotifications } from '../hooks/useNotifications';
+import { PROJECT_LINKS } from '../config/constants';
 
 interface LayoutProps {
   children: ReactNode;
@@ -136,8 +137,8 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* Footer */}
           <div className="p-4 border-t border-slate-200 space-y-2">
-            <a 
-              href="https://github.com/r3e-network/neonexus"
+            <a
+              href={PROJECT_LINKS.repositoryUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-950"

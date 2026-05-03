@@ -179,7 +179,7 @@ export default function Nodes() {
             <div className="py-12 text-center">
               <Activity className="mx-auto mb-4 h-12 w-12 text-slate-600" />
               <p className="text-slate-600">No nodes match this view.</p>
-              <button type="button" onClick={() => { setSearchTerm(""); setActiveFilter("all"); }} className="mt-3 text-sm font-medium text-blue-700 hover:text-blue-900">
+              <button type="button" onClick={() => { setSearchTerm(""); setActiveFilter("all"); }} className="mt-3 text-sm font-medium text-teal-700 hover:text-teal-900">
                 Clear filters
               </button>
             </div>
@@ -195,7 +195,118 @@ export default function Nodes() {
             />
           )
         ) : (
-          <div className="table-shell">
+          <>
+          <div className="space-y-3 md:hidden">
+            {filteredNodes.map((node) => {
+              const canControlLifecycle = lifecycleAllowed(node);
+              const isRunning = node.process.status === "running";
+              return (
+                <article key={node.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <div className={`rounded-lg p-2 ${node.type === "neo-cli" ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700"}`}>
+                      <Activity className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <Link to={`/nodes/${node.id}`} className="text-base font-semibold leading-6 text-slate-950 hover:text-teal-800">
+                        {node.name}
+                      </Link>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className={`status-badge status-${node.process.status}`}>{node.process.status}</span>
+                        {node.chain === "x" && (
+                          <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">Neo X</span>
+                        )}
+                        <NodeProtectionLabel node={node} padding="px-2 py-0.5" />
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-slate-500">
+                        {node.type} · {formatVersion(node.version)} · {ownershipLabel(node)}
+                      </p>
+                      {node.process.errorMessage && (
+                        <p className="mt-2 flex items-start gap-1 text-xs leading-5 text-red-700">
+                          <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" /> <span>{node.process.errorMessage}</span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-lg bg-slate-50 p-3">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">Network</dt>
+                      <dd className="mt-1 capitalize text-slate-900">{node.network}</dd>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 p-3">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">Sync</dt>
+                      <dd className="mt-1 capitalize text-slate-900">{node.syncMode}</dd>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 p-3">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">Block</dt>
+                      <dd className="mt-1 text-slate-900">{node.metrics?.blockHeight?.toLocaleString() ?? "—"}</dd>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 p-3">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">Peers</dt>
+                      <dd className="mt-1 text-slate-900">{node.metrics?.connectedPeers ?? "—"}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="mt-3 rounded-lg bg-slate-50 p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Ports</p>
+                    <div className="mt-2 flex flex-wrap gap-2 font-mono text-xs text-slate-600">
+                      <span>RPC {node.ports.rpc}</span>
+                      <span>P2P {node.ports.p2p}</span>
+                      {node.ports.websocket && <span>WS {node.ports.websocket}</span>}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 rounded-lg bg-slate-50 p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Security</p>
+                    <div className="mt-2">
+                      {node.settings?.keyProtection?.mode === "secure-signer" ? (
+                        <SignerStatus nodeId={node.id} textSize="text-xs" />
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs text-slate-500"><DatabaseZap className="h-3 w-3" /> local wallet protection</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    {isRunning ? (
+                      <SpinnerButton
+                        onClick={() => stopNode.mutate({ id: node.id })}
+                        loading={stopNode.isPending}
+                        disabled={!canControlLifecycle}
+                        className="btn btn-secondary justify-center"
+                        title={canControlLifecycle ? "Stop" : "Lifecycle locked by imported ownership mode"}
+                        aria-label="Stop node"
+                      >
+                        <Square className="h-4 w-4" /> Stop
+                      </SpinnerButton>
+                    ) : (
+                      <SpinnerButton
+                        onClick={() => startNode.mutate(node.id)}
+                        loading={startNode.isPending}
+                        disabled={!canControlLifecycle || node.process.status === "starting"}
+                        className="btn btn-success justify-center"
+                        title={canControlLifecycle ? "Start" : "Lifecycle locked by imported ownership mode"}
+                        aria-label="Start node"
+                      >
+                        <Play className="h-4 w-4" /> Start
+                      </SpinnerButton>
+                    )}
+                    <SpinnerButton
+                      onClick={() => setNodePendingDelete(node)}
+                      loading={deleting === node.id}
+                      className="btn btn-error justify-center"
+                      title="Delete registration"
+                      aria-label="Delete node"
+                    >
+                      <Trash2 className="h-4 w-4" /> Delete
+                    </SpinnerButton>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          <div className="table-shell hidden md:block">
             <table className="w-full min-w-[780px]">
               <thead className="bg-slate-50">
                 <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -300,6 +411,7 @@ export default function Nodes() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 
