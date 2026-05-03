@@ -3,6 +3,7 @@ import type Database from 'better-sqlite3';
 import type { NodeDataContext, RoleSyncStrategy, StorageEngine } from '../types';
 import type { NodeDataContextRow } from '../types/database';
 import { validateDataContextId } from '../utils/paths';
+import { ApiError } from '../api/errors';
 
 export interface CreateNodeDataContextInput {
   label: string;
@@ -11,6 +12,10 @@ export interface CreateNodeDataContextInput {
   checkpointHeight?: number;
   checkpointHash?: string;
   snapshotId?: string;
+}
+
+export interface CreateNodeDataContextOptions {
+  active?: boolean;
 }
 
 export class NodeDataContextManager {
@@ -30,19 +35,25 @@ export class NodeDataContextManager {
     return row ? this.mapRow(row) : null;
   }
 
-  createContext(nodeId: string, input: CreateNodeDataContextInput): NodeDataContext {
+  createContext(
+    nodeId: string,
+    input: CreateNodeDataContextInput,
+    options: CreateNodeDataContextOptions = {},
+  ): NodeDataContext {
+    const validatedInput = validateCreateInput(input);
     const now = Date.now();
     const hasExisting = this.listContexts(nodeId).length > 0;
+    const active = options.active ?? !hasExisting;
     const context: NodeDataContext = {
       id: `ctx-${crypto.randomUUID()}`,
       nodeId,
-      label: input.label,
-      storageEngine: input.storageEngine,
-      syncStrategy: input.syncStrategy,
-      checkpointHeight: input.checkpointHeight,
-      checkpointHash: input.checkpointHash,
-      snapshotId: input.snapshotId,
-      active: !hasExisting,
+      label: validatedInput.label,
+      storageEngine: validatedInput.storageEngine,
+      syncStrategy: validatedInput.syncStrategy,
+      checkpointHeight: validatedInput.checkpointHeight,
+      checkpointHash: validatedInput.checkpointHash,
+      snapshotId: validatedInput.snapshotId,
+      active,
       createdAt: now,
       updatedAt: now,
     };
@@ -72,10 +83,23 @@ export class NodeDataContextManager {
     return context;
   }
 
+  deleteContext(nodeId: string, contextId: string): void {
+    try {
+      validateDataContextId(contextId);
+    } catch (error) {
+      throw dataContextInvalid(error instanceof Error ? error.message : String(error));
+    }
+    this.db.prepare('DELETE FROM node_data_contexts WHERE node_id = ? AND id = ?').run(nodeId, contextId);
+  }
+
   activateContext(nodeId: string, contextId: string): NodeDataContext {
-    validateDataContextId(contextId);
+    try {
+      validateDataContextId(contextId);
+    } catch (error) {
+      throw dataContextInvalid(error instanceof Error ? error.message : String(error));
+    }
     const context = this.listContexts(nodeId).find((candidate) => candidate.id === contextId);
-    if (!context) throw new Error(`Data context ${contextId} not found for node ${nodeId}`);
+    if (!context) throw dataContextInvalid(`Data context ${contextId} not found for node ${nodeId}`);
 
     const tx = this.db.transaction(() => {
       const now = Date.now();
@@ -104,4 +128,41 @@ export class NodeDataContextManager {
       updatedAt: row.updated_at,
     };
   }
+}
+
+const VALID_STORAGE_ENGINES = new Set<StorageEngine>(['leveldb', 'rocksdb']);
+const VALID_SYNC_STRATEGIES = new Set<RoleSyncStrategy>(['full', 'light', 'fast-sync']);
+
+function dataContextInvalid(message: string): ApiError {
+  return new ApiError(
+    'DATA_CONTEXT_INVALID',
+    message,
+    'Use a valid data context label, storage engine, sync strategy, and context id.',
+  );
+}
+
+function validateCreateInput(input: CreateNodeDataContextInput): CreateNodeDataContextInput {
+  if (typeof input.label !== 'string' || input.label.trim() === '') {
+    throw dataContextInvalid('label must be a non-empty string');
+  }
+  if (!VALID_STORAGE_ENGINES.has(input.storageEngine)) {
+    throw dataContextInvalid('storageEngine must be leveldb or rocksdb');
+  }
+  if (!VALID_SYNC_STRATEGIES.has(input.syncStrategy)) {
+    throw dataContextInvalid('syncStrategy must be full, light, or fast-sync');
+  }
+  if (input.checkpointHeight !== undefined && (!Number.isInteger(input.checkpointHeight) || input.checkpointHeight <= 0)) {
+    throw dataContextInvalid('checkpointHeight must be a positive integer');
+  }
+  if (input.checkpointHash !== undefined && typeof input.checkpointHash !== 'string') {
+    throw dataContextInvalid('checkpointHash must be a string');
+  }
+  if (input.snapshotId !== undefined && typeof input.snapshotId !== 'string') {
+    throw dataContextInvalid('snapshotId must be a string');
+  }
+
+  return {
+    ...input,
+    label: input.label.trim(),
+  };
 }
