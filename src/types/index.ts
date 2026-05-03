@@ -63,6 +63,7 @@ export interface NodeSettings {
   relay?: boolean;
   debugMode?: boolean;
   storageEngine?: StorageEngine;
+  syncStrategy?: RoleSyncStrategy;
   activeDataContextId?: string;
   role?: {
     id: string;

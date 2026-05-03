@@ -3,6 +3,8 @@ export interface NodeFormValues {
   type: "neo-cli" | "neo-go" | "neox-go";
   network: "mainnet" | "testnet" | "private" | "neox-mainnet" | "neox-testnet";
   syncMode: "full" | "light";
+  storageEngine: "leveldb" | "rocksdb";
+  syncStrategy: "full" | "light" | "fast-sync";
   maxConnections: string;
   minPeers: string;
   maxPeers: string;
@@ -33,6 +35,8 @@ interface NodeLike {
     maxPeers?: number;
     relay?: boolean;
     debugMode?: boolean;
+    storageEngine?: "leveldb" | "rocksdb";
+    syncStrategy?: "full" | "light" | "fast-sync";
     customConfig?: Record<string, unknown>;
     keyProtection?: KeyProtectionSettings;
   };
@@ -65,6 +69,8 @@ export function normalizeNodeUpsertPayload(values: Partial<NodeFormValues>, opti
   if (maxPeers !== undefined) settings.maxPeers = maxPeers;
   if (typeof values.relay === "boolean") settings.relay = values.relay;
   if (typeof values.debugMode === "boolean") settings.debugMode = values.debugMode;
+  if (values.storageEngine) settings.storageEngine = values.storageEngine;
+  if (values.syncStrategy) settings.syncStrategy = values.syncStrategy;
 
   const customConfigRaw = values.customConfig?.trim();
   if (customConfigRaw) {
@@ -114,6 +120,8 @@ export function toNodeFormValues(node: NodeLike): NodeFormValues {
     type: node.type || "neo-go",
     network: node.network || "mainnet",
     syncMode: node.syncMode || "full",
+    storageEngine: node.settings?.storageEngine || "leveldb",
+    syncStrategy: node.settings?.syncStrategy || node.syncMode || "full",
     maxConnections: node.settings?.maxConnections?.toString() || "",
     minPeers: node.settings?.minPeers?.toString() || "",
     maxPeers: node.settings?.maxPeers?.toString() || "",

@@ -35,6 +35,30 @@ describe("web node payload normalization", () => {
     });
   });
 
+  it("includes storage engine and sync strategy in create payload", () => {
+    expect(normalizeNodeUpsertPayload({
+      name: "State node",
+      type: "neo-cli",
+      network: "mainnet",
+      syncMode: "full",
+      storageEngine: "rocksdb",
+      syncStrategy: "fast-sync",
+      maxConnections: "",
+      minPeers: "",
+      maxPeers: "",
+      relay: true,
+      debugMode: false,
+      customConfig: "",
+      keyProtectionMode: "standard",
+      secureSignerProfileId: "",
+    })).toMatchObject({
+      settings: {
+        storageEngine: "rocksdb",
+        syncStrategy: "fast-sync",
+      },
+    });
+  });
+
   it("preserves existing standard/local key protection policy fields when saving unrelated settings", () => {
     const payload = normalizeNodeUpsertPayload(
       {

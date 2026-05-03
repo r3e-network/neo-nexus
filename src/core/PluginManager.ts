@@ -130,6 +130,22 @@ export class PluginManager {
     ConfigManager.writePluginConfig(pluginId, this.getNodeConfig(nodeId), config);
   }
 
+  async upsertPlugin(
+    nodeId: string,
+    pluginId: PluginId,
+    nodeVersion: string,
+    config: Record<string, unknown> = {},
+  ): Promise<void> {
+    const existing = this.getInstalledPlugins(nodeId).find((plugin) => plugin.id === pluginId);
+    if (!existing) {
+      await this.installPlugin(nodeId, pluginId, nodeVersion, config);
+      return;
+    }
+
+    this.updatePluginConfig(nodeId, pluginId, { ...existing.config, ...config });
+    this.setPluginEnabled(nodeId, pluginId, true);
+  }
+
   /**
    * Uninstall a plugin from a node
    */

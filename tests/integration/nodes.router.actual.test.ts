@@ -13,6 +13,7 @@ type MockNodeManager = {
   getNode: ReturnType<typeof vi.fn>;
   getAllNodes: ReturnType<typeof vi.fn>;
   updateNode: ReturnType<typeof vi.fn>;
+  ensureStorageEngine: ReturnType<typeof vi.fn>;
   updateImportedNodeOwnership: ReturnType<typeof vi.fn>;
   deleteNode: ReturnType<typeof vi.fn>;
   startNode: ReturnType<typeof vi.fn>;
@@ -56,6 +57,7 @@ describe("Actual nodes router", () => {
       getNode: vi.fn(),
       getAllNodes: vi.fn(() => []),
       updateNode: vi.fn(),
+      ensureStorageEngine: vi.fn(),
       updateImportedNodeOwnership: vi.fn(),
       deleteNode: vi.fn(),
       startNode: vi.fn(),
@@ -241,6 +243,49 @@ describe("Actual nodes router", () => {
       syncMode: "full",
     });
     expect(response.body.node.id).toBe("node-new");
+  });
+
+  it("rejects creation requests with invalid storage engine before touching the manager", async () => {
+    const response = await request(app).post("/api/nodes").send({
+      name: "Invalid Storage",
+      type: "neo-cli",
+      network: "mainnet",
+      settings: {
+        storageEngine: "bad-store",
+      },
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("INVALID_STORAGE_ENGINE");
+    expect(mockNodeManager.createNode).not.toHaveBeenCalled();
+  });
+
+  it("rejects creation requests with invalid sync strategy before touching the manager", async () => {
+    const response = await request(app).post("/api/nodes").send({
+      name: "Invalid Sync",
+      type: "neo-cli",
+      network: "mainnet",
+      settings: {
+        syncStrategy: "turbo",
+      },
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("INVALID_SYNC_STRATEGY");
+    expect(mockNodeManager.createNode).not.toHaveBeenCalled();
+  });
+
+  it("rejects creation requests with invalid sync mode before touching the manager", async () => {
+    const response = await request(app).post("/api/nodes").send({
+      name: "Invalid Sync Mode",
+      type: "neo-cli",
+      network: "mainnet",
+      syncMode: "turbo",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("INVALID_SYNC_MODE");
+    expect(mockNodeManager.createNode).not.toHaveBeenCalled();
   });
 
   it("rejects creation requests with missing required fields before touching the manager", async () => {
@@ -494,6 +539,62 @@ describe("Actual nodes router", () => {
     });
     expect(mockNodeManager.syncNodeSecureSigner).not.toHaveBeenCalled();
     expect(response.body.node.name).toBe("Updated Node");
+  });
+
+  it("routes storage engine updates through one NodeManager update", async () => {
+    mockNodeManager.getNode.mockReturnValue({ id: "node-1", type: "neo-cli" });
+    mockNodeManager.updateNode.mockResolvedValue({
+      id: "node-1",
+      settings: { storageEngine: "rocksdb" },
+    });
+
+    const response = await request(app).put("/api/nodes/node-1").send({
+      settings: {
+        storageEngine: "rocksdb",
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockNodeManager.updateNode).toHaveBeenCalledWith("node-1", {
+      settings: {
+        storageEngine: "rocksdb",
+      },
+    });
+    expect(mockNodeManager.ensureStorageEngine).not.toHaveBeenCalled();
+    expect(response.body.node.settings.storageEngine).toBe("rocksdb");
+  });
+
+  it("rejects mixed storage engine updates before touching the manager", async () => {
+    mockNodeManager.getNode.mockReturnValue({ id: "node-1", type: "neo-cli" });
+
+    const requestBody = {
+      name: "Renamed",
+      settings: {
+        storageEngine: "rocksdb",
+        debugMode: true,
+      },
+    };
+    const response = await request(app).put("/api/nodes/node-1").send(requestBody);
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/submitted separately/i);
+    expect(mockNodeManager.updateNode).not.toHaveBeenCalled();
+    expect(mockNodeManager.ensureStorageEngine).not.toHaveBeenCalled();
+  });
+
+  it("rejects storage engine updates with invalid values before mutating", async () => {
+    mockNodeManager.getNode.mockReturnValue({ id: "node-1", type: "neo-cli" });
+
+    const response = await request(app).put("/api/nodes/node-1").send({
+      settings: {
+        storageEngine: "bad-store",
+      },
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("INVALID_STORAGE_ENGINE");
+    expect(mockNodeManager.ensureStorageEngine).not.toHaveBeenCalled();
+    expect(mockNodeManager.updateNode).not.toHaveBeenCalled();
   });
 
   it("rejects secure signer updates for existing neo-go nodes before mutating", async () => {

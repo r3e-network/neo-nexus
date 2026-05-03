@@ -2,7 +2,17 @@ import { Router, type Request, type Response } from 'express';
 import { isAbsolute, relative, resolve } from 'node:path';
 import type { NodeManager } from '../../core/NodeManager';
 import { ConfigManager } from '../../core/ConfigManager';
-import type { CreateNodeRequest, UpdateNodeRequest, ImportNodeRequest, ImportedNodeOwnershipMode, NodeInstance, NodeSettings } from '../../types';
+import type {
+  CreateNodeRequest,
+  UpdateNodeRequest,
+  ImportNodeRequest,
+  ImportedNodeOwnershipMode,
+  NodeInstance,
+  NodeSettings,
+  RoleSyncStrategy,
+  StorageEngine,
+  SyncMode,
+} from '../../types';
 import { paths } from '../../utils/paths';
 import { assertNodeNetwork, assertNodeType } from '../../utils/nodeValidation';
 import { ApiError, Errors } from '../errors';
@@ -132,6 +142,71 @@ function omitPath<T extends { path?: string }>(value: T): Omit<T, 'path'> {
   return safeValue;
 }
 
+function validateStorageEngine(storageEngine: unknown): StorageEngine | undefined {
+  if (storageEngine === undefined) {
+    return undefined;
+  }
+  if (storageEngine === 'leveldb' || storageEngine === 'rocksdb') {
+    return storageEngine;
+  }
+  throw new ApiError(
+    'INVALID_STORAGE_ENGINE',
+    'Invalid storage engine',
+    'Use leveldb or rocksdb for node storage.',
+  );
+}
+
+function validateSyncStrategy(syncStrategy: unknown): RoleSyncStrategy | undefined {
+  if (syncStrategy === undefined) {
+    return undefined;
+  }
+  if (syncStrategy === 'full' || syncStrategy === 'light' || syncStrategy === 'fast-sync') {
+    return syncStrategy;
+  }
+  throw new ApiError(
+    'INVALID_SYNC_STRATEGY',
+    'Invalid sync strategy',
+    'Use full, light, or fast-sync for node synchronization.',
+  );
+}
+
+function validateSyncMode(syncMode: unknown): SyncMode | undefined {
+  if (syncMode === undefined) {
+    return undefined;
+  }
+  if (syncMode === 'full' || syncMode === 'light') {
+    return syncMode;
+  }
+  throw new ApiError(
+    'INVALID_SYNC_MODE',
+    'Invalid sync mode',
+    'Use full or light for node sync mode.',
+  );
+}
+
+function validateNodeSettings(settings: Partial<NodeSettings> | undefined): void {
+  if (!settings) {
+    return;
+  }
+  validateStorageEngine(settings.storageEngine);
+  validateSyncStrategy(settings.syncStrategy);
+}
+
+function assertStorageEngineUpdateIsolated(request: UpdateNodeRequest): void {
+  if (!request.settings || !Object.hasOwn(request.settings, 'storageEngine')) {
+    return;
+  }
+  const hasOtherSettings = Object.keys(request.settings).some((key) => key !== 'storageEngine');
+  if (!request.name && !hasOtherSettings) {
+    return;
+  }
+  throw new ApiError(
+    'STORAGE_ENGINE_UPDATE_MIXED',
+    'Storage engine updates must be submitted separately',
+    'Submit the storage engine change by itself, then send name or other settings in a separate request.',
+  );
+}
+
 export function createNodesRouter(nodeManager: NodeManager): Router {
   const router = Router();
 
@@ -195,6 +270,8 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       }
       assertNodeType(request.type);
       assertNodeNetwork(request.network);
+      validateSyncMode(request.syncMode);
+      validateNodeSettings(request.settings);
 
       const secureSignerValidationError = validateSecureSignerRequest(request);
       if (secureSignerValidationError) {
@@ -306,6 +383,8 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       if (secureSignerValidationError) {
         throw secureSignerValidationError;
       }
+      validateNodeSettings(request.settings);
+      assertStorageEngineUpdateIsolated(request);
       const node = await nodeManager.updateNode(req.params.id, request);
 
       res.json({ node });
