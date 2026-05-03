@@ -198,7 +198,7 @@ export default function Dashboard() {
                 <p className="console-kicker">Fleet inventory</p>
                 <h2 className="mt-1 text-lg font-semibold text-slate-950">Nodes</h2>
               </div>
-              <Link to="/nodes" className="inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900">
+              <Link to="/nodes" className="inline-flex items-center gap-2 text-sm font-medium text-teal-700 hover:text-teal-900">
                 Open node console <ArrowRight className="h-4 w-4" />
               </Link>
             </div>

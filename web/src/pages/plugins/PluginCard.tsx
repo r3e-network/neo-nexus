@@ -97,8 +97,8 @@ export function PluginCard({
       }`}
     >
       {/* Header */}
-      <div className="flex items-start justify-between gap-5">
-        <div className="flex items-start gap-3.5">
+      <div className="flex items-start justify-between gap-3 sm:gap-5">
+        <div className="flex min-w-0 flex-1 items-start gap-3.5">
           <div
             className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ring-1 ${
               isActive ? "bg-emerald-100 ring-emerald-200" : "bg-slate-50 ring-slate-200"
@@ -109,18 +109,20 @@ export function PluginCard({
               className={`w-5 h-5 ${isActive ? "text-emerald-700" : "text-slate-500"}`}
             />
           </div>
-          <div>
-            <h3 className="font-semibold text-slate-950">{meta.featureName}</h3>
-            <p className="text-sm text-slate-600 mt-0.5">{meta.summary}</p>
+          <div className="min-w-0">
+            <h3 className="break-words font-semibold text-slate-950">{meta.featureName}</h3>
+            <p className="mt-0.5 break-words text-sm text-slate-600">{meta.summary}</p>
           </div>
         </div>
 
-        <ToggleSwitch
-          checked={isActive}
-          onChange={onToggle}
-          label={`Toggle ${meta.featureName}`}
-          disabled={Boolean(disabledReason)}
-        />
+        <div className="shrink-0">
+          <ToggleSwitch
+            checked={isActive}
+            onChange={onToggle}
+            label={`Toggle ${meta.featureName}`}
+            disabled={Boolean(disabledReason)}
+          />
+        </div>
       </div>
 
       {/* Install note */}

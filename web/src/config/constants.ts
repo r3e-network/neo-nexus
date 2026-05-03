@@ -15,3 +15,9 @@ export const UI_LIMITS = {
   maxLogEntries: 50,
   maxUnreadBadge: 9,
 } as const;
+
+/** Project links shared across chrome and settings surfaces */
+export const PROJECT_LINKS = {
+  repositoryUrl: "https://github.com/r3e-network/neo-nexus",
+  repositoryLabel: "github.com/r3e-network/neo-nexus",
+} as const;
