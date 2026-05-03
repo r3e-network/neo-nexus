@@ -1,9 +1,9 @@
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import YAML from 'js-yaml';
-import type { NodeConfig, N3NodeNetwork, NodeNetwork, PluginId } from '../types/index';
+import type { NodeConfig, N3NodeNetwork, NodeNetwork, PluginId, StorageEngine } from '../types/index';
 import { getNetworkMagic, getSeedList } from '../utils/network';
-import { getNodePath, paths } from '../utils/paths';
+import { getNodePath, paths, validateDataContextId } from '../utils/paths';
 import { NEO_GO_STANDBY_COMMITTEE, NEO_GO_HARDFORKS } from '../data/neo-committee';
 
 function assertN3Network(network: NodeNetwork): N3NodeNetwork {
@@ -20,6 +20,21 @@ export class ConfigManager {
       return NEO_GO_HARDFORKS[network];
     }
     return undefined;
+  }
+
+  private static getDataContextRelativePath(node: NodeConfig, fallbackPath: string): string {
+    if (node.settings.activeDataContextId === undefined) return fallbackPath;
+    return `data-contexts/${validateDataContextId(node.settings.activeDataContextId)}`;
+  }
+
+  private static getStorageEngine(node: NodeConfig): StorageEngine {
+    return node.settings.storageEngine ?? 'leveldb';
+  }
+
+  private static getNeoCliStorageEngine(node: NodeConfig, installedPlugins: PluginId[]): 'LevelDBStore' | 'RocksDBStore' {
+    return this.getStorageEngine(node) === 'rocksdb' && installedPlugins.includes('RocksDBStore')
+      ? 'RocksDBStore'
+      : 'LevelDBStore';
   }
 
   /**
@@ -58,8 +73,8 @@ export class ConfigManager {
           Active: true,
         },
         Storage: {
-          Engine: installedPlugins.includes('RocksDBStore') ? 'RocksDBStore' : 'LevelDBStore',
-          Path: 'Data',
+          Engine: this.getNeoCliStorageEngine(node, installedPlugins),
+          Path: this.getDataContextRelativePath(node, 'Data'),
         },
         P2P: {
           ...(baseApp.P2P || {}),
@@ -136,9 +151,9 @@ export class ConfigManager {
       ApplicationConfiguration: {
         SkipBlockVerification: false,
         DBConfiguration: {
-          Type: 'leveldb',
+          Type: this.getStorageEngine(node),
           LevelDBOptions: {
-            DataDirectoryPath: './data',
+            DataDirectoryPath: `./${this.getDataContextRelativePath(node, 'data')}`,
           },
         },
         P2P: {

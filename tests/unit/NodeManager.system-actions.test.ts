@@ -298,6 +298,68 @@ describe("NodeManager system actions", () => {
     expect(manager.repo.saveNode).toHaveBeenCalledOnce();
   });
 
+  it("passes active data context settings when creating node directories", async () => {
+    const manager = Object.create(NodeManager.prototype) as NodeManager & {
+      portManager: { findNextIndex: ReturnType<typeof vi.fn>; allocatePorts: ReturnType<typeof vi.fn> };
+      repo: { transaction: (fn: () => void) => void; saveNode: ReturnType<typeof vi.fn>; deleteNode: ReturnType<typeof vi.fn> };
+      getNode: ReturnType<typeof vi.fn>;
+    };
+    let savedConfig: { settings?: unknown } | undefined;
+
+    manager.portManager = {
+      findNextIndex: vi.fn().mockResolvedValue(1),
+      allocatePorts: vi.fn().mockResolvedValue({ rpc: 20332, p2p: 20333, websocket: 20334, metrics: 20335 }),
+    };
+    manager.repo = {
+      transaction: (fn: () => void) => fn(),
+      saveNode: vi.fn((config) => { savedConfig = config; }),
+      deleteNode: vi.fn(),
+    };
+    manager.getNode = vi.fn(() => savedConfig as never);
+    vi.spyOn(DownloadManager, "hasNodeBinary").mockReturnValue(true);
+    const ensureNodeDirectories = vi.spyOn(StorageManager, "ensureNodeDirectories").mockImplementation(() => undefined);
+    vi.spyOn(ConfigManager, "writeNodeConfig").mockResolvedValue(undefined);
+
+    await manager.createNode({
+      name: "Context Node",
+      type: "neo-go",
+      network: "testnet",
+      version: "0.118.0",
+      settings: {
+        activeDataContextId: "ctx-state",
+      },
+    });
+
+    expect(ensureNodeDirectories).toHaveBeenCalledWith(expect.any(Object), { activeDataContextId: "ctx-state" });
+  });
+
+  it("passes active data context settings when reporting storage info", async () => {
+    const manager = Object.create(NodeManager.prototype) as NodeManager & {
+      getNode: ReturnType<typeof vi.fn>;
+    };
+    const nodePaths = {
+      base: "/tmp/node-1",
+      data: "/tmp/node-1/data",
+      logs: "/tmp/node-1/logs",
+      config: "/tmp/node-1/config",
+    };
+    const storageInfo = {
+      chain: { size: 10, path: "/tmp/node-1/data-contexts/ctx-state" },
+      logs: { size: 0, files: 0 },
+      wallets: { count: 0, path: "" },
+    };
+
+    manager.getNode = vi.fn(() => ({
+      id: "node-1",
+      paths: nodePaths,
+      settings: { activeDataContextId: "ctx-state" },
+    }));
+    const getNodeStorageInfo = vi.spyOn(StorageManager, "getNodeStorageInfo").mockResolvedValue(storageInfo);
+
+    await expect(manager.getStorageInfo("node-1")).resolves.toBe(storageInfo);
+    expect(getNodeStorageInfo).toHaveBeenCalledWith("node-1", nodePaths, { activeDataContextId: "ctx-state" });
+  });
+
   it("rejects unsafe release versions before touching downloads or storage", async () => {
     const manager = Object.create(NodeManager.prototype) as NodeManager & {
       portManager: { findNextIndex: ReturnType<typeof vi.fn>; allocatePorts: ReturnType<typeof vi.fn> };

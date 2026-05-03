@@ -1,15 +1,53 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import { stat, readdir, unlink, rmdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { StorageInfo } from '../types/index';
+import { validateDataContextId } from '../utils/paths';
+
+interface StorageContextOptions {
+  activeDataContextId?: string;
+}
+
+interface NodeStoragePaths {
+  base?: string;
+  data: string;
+  logs: string;
+  wallet?: string;
+  activeDataContextId?: string;
+}
+
+interface NodeDirectoryPaths extends NodeStoragePaths {
+  base: string;
+  config: string;
+}
 
 export class StorageManager {
   /**
+   * Resolve the effective chain data directory for the active data context.
+   */
+  static getEffectiveChainDataPath(
+    paths: Pick<NodeStoragePaths, 'base' | 'data' | 'activeDataContextId'>,
+    options: StorageContextOptions = {},
+  ): string {
+    const activeDataContextId = options.activeDataContextId !== undefined
+      ? options.activeDataContextId
+      : paths.activeDataContextId;
+    if (activeDataContextId === undefined) return paths.data;
+
+    return join(paths.base ?? dirname(paths.data), 'data-contexts', validateDataContextId(activeDataContextId));
+  }
+
+  /**
    * Get storage information for a node
    */
-  static async getNodeStorageInfo(nodeId: string, paths: { data: string; logs: string; wallet?: string }): Promise<StorageInfo> {
+  static async getNodeStorageInfo(
+    nodeId: string,
+    paths: NodeStoragePaths,
+    options: StorageContextOptions = {},
+  ): Promise<StorageInfo> {
+    const chainDataPath = this.getEffectiveChainDataPath(paths, options);
     const [chainSize, logsInfo, walletCount] = await Promise.all([
-      this.getDirectorySize(paths.data),
+      this.getDirectorySize(chainDataPath),
       this.getLogsInfo(paths.logs),
       paths.wallet ? this.countWallets(paths.wallet) : Promise.resolve(0),
     ]);
@@ -17,7 +55,7 @@ export class StorageManager {
     return {
       chain: {
         size: chainSize,
-        path: paths.data,
+        path: chainDataPath,
       },
       logs: logsInfo,
       wallets: {
@@ -193,9 +231,11 @@ export class StorageManager {
   /**
    * Ensure all node directories exist
    */
-  static ensureNodeDirectories(paths: { base: string; data: string; logs: string; config: string; wallet?: string }): void {
+  static ensureNodeDirectories(paths: NodeDirectoryPaths, options: StorageContextOptions = {}): void {
+    const chainDataPath = this.getEffectiveChainDataPath(paths, options);
+
     mkdirSync(paths.base, { recursive: true });
-    mkdirSync(paths.data, { recursive: true });
+    mkdirSync(chainDataPath, { recursive: true });
     mkdirSync(paths.logs, { recursive: true });
     mkdirSync(paths.config, { recursive: true });
     if (paths.wallet) {

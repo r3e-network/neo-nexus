@@ -288,7 +288,9 @@ export class NodeManager extends EventEmitter {
     };
 
     // Create directories
-    StorageManager.ensureNodeDirectories(config.paths);
+    StorageManager.ensureNodeDirectories(config.paths, {
+      activeDataContextId: config.settings.activeDataContextId,
+    });
 
     // Write initial config
     await ConfigManager.writeNodeConfig(config);
@@ -863,7 +865,9 @@ export class NodeManager extends EventEmitter {
       throw Errors.nodeNotFound(nodeId);
     }
 
-    return StorageManager.getNodeStorageInfo(nodeId, node.paths);
+    return StorageManager.getNodeStorageInfo(nodeId, node.paths, {
+      activeDataContextId: node.settings.activeDataContextId,
+    });
   }
 
   /**

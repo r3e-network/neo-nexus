@@ -92,4 +92,41 @@ describe("ConfigManager.generateNeoGoConfig", () => {
     expect(JSON.stringify(config)).not.toContain("AddressVersion");
     expect(JSON.stringify(config)).not.toContain("DataDirectoryPath\":\"Data\"");
   });
+
+  it("writes neo-go database path for the active data context", () => {
+    const config = ConfigManager.generateNeoGoConfig({
+      id: "node-1",
+      name: "Neo Go",
+      chain: "n3",
+      type: "neo-go",
+      network: "private",
+      syncMode: "full",
+      version: "0.118.0",
+      ports: { rpc: 20332, p2p: 20333 },
+      paths: { base: "/tmp/node-1", data: "/tmp/node-1/data", logs: "/tmp/node-1/logs", config: "/tmp/node-1/config" },
+      settings: { activeDataContextId: "ctx-state", storageEngine: "rocksdb" },
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    expect((config.ApplicationConfiguration as any).DBConfiguration.Type).toBe("rocksdb");
+    expect((config.ApplicationConfiguration as any).DBConfiguration.LevelDBOptions.DataDirectoryPath).toBe("./data-contexts/ctx-state");
+  });
+
+  it.each(["../ctx", "ctx/state", "ctx\\state", ""])("rejects unsafe data context id %j", (activeDataContextId) => {
+    expect(() => ConfigManager.generateNeoGoConfig({
+      id: "node-1",
+      name: "Neo Go",
+      chain: "n3",
+      type: "neo-go",
+      network: "private",
+      syncMode: "full",
+      version: "0.118.0",
+      ports: { rpc: 20332, p2p: 20333 },
+      paths: { base: "/tmp/node-1", data: "/tmp/node-1/data", logs: "/tmp/node-1/logs", config: "/tmp/node-1/config" },
+      settings: { activeDataContextId },
+      createdAt: 1,
+      updatedAt: 1,
+    })).toThrow(/Invalid data context id/);
+  });
 });
