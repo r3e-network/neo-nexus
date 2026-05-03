@@ -2,7 +2,7 @@
 
 > Self-hosted Neo N3 node management, simplified
 
-[![Version](https://img.shields.io/badge/version-2.4.0-green.svg)](https://github.com/r3e-network/neo-nexus)
+[![Version](https://img.shields.io/badge/version-2.5.0-green.svg)](https://github.com/r3e-network/neo-nexus)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org)
 [![Tests](https://img.shields.io/badge/tests-vitest-brightgreen.svg)](#)
@@ -54,6 +54,11 @@ NeoNexus is a **self-hosted node management platform** for Neo N3. Deploy, monit
 - **Real-Time Monitoring** — Track block height, sync progress, peers, CPU, memory via WebSocket
 - **Crash Recovery** — Automatic restart with exponential backoff when nodes crash
 - **Plugin Management** — Install and configure neo-cli plugins through the UI
+- **Role Orchestration** — Apply built-in or custom node identities such as RPC/API, State, Oracle, Consensus, Indexer, and Secure Signer Client
+- **Data Context Switching** — Save isolated blockchain data contexts per node for one-click switching between roles, storage engines, sync strategies, checkpoints, and snapshots
+- **Fast Sync Snapshots** — Register local, HTTPS, or catalog snapshot manifests, verify SHA-256, download packages, and bind checkpoints to isolated contexts
+- **Private Network Planner** — Generate single-node, 4-node, or 7-node private Neo N3 networks with addresses, public keys, ports, seed lists, committee config, and plugin presets
+- **Storage Engine Selection** — Choose LevelDB or RocksDB when creating nodes, applying roles, or planning private networks
 - **Multi-Network** — Mainnet, testnet, and private networks with correct protocol configs
 - **Multi-Server** — Monitor multiple NeoNexus instances from one control panel
 - **Config Audit** — Detect stale configs, missing plugins, hardfork mismatches
@@ -88,8 +93,10 @@ Open http://localhost:8080 and create the first admin account in the setup scree
 ### Deploy Your First Node
 
 1. Click **Create Node**
-2. Select **Type** (neo-cli or neo-go) and **Network** (mainnet/testnet/private)
-3. Click **Deploy** — the binary is downloaded, configured, and ready to start
+2. Select **Type** (neo-cli or neo-go), **Network** (mainnet/testnet/private), storage engine, and sync strategy
+3. Optionally choose a built-in role preset such as RPC/API, State, Oracle, Consensus, Indexer, or Secure Signer Client
+4. Click **Deploy** — the binary, plugin plan, config, storage context, and sync settings are prepared and ready to start
+5. Use the node detail view to preview and apply role changes or switch isolated data contexts later
 
 ### Use Local neo-node Builds
 
@@ -164,6 +171,27 @@ NeoNexus queries seed nodes to determine the network's current block height, the
 - **Audit log:** All state-changing operations logged to `audit_log` table, queryable via API
 - **WebSocket:** Real-time system metrics, node metrics, and log streaming
 
+## Role Orchestration, Fast Sync, and Private Networks
+
+NeoNexus can treat each node as a saved operational identity instead of a one-off collection of settings. Built-in roles cover common N3 responsibilities:
+
+| Role | Purpose | Typical automation |
+|------|---------|--------------------|
+| RPC / API Node | Serve wallet, dApp, and monitoring traffic | Enables RPC, peer limits, LevelDB, fast sync |
+| State Node | Track state roots and proof workflows | Enables StateService, RPC, RocksDB, fast sync |
+| Oracle Node | Process off-chain data requests | Enables OracleService, RPC, fast sync |
+| Consensus Node | Prepare validator nodes for dBFT participation | Enables DBFTPlugin, full sync, consensus warnings |
+| Indexer Node | Index application logs and token transfers | Enables ApplicationLogs, TokensTracker, RPC, RocksDB |
+| Secure Signer Client | Use external signing instead of local private keys | Enables SignClient and signer profile prerequisites |
+
+Custom roles can store the same kinds of decisions: plugin desired state, node settings, storage engine, data-context policy, sync strategy, warnings, and prerequisites. Applying a role first builds a plan so operators can review plugin/config/storage/data-context changes before mutating a node.
+
+Data contexts isolate blockchain data under the managed node directory. A context records its label, storage engine (`leveldb` or `rocksdb`), sync strategy (`full`, `light`, or `fast-sync`), optional checkpoint height/hash, and optional fast-sync snapshot id. Nodes must be stopped before activating a different context so on-disk data and generated config stay consistent.
+
+Fast sync snapshots are registered as manifests. Sources can be local files, HTTPS URLs, or a catalog entry; NeoNexus verifies SHA-256, records verification metadata, and can download HTTPS packages into the managed downloads directory. Snapshot manifests are user-provided in this release, so production operators should publish and sign their own trusted snapshot catalog.
+
+Private network planning supports Neo N3 single-node, 4-node, and 7-node templates. Plans generate network magic, per-node ports, seed lists, validator count, standby committee keys, addresses, storage engine choices, and neo-cli plugin presets. A plan can be previewed as a configuration snapshot and then applied to create or replace managed private-network nodes.
+
 ## Plugin Support (neo-cli)
 
 Install and manage official neo-cli plugins through the UI:
@@ -218,8 +246,24 @@ curl http://localhost:8080/api/nodes \
 | POST | `/api/nodes/:id/stop` | Stop node |
 | GET | `/api/nodes/:id/logs` | Get node logs |
 | GET | `/api/nodes/:id/config-audit` | Audit config |
+| GET | `/api/nodes/:id/data-contexts` | List isolated data contexts |
+| POST | `/api/nodes/:id/data-contexts` | Create a data context |
+| POST | `/api/nodes/:id/data-contexts/:contextId/activate` | Activate a data context |
+| GET | `/api/nodes/:id/role-applications` | List role application history |
 | GET | `/api/nodes/:id/plugins/available` | List available plugins |
 | POST | `/api/nodes/:id/plugins` | Install plugin |
+| GET | `/api/node-roles` | List built-in and custom roles |
+| POST | `/api/node-roles` | Create custom role |
+| POST | `/api/node-roles/:roleId/plan` | Preview role application |
+| POST | `/api/node-roles/:roleId/apply` | Apply role to a node |
+| GET | `/api/fast-sync/snapshots` | List fast-sync snapshot manifests |
+| POST | `/api/fast-sync/snapshots` | Register snapshot manifest |
+| POST | `/api/fast-sync/snapshots/:id/verify` | Verify snapshot checksum |
+| POST | `/api/fast-sync/snapshots/:id/download` | Download HTTPS snapshot |
+| GET | `/api/private-networks/plans` | List private network plans |
+| POST | `/api/private-networks/plans` | Create private network plan |
+| GET | `/api/private-networks/plans/:id/configuration-snapshot` | Preview generated config |
+| POST | `/api/private-networks/plans/:id/apply` | Apply private network plan |
 | GET | `/api/metrics/system` | System metrics |
 | GET | `/api/metrics/network` | Network heights |
 | GET | `/api/system/export` | Export configuration |
