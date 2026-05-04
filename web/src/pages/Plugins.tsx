@@ -3,8 +3,10 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, Info, Puzzle, Server, ShieldCheck } from "lucide-react";
 import { FeedbackBanner } from "../components/FeedbackBanner";
 import { CardSkeleton } from "../components/LoadingSkeleton";
-import { useNodes } from "../hooks/useNodes";
+import { type Node, useNodes } from "../hooks/useNodes";
 import {
+  type InstalledPlugin,
+  type PluginDefinition,
   useAvailablePlugins,
   useInstallPlugin,
   useNodePlugins,
@@ -14,9 +16,14 @@ import {
 import { getPluginMeta } from "../utils/pluginMeta";
 import { PluginCard } from "./plugins/PluginCard";
 
+const EMPTY_NODES: Node[] = [];
+const EMPTY_PLUGINS: PluginDefinition[] = [];
+const EMPTY_INSTALLED_PLUGINS: InstalledPlugin[] = [];
+
 // ── Plugins page ───────────────────────────────────────────────────────
 export default function Plugins() {
-  const { data: nodes = [] } = useNodes();
+  const { data: nodesData } = useNodes();
+  const nodes = nodesData ?? EMPTY_NODES;
   const neoCliNodes = useMemo(() => nodes.filter((node) => node.type === "neo-cli"), [nodes]);
   const [selectedNodeId, setSelectedNodeId] = useState("");
   const [configDrafts, setConfigDrafts] = useState<Record<string, Record<string, unknown>>>({});
@@ -37,8 +44,10 @@ export default function Plugins() {
     }
   }, [neoCliNodes, selectedNodeId]);
 
-  const { data: availablePlugins = [], isLoading: isLoadingAvailable } = useAvailablePlugins(selectedNodeId || undefined);
-  const { data: installedPlugins = [] } = useNodePlugins(selectedNodeId || undefined);
+  const { data: availablePluginsData, isLoading: isLoadingAvailable } = useAvailablePlugins(selectedNodeId || undefined);
+  const { data: installedPluginsData } = useNodePlugins(selectedNodeId || undefined);
+  const availablePlugins = availablePluginsData ?? EMPTY_PLUGINS;
+  const installedPlugins = installedPluginsData ?? EMPTY_INSTALLED_PLUGINS;
 
   const prevNodeIdRef = useRef(selectedNodeId);
   useEffect(() => {
@@ -49,7 +58,7 @@ export default function Plugins() {
     prevNodeIdRef.current = selectedNodeId;
 
     if (!selectedNodeId) {
-      setConfigDrafts({});
+      setConfigDrafts((current) => (Object.keys(current).length === 0 ? current : {}));
       return;
     }
 

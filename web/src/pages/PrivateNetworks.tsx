@@ -68,7 +68,7 @@ export default function PrivateNetworks() {
   const plansQuery = usePrivateNetworkPlans();
   const createPlan = useCreatePrivateNetworkPlan();
   const applyPlan = useApplyPrivateNetworkPlan();
-  const plans = plansQuery.data ?? [];
+  const plans = useMemo(() => plansQuery.data ?? [], [plansQuery.data]);
   const [banner, setBanner] = useState<BannerState>({});
   const [template, setTemplate] = useState<PrivateNetworkTemplate>("single");
   const [name, setName] = useState(defaultPrivateNetworkName("single"));

@@ -294,7 +294,11 @@ describe("NodeManager system actions", () => {
       },
     });
 
-    expect(node.settings).toEqual({ debugMode: true });
+    expect(node.settings).toEqual({
+      debugMode: true,
+      storageEngine: "leveldb",
+      syncStrategy: "full",
+    });
     expect(manager.repo.saveNode).toHaveBeenCalledOnce();
   });
 

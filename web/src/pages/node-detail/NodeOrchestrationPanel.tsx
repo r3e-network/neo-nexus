@@ -97,7 +97,7 @@ export function NodeOrchestrationPanel({ node }: NodeOrchestrationPanelProps) {
   const verifySnapshot = useVerifyFastSyncSnapshot();
   const downloadSnapshot = useDownloadFastSyncSnapshot();
 
-  const roles = rolesQuery.data ?? [];
+  const roles = useMemo(() => rolesQuery.data ?? [], [rolesQuery.data]);
   const compatibleRoles = useMemo(
     () => roles.filter((role) => roleSupportsNode(role, node.type)),
     [node.type, roles],

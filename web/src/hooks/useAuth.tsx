@@ -13,6 +13,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (username: string, password: string) => Promise<void>;
+  setSession: (token: string, user: User) => void;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => void;
   isChangingPassword: boolean;
@@ -43,6 +44,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     queryClient.clear();
   };
 
+  const setSession = (nextToken: string, user: User) => {
+    localStorage.setItem("token", nextToken);
+    setToken(nextToken);
+    queryClient.setQueryData(["me"], { user });
+  };
+
   // Get current user
   const { data: userData, isLoading } = useQuery({
     queryKey: ["me"],
@@ -63,11 +70,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     mutationFn: async ({ username, password }: { username: string; password: string }) => {
       return api.post<{ token: string; user: User }>("/auth/login", { username, password });
     },
-    onSuccess: (data) => {
-      localStorage.setItem("token", data.token);
-      setToken(data.token);
-      queryClient.setQueryData(["me"], { user: data.user });
-    },
+    onSuccess: (data) => setSession(data.token, data.user),
   });
 
   const changePasswordMutation = useMutation({
@@ -111,6 +114,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         user: userData?.user || null,
         token,
         login,
+        setSession,
         changePassword,
         logout,
         isChangingPassword: changePasswordMutation.isPending,

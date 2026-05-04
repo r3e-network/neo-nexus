@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.5.1] - 2026-05-04
+
+### Fixed
+- First-run setup now establishes the authenticated session immediately after creating the initial admin account, so new operators land directly in the console instead of being bounced back to sign-in.
+- Setup and login forms now bind visible labels to their inputs, improving accessibility and making browser-level QA more reliable.
+- Plugin management no longer triggers a React maximum-update-depth loop when no `neo-cli` nodes exist.
+- Private-network and node-orchestration views now use stable memo dependencies, removing React hook warnings in the role/data-context workflows.
+
+### Tested
+- Backend and frontend lint, typecheck, unit/integration tests, and production build pass.
+- Browser QA covered setup, dashboard, nodes, create-node role presets, private-network planning, plugins, integrations, servers, Hermes Agent setup, settings, public status, and mobile dashboard layout.
+
+## [2.5.0] - 2026-05-03
+
+### Added
+- **Node role orchestration** — Built-in and custom node identities for RPC/API, state, oracle, consensus, indexer, and secure-signer-client workflows, with one-click role application across plugins, config, storage, and data contexts.
+- **Data context switching** — Nodes can record and switch isolated blockchain data contexts, making role changes and chain data separation explicit.
+- **Private network planner** — One-click single-node, 4-node, and 7-node private N3 network plans with generated names, addresses, ports, committee setup, storage choice, and guarded apply flow.
+- **Fast-sync manifests** — Snapshot registration, verification, download, checkpoint height/hash metadata, and data-context integration for faster node bootstrap paths.
+- **Storage engine selection** — LevelDB/RocksDB selection is supported in node creation, role profiles, private networks, data contexts, and config orchestration.
+
+### Changed
+- README and operator documentation now describe role orchestration, private network planning, storage engines, fast sync, and data isolation workflows.
+
 ## [2.4.0] - 2026-05-02
 
 ### Added
