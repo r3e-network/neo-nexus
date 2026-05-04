@@ -3,14 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { Activity, Lock, User, Loader2 } from 'lucide-react';
 import { api, ApiRequestError } from '../utils/api';
 import { FeedbackBanner } from '../components/FeedbackBanner';
+import { useAuth } from '../hooks/useAuth';
 
 interface SetupResponse {
   token: string;
-  user: { id: number; username: string; role: string };
+  user: { id: string; username: string; role: "admin" | "viewer" };
 }
 
 export default function Setup() {
   const navigate = useNavigate();
+  const { setSession } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -44,7 +46,7 @@ export default function Setup() {
 
     try {
       const data = await api.post<SetupResponse>('/api/auth/setup', { username, password });
-      localStorage.setItem('token', data.token);
+      setSession(data.token, data.user);
       navigate('/', { replace: true });
     } catch (err) {
       if (err instanceof ApiRequestError) {
@@ -82,12 +84,13 @@ export default function Setup() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="setup-username" className="block text-sm font-medium text-slate-700 mb-1">
                 Username
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                 <input
+                  id="setup-username"
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -101,12 +104,13 @@ export default function Setup() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="setup-password" className="block text-sm font-medium text-slate-700 mb-1">
                 Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                 <input
+                  id="setup-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -119,12 +123,13 @@ export default function Setup() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="setup-confirm-password" className="block text-sm font-medium text-slate-700 mb-1">
                 Confirm Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                 <input
+                  id="setup-confirm-password"
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
