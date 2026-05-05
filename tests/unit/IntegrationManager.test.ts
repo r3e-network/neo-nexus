@@ -61,6 +61,17 @@ describe("IntegrationManager", () => {
     expect(row.enabled).toBe(1);
   });
 
+  it("rejects redacted placeholders that do not correspond to a saved value", () => {
+    expect(() => manager.saveConfig("slack", { webhookUrl: "••••••••...CRET" }, true))
+      .toThrow(/before a value has been saved/i);
+
+    db.prepare("INSERT INTO integrations (id, category, config, enabled) VALUES (?, ?, ?, ?)")
+      .run("slack", "alerting", JSON.stringify({ webhookUrl: "https://hooks.slack.com/services/T000/B000/SECRET" }), 0);
+
+    expect(() => manager.saveConfig("slack", { webhookUrl: "••••••••...WRONG" }, true))
+      .toThrow(/does not match the stored value/i);
+  });
+
   it("rejects invalid URL fields before persistence", () => {
     expect(() => manager.saveConfig("slack", { webhookUrl: "not-a-url" }, true))
       .toThrow(/invalid url/i);
@@ -91,7 +102,19 @@ describe("IntegrationManager", () => {
     expect(() => manager.saveConfig("webhook", { url: "http://[::ffff:127.0.0.1]:8080/hook" }, true))
       .toThrow(/private or local/i);
 
+    expect(() => manager.saveConfig("sentry", { dsn: "https://public@127.0.0.1:9000/1" }, true))
+      .toThrow(/private or local/i);
+
     expect(db.prepare("SELECT COUNT(*) as count FROM integrations").get()).toEqual({ count: 0 });
+  });
+
+  it("requires Sentry DSNs to be complete HTTPS DSNs", () => {
+    expect(() => manager.saveConfig("sentry", { dsn: "http://public@example.com/1" }, true))
+      .toThrow(/https dsn/i);
+    expect(() => manager.saveConfig("sentry", { dsn: "https://example.com/1" }, true))
+      .toThrow(/public key/i);
+    expect(() => manager.saveConfig("sentry", { dsn: "https://public@example.com" }, true))
+      .toThrow(/project id/i);
   });
 
   it("suppresses duplicate notification events inside the cooldown window", async () => {

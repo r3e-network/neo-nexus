@@ -40,6 +40,19 @@ const SYNC_MODES = [
   { value: 'light', label: 'Light Sync', description: 'Fast sync with partial verification' },
 ];
 
+export function getDefaultCreateNodeFormValues() {
+  return toNodeFormValues({
+    name: '',
+    type: 'neo-cli',
+    network: 'mainnet',
+    syncMode: 'full',
+    settings: {
+      relay: true,
+      debugMode: false,
+    },
+  });
+}
+
 export default function CreateNode() {
   const navigate = useNavigate();
   const createNode = useCreateNode();
@@ -53,18 +66,7 @@ export default function CreateNode() {
   const [suggestion, setSuggestion] = useState('');
   const [code, setCode] = useState('');
 
-  const [formData, setFormData] = useState(() =>
-    toNodeFormValues({
-      name: '',
-      type: 'neo-go',
-      network: 'mainnet',
-      syncMode: 'full',
-      settings: {
-        relay: true,
-        debugMode: false,
-      },
-    }),
-  );
+  const [formData, setFormData] = useState(getDefaultCreateNodeFormValues);
   const [initialRoleId, setInitialRoleId] = useState('');
   const compatibleRoles = (rolesQuery.data ?? []).filter((role) => roleSupportsNode(role, formData.type));
   const selectedInitialRole = compatibleRoles.find((role) => role.id === initialRoleId);
@@ -280,7 +282,7 @@ export default function CreateNode() {
                     {selectedInitialRole
                       ? summarizeRole(selectedInitialRole)
                       : compatibleRoles.length === 0
-                        ? 'No compatible saved roles for this implementation yet. Create one from a node detail page.'
+                        ? 'No compatible role presets for this implementation. Neo CLI supports the built-in plugin roles; custom roles can be created from a node detail page.'
                         : 'Optionally apply plugins, config, storage, sync, and data context immediately after creation.'}
                   </p>
                 </div>

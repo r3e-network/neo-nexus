@@ -5,6 +5,7 @@ import { nextSaveAndTestEnabledState } from "../src/components/IntegrationCard";
 import { getPublicDashboardFreshness, PUBLIC_DASHBOARD_STALE_AFTER_MS } from "../src/pages/PublicDashboard";
 import { mergeNodeLogs, type RealtimeLogEntry } from "../src/utils/realtime";
 import { PROJECT_LINKS } from "../src/config/constants";
+import { getDefaultCreateNodeFormValues } from "../src/pages/CreateNode";
 
 describe("frontend formatting utilities", () => {
   it("formats byte counts for dashboard resource cards", () => {
@@ -61,6 +62,15 @@ describe("operator surface helpers", () => {
 
   it("preserves disabled integration state when saving and testing an existing disabled integration", () => {
     expect(nextSaveAndTestEnabledState(false)).toBe(false);
+  });
+
+  it("defaults new nodes to Neo CLI so built-in plugin roles are immediately compatible", () => {
+    expect(getDefaultCreateNodeFormValues()).toMatchObject({
+      type: "neo-cli",
+      network: "mainnet",
+      storageEngine: "leveldb",
+      syncStrategy: "full",
+    });
   });
 
   it("marks public dashboard data stale when a public query is failing", () => {
