@@ -10,6 +10,7 @@ import {
   useAvailablePlugins,
   useInstallPlugin,
   useNodePlugins,
+  useSetPluginEnabled,
   useUninstallPlugin,
   useUpdatePlugin,
 } from "../hooks/usePlugins";
@@ -83,29 +84,59 @@ export default function Plugins() {
   const installPlugin = useInstallPlugin(selectedNodeId || undefined);
   const updatePlugin = useUpdatePlugin(selectedNodeId || undefined);
   const uninstallPlugin = useUninstallPlugin(selectedNodeId || undefined);
+  const setPluginEnabled = useSetPluginEnabled(selectedNodeId || undefined);
 
   const installedById = new Map(installedPlugins.map((plugin) => [plugin.id, plugin]));
 
-  const handleToggle = async (pluginId: string) => {
+  const handleInstall = async (pluginId: string) => {
     if (pluginMutationDisabledReason) {
       setFeedback({ type: "error", message: pluginMutationDisabledReason });
       return;
     }
 
-    const isInstalled = installedById.has(pluginId);
     try {
       setFeedback(null);
       const meta = getPluginMeta(pluginId);
-      if (isInstalled) {
-        await uninstallPlugin.mutateAsync(pluginId);
-        setFeedback({ type: "success", message: `${meta.featureName} removed from ${selectedNode?.name}.` });
-      } else {
-        await installPlugin.mutateAsync({
-          pluginId,
-          config: configDrafts[pluginId] || {},
-        });
-        setFeedback({ type: "success", message: `${meta.featureName} installed on ${selectedNode?.name}.` });
-      }
+      await installPlugin.mutateAsync({
+        pluginId,
+        config: configDrafts[pluginId] || {},
+      });
+      setFeedback({ type: "success", message: `${meta.featureName} installed on ${selectedNode?.name}.` });
+    } catch (error) {
+      setFeedback({ type: "error", message: error instanceof Error ? error.message : "Operation failed." });
+    }
+  };
+
+  const handleRemove = async (pluginId: string) => {
+    if (pluginMutationDisabledReason) {
+      setFeedback({ type: "error", message: pluginMutationDisabledReason });
+      return;
+    }
+
+    try {
+      setFeedback(null);
+      const meta = getPluginMeta(pluginId);
+      await uninstallPlugin.mutateAsync(pluginId);
+      setFeedback({ type: "success", message: `${meta.featureName} removed from ${selectedNode?.name}.` });
+    } catch (error) {
+      setFeedback({ type: "error", message: error instanceof Error ? error.message : "Operation failed." });
+    }
+  };
+
+  const handleSetEnabled = async (pluginId: string, enabled: boolean) => {
+    if (pluginMutationDisabledReason) {
+      setFeedback({ type: "error", message: pluginMutationDisabledReason });
+      return;
+    }
+
+    try {
+      setFeedback(null);
+      const meta = getPluginMeta(pluginId);
+      await setPluginEnabled.mutateAsync({ pluginId, enabled });
+      setFeedback({
+        type: "success",
+        message: `${meta.featureName} ${enabled ? "enabled" : "disabled"} on ${selectedNode?.name}.`,
+      });
     } catch (error) {
       setFeedback({ type: "error", message: error instanceof Error ? error.message : "Operation failed." });
     }
@@ -268,8 +299,13 @@ export default function Plugins() {
                   installed={installedById.get(plugin.id)}
                   configValues={configDrafts[plugin.id] || {}}
                   onConfigChange={(key, value) => handleConfigChange(plugin.id, key, value)}
-                  onToggle={() => handleToggle(plugin.id)}
+                  onInstall={() => handleInstall(plugin.id)}
+                  onRemove={() => handleRemove(plugin.id)}
+                  onSetEnabled={(enabled) => handleSetEnabled(plugin.id, enabled)}
                   onSaveConfig={() => handleSaveConfig(plugin.id)}
+                  isInstalling={installPlugin.isPending}
+                  isRemoving={uninstallPlugin.isPending}
+                  isSettingEnabled={setPluginEnabled.isPending}
                   isSaving={updatePlugin.isPending}
                   disabledReason={pluginMutationDisabledReason}
                 />

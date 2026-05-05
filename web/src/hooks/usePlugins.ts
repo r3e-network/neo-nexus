@@ -86,6 +86,7 @@ export function useUpdatePlugin(nodeId?: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["plugins", nodeId, "installed"] });
+      queryClient.invalidateQueries({ queryKey: ["nodes"] });
     },
   });
 }
@@ -121,6 +122,7 @@ export function useSetPluginEnabled(nodeId?: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["plugins", nodeId, "installed"] });
+      queryClient.invalidateQueries({ queryKey: ["nodes"] });
     },
   });
 }
