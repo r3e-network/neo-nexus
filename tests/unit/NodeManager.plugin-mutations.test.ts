@@ -58,6 +58,48 @@ describe("NodeManager plugin mutations", () => {
     expect(writeNodeConfig).toHaveBeenCalledWith(node, ["RpcServer"]);
   });
 
+  it("rolls back plugin install state if rewriting node config fails", async () => {
+    const node = {
+      id: "node-1",
+      type: "neo-cli",
+      version: "3.7.5",
+      process: { status: "stopped" },
+      settings: {},
+    };
+    const manager = Object.create(NodeManager.prototype) as NodeManager & {
+      getNode: ReturnType<typeof vi.fn>;
+      pluginManager: {
+        installPlugin: ReturnType<typeof vi.fn>;
+        getInstalledPlugins: ReturnType<typeof vi.fn>;
+        removePluginState: ReturnType<typeof vi.fn>;
+      };
+    };
+
+    manager.getNode = vi.fn(() => node);
+    manager.pluginManager = {
+      installPlugin: vi.fn().mockResolvedValue(undefined),
+      getInstalledPlugins: vi
+        .fn()
+        .mockReturnValueOnce([{ id: "RestServer", enabled: true }])
+        .mockReturnValueOnce([
+          { id: "RestServer", enabled: true },
+          { id: "RpcServer", enabled: true },
+        ]),
+      removePluginState: vi.fn(),
+    };
+    const writeNodeConfig = vi
+      .spyOn(ConfigManager, "writeNodeConfig")
+      .mockRejectedValueOnce(new Error("disk full"))
+      .mockResolvedValueOnce(undefined);
+
+    await expect(manager.installPlugin("node-1", "RpcServer", { Port: 10332 })).rejects.toThrow(/disk full/i);
+
+    expect(manager.pluginManager.installPlugin).toHaveBeenCalledWith("node-1", "RpcServer", "3.7.5", { Port: 10332 });
+    expect(manager.pluginManager.removePluginState).toHaveBeenCalledWith("node-1", "RpcServer");
+    expect(writeNodeConfig).toHaveBeenNthCalledWith(1, node, ["RestServer", "RpcServer"]);
+    expect(writeNodeConfig).toHaveBeenNthCalledWith(2, node, ["RestServer"]);
+  });
+
   it("upserts RocksDBStore when neo-cli storage engine is rocksdb", async () => {
     const node = {
       id: "node-1",

@@ -617,7 +617,7 @@ export class NodeManager extends EventEmitter {
         }
       } else if (this.pluginManager.getInstalledPlugins(nodeId).some((plugin) => plugin.id === 'RocksDBStore')) {
         try {
-          await this.pluginManager.uninstallPlugin(nodeId, 'RocksDBStore');
+          this.pluginManager.removePluginState(nodeId, 'RocksDBStore');
         } catch (rollbackError) {
           console.error(`Failed to rollback RocksDBStore installation for ${nodeId}:`, rollbackError);
         }
@@ -1030,10 +1030,25 @@ export class NodeManager extends EventEmitter {
 
     this.assertCanWriteImportedNode(node, 'plugin installation');
 
+    const previousEnabledPlugins = this.getEnabledPluginIds(nodeId);
     await this.pluginManager.installPlugin(nodeId, pluginId, node.version, config);
 
-    // Update node config
-    await ConfigManager.writeNodeConfig(node, this.getEnabledPluginIds(nodeId));
+    try {
+      // Update node config
+      await ConfigManager.writeNodeConfig(node, this.getEnabledPluginIds(nodeId));
+    } catch (error) {
+      try {
+        this.pluginManager.removePluginState(nodeId, pluginId);
+      } catch (rollbackError) {
+        console.error(`Failed to rollback plugin installation for ${nodeId}/${pluginId}:`, rollbackError);
+      }
+      try {
+        await ConfigManager.writeNodeConfig(node, previousEnabledPlugins);
+      } catch (rollbackError) {
+        console.error(`Failed to rewrite restored node config for ${nodeId}:`, rollbackError);
+      }
+      throw error;
+    }
   }
 
   updatePluginConfig(nodeId: string, pluginId: PluginId, config?: Record<string, unknown>): void {

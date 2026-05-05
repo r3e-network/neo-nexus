@@ -110,24 +110,30 @@ export class PluginManager {
     // Download plugin
     const pluginSourceDir = await DownloadManager.downloadPlugin(pluginId, pluginVersion);
 
-    // Install to node
     const nodePluginDir = join(this.getNodeBasePath(nodeId), 'Plugins', pluginId);
-    mkdirSync(nodePluginDir, { recursive: true });
-
-    // Copy plugin files (pass pluginId for local builds to filter deps)
-    const isLocalBuild = !!process.env.NEO_PLUGIN_BUILD_DIR;
-    this.copyPluginFiles(pluginSourceDir, nodePluginDir, isLocalBuild ? pluginId : undefined);
-
-    // Create/update config
     const config = customConfig || {};
-    const stmt = this.db.prepare(`
-      INSERT INTO node_plugins (node_id, plugin_id, version, config, installed_at, enabled)
-      VALUES (?, ?, ?, ?, ?, 1)
-    `);
-    stmt.run(nodeId, pluginId, pluginVersion, JSON.stringify(config), Date.now());
 
-    // Write plugin config file
-    ConfigManager.writePluginConfig(pluginId, this.getNodeConfig(nodeId), config);
+    try {
+      // Install to node
+      mkdirSync(nodePluginDir, { recursive: true });
+
+      // Copy plugin files (pass pluginId for local builds to filter deps)
+      const isLocalBuild = !!process.env.NEO_PLUGIN_BUILD_DIR;
+      this.copyPluginFiles(pluginSourceDir, nodePluginDir, isLocalBuild ? pluginId : undefined);
+
+      // Write plugin config before recording the install. If disk writes fail,
+      // the database must not claim a plugin is ready to load.
+      ConfigManager.writePluginConfig(pluginId, this.getNodeConfig(nodeId), config);
+
+      const stmt = this.db.prepare(`
+        INSERT INTO node_plugins (node_id, plugin_id, version, config, installed_at, enabled)
+        VALUES (?, ?, ?, ?, ?, 1)
+      `);
+      stmt.run(nodeId, pluginId, pluginVersion, JSON.stringify(config), Date.now());
+    } catch (error) {
+      rmSync(nodePluginDir, { recursive: true, force: true });
+      throw error;
+    }
   }
 
   async upsertPlugin(
@@ -150,23 +156,38 @@ export class PluginManager {
    * Uninstall a plugin from a node
    */
   async uninstallPlugin(nodeId: string, pluginId: PluginId): Promise<void> {
-    // Remove from database
-    const stmt = this.db.prepare('DELETE FROM node_plugins WHERE node_id = ? AND plugin_id = ?');
-    const result = stmt.run(nodeId, pluginId);
-    if (result.changes === 0) {
+    const installedPlugins = this.getInstalledPlugins(nodeId);
+    const existing = installedPlugins.find((plugin) => plugin.id === pluginId);
+    if (!existing) {
       throw Errors.pluginNotInstalled(pluginId, nodeId);
     }
 
-    // Remove plugin directory
+    const nodeConfig = this.getNodeConfig(nodeId);
+    const remainingEnabledPlugins = installedPlugins
+      .filter((plugin) => plugin.id !== pluginId && plugin.enabled)
+      .map((plugin) => plugin.id);
+
+    // Rewrite node config before deleting DB/file state. If disk writes fail,
+    // the manager should leave the installed plugin record and files intact.
+    await ConfigManager.writeNodeConfig(nodeConfig, remainingEnabledPlugins);
+
+    this.removePluginState(nodeId, pluginId);
+
+  }
+
+  /**
+   * Remove persisted plugin state and copied artifacts without rewriting node config.
+   * Callers use this for rollback after they have decided how to restore config.json.
+   */
+  removePluginState(nodeId: string, pluginId: PluginId): void {
     const pluginDir = join(this.getNodeBasePath(nodeId), 'Plugins', pluginId);
+
+    const stmt = this.db.prepare('DELETE FROM node_plugins WHERE node_id = ? AND plugin_id = ?');
+    stmt.run(nodeId, pluginId);
+
     if (existsSync(pluginDir)) {
       rmSync(pluginDir, { recursive: true, force: true });
     }
-
-    // Update node config to remove plugin from Plugins.Enabled
-    const remainingPlugins = this.getInstalledPlugins(nodeId).map(p => p.id);
-    const nodeConfig = this.getNodeConfig(nodeId);
-    await ConfigManager.writeNodeConfig(nodeConfig, remainingPlugins);
   }
 
   /**
@@ -177,6 +198,15 @@ export class PluginManager {
     pluginId: PluginId,
     config: Record<string, unknown>
   ): void {
+    const existing = this.getInstalledPlugins(nodeId).find((plugin) => plugin.id === pluginId);
+    if (!existing) {
+      throw Errors.pluginNotInstalled(pluginId, nodeId);
+    }
+
+    // Update config file before the persisted override. If the write fails,
+    // callers should keep using the previous known-good database config.
+    ConfigManager.writePluginConfig(pluginId, this.getNodeConfig(nodeId), config);
+
     const stmt = this.db.prepare(`
       UPDATE node_plugins 
       SET config = ?
@@ -187,8 +217,6 @@ export class PluginManager {
       throw Errors.pluginNotInstalled(pluginId, nodeId);
     }
 
-    // Update config file
-    ConfigManager.writePluginConfig(pluginId, this.getNodeConfig(nodeId), config);
   }
 
   /**
