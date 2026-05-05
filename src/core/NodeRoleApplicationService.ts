@@ -36,6 +36,11 @@ export interface NodeRoleApplicationResult {
   node: NodeInstance;
 }
 
+interface PreparedDataContext {
+  context: NodeDataContext;
+  created: boolean;
+}
+
 const VALID_STORAGE_ENGINES = new Set<StorageEngine>(["leveldb", "rocksdb"]);
 
 function nodeNotStopped(node: NodeInstance): ApiError {
@@ -170,6 +175,7 @@ export class NodeRoleApplicationService {
       plugins: cloneJson(node.plugins ?? []),
       activeDataContext: activeDataContext ? cloneJson(activeDataContext) : null,
     };
+    let preparedDataContext: PreparedDataContext | null = null;
 
     try {
       const desiredStorageEngine = storageEngineOverride
@@ -178,15 +184,7 @@ export class NodeRoleApplicationService {
         ?? node.settings.storageEngine
         ?? "leveldb";
 
-      const activatedContext = await this.applyDataContext(role, node, desiredStorageEngine, activeDataContext);
-      if (activatedContext) {
-        node = await this.deps.nodeManager.updateNode(nodeId, {
-          settings: {
-            activeDataContextId: activatedContext.id,
-            syncStrategy: activatedContext.syncStrategy,
-          },
-        });
-      }
+      preparedDataContext = this.prepareDataContext(role, node, desiredStorageEngine, activeDataContext);
 
       if ((node.settings.storageEngine ?? "leveldb") !== desiredStorageEngine) {
         node = await this.deps.nodeManager.ensureStorageEngine(nodeId, desiredStorageEngine);
@@ -196,10 +194,17 @@ export class NodeRoleApplicationService {
         node = await this.applyPlugins(role, node);
       }
 
+      const activatedContext = preparedDataContext
+        ? this.deps.dataContextManager.activateContext(nodeId, preparedDataContext.context.id)
+        : null;
       const roleSettings = roleSettingsForNode(role, node);
       node = await this.deps.nodeManager.updateNode(nodeId, {
         settings: {
           ...roleSettings,
+          ...(activatedContext ? {
+            activeDataContextId: activatedContext.id,
+            syncStrategy: activatedContext.syncStrategy,
+          } : {}),
           role: {
             id: role.id,
             name: role.name,
@@ -220,6 +225,7 @@ export class NodeRoleApplicationService {
 
       return { application, node };
     } catch (error) {
+      this.rollbackPreparedDataContext(nodeId, activeDataContext, preparedDataContext);
       this.deps.roleManager.recordApplication({
         nodeId,
         roleId: role.id,
@@ -287,12 +293,12 @@ export class NodeRoleApplicationService {
     return storageEngine;
   }
 
-  private async applyDataContext(
+  private prepareDataContext(
     role: NodeRoleProfile,
     node: NodeInstance,
     storageEngine: StorageEngine,
     activeDataContext: NodeDataContext | undefined,
-  ): Promise<NodeDataContext | null> {
+  ): PreparedDataContext | null {
     const desiredContext = role.profile.dataContext;
     if (!desiredContext) {
       return null;
@@ -309,13 +315,36 @@ export class NodeRoleApplicationService {
         && context.storageEngine === storageEngine
         && context.syncStrategy === syncStrategy)
       : undefined;
+    const created = !existing;
     const context = existing ?? this.deps.dataContextManager.createContext(node.id, {
       label,
       storageEngine,
       syncStrategy,
-    });
+    }, { active: false });
 
-    return this.deps.dataContextManager.activateContext(node.id, context.id);
+    return { context, created };
+  }
+
+  private rollbackPreparedDataContext(
+    nodeId: string,
+    previousActiveContext: NodeDataContext | undefined,
+    preparedDataContext: PreparedDataContext | null,
+  ): void {
+    if (!preparedDataContext) {
+      return;
+    }
+
+    try {
+      const currentActive = this.deps.dataContextManager.getActiveContext(nodeId);
+      if (currentActive?.id === preparedDataContext.context.id && previousActiveContext) {
+        this.deps.dataContextManager.activateContext(nodeId, previousActiveContext.id);
+      }
+      if (preparedDataContext.created) {
+        this.deps.dataContextManager.deleteContext(nodeId, preparedDataContext.context.id);
+      }
+    } catch {
+      // The failed application record captures the resulting state for manual recovery.
+    }
   }
 
   private async applyPlugins(role: NodeRoleProfile, node: NodeInstance): Promise<NodeInstance> {

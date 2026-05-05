@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ALL_TOOLS, executeTool, toolsForUser } from "../../src/agent/tools";
 import type { ToolContext } from "../../src/agent/types";
+import type { NodeInstance } from "../../src/types";
 
 function makeContext(overrides: Partial<ToolContext> = {}): ToolContext {
   return {
@@ -22,6 +23,45 @@ function makeContext(overrides: Partial<ToolContext> = {}): ToolContext {
       auditLogger: { log: vi.fn() },
     } as never,
     ...overrides,
+  };
+}
+
+function makeNode(): NodeInstance {
+  return {
+    id: "node-1",
+    name: "Validator 1",
+    chain: "n3",
+    type: "neo-cli",
+    network: "mainnet",
+    syncMode: "full",
+    version: "3.8.1",
+    ports: { rpc: 10332, p2p: 10333 },
+    paths: {
+      base: "/srv/neo/node-1",
+      data: "/srv/neo/node-1/data",
+      logs: "/srv/neo/node-1/logs",
+      config: "/srv/neo/node-1/config",
+      wallet: "/srv/neo/node-1/wallet.json",
+    },
+    settings: {
+      maxConnections: 40,
+      relay: true,
+      activeDataContextId: "ctx-secret",
+      customConfig: { walletPassword: "secret-password" },
+      keyProtection: { mode: "secure-signer", signerProfileId: "signer-secret" },
+    },
+    process: { status: "running", pid: 1234 },
+    plugins: [
+      {
+        id: "RpcServer",
+        version: "1.0.0",
+        installedAt: 1710000000000,
+        enabled: true,
+        config: { bindAddress: "0.0.0.0", token: "plugin-secret" },
+      },
+    ],
+    createdAt: 1710000000000,
+    updatedAt: 1710000001000,
   };
 }
 
@@ -54,6 +94,50 @@ describe("agent tools", () => {
     const ctx = makeContext();
     const result = (await executeTool("get_network_height", { network: "mainnet" }, ctx)) as { network: string; height: number };
     expect(result).toEqual({ network: "mainnet", height: 12345 });
+  });
+
+  it("redacts node paths, sensitive settings, and plugin config for viewer get_node", async () => {
+    const node = makeNode();
+    const ctx = makeContext({
+      deps: { ...makeContext().deps, nodeManager: { ...makeContext().deps.nodeManager, getNode: () => node } as never },
+    });
+
+    const result = await executeTool("get_node", { node_id: "node-1" }, ctx);
+    const json = JSON.stringify(result);
+
+    expect(result).toMatchObject({
+      id: "node-1",
+      settings: {
+        maxConnections: 40,
+        relay: true,
+        keyProtection: { mode: "secure-signer" },
+      },
+      plugins: [{ id: "RpcServer", version: "1.0.0", enabled: true }],
+    });
+    expect(json).not.toContain("/srv/neo");
+    expect(json).not.toContain("secret-password");
+    expect(json).not.toContain("ctx-secret");
+    expect(json).not.toContain("signer-secret");
+    expect(json).not.toContain("plugin-secret");
+  });
+
+  it("redacts plugin config for viewer list_plugins", async () => {
+    const node = makeNode();
+    const ctx = makeContext({
+      deps: { ...makeContext().deps, nodeManager: { ...makeContext().deps.nodeManager, getNode: () => node } as never },
+    });
+
+    const result = await executeTool("list_plugins", { node_id: "node-1" }, ctx);
+
+    expect(result).toEqual([
+      {
+        id: "RpcServer",
+        version: "1.0.0",
+        installedAt: 1710000000000,
+        enabled: true,
+      },
+    ]);
+    expect(JSON.stringify(result)).not.toContain("plugin-secret");
   });
 
   it("executeTool routes start_node through nodeManager and audits", async () => {

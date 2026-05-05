@@ -1,8 +1,10 @@
 import crypto from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, open, unlink } from "node:fs/promises";
+import type { IncomingMessage } from "node:http";
+import { request as httpsRequest } from "node:https";
+import { isIP } from "node:net";
 import { join } from "node:path";
-import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type Database from "better-sqlite3";
 import type {
@@ -16,6 +18,12 @@ import type {
 } from "../types";
 import type { FastSyncSnapshotRow } from "../types/database";
 import { ApiError } from "../api/errors";
+import {
+  assertLiteralPublicTarget,
+  assertResolvedPublicTarget,
+  defaultHostnameResolver,
+  type HostnameResolver,
+} from "../utils/outboundTargets";
 import { getFastSyncStagingPath } from "../utils/paths";
 
 const SOURCE_TYPES = ["local", "url", "catalog"] as const satisfies readonly FastSyncSourceType[];
@@ -53,8 +61,30 @@ export interface FastSyncCompatibleNode {
   settings?: Pick<NodeSettings, "storageEngine">;
 }
 
+export type FastSyncDownloadTransport = (
+  source: URL,
+  targetAddress: string,
+  destination: string,
+) => Promise<void>;
+
+export interface FastSyncManagerOptions {
+  resolveHostname?: HostnameResolver;
+  allowPrivateTargets?: () => boolean;
+  downloadTransport?: FastSyncDownloadTransport;
+  httpsRequest?: typeof httpsRequest;
+}
+
 export class FastSyncManager {
-  constructor(private readonly db: Database.Database) {}
+  private readonly resolveHostname: HostnameResolver;
+  private readonly allowPrivateTargets: () => boolean;
+  private readonly downloadTransport: FastSyncDownloadTransport;
+
+  constructor(private readonly db: Database.Database, options: FastSyncManagerOptions = {}) {
+    this.resolveHostname = options.resolveHostname ?? defaultHostnameResolver;
+    this.allowPrivateTargets = options.allowPrivateTargets ?? allowPrivateFastSyncTargets;
+    this.downloadTransport = options.downloadTransport ?? ((source, targetAddress, destination) =>
+      downloadHttpsSnapshotToFile(source, targetAddress, destination, options.httpsRequest ?? httpsRequest));
+  }
 
   listSnapshots(): FastSyncSnapshot[] {
     const rows = this.db
@@ -365,11 +395,24 @@ export class FastSyncManager {
   }
 
   private async downloadToFile(source: URL, destination: string): Promise<void> {
-    const response = await fetch(source);
-    if (!response.ok || !response.body) {
-      throw new Error(`Download failed with HTTP ${response.status}`);
+    const targetAddress = await this.resolvePublicDownloadTarget(source);
+    await this.downloadTransport(source, targetAddress, destination);
+  }
+
+  private async resolvePublicDownloadTarget(source: URL): Promise<string> {
+    const allowPrivate = this.allowPrivateTargets();
+    assertLiteralPublicTarget(source.hostname, fastSyncPrivateTargetError, allowPrivate);
+    const addresses = await assertResolvedPublicTarget(
+      source.hostname,
+      this.resolveHostname,
+      fastSyncPrivateTargetError,
+      allowPrivate,
+    );
+    const targetAddress = addresses[0]?.address;
+    if (!targetAddress) {
+      throw new Error(`Unable to resolve fast sync snapshot target: ${source.hostname}`);
     }
-    await pipeline(Readable.fromWeb(response.body), createWriteStream(destination));
+    return targetAddress;
   }
 
   private async hashLocalFile(filePath: string): Promise<{ sha256: string; sizeBytes: number }> {
@@ -465,4 +508,71 @@ export class FastSyncManager {
       lastVerifiedAt: row.last_verified_at ?? undefined,
     };
   }
+}
+
+function allowPrivateFastSyncTargets(): boolean {
+  return process.env.NEONEXUS_ALLOW_PRIVATE_FAST_SYNC_TARGETS === "true";
+}
+
+function fastSyncPrivateTargetError(hostname: string): ApiError {
+  return new ApiError(
+    "FAST_SYNC_DOWNLOAD_PRIVATE_TARGET",
+    `Fast sync snapshot URL targets a private or local address: ${hostname}`,
+    "Use a public HTTPS snapshot URL, or set NEONEXUS_ALLOW_PRIVATE_FAST_SYNC_TARGETS=true only for trusted private deployments.",
+  );
+}
+
+async function downloadHttpsSnapshotToFile(
+  source: URL,
+  targetAddress: string,
+  destination: string,
+  requestHttps: typeof httpsRequest,
+): Promise<void> {
+  const response = await requestPinnedHttpsResponse(source, targetAddress, requestHttps);
+  await pipeline(response, createWriteStream(destination));
+}
+
+function requestPinnedHttpsResponse(
+  source: URL,
+  targetAddress: string,
+  requestHttps: typeof httpsRequest,
+): Promise<IncomingMessage> {
+  return new Promise((resolve, reject) => {
+    const req = requestHttps(
+      {
+        protocol: "https:",
+        hostname: targetAddress,
+        port: source.port || "443",
+        path: `${source.pathname}${source.search}`,
+        method: "GET",
+        headers: { Host: source.host },
+        servername: isIP(stripBrackets(source.hostname)) === 0 ? stripBrackets(source.hostname) : undefined,
+      },
+      (res) => {
+        const status = res.statusCode ?? 599;
+        if (status >= 300 && status < 400) {
+          res.resume();
+          reject(new ApiError(
+            "FAST_SYNC_DOWNLOAD_REDIRECT_BLOCKED",
+            `Fast sync snapshot download attempted to redirect to ${String(res.headers.location ?? "another URL")}`,
+            "Use the final HTTPS snapshot URL. Redirects are not followed for fast sync downloads.",
+          ));
+          return;
+        }
+        if (status < 200 || status >= 300) {
+          res.resume();
+          reject(new Error(`Download failed with HTTP ${status}`));
+          return;
+        }
+        resolve(res);
+      },
+    );
+
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+function stripBrackets(hostname: string): string {
+  return hostname.replace(/^\[/, "").replace(/\]$/, "");
 }
