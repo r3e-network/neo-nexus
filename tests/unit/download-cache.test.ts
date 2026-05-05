@@ -80,4 +80,20 @@ describe("hasUsableDownloadFile", () => {
     expect(result).toBe(localOutput);
     expect(extractZip).not.toHaveBeenCalled();
   });
+
+  it("discovers local plugin build target frameworks instead of requiring net10.0", async () => {
+    const root = mkdtempSync(join(tmpdir(), "neonexus-download-"));
+    const localBuildRoot = mkdtempSync(join(tmpdir(), "neonexus-plugin-build-"));
+    const localOutput = join(localBuildRoot, "RpcServer", "bin", "Release", "net9.0");
+    mkdirSync(localOutput, { recursive: true });
+    mkdirSync(join(root, "downloads"), { recursive: true });
+    writeFileSync(join(root, "downloads", "plugin-RpcServer-v3.9.2.zip"), "cached zip");
+    process.env.NEO_PLUGIN_BUILD_DIR = localBuildRoot;
+    const { DownloadManager, extractZip } = await importDownloadManagerWithTempPaths(root);
+
+    const result = await DownloadManager.downloadPlugin("RpcServer", "v3.9.2");
+
+    expect(result).toBe(localOutput);
+    expect(extractZip).not.toHaveBeenCalled();
+  });
 });

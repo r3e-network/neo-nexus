@@ -1030,22 +1030,29 @@ export class NodeManager extends EventEmitter {
 
     this.assertCanWriteImportedNode(node, 'plugin installation');
 
-    const previousEnabledPlugins = this.getEnabledPluginIds(nodeId);
-    await this.pluginManager.installPlugin(nodeId, pluginId, node.version, config);
+    await this.installPluginAndRewriteConfig(node, pluginId, config);
+  }
 
+  private async installPluginAndRewriteConfig(
+    node: NodeInstance,
+    pluginId: PluginId,
+    config?: Record<string, unknown>,
+    previousEnabledPlugins = this.getEnabledPluginIds(node.id),
+  ): Promise<void> {
+    await this.pluginManager.installPlugin(node.id, pluginId, node.version, config);
     try {
       // Update node config
-      await ConfigManager.writeNodeConfig(node, this.getEnabledPluginIds(nodeId));
+      await ConfigManager.writeNodeConfig(node, this.getEnabledPluginIds(node.id));
     } catch (error) {
       try {
-        this.pluginManager.removePluginState(nodeId, pluginId);
+        this.pluginManager.removePluginState(node.id, pluginId);
       } catch (rollbackError) {
-        console.error(`Failed to rollback plugin installation for ${nodeId}/${pluginId}:`, rollbackError);
+        console.error(`Failed to rollback plugin installation for ${node.id}/${pluginId}:`, rollbackError);
       }
       try {
         await ConfigManager.writeNodeConfig(node, previousEnabledPlugins);
       } catch (rollbackError) {
-        console.error(`Failed to rewrite restored node config for ${nodeId}:`, rollbackError);
+        console.error(`Failed to rewrite restored node config for ${node.id}:`, rollbackError);
       }
       throw error;
     }
@@ -1186,16 +1193,37 @@ export class NodeManager extends EventEmitter {
     const config = this.secureSignerManager.buildSignClientConfig(profile, keyProtection.policy);
     const installedPlugins = this.pluginManager.getInstalledPlugins(nodeId);
     const existingSignClient = installedPlugins.find((plugin) => plugin.id === "SignClient");
+    const previousEnabledPlugins = installedPlugins
+      .filter((plugin) => plugin.enabled)
+      .map((plugin) => plugin.id);
 
     if (existingSignClient) {
-      this.pluginManager.updatePluginConfig(nodeId, "SignClient", config);
-      this.pluginManager.setPluginEnabled(nodeId, "SignClient", true);
-      await ConfigManager.writeNodeConfig(node, this.getEnabledPluginIds(nodeId));
+      try {
+        this.pluginManager.updatePluginConfig(nodeId, "SignClient", config);
+        this.pluginManager.setPluginEnabled(nodeId, "SignClient", true);
+        await ConfigManager.writeNodeConfig(node, this.getEnabledPluginIds(nodeId));
+      } catch (error) {
+        try {
+          this.pluginManager.updatePluginConfig(nodeId, "SignClient", existingSignClient.config ?? {});
+        } catch (rollbackError) {
+          console.error(`Failed to rollback SignClient config for ${nodeId}:`, rollbackError);
+        }
+        try {
+          this.pluginManager.setPluginEnabled(nodeId, "SignClient", existingSignClient.enabled);
+        } catch (rollbackError) {
+          console.error(`Failed to rollback SignClient enablement for ${nodeId}:`, rollbackError);
+        }
+        try {
+          await ConfigManager.writeNodeConfig(node, previousEnabledPlugins);
+        } catch (rollbackError) {
+          console.error(`Failed to rewrite restored node config for ${nodeId}:`, rollbackError);
+        }
+        throw error;
+      }
       return;
     }
 
-    await this.pluginManager.installPlugin(nodeId, "SignClient", node.version, config);
-    await ConfigManager.writeNodeConfig(node, this.getEnabledPluginIds(nodeId));
+    await this.installPluginAndRewriteConfig(node, "SignClient", config, previousEnabledPlugins);
   }
 
   private getEnabledPluginIds(nodeId: string, node?: Pick<NodeInstance, "plugins">): PluginId[] {

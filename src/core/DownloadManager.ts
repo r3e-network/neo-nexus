@@ -104,6 +104,37 @@ export function getNeoGoAssetInfo(
   };
 }
 
+function getTargetFrameworkVersion(name: string): { major: number; minor: number } | null {
+  const match = /^net(\d+)(?:\.(\d+))?(?:-.+)?$/.exec(name);
+  if (!match) return null;
+  return {
+    major: Number.parseInt(match[1], 10),
+    minor: Number.parseInt(match[2] ?? "0", 10),
+  };
+}
+
+function findLocalPluginBuildOutput(localBuildDir: string, pluginId: string): string | null {
+  const releaseDir = join(localBuildDir, pluginId, "bin", "Release");
+  if (!existsSync(releaseDir)) return null;
+
+  const releaseEntries = readdirSync(releaseDir);
+  if (releaseEntries.some((entry) => entry.endsWith(".dll"))) {
+    return releaseDir;
+  }
+
+  const targetFrameworkDirs = releaseEntries
+    .map((entry) => {
+      const fullPath = join(releaseDir, entry);
+      const version = getTargetFrameworkVersion(entry);
+      if (!version || !statSync(fullPath).isDirectory()) return null;
+      return { entry, ...version };
+    })
+    .filter((entry): entry is { entry: string; major: number; minor: number } => entry !== null)
+    .sort((a, b) => b.major - a.major || b.minor - a.minor || b.entry.localeCompare(a.entry));
+
+  return targetFrameworkDirs[0] ? join(releaseDir, targetFrameworkDirs[0].entry) : null;
+}
+
 export class DownloadManager {
   /**
    * Get latest release info for a node type
@@ -234,8 +265,8 @@ export class DownloadManager {
     // Check for local build source first
     const localBuildDir = process.env.NEO_PLUGIN_BUILD_DIR;
     if (localBuildDir) {
-      const localPluginOutput = join(localBuildDir, pluginId, "bin", "Release", "net10.0");
-      if (existsSync(localPluginOutput)) {
+      const localPluginOutput = findLocalPluginBuildOutput(localBuildDir, pluginId);
+      if (localPluginOutput && existsSync(localPluginOutput)) {
         mkdirSync(pluginDir, { recursive: true });
         return localPluginOutput;
       }
