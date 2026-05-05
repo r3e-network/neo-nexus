@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import { ApiError } from '../api/errors';
 import type { SystemMetrics } from '../types/index';
 import type {
+  ConfigField,
   IntegrationId,
   IntegrationRow,
   IntegrationStatus,
@@ -18,6 +19,7 @@ import { integrationRegistry, registryMap } from './registry';
 import { validateLiteralIntegrationUrl } from './safeFetch';
 
 const REDACTION_PREFIX = '••••••••...';
+const INTEGRATION_CONFIG_INVALID_SUGGESTION = 'Enter the complete integration value again, or keep the exact redacted value returned by the settings endpoint.';
 
 function safeJsonParse(value: string): Record<string, string> {
   try {
@@ -269,10 +271,18 @@ export class IntegrationManager {
     const def = registryMap.get(id as IntegrationId);
     if (!def) throw new Error(`Unknown integration: ${id}`);
 
-    // Validate URL-type fields
+    const normalizedConfig = this.normalizeConfigInput(config);
+    const existing = this.db.prepare('SELECT * FROM integrations WHERE id = ?').get(id) as IntegrationRow | undefined;
+    const existingConfig = existing ? safeJsonParse(existing.config) : {};
+
+    // Validate URL-type fields and redacted placeholders before persistence.
     for (const field of def.configSchema) {
-      const value = config[field.key];
-      if (field.type === 'url' && value && !value.startsWith(REDACTION_PREFIX)) {
+      const value = normalizedConfig[field.key];
+      if (this.isRedactedPlaceholder(value, field)) {
+        this.assertRedactedPlaceholderMatchesStored(field, value, existingConfig[field.key]);
+        continue;
+      }
+      if (field.type === 'url' && value) {
         try {
           validateLiteralIntegrationUrl(value);
         } catch (error) {
@@ -282,18 +292,18 @@ export class IntegrationManager {
           throw new Error(`Invalid URL for ${field.label}: ${value}`);
         }
       }
+      if (id === 'sentry' && field.key === 'dsn' && value) {
+        this.validateSentryDsn(value);
+      }
     }
 
-    const existing = this.db.prepare('SELECT * FROM integrations WHERE id = ?').get(id) as IntegrationRow | undefined;
-
     // Merge with existing config to preserve redacted fields the user didn't change
-    let mergedConfig = config;
+    let mergedConfig = normalizedConfig;
     if (existing) {
-      const existingConfig = safeJsonParse(existing.config);
       mergedConfig = { ...existingConfig };
-      for (const [key, value] of Object.entries(config)) {
-        // Skip if the value looks like a redacted placeholder (starts with our redaction prefix)
-        if (value && !value.startsWith(REDACTION_PREFIX)) {
+      for (const [key, value] of Object.entries(normalizedConfig)) {
+        const field = def.configSchema.find((candidate) => candidate.key === key);
+        if (!this.isRedactedPlaceholder(value, field)) {
           mergedConfig[key] = value;
         }
       }
@@ -368,9 +378,7 @@ export class IntegrationManager {
       if (!value) {
         redacted[field.key] = '';
       } else if (field.type === 'password' || field.sensitive) {
-        redacted[field.key] = value.length > 4
-          ? REDACTION_PREFIX + value.slice(-4)
-          : REDACTION_PREFIX.slice(0, 4);
+        redacted[field.key] = this.redactValue(value);
       } else {
         redacted[field.key] = value;
       }
@@ -389,5 +397,82 @@ export class IntegrationManager {
     const def = registryMap.get(integrationId as IntegrationId);
     console.error(`[integrations] ${def?.name ?? integrationId} error: ${msg}`);
     this.updateLastError(integrationId, msg);
+  }
+
+  private normalizeConfigInput(config: Record<string, string>): Record<string, string> {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+      throw new ApiError(
+        'INTEGRATION_CONFIG_INVALID',
+        'Integration config must be an object',
+        'Submit a JSON object with string values for this integration.',
+      );
+    }
+
+    const normalized: Record<string, string> = {};
+    for (const [key, value] of Object.entries(config)) {
+      if (typeof value !== 'string') {
+        throw new ApiError(
+          'INTEGRATION_CONFIG_INVALID',
+          `Integration config value ${key} must be a string`,
+          'Submit integration config values as strings.',
+        );
+      }
+      normalized[key] = value;
+    }
+    return normalized;
+  }
+
+  private isRedactedPlaceholder(value: string | undefined, field: ConfigField | undefined): boolean {
+    if (!value || (!field?.sensitive && field?.type !== 'password')) {
+      return false;
+    }
+    return value.startsWith(REDACTION_PREFIX) || value === REDACTION_PREFIX.slice(0, 4);
+  }
+
+  private assertRedactedPlaceholderMatchesStored(
+    field: ConfigField,
+    value: string,
+    storedValue: string | undefined,
+  ): void {
+    if (!storedValue) {
+      throw new ApiError(
+        'INTEGRATION_REDACTED_VALUE_UNSAVED',
+        `Redacted placeholder cannot be used for ${field.label} before a value has been saved`,
+        INTEGRATION_CONFIG_INVALID_SUGGESTION,
+      );
+    }
+    if (value !== this.redactValue(storedValue)) {
+      throw new ApiError(
+        'INTEGRATION_REDACTED_VALUE_MISMATCH',
+        `Redacted placeholder for ${field.label} does not match the stored value`,
+        INTEGRATION_CONFIG_INVALID_SUGGESTION,
+      );
+    }
+  }
+
+  private redactValue(value: string): string {
+    return value.length > 4
+      ? REDACTION_PREFIX + value.slice(-4)
+      : REDACTION_PREFIX.slice(0, 4);
+  }
+
+  private validateSentryDsn(value: string): void {
+    let parsed: URL;
+    try {
+      parsed = new URL(value);
+    } catch {
+      throw new ApiError(
+        'SENTRY_DSN_INVALID',
+        'Sentry DSN must be a valid URL',
+        'Use a Sentry HTTPS DSN such as https://publicKey@o0.ingest.sentry.io/projectId.',
+      );
+    }
+    if (parsed.protocol !== 'https:' || !parsed.username || parsed.pathname.replace('/', '') === '') {
+      throw new ApiError(
+        'SENTRY_DSN_INVALID',
+        'Sentry DSN must be an HTTPS DSN with a public key and project id',
+        'Use a Sentry HTTPS DSN such as https://publicKey@o0.ingest.sentry.io/projectId.',
+      );
+    }
   }
 }
