@@ -7,7 +7,7 @@ import path from "node:path";
 import request from "supertest";
 import Database from "better-sqlite3";
 import { createFastSyncRouter } from "../../src/api/routes/fastSync";
-import { FastSyncManager } from "../../src/core/FastSyncManager";
+import { FastSyncManager, type FastSyncManagerOptions } from "../../src/core/FastSyncManager";
 import { createAuthMiddleware, type SessionUser } from "../../src/api/middleware/auth";
 import { requireAdmin } from "../../src/api/middleware/roles";
 
@@ -17,7 +17,7 @@ vi.unmock("node:fs/promises");
 
 const VALID_SHA = "a".repeat(64);
 
-function createManager() {
+function createManager(options?: FastSyncManagerOptions) {
   const db = new Database(":memory:");
   db.exec(`
     CREATE TABLE fast_sync_snapshots (
@@ -39,7 +39,7 @@ function createManager() {
       last_verified_at INTEGER
     );
   `);
-  return new FastSyncManager(db);
+  return new FastSyncManager(db, options);
 }
 
 function validPayload(overrides: Record<string, unknown> = {}) {
@@ -265,15 +265,19 @@ describe("Actual fast sync router", () => {
   });
 
   it("downloads and verifies URL snapshots with the real manager", async () => {
-    const manager = createManager();
     const bytes = Buffer.from("actual snapshot bytes");
     const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
+    const manager = createManager({
+      resolveHostname: vi.fn(async () => [{ address: "203.0.113.10", family: 4 }]),
+      downloadTransport: vi.fn(async (_source, _targetAddress, destination) => {
+        fs.writeFileSync(destination, bytes);
+      }),
+    });
     const snapshot = manager.registerSnapshot(validPayload({
       sourceType: "url",
       source: "https://snapshots.example.test/mainnet.tar.zst",
       sha256,
     }));
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(bytes)));
     const realApp = express();
     realApp.use(express.json());
     realApp.use("/api/fast-sync", createFastSyncRouter(manager));

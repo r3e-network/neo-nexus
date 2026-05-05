@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Sparkles, Send, StopCircle, Plus, Trash2, Wrench, AlertCircle } from 'lucide-react';
+import { Sparkles, Send, StopCircle, Plus, Trash2, Wrench, AlertCircle, Settings2 } from 'lucide-react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useAuth } from '../hooks/useAuth';
 
@@ -52,6 +52,7 @@ export default function Agent() {
   const [input, setInput] = useState('');
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingSettings, setEditingSettings] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Initial load.
@@ -214,6 +215,20 @@ export default function Agent() {
     return <SettingsPanel token={token!} onSaved={(s) => setSettings(s)} />;
   }
 
+  if (settings?.configured && editingSettings) {
+    return (
+      <SettingsPanel
+        token={token!}
+        initialSettings={settings}
+        onCancel={() => setEditingSettings(false)}
+        onSaved={(s) => {
+          setSettings(s);
+          setEditingSettings(false);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)] gap-4 p-4">
       {/* Conversation list — collapses to a horizontally-scrolling pill bar on mobile */}
@@ -265,6 +280,16 @@ export default function Agent() {
               {settings.provider} · <span className="font-mono">{settings.model}</span>
             </div>
           )}
+          {settings?.configured && (
+            <button
+              type="button"
+              onClick={() => setEditingSettings(true)}
+              className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              Edit settings
+            </button>
+          )}
         </div>
       </aside>
 
@@ -273,6 +298,16 @@ export default function Agent() {
         <div className="px-5 py-3 border-b border-slate-200 flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-emerald-600" />
           <h1 className="text-lg font-semibold text-slate-900">{activeConversation?.title || 'Hermes Agent'}</h1>
+          {settings?.configured && (
+            <button
+              type="button"
+              onClick={() => setEditingSettings(true)}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              Settings
+            </button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
@@ -395,13 +430,24 @@ function MessageRow({ message }: { message: AgentMessage }) {
   );
 }
 
-function SettingsPanel({ token, onSaved }: { token: string; onSaved: (s: AgentSettingsResponse) => void }) {
-  const [provider, setProvider] = useState<Provider>('anthropic');
-  const [model, setModel] = useState('claude-sonnet-4-6');
-  const [apiKey, setApiKey] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
+export function SettingsPanel({
+  token,
+  initialSettings,
+  onCancel,
+  onSaved,
+}: {
+  token: string;
+  initialSettings?: AgentSettingsResponse;
+  onCancel?: () => void;
+  onSaved: (s: AgentSettingsResponse) => void;
+}) {
+  const [provider, setProvider] = useState<Provider>(initialSettings?.provider ?? 'anthropic');
+  const [model, setModel] = useState(initialSettings?.model ?? 'claude-sonnet-4-6');
+  const [apiKey, setApiKey] = useState(initialSettings?.apiKey ?? '');
+  const [baseUrl, setBaseUrl] = useState(initialSettings?.baseUrl ?? '');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const isEditing = Boolean(initialSettings?.configured);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -431,7 +477,7 @@ function SettingsPanel({ token, onSaved }: { token: string; onSaved: (s: AgentSe
       <div className="bg-white rounded-2xl border border-slate-200 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="w-6 h-6 text-emerald-600" />
-          <h1 className="text-xl font-semibold text-slate-900">Set up Hermes Agent</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{isEditing ? 'Edit Hermes Agent' : 'Set up Hermes Agent'}</h1>
         </div>
         <p className="text-sm text-slate-600 mb-6">
           Bring your own API key. Conversations are stored per-user; tools inherit your role (admin or viewer).
@@ -468,7 +514,10 @@ function SettingsPanel({ token, onSaved }: { token: string; onSaved: (s: AgentSe
               placeholder={provider === 'anthropic' ? 'sk-ant-...' : 'sk-...'}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
             />
-            <p className="text-xs text-slate-500 mt-1">Stored on the server. Only the last 4 characters are returned to the UI.</p>
+            <p className="text-xs text-slate-500 mt-1">
+              Stored on the server. Only the last 4 characters are returned to the UI.
+              {isEditing ? ' Keep the redacted value to preserve the current key.' : ''}
+            </p>
           </div>
           {provider === 'openai-compatible' && (
             <div>
@@ -486,13 +535,25 @@ function SettingsPanel({ token, onSaved }: { token: string; onSaved: (s: AgentSe
           {err && (
             <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">{err}</div>
           )}
-          <button
-            type="submit"
-            disabled={saving || !apiKey || !model}
-            className="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 text-white rounded-lg text-sm font-medium transition"
-          >
-            {saving ? 'Saving...' : 'Save & start'}
-          </button>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={saving}
+                className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            )}
+            <button
+              type="submit"
+              disabled={saving || !apiKey || !model || (provider === 'openai-compatible' && !baseUrl.trim())}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 text-white rounded-lg text-sm font-medium transition"
+            >
+              {saving ? 'Saving...' : isEditing ? 'Save changes' : 'Save & start'}
+            </button>
+          </div>
         </form>
       </div>
     </div>

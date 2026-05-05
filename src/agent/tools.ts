@@ -1,4 +1,5 @@
 import type { NodeInstance } from "../types";
+import { nodeResponseForRole, pluginResponseForRole } from "../api/serializers/nodeResponses";
 import type { ToolContext, ToolDefinition } from "./types";
 
 const READ_TOOLS: ToolDefinition[] = [
@@ -15,7 +16,7 @@ const READ_TOOLS: ToolDefinition[] = [
   {
     name: "get_node",
     description:
-      "Fetch full detail for a single node by id, including config paths, ports, secure-signer binding, plugins, and the latest metrics. Use when the user asks about a specific node.",
+      "Fetch detail for a single node by id, including ports, plugins, and the latest metrics. Admins can see paths and full settings; viewers receive the same redacted node view as the REST API.",
     inputSchema: {
       type: "object",
       properties: { node_id: { type: "string", description: "Node id (e.g. node-mn80ntf9-phx68)" } },
@@ -26,7 +27,7 @@ const READ_TOOLS: ToolDefinition[] = [
       const id = stringInput(input, "node_id");
       const node = ctx.deps.nodeManager.getNode(id);
       if (!node) throw new Error(`Node ${id} not found`);
-      return node;
+      return nodeResponseForRole(ctx.user.role, node);
     },
   },
   {
@@ -51,7 +52,7 @@ const READ_TOOLS: ToolDefinition[] = [
   {
     name: "list_plugins",
     description:
-      "List installed plugins on a node, including which are enabled, their version, and config keys. Plugins are only meaningful for neo-cli nodes.",
+      "List installed plugins on a node, including which are enabled and their version. Admins can see plugin config; viewers receive the same redacted plugin view as the REST API.",
     inputSchema: {
       type: "object",
       properties: { node_id: { type: "string" } },
@@ -62,7 +63,7 @@ const READ_TOOLS: ToolDefinition[] = [
       const id = stringInput(input, "node_id");
       const node = ctx.deps.nodeManager.getNode(id);
       if (!node) throw new Error(`Node ${id} not found`);
-      return node.plugins ?? [];
+      return pluginResponseForRole(ctx.user.role, node.plugins ?? []);
     },
   },
   {

@@ -1,7 +1,8 @@
 import { Router, type Request, type Response } from 'express';
 import type { NodeManager } from '../../core/NodeManager';
-import type { InstalledPlugin, PluginId } from '../../types';
+import type { PluginId } from '../../types';
 import type { AuthenticatedRequest } from '../middleware/auth';
+import { pluginResponseForRole } from '../serializers/nodeResponses';
 
 interface NodeParams {
   id: string;
@@ -11,17 +12,6 @@ interface NodeParams {
 type MaybeAuthenticatedRequest = Request<NodeParams> & {
   user?: AuthenticatedRequest['user'];
 };
-
-function isViewerRequest(req: MaybeAuthenticatedRequest): boolean {
-  return req.user?.role === 'viewer';
-}
-
-function pluginResponseForRequest(req: MaybeAuthenticatedRequest, plugins: InstalledPlugin[]): InstalledPlugin[] | Array<Omit<InstalledPlugin, 'config'>> {
-  if (!isViewerRequest(req)) {
-    return plugins;
-  }
-  return plugins.map(({ id, version, installedAt, enabled }) => ({ id, version, installedAt, enabled }));
-}
 
 export function createPluginsRouter(nodeManager: NodeManager): Router {
   const router = Router({ mergeParams: true });
@@ -37,10 +27,10 @@ export function createPluginsRouter(nodeManager: NodeManager): Router {
   };
 
   // GET /api/nodes/:id/plugins - List installed plugins
-  router.get('/', (req: Request<NodeParams>, res: Response) => {
+  router.get('/', (req: MaybeAuthenticatedRequest, res: Response) => {
     try {
       const plugins = pluginManager.getInstalledPlugins(req.params.id);
-      res.json({ plugins: pluginResponseForRequest(req, plugins) });
+      res.json({ plugins: pluginResponseForRole(req.user?.role, plugins) });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Internal server error";
       res.status(pluginErrorStatus(error)).json({ error: message });

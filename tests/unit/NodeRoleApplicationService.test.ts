@@ -264,6 +264,18 @@ describe("NodeRoleApplicationService", () => {
     });
   });
 
+  it("does not activate a new data context before plugin application succeeds", async () => {
+    nodeManager.installPlugin.mockRejectedValueOnce(new ApiError("PLUGIN_INSTALL_FAILED", "plugin install failed", "Try again."));
+
+    await expect(service.apply("builtin-state", "node-1", {}, "admin-1")).rejects.toMatchObject({
+      code: "PLUGIN_INSTALL_FAILED",
+    });
+
+    expect(dataContextManager.getActiveContext("node-1")).toBeNull();
+    expect(node.settings.activeDataContextId).toBeUndefined();
+    expect(node.settings.syncStrategy).toBeUndefined();
+  });
+
   it("rejects plugin-bearing roles for neo-go nodes instead of silently applying them", async () => {
     const role = roleManager.createCustomRole({
       name: "Bad Neo Go Plugin Role",

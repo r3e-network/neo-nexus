@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 import type { AgentManager } from "../../agent/AgentManager";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { respondWithApiError } from "../respond";
-import { Errors } from "../errors";
+import { ApiError, Errors } from "../errors";
 
 interface SettingsBody {
   provider?: string;
@@ -50,14 +50,22 @@ export function createAgentRouter(agent: AgentManager): Router {
   router.put("/settings", (req: Request<unknown, unknown, SettingsBody>, res: Response) => {
     const user = (req as AuthenticatedRequest).user;
     const body = req.body ?? {};
+    const existing = agent.getSettings(user.id);
 
     const provider = body.provider;
     if (provider !== "anthropic" && provider !== "openai" && provider !== "openai-compatible") {
       respondWithApiError(res, Errors.missingFields("provider"));
       return;
     }
-    if (!body.model || !body.apiKey) {
-      respondWithApiError(res, Errors.missingFields(...[!body.model ? "model" : null, !body.apiKey ? "apiKey" : null].filter((x): x is string => Boolean(x))));
+    let apiKey: string | undefined;
+    try {
+      apiKey = apiKeyForSave(body.apiKey, existing?.apiKey);
+    } catch (error) {
+      respondWithApiError(res, error);
+      return;
+    }
+    if (!body.model || !apiKey) {
+      respondWithApiError(res, Errors.missingFields(...[!body.model ? "model" : null, !apiKey ? "apiKey" : null].filter((x): x is string => Boolean(x))));
       return;
     }
 
@@ -65,7 +73,7 @@ export function createAgentRouter(agent: AgentManager): Router {
       const saved = agent.saveSettings(user.id, {
         provider,
         model: body.model,
-        apiKey: body.apiKey,
+        apiKey,
         baseUrl: body.baseUrl,
         enabled: body.enabled,
       });
@@ -164,4 +172,22 @@ export function createAgentRouter(agent: AgentManager): Router {
 
 function redact(value: string): string {
   return value.length > 4 ? SECRET_PREFIX + value.slice(-4) : SECRET_PREFIX.slice(0, 4);
+}
+
+function apiKeyForSave(input: string | undefined, existingApiKey: string | undefined): string | undefined {
+  const value = input?.trim();
+  if (!value) {
+    return existingApiKey;
+  }
+  if (!value.startsWith(SECRET_PREFIX)) {
+    return value;
+  }
+  if (existingApiKey && value === redact(existingApiKey)) {
+    return existingApiKey;
+  }
+  throw new ApiError(
+    "AGENT_API_KEY_PLACEHOLDER_INVALID",
+    "Agent API key placeholder does not match the stored key",
+    "Enter the full API key again, or keep the current redacted value returned by the settings endpoint.",
+  );
 }
