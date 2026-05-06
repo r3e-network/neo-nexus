@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { lstatSync } from "node:fs";
 import { join } from "node:path";
 import { BaseNode } from "./BaseNode";
 import { DownloadManager } from "../core/DownloadManager";
@@ -21,7 +21,7 @@ export class NeoCliNode extends BaseNode {
     const localDll = join(this.config.paths.base, "neo-cli.dll");
     let dllPath: string;
 
-    if (existsSync(localDll)) {
+    if (isRegularFile(localDll)) {
       dllPath = localDll;
     } else {
       const downloadPath = DownloadManager.getNodeBinaryPath("neo-cli", this.config.version);
@@ -29,6 +29,9 @@ export class NeoCliNode extends BaseNode {
         throw new Error(`neo-cli ${this.config.version} is not downloaded`);
       }
       dllPath = join(downloadPath, "neo-cli.dll");
+    }
+    if (!isRegularFile(dllPath)) {
+      throw new Error(`neo-cli ${this.config.version} binary is not a regular file`);
     }
 
     const dotnetArgs: string[] = ["dotnet", dllPath];
@@ -150,6 +153,14 @@ export class NeoCliNode extends BaseNode {
     // Install .NET 8.0
     await execShell("sudo apt-get update");
     await execShell("sudo apt-get install -y dotnet-runtime-8.0");
+  }
+}
+
+function isRegularFile(path: string): boolean {
+  try {
+    return lstatSync(path).isFile();
+  } catch {
+    return false;
   }
 }
 

@@ -39,7 +39,7 @@ function requestPinnedTarget(url: URL, targetAddress: string, init: RequestInit 
   return new Promise((resolve, reject) => {
     const request = url.protocol === "https:" ? httpsRequest : httpRequest;
     const headers = headersToRecord(init?.headers);
-    headers.Host = url.host;
+    setPinnedHostHeader(headers, url.host);
 
     const req = request({
       protocol: url.protocol,
@@ -115,6 +115,15 @@ function headersToRecord(headers: RequestInit["headers"] | undefined): Record<st
     result[key] = value;
   });
   return result;
+}
+
+function setPinnedHostHeader(headers: Record<string, string>, host: string): void {
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === "host") {
+      delete headers[key];
+    }
+  }
+  headers.Host = host;
 }
 
 function responseHeadersToHeaders(headers: Record<string, string | string[] | number | undefined>): Headers {

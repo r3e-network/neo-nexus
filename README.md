@@ -234,7 +234,7 @@ Neo-cli nodes can reference a secure signing endpoint instead of raw private-key
 # Login
 curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin"}'
+  -d '{"username":"admin","password":"use-a-strong-admin-passphrase"}'
 
 # Use token for authenticated requests
 curl http://localhost:8080/api/nodes \

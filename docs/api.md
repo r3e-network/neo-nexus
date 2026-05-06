@@ -1565,7 +1565,7 @@ class NeoNexusClient:
 # Login and save token
 TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin"}' | jq -r '.token')
+  -d '{"username":"admin","password":"use-a-strong-admin-passphrase"}' | jq -r '.token')
 
 # Use token for subsequent requests
 curl -s http://localhost:8080/api/nodes \

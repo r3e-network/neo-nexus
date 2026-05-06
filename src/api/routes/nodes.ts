@@ -17,7 +17,7 @@ import { assertNodeNetwork, assertNodeType } from '../../utils/nodeValidation';
 import { ApiError, Errors } from '../errors';
 import { respondWithApiError } from '../respond';
 import type { AuthenticatedRequest } from '../middleware/auth';
-import { nodeResponseForRole } from '../serializers/nodeResponses';
+import { logResponseForRole, nodeResponseForRole } from '../serializers/nodeResponses';
 
 function validateNodePath(inputPath: string): string {
   const resolved = resolve(inputPath);
@@ -422,7 +422,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
   });
 
   // GET /api/nodes/:id/logs - Get node logs
-  router.get('/:id/logs', (req: Request<NodeParams>, res: Response) => {
+  router.get('/:id/logs', (req: MaybeAuthenticatedRouteRequest<NodeParams>, res: Response) => {
     try {
       const node = nodeManager.getNode(req.params.id);
       if (!node) {
@@ -430,7 +430,7 @@ export function createNodesRouter(nodeManager: NodeManager): Router {
       }
       const count = Math.max(1, Math.min(parseInt(req.query.count as string) || 100, 1000));
       const logs = nodeManager.getNodeLogs(req.params.id, count);
-      res.json({ logs });
+      res.json({ logs: logResponseForRole(req.user?.role, logs, node) });
     } catch (error) {
       respondWithApiError(res, error);
     }

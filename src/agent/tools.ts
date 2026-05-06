@@ -1,5 +1,7 @@
 import type { NodeInstance } from "../types";
-import { nodeResponseForRole, pluginResponseForRole } from "../api/serializers/nodeResponses";
+import { logResponseForRole, nodeResponseForRole, pluginResponseForRole } from "../api/serializers/nodeResponses";
+import { remoteServerSummariesResponseForRole } from "../api/serializers/remoteServerResponses";
+import type { IntegrationStatus } from "../integrations/types";
 import type { ToolContext, ToolDefinition } from "./types";
 
 const READ_TOOLS: ToolDefinition[] = [
@@ -46,7 +48,9 @@ const READ_TOOLS: ToolDefinition[] = [
     async execute(input, ctx) {
       const id = stringInput(input, "node_id");
       const count = clampInteger(input.count, 1, 500, 100);
-      return ctx.deps.nodeManager.getNodeLogs(id, count);
+      const node = ctx.deps.nodeManager.getNode(id);
+      if (!node) throw new Error(`Node ${id} not found`);
+      return logResponseForRole(ctx.user.role, ctx.deps.nodeManager.getNodeLogs(id, count), node);
     },
   },
   {
@@ -111,17 +115,18 @@ const READ_TOOLS: ToolDefinition[] = [
     inputSchema: { type: "object", properties: {} },
     requiresAdmin: false,
     async execute(_input, ctx) {
-      return ctx.deps.remoteServerManager.listServersWithStatus();
+      const servers = await ctx.deps.remoteServerManager.listServersWithStatus();
+      return remoteServerSummariesResponseForRole(ctx.user.role, servers);
     },
   },
   {
     name: "list_integrations",
     description:
-      "List configured external integrations (metrics, logging, uptime, alerting, errors): which are enabled, last test result, and whether credentials are present. Credentials are redacted.",
+      "List external integrations (metrics, logging, uptime, alerting, errors). Admins can see redacted config details; viewers receive a reduced enabled/configured summary.",
     inputSchema: { type: "object", properties: {} },
     requiresAdmin: false,
     async execute(_input, ctx) {
-      return ctx.deps.integrationManager.listAll();
+      return integrationResponseForRole(ctx.user.role, ctx.deps.integrationManager.listAll());
     },
   },
 ];
@@ -262,4 +267,27 @@ function summarizeNode(node: NodeInstance) {
     ownership: node.settings.import?.ownershipMode ?? "managed",
     metrics: node.metrics,
   };
+}
+
+type ViewerIntegration = Pick<
+  IntegrationStatus,
+  "id" | "name" | "description" | "category" | "enabled" | "configured" | "lastTestAt"
+>;
+
+function integrationResponseForRole(
+  role: "admin" | "viewer",
+  integrations: IntegrationStatus[],
+): IntegrationStatus[] | ViewerIntegration[] {
+  if (role === "admin") {
+    return integrations;
+  }
+  return integrations.map(({ id, name, description, category, enabled, configured, lastTestAt }) => ({
+    id,
+    name,
+    description,
+    category,
+    enabled,
+    configured,
+    lastTestAt,
+  }));
 }

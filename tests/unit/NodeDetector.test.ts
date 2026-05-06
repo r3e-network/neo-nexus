@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import YAML from "js-yaml";
@@ -86,6 +86,18 @@ describe("NodeDetector", () => {
       dataPath: join(basePath, "data"),
       configPath: join(basePath, "protocol.yml"),
     });
+  });
+
+  it("does not execute imported neo-go binaries during passive detection", () => {
+    const basePath = createNeoGoInstallation();
+    const markerPath = join(basePath, "executed-marker");
+    writeFileSync(join(basePath, "neo-go"), `#!/bin/sh\ntouch ${markerPath}\necho v9.9.9\n`);
+    chmodSync(join(basePath, "neo-go"), 0o755);
+
+    const detected = NodeDetector.detect(basePath);
+
+    expect(detected?.version).toBe("0.104.0");
+    expect(existsSync(markerPath)).toBe(false);
   });
 
   it("validates detected neo-go imports when the generated files are present", () => {

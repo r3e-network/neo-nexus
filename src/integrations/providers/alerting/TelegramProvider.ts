@@ -1,5 +1,6 @@
 // src/integrations/providers/alerting/TelegramProvider.ts
 import type { NotificationProvider, IntegrationEvent, ConfigField } from '../../types';
+import { safeIntegrationFetch } from '../../safeFetch';
 
 export const telegramSchema: ConfigField[] = [
   { key: 'botToken', label: 'Bot Token', type: 'password', placeholder: '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11', required: true },
@@ -29,7 +30,7 @@ export class TelegramProvider implements NotificationProvider {
       `<i>${event.severity} \u2022 ${new Date(event.timestamp).toISOString()}</i>`,
     ].join('\n');
 
-    const response = await fetch(`https://api.telegram.org/bot${this.config.botToken}/sendMessage`, {
+    const response = await safeIntegrationFetch(`https://api.telegram.org/bot${this.config.botToken}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -48,7 +49,7 @@ export class TelegramProvider implements NotificationProvider {
   }
 
   async testConnection(): Promise<boolean> {
-    const response = await fetch(`https://api.telegram.org/bot${this.config.botToken}/getMe`, {
+    const response = await safeIntegrationFetch(`https://api.telegram.org/bot${this.config.botToken}/getMe`, {
       signal: AbortSignal.timeout(5_000),
     });
     if (!response.ok) return false;

@@ -1,15 +1,21 @@
 import { Router, type Request, type Response } from "express";
-import type { CreateRemoteServerRequest, UpdateRemoteServerRequest } from "../../types";
+import type { CreateRemoteServerRequest, RemoteServerProfile, RemoteServerSummary, UpdateRemoteServerRequest } from "../../types";
+import type { AuthenticatedRequest } from "../middleware/auth";
+import { remoteServerSummariesResponseForRole, remoteServerSummaryResponseForRole } from "../serializers/remoteServerResponses";
 import { ApiError, Errors } from '../errors';
 import { respondWithApiError } from '../respond';
 
 interface ServerProfilesOperations {
-  listServersWithStatus(): Promise<unknown[]>;
-  getServerSummary(id: string): Promise<unknown>;
-  createServer(request: CreateRemoteServerRequest): unknown;
-  updateServer(id: string, request: UpdateRemoteServerRequest): unknown;
+  listServersWithStatus(): Promise<RemoteServerSummary[]>;
+  getServerSummary(id: string): Promise<RemoteServerSummary>;
+  createServer(request: CreateRemoteServerRequest): RemoteServerProfile;
+  updateServer(id: string, request: UpdateRemoteServerRequest): RemoteServerProfile;
   deleteServer(id: string): void;
 }
+
+type MaybeAuthenticatedRequest<P = Record<string, string>> = Request<P> & {
+  user?: AuthenticatedRequest["user"];
+};
 
 export function createServersRouter(serverManager: ServerProfilesOperations): Router {
   const router = Router();
@@ -30,19 +36,19 @@ export function createServersRouter(serverManager: ServerProfilesOperations): Ro
     }
   };
 
-  router.get("/", async (_req: Request, res: Response) => {
+  router.get("/", async (req: MaybeAuthenticatedRequest, res: Response) => {
     try {
       const servers = await serverManager.listServersWithStatus();
-      res.json({ servers });
+      res.json({ servers: remoteServerSummariesResponseForRole(req.user?.role, servers) });
     } catch (error) {
       respondWithApiError(res, error);
     }
   });
 
-  router.get("/:id", async (req: Request, res: Response) => {
+  router.get("/:id", async (req: MaybeAuthenticatedRequest<{ id: string }>, res: Response) => {
     try {
       const server = await serverManager.getServerSummary(req.params.id as string);
-      res.json({ server });
+      res.json({ server: remoteServerSummaryResponseForRole(req.user?.role, server) });
     } catch (error) {
       respondWithApiError(res, error);
     }

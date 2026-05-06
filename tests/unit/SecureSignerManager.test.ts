@@ -190,6 +190,36 @@ describe("SecureSignerManager", () => {
     ).toThrow(/http|https/i);
   });
 
+  it("rejects secure signer startup ports outside the valid TCP range", async () => {
+    const { SecureSignerManager } = await import("../../src/core/SecureSignerManager");
+    const manager = new SecureSignerManager(createMockDb() as never);
+
+    expect(() =>
+      manager.createProfile({
+        name: "Nitro",
+        mode: "nitro",
+        endpoint: "vsock://2345:9991",
+        startupPort: 70000,
+      }),
+    ).toThrow(/1 and 65535/i);
+
+    expect(() =>
+      manager.createProfile({
+        name: "Software",
+        mode: "software",
+        endpoint: "https://signer.example.com:0",
+      }),
+    ).toThrow(/1 and 65535/i);
+
+    expect(() =>
+      manager.createProfile({
+        name: "Nitro",
+        mode: "nitro",
+        endpoint: "vsock://2345:65535",
+      }),
+    ).toThrow(/startup port/i);
+  });
+
   it("tests profiles and records warning status for vsock endpoints", async () => {
     process.env.NEONEXUS_ALLOW_PRIVATE_SIGNER_ENDPOINTS = "true";
     const probeEndpoint = vi.fn(async () => ({ ok: true, message: "connected", latencyMs: 18 }));

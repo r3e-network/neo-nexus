@@ -82,6 +82,14 @@ function isPathWithinOrEqual(path: string, root: string): boolean {
   return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }
 
+function parsePort(port: string, label: string): number {
+  const value = Number.parseInt(port, 10);
+  if (!Number.isInteger(value) || value < 1 || value > 65535) {
+    throw new Error(`${label} must be between 1 and 65535`);
+  }
+  return value;
+}
+
 export class SecureSignerManager {
   private readonly probeEndpoint: (endpoint: string) => Promise<ProbeResult>;
   private readonly runToolCommand: (toolPath: string, args: string[]) => Promise<ToolCommandResult>;
@@ -559,6 +567,11 @@ export class SecureSignerManager {
     const endpoint = this.normalizeEndpoint(input.endpoint, input.mode);
     const publicKey = this.normalizePublicKey(input.publicKey);
     const unlockMode = input.unlockMode ?? this.defaultUnlockMode(input.mode);
+    const startupPort = this.normalizeOptionalPort(input.startupPort);
+    const servicePort = parsePort(new URL(endpoint).port, "Secure signer endpoint port");
+    if (startupPort === undefined && servicePort === 65535) {
+      throw new Error("Startup port must be configured when the endpoint port is 65535");
+    }
 
     return {
       name,
@@ -571,7 +584,7 @@ export class SecureSignerManager {
       notes: this.normalizeOptional(input.notes),
       enabled: input.enabled ?? true,
       workspacePath: this.normalizeWorkspacePath(input.workspacePath),
-      startupPort: this.normalizeOptionalInteger(input.startupPort),
+      startupPort,
       awsRegion: this.normalizeOptional(input.awsRegion),
       kmsKeyId: this.normalizeOptional(input.kmsKeyId),
       kmsCiphertextBlobPath: this.normalizeOptional(input.kmsCiphertextBlobPath),
@@ -606,6 +619,7 @@ export class SecureSignerManager {
     if (!parsed.port) {
       throw new Error("Secure signer endpoint must include an explicit port");
     }
+    parsePort(parsed.port, "Secure signer endpoint port");
 
     if (["http:", "https:"].includes(parsed.protocol)) {
       assertLiteralPublicTarget(
@@ -665,12 +679,12 @@ export class SecureSignerManager {
     });
   }
 
-  private normalizeOptionalInteger(value?: number): number | undefined {
+  private normalizeOptionalPort(value?: number): number | undefined {
     if (value === undefined || value === null) {
       return undefined;
     }
-    if (!Number.isInteger(value) || value <= 0) {
-      throw new Error("Startup port must be a positive integer");
+    if (!Number.isInteger(value) || value < 1 || value > 65535) {
+      throw new Error("Startup port must be an integer between 1 and 65535");
     }
     return value;
   }
@@ -685,8 +699,11 @@ export class SecureSignerManager {
   private parseConnection(profile: SecureSignerProfile): SecureSignerConnectionInfo {
     const parsed = new URL(profile.endpoint);
     const scheme = parsed.protocol.replace(":", "") as SecureSignerConnectionInfo["scheme"];
-    const servicePort = Number.parseInt(parsed.port, 10);
+    const servicePort = parsePort(parsed.port, "Secure signer endpoint port");
     const startupPort = profile.startupPort ?? servicePort + 1;
+    if (startupPort < 1 || startupPort > 65535) {
+      throw new Error("Startup port must be an integer between 1 and 65535");
+    }
     const host = parsed.hostname;
 
     return {

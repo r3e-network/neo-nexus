@@ -52,6 +52,49 @@ describe("Actual servers router", () => {
     expect(response.body.server.profile.id).toBe("srv-1");
   });
 
+  it("redacts remote server target URLs and probe errors for viewer requests", async () => {
+    const viewerApp = express();
+    viewerApp.use(express.json());
+    viewerApp.use((req, _res, next) => {
+      (req as any).user = { id: "viewer-1", username: "viewer", role: "viewer" };
+      next();
+    });
+    viewerApp.use("/api/servers", createServersRouter(mockManager as never));
+    mockManager.listServersWithStatus.mockResolvedValue([
+      {
+        profile: {
+          id: "srv-1",
+          name: "Tokyo",
+          baseUrl: "https://tokyo.internal.example",
+          description: "Remote control plane",
+          enabled: true,
+          createdAt: 1710000000000,
+          updatedAt: 1710000001000,
+        },
+        reachable: false,
+        error: "connect ECONNREFUSED https://tokyo.internal.example/api/public/status",
+      },
+    ]);
+
+    const response = await request(viewerApp).get("/api/servers");
+
+    expect(response.status).toBe(200);
+    expect(response.body.servers[0]).toEqual({
+      profile: {
+        id: "srv-1",
+        name: "Tokyo",
+        description: "Remote control plane",
+        enabled: true,
+        createdAt: 1710000000000,
+        updatedAt: 1710000001000,
+      },
+      reachable: false,
+    });
+    expect(JSON.stringify(response.body)).not.toContain("baseUrl");
+    expect(JSON.stringify(response.body)).not.toContain("tokyo.internal.example");
+    expect(JSON.stringify(response.body)).not.toContain("ECONNREFUSED");
+  });
+
   it("creates a server profile", async () => {
     mockManager.createServer.mockReturnValue({
       id: "srv-1",

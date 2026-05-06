@@ -1,5 +1,6 @@
 // src/integrations/providers/uptime/BetterStackUptimeProvider.ts
 import type { UptimeProvider, ConfigField } from '../../types';
+import { safeIntegrationFetch } from '../../safeFetch';
 
 export const betterStackUptimeSchema: ConfigField[] = [
   { key: 'apiToken', label: 'API Token', type: 'password', placeholder: 'your-betterstack-api-token', required: true },
@@ -12,7 +13,7 @@ export class BetterStackUptimeProvider implements UptimeProvider {
   constructor(private config: { apiToken: string }) {}
 
   async registerMonitor(url: string, name: string): Promise<string> {
-    const response = await fetch('https://uptime.betterstack.com/api/v2/monitors', {
+    const response = await safeIntegrationFetch('https://uptime.betterstack.com/api/v2/monitors', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -36,7 +37,7 @@ export class BetterStackUptimeProvider implements UptimeProvider {
   }
 
   async removeMonitor(monitorId: string): Promise<void> {
-    const response = await fetch(`https://uptime.betterstack.com/api/v2/monitors/${monitorId}`, {
+    const response = await safeIntegrationFetch(`https://uptime.betterstack.com/api/v2/monitors/${monitorId}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${this.config.apiToken}` },
       signal: AbortSignal.timeout(10_000),
@@ -48,7 +49,7 @@ export class BetterStackUptimeProvider implements UptimeProvider {
   }
 
   async testConnection(): Promise<boolean> {
-    const response = await fetch('https://uptime.betterstack.com/api/v2/monitors?per_page=1', {
+    const response = await safeIntegrationFetch('https://uptime.betterstack.com/api/v2/monitors?per_page=1', {
       headers: { 'Authorization': `Bearer ${this.config.apiToken}` },
       signal: AbortSignal.timeout(10_000),
     });

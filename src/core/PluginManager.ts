@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, copyFileSync, readdirSync, statSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, copyFileSync, readdirSync, lstatSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import type { PluginId, PluginDefinition, InstalledPlugin, NodeConfig } from '../types/index';
@@ -247,7 +247,10 @@ export class PluginManager {
       const sourcePath = join(sourceDir, file);
       const destPath = join(destDir, file);
 
-      const stat = statSync(sourcePath);
+      const stat = lstatSync(sourcePath);
+      if (stat.isSymbolicLink()) {
+        continue;
+      }
       if (stat.isDirectory()) {
         // Always copy native library directories (runtimes/)
         if (file === 'runtimes') {

@@ -8,6 +8,10 @@ export async function initializeDatabase(): Promise<Database.Database> {
 
   // Enable WAL mode for better concurrency
   db.pragma("journal_mode = WAL");
+  // SQLite does not guarantee foreign key enforcement for every connection
+  // unless it is explicitly enabled. The schema relies on ON DELETE CASCADE
+  // for node, user, conversation, and plugin cleanup.
+  db.pragma("foreign_keys = ON");
 
   // Create tables
   db.exec(`

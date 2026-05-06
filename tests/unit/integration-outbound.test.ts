@@ -141,4 +141,24 @@ describe("integration outbound target protection", () => {
       await server.close();
     }
   });
+
+  it("overrides caller-supplied host headers with the pinned outbound target", async () => {
+    process.env.NEONEXUS_ALLOW_PRIVATE_INTEGRATION_TARGETS = "true";
+    vi.resetModules();
+    vi.doMock("node:dns/promises", () => ({
+      lookup: vi.fn(async () => [{ address: "127.0.0.1", family: 4 }]),
+    }));
+    const server = await startWebhookServer();
+    const { safeIntegrationFetch } = await import("../../src/integrations/safeFetch");
+
+    try {
+      await safeIntegrationFetch(`http://hooks.example.test:${server.port}/hook`, {
+        headers: { host: "evil.example.test" },
+      });
+
+      expect(server.seenHosts).toEqual([`hooks.example.test:${server.port}`]);
+    } finally {
+      await server.close();
+    }
+  });
 });

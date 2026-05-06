@@ -1,10 +1,18 @@
-import { createWriteStream, existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from "node:fs";
+import { createWriteStream, existsSync, lstatSync, mkdirSync, readdirSync, unlinkSync } from "node:fs";
 import { copyFile, chmod } from "node:fs/promises";
-import { get, request as httpsRequest } from "node:https";
+import type { IncomingMessage } from "node:http";
+import { request as httpsRequest } from "node:https";
+import { isIP } from "node:net";
 import { join } from "node:path";
+import { pipeline } from "node:stream/promises";
 import { paths } from "../utils/paths";
 import { assertReleaseVersion } from "../utils/nodeValidation";
-import { assertLiteralPublicTarget } from "../utils/outboundTargets";
+import {
+  assertLiteralPublicTarget,
+  assertResolvedPublicTarget,
+  defaultHostnameResolver,
+} from "../utils/outboundTargets";
+import { publicFetch } from "../utils/publicFetch";
 import type { NodeType, ReleaseInfo } from "../types/index";
 import { ApiError } from "../api/errors";
 
@@ -36,7 +44,12 @@ const PLUGIN_REPO = {
 };
 
 export function hasUsableDownloadFile(path: string): boolean {
-  return existsSync(path) && statSync(path).size > 0;
+  try {
+    const stats = lstatSync(path);
+    return stats.isFile() && stats.size > 0;
+  } catch {
+    return false;
+  }
 }
 
 async function extractArchive(source: string, destination: string): Promise<void> {
@@ -120,7 +133,7 @@ function findLocalPluginBuildOutput(localBuildDir: string, pluginId: string): st
   if (!existsSync(releaseDir)) return null;
 
   const releaseEntries = readdirSync(releaseDir);
-  if (releaseEntries.some((entry) => entry.endsWith(".dll"))) {
+  if (releaseEntries.some((entry) => entry.endsWith(".dll") && isRegularFile(join(releaseDir, entry)))) {
     return releaseDir;
   }
 
@@ -128,7 +141,7 @@ function findLocalPluginBuildOutput(localBuildDir: string, pluginId: string): st
     .map((entry) => {
       const fullPath = join(releaseDir, entry);
       const version = getTargetFrameworkVersion(entry);
-      if (!version || !statSync(fullPath).isDirectory()) return null;
+      if (!version || !lstatSync(fullPath).isDirectory()) return null;
       return { entry, ...version };
     })
     .filter((entry): entry is { entry: string; major: number; minor: number } => entry !== null)
@@ -146,7 +159,7 @@ export class DownloadManager {
     const url = `${GITHUB_API_BASE}/${repo.owner}/${repo.repo}/releases/latest`;
 
     try {
-      const response = await fetch(url, {
+      const response = await fetchPublicDownloadTarget(url, {
         headers: {
           Accept: "application/vnd.github.v3+json",
           "User-Agent": "NeoNexus-NodeManager/2.0",
@@ -275,7 +288,7 @@ export class DownloadManager {
     }
 
     // Check if already extracted
-    if (existsSync(pluginDir) && readdirSync(pluginDir).some(f => f.endsWith(".dll"))) {
+    if (existsSync(pluginDir) && readdirSync(pluginDir).some((f) => f.endsWith(".dll") && isRegularFile(join(pluginDir, f)))) {
       return pluginDir;
     }
 
@@ -307,7 +320,7 @@ export class DownloadManager {
     const url = `${GITHUB_API_BASE}/${PLUGIN_REPO.owner}/${PLUGIN_REPO.repo}/releases/latest`;
 
     try {
-      const response = await fetch(url, {
+      const response = await fetchPublicDownloadTarget(url, {
         headers: {
           Accept: "application/vnd.github.v3+json",
           "User-Agent": "NeoNexus-NodeManager/2.0",
@@ -337,15 +350,15 @@ export class DownloadManager {
     const safeVersion = assertReleaseVersion(version);
     if (nodeType === "neo-cli") {
       const path = join(paths.downloads, `neo-cli-${safeVersion}`, "neo-cli");
-      return existsSync(path) ? path : null;
+      return isRegularDirectory(path) ? path : null;
     }
     if (nodeType === "neox-go") {
       const path = join(paths.downloads, `neox-go-${safeVersion}`, "geth");
-      return existsSync(path) ? path : null;
+      return isRegularFile(path) ? path : null;
     }
     const binaryName = process.platform === "win32" ? "neo-go.exe" : "neo-go";
     const path = join(paths.downloads, `neo-go-${safeVersion}`, binaryName);
-    return existsSync(path) ? path : null;
+    return isRegularFile(path) ? path : null;
   }
 
   /**
@@ -364,119 +377,170 @@ export class DownloadManager {
     onProgress?: (percent: number) => void,
     redirectsRemaining = 5,
   ): Promise<void> {
-    let parsed: URL;
-    try {
-      parsed = new URL(url);
-    } catch {
-      throw new Error(`Invalid download URL: ${url}`);
+    const parsed = validateDownloadUrl(url);
+    const targetAddress = await resolvePublicDownloadTarget(parsed);
+    const response = await requestPinnedDownloadResponse(parsed, targetAddress, "GET");
+    const status = response.statusCode ?? 599;
+    if (status >= 300 && status < 400) {
+      response.resume();
+      if (redirectsRemaining <= 0) {
+        throw new Error("Too many redirects");
+      }
+      const redirectUrl = response.headers.location;
+      if (!redirectUrl) {
+        throw new Error("Download redirect did not include a Location header");
+      }
+      const next = new URL(redirectUrl, parsed).toString();
+      await this.downloadFile(next, destination, onProgress, redirectsRemaining - 1);
+      return;
     }
-    if (parsed.protocol !== "https:") {
-      throw new Error(`Refusing to download from non-HTTPS URL: ${url}`);
+    if (status !== 200) {
+      response.resume();
+      throw new Error(`Download failed with status ${status}`);
     }
-    assertLiteralPublicTarget(
-      parsed.hostname,
-      downloadPrivateTargetError,
-      process.env.NEONEXUS_ALLOW_PRIVATE_DOWNLOAD_TARGETS === "true",
-    );
 
-    return new Promise((resolve, reject) => {
-      const file = createWriteStream(destination);
-      const cleanup = () => {
-        try {
-          file.close();
-        } catch {}
-        try {
-          if (existsSync(destination)) {
-            unlinkSync(destination);
-          }
-        } catch {}
-      };
-
-      get(url, { headers: { "User-Agent": "NeoNexus-NodeManager/2.0" } }, (response) => {
-        if (response.statusCode === 302 || response.statusCode === 301) {
-          if (redirectsRemaining <= 0) {
-            cleanup();
-            reject(new Error("Too many redirects"));
-            return;
-          }
-          // Follow redirect
-          const redirectUrl = response.headers.location;
-          if (redirectUrl) {
-            cleanup();
-            // Resolve relative redirect URLs against the original request URL
-            // so that strict protocol/host validation always sees the canonical
-            // form, regardless of how the upstream server formats Location.
-            const next = new URL(redirectUrl, url).toString();
-            this.downloadFile(next, destination, onProgress, redirectsRemaining - 1).then(resolve).catch(reject);
-            return;
-          }
-        }
-
-        if (response.statusCode !== 200) {
-          cleanup();
-          reject(new Error(`Download failed with status ${response.statusCode}`));
-          return;
-        }
-
-        const totalSize = parseInt(response.headers["content-length"] || "0", 10);
-        let downloadedSize = 0;
-
-        response.on("data", (chunk: Buffer) => {
-          downloadedSize += chunk.length;
-          if (totalSize > 0 && onProgress) {
-            const percent = Math.round((downloadedSize / totalSize) * 100);
-            onProgress(percent);
-          }
-        });
-
-        response.pipe(file);
-
-        file.on("finish", () => {
-          file.close();
-          resolve();
-        });
-
-        file.on("error", (err) => {
-          cleanup();
-          reject(err);
-        });
-      }).on("error", (error) => {
-        cleanup();
-        reject(error);
-      }).on("close", () => {
-        // Ensure connection is fully released
-      });
-    });
+    await writeDownloadResponse(response, destination, onProgress);
   }
 
   /**
    * Get download size for a URL
    */
   static async getDownloadSize(url: string): Promise<number | null> {
-    return new Promise((resolve) => {
-      let parsed: URL;
-      try {
-        parsed = new URL(url);
-        if (parsed.protocol !== "https:") {
-          resolve(null);
-          return;
-        }
-        assertLiteralPublicTarget(
-          parsed.hostname,
-          downloadPrivateTargetError,
-          process.env.NEONEXUS_ALLOW_PRIVATE_DOWNLOAD_TARGETS === "true",
-        );
-      } catch {
-        resolve(null);
-        return;
+    try {
+      const parsed = validateDownloadUrl(url);
+      const targetAddress = await resolvePublicDownloadTarget(parsed);
+      const response = await requestPinnedDownloadResponse(parsed, targetAddress, "HEAD");
+      response.resume();
+      const status = response.statusCode ?? 599;
+      if (status < 200 || status >= 300) {
+        return null;
       }
-      const req = httpsRequest(parsed, { method: "HEAD" }, (response) => {
-        const size = response.headers["content-length"];
-        resolve(size ? parseInt(size, 10) : null);
-      });
-      req.on("error", () => resolve(null));
-      req.end();
-    });
+      const size = firstHeader(response.headers["content-length"]);
+      const parsedSize = size ? Number.parseInt(size, 10) : Number.NaN;
+      return Number.isFinite(parsedSize) ? parsedSize : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+function validateDownloadUrl(rawUrl: string): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error(`Invalid download URL: ${rawUrl}`);
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error(`Refusing to download from non-HTTPS URL: ${rawUrl}`);
+  }
+  assertLiteralPublicTarget(
+    parsed.hostname,
+    downloadPrivateTargetError,
+    process.env.NEONEXUS_ALLOW_PRIVATE_DOWNLOAD_TARGETS === "true",
+  );
+  return parsed;
+}
+
+async function fetchPublicDownloadTarget(url: string, init: RequestInit): Promise<Response> {
+  const parsed = validateDownloadUrl(url);
+  return publicFetch(parsed, init, {
+    resolveHostname: defaultHostnameResolver,
+    makeError: downloadPrivateTargetError,
+    allowPrivateTarget: process.env.NEONEXUS_ALLOW_PRIVATE_DOWNLOAD_TARGETS === "true",
+  });
+}
+
+async function resolvePublicDownloadTarget(parsed: URL): Promise<string> {
+  const allowPrivate = process.env.NEONEXUS_ALLOW_PRIVATE_DOWNLOAD_TARGETS === "true";
+  assertLiteralPublicTarget(parsed.hostname, downloadPrivateTargetError, allowPrivate);
+  const addresses = await assertResolvedPublicTarget(
+    parsed.hostname,
+    defaultHostnameResolver,
+    downloadPrivateTargetError,
+    allowPrivate,
+  );
+  const targetAddress = addresses[0]?.address;
+  if (!targetAddress) {
+    throw new Error(`Unable to resolve download target: ${parsed.hostname}`);
+  }
+  return targetAddress;
+}
+
+function requestPinnedDownloadResponse(
+  source: URL,
+  targetAddress: string,
+  method: "GET" | "HEAD",
+): Promise<IncomingMessage> {
+  return new Promise((resolve, reject) => {
+    const req = httpsRequest(
+      {
+        protocol: "https:",
+        hostname: targetAddress,
+        port: source.port || "443",
+        path: `${source.pathname}${source.search}`,
+        method,
+        headers: {
+          Host: source.host,
+          "User-Agent": "NeoNexus-NodeManager/2.0",
+        },
+        servername: isIP(stripBrackets(source.hostname)) === 0 ? stripBrackets(source.hostname) : undefined,
+      },
+      resolve,
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+async function writeDownloadResponse(
+  response: IncomingMessage,
+  destination: string,
+  onProgress?: (percent: number) => void,
+): Promise<void> {
+  const totalSize = Number.parseInt(firstHeader(response.headers["content-length"]) || "0", 10);
+  let downloadedSize = 0;
+
+  response.on("data", (chunk: Buffer) => {
+    downloadedSize += chunk.length;
+    if (totalSize > 0 && onProgress) {
+      onProgress(Math.round((downloadedSize / totalSize) * 100));
+    }
+  });
+
+  try {
+    await pipeline(response, createWriteStream(destination));
+  } catch (error) {
+    try {
+      if (existsSync(destination)) {
+        unlinkSync(destination);
+      }
+    } catch {}
+    throw error;
+  }
+}
+
+function stripBrackets(hostname: string): string {
+  return hostname.replace(/^\[/, "").replace(/\]$/, "");
+}
+
+function firstHeader(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function isRegularFile(path: string): boolean {
+  try {
+    return lstatSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function isRegularDirectory(path: string): boolean {
+  try {
+    return lstatSync(path).isDirectory();
+  } catch {
+    return false;
   }
 }
 

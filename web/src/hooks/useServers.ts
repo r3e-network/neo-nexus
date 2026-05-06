@@ -5,7 +5,7 @@ import { REFETCH_INTERVALS } from "../config/constants";
 export interface RemoteServerProfile {
   id: string;
   name: string;
-  baseUrl: string;
+  baseUrl?: string;
   description?: string;
   enabled: boolean;
   createdAt: number;

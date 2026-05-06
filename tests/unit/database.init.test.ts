@@ -58,6 +58,30 @@ describe("initializeDatabase", () => {
     expect(insertDefaultAdmin).not.toHaveBeenCalled();
   });
 
+  it("enables sqlite foreign key enforcement for cascade cleanup", async () => {
+    const pragma = vi.fn();
+
+    vi.doMock("better-sqlite3", () => ({
+      default: vi.fn(() => ({
+        pragma,
+        exec: vi.fn(),
+        prepare: vi.fn((sql: string) => {
+          if (sql.includes("SELECT COUNT(*) as count FROM users")) {
+            return { get: vi.fn(() => ({ count: 1 })) };
+          }
+          return { get: vi.fn(() => undefined), run: vi.fn(), all: vi.fn(() => []) };
+        }),
+      })),
+    }));
+
+    const { initializeDatabase } = await import("../../src/database/schema");
+
+    await initializeDatabase();
+
+    expect(pragma).toHaveBeenCalledWith("journal_mode = WAL");
+    expect(pragma).toHaveBeenCalledWith("foreign_keys = ON");
+  });
+
   it("creates role, data context, fast sync, and private network tables", async () => {
     const execSql: string[] = [];
 

@@ -257,6 +257,38 @@ describe("Actual auth router protection", () => {
     expect(response.body.users).toEqual([{ id: "admin-1", username: "admin", role: "admin" }]);
   });
 
+  it("blocks viewer users from listing users", async () => {
+    mockUserManager.verifySession.mockReturnValue({
+      id: "test-user-id",
+      username: "admin",
+      role: "viewer",
+    });
+
+    const response = await request(app)
+      .get("/api/auth/users")
+      .set("Authorization", "Bearer valid-token");
+
+    expect(response.status).toBe(403);
+    expect(response.body.code).toBe("ADMIN_REQUIRED");
+    expect(mockUserManager.getAllUsers).not.toHaveBeenCalled();
+  });
+
+  it("blocks viewer users from deleting users", async () => {
+    mockUserManager.verifySession.mockReturnValue({
+      id: "test-user-id",
+      username: "admin",
+      role: "viewer",
+    });
+
+    const response = await request(app)
+      .delete("/api/auth/users/admin-1")
+      .set("Authorization", "Bearer valid-token");
+
+    expect(response.status).toBe(403);
+    expect(response.body.code).toBe("ADMIN_REQUIRED");
+    expect(mockUserManager.deleteUser).not.toHaveBeenCalled();
+  });
+
   it("returns actual default-password state on /me", async () => {
     mockUserManager.isUsingDefaultPassword.mockReturnValue(false);
 
