@@ -79,6 +79,16 @@ describe("IntegrationManager", () => {
     expect(db.prepare("SELECT COUNT(*) as count FROM integrations").get()).toEqual({ count: 0 });
   });
 
+  it("records missing required fields when an enabled provider cannot load", () => {
+    db.prepare("INSERT INTO integrations (id, category, config, enabled) VALUES (?, ?, ?, ?)")
+      .run("uptimerobot", "uptime", JSON.stringify({ apiKey: "uptime-key" }), 1);
+
+    manager = new IntegrationManager(db);
+
+    const row = db.prepare("SELECT last_error FROM integrations WHERE id = ?").get("uptimerobot") as { last_error: string | null };
+    expect(row.last_error).toMatch(/healthUrl/);
+  });
+
   it("allows private integration URL fields only when explicitly enabled", () => {
     process.env.NEONEXUS_ALLOW_PRIVATE_INTEGRATION_TARGETS = "true";
 
@@ -160,12 +170,15 @@ describe("IntegrationManager", () => {
 
     try {
       db.prepare("INSERT INTO integrations (id, category, config, enabled) VALUES (?, ?, ?, ?)")
-        .run("uptimerobot", "uptime", JSON.stringify({ apiKey: "uptime-key" }), 1);
+        .run("uptimerobot", "uptime", JSON.stringify({
+          apiKey: "uptime-key",
+          healthUrl: "https://nexus.example.com/api/health",
+        }), 1);
 
       manager = new IntegrationManager(db);
       await waitForAsyncProviderWork();
 
-      expect(registerMonitor).toHaveBeenCalledWith("http://localhost:8080/api/health", "NeoNexus (uptimerobot)");
+      expect(registerMonitor).toHaveBeenCalledWith("https://nexus.example.com/api/health", "NeoNexus (uptimerobot)");
       const registered = db.prepare("SELECT config FROM integrations WHERE id = ?").get("uptimerobot") as { config: string };
       expect(JSON.parse(registered.config)._monitorId).toBe("monitor-1");
 

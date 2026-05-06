@@ -3,6 +3,7 @@ import type { UptimeProvider, ConfigField } from '../../types';
 
 export const betterStackUptimeSchema: ConfigField[] = [
   { key: 'apiToken', label: 'API Token', type: 'password', placeholder: 'your-betterstack-api-token', required: true },
+  { key: 'healthUrl', label: 'Public Health URL', type: 'url', placeholder: 'https://nexus.example.com/api/health', required: true },
 ];
 
 export class BetterStackUptimeProvider implements UptimeProvider {

@@ -65,7 +65,7 @@ NeoNexus is a **self-hosted node management platform** for Neo N3. Deploy, monit
 - **Backup/Restore** — JSON export/import of all node configurations
 - **Audit Logging** — Track all state-changing operations
 - **Secure Signers** — TEE key protection via Intel SGX, AWS Nitro, or custom endpoints
-- **SaaS Integrations** — Optional Grafana Cloud, Datadog, Better Stack, Sentry, Slack, Discord, Telegram, and more — just add a token
+- **SaaS Integrations** — Optional Grafana Cloud, Datadog, Better Stack, Sentry, Slack, Discord, Telegram, and more with credential-gated setup and public health URL checks for uptime monitors
 - **Hermes Agent** — Bring-your-own-key in-app AI agent (Anthropic, OpenAI, OpenAI-compatible) that operates the fleet on your behalf with role-gated tools and DNS-rebind-protected outbound calls — see the Hermes section below
 - **Neo X support (preview)** — Manage `neox-go` (geth fork from `bane-labs/go-ethereum`) alongside Neo N3 nodes. Separate port range (8551 RPC / 30303 P2P), EVM JSON-RPC metrics (`eth_blockNumber`, `net_peerCount`, `eth_chainId`), mainnet (chain id 47763) and testnet (12227332). Linux-only binaries. Enable with `NEONEXUS_ENABLE_NEOX=true`.
 
@@ -170,6 +170,12 @@ NeoNexus queries seed nodes to determine the network's current block height, the
 - **Log retention:** Auto-prunes to 50K rows per node (configurable via `LOG_RETENTION_MAX_ROWS`)
 - **Audit log:** All state-changing operations logged to `audit_log` table, queryable via API
 - **WebSocket:** Real-time system metrics, node metrics, and log streaming
+
+### Third-Party Integrations
+
+NeoNexus integrations are optional and disabled until credentials are saved. Grafana Cloud metrics use the Prometheus `remote_write` protocol for `/api/prom/push`; Datadog uses the Metrics v2 series API. Better Stack Logs can use the default ingest endpoint or a source-specific ingest URL. Better Stack Uptime and UptimeRobot require an externally reachable health URL such as `https://nexus.example.com/api/health`; external uptime services cannot monitor `localhost`.
+
+User-supplied integration URLs are checked against private and local network targets before requests are sent. Fixed-provider endpoints such as Telegram Bot API, Better Stack Uptime, and UptimeRobot stay on their vendor hosts.
 
 ## Role Orchestration, Fast Sync, and Private Networks
 

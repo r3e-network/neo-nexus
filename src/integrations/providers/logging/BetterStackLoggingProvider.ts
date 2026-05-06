@@ -1,14 +1,18 @@
 // src/integrations/providers/logging/BetterStackLoggingProvider.ts
 import type { LogProvider, LogEntryWithContext, ConfigField } from '../../types';
+import { safeIntegrationFetch } from '../../safeFetch';
 
 export const betterStackLoggingSchema: ConfigField[] = [
   { key: 'sourceToken', label: 'Source Token', type: 'password', placeholder: 'your-logtail-source-token', required: true },
+  { key: 'ingestingUrl', label: 'Ingesting URL', type: 'url', placeholder: 'https://in.logs.betterstack.com', required: false },
 ];
+
+const DEFAULT_BETTER_STACK_LOGS_URL = 'https://in.logs.betterstack.com';
 
 export class BetterStackLoggingProvider implements LogProvider {
   readonly name = 'Better Stack';
 
-  constructor(private config: { sourceToken: string }) {}
+  constructor(private config: { sourceToken: string; ingestingUrl?: string }) {}
 
   async pushLogs(entries: LogEntryWithContext[]): Promise<void> {
     if (entries.length === 0) return;
@@ -22,7 +26,7 @@ export class BetterStackLoggingProvider implements LogProvider {
       node_name: entry.nodeName,
     }));
 
-    const response = await fetch('https://in.logs.betterstack.com', {
+    const response = await safeIntegrationFetch(this.ingestingUrl(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -38,7 +42,7 @@ export class BetterStackLoggingProvider implements LogProvider {
   }
 
   async testConnection(): Promise<boolean> {
-    const response = await fetch('https://in.logs.betterstack.com', {
+    const response = await safeIntegrationFetch(this.ingestingUrl(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -48,5 +52,9 @@ export class BetterStackLoggingProvider implements LogProvider {
       signal: AbortSignal.timeout(10_000),
     });
     return response.ok || response.status === 202;
+  }
+
+  private ingestingUrl(): string {
+    return this.config.ingestingUrl?.trim() || DEFAULT_BETTER_STACK_LOGS_URL;
   }
 }

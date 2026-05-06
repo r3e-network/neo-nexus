@@ -3,6 +3,7 @@ import type { UptimeProvider, ConfigField } from '../../types';
 
 export const uptimeRobotSchema: ConfigField[] = [
   { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'ur-api-key-...', required: true },
+  { key: 'healthUrl', label: 'Public Health URL', type: 'url', placeholder: 'https://nexus.example.com/api/health', required: true },
 ];
 
 export class UptimeRobotProvider implements UptimeProvider {
