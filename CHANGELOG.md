@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.5.2] - 2026-05-06
+
+### Added
+- Dashboard empty-fleet onboarding now guides first-time operators toward creating a managed node, planning a private network, or importing an existing node in observe-only mode.
+- Setup, password-change, and user-creation flows now show password-strength guidance before submission.
+- Metrics responses now include block-height sync status so the UI can distinguish synced, catching-up, stale, and unknown data before operators rely on node height.
+
+### Changed
+- Plugin lifecycle management now reports richer version/action state and keeps installed, enabled, update, and uninstall flows aligned with node ownership and compatibility rules.
+- Create-node role setup, integration credentials, and frontend setup UX now provide clearer defaults and safer validation for production operators.
+- README version badge and package manifests now point at `2.5.2`.
+
+### Fixed
+- Hermes viewer tools now respect redaction boundaries for node details and plugin configuration instead of exposing admin-only fields through agent tools.
+- Fast-sync downloads now use the shared outbound target guard so HTTPS snapshot sources receive the same SSRF and redirect protections as other user-supplied URLs.
+- Browser-side source scanning now guards against accidental SQL/database logic in frontend code.
+- First-run setup now trims usernames consistently across setup, login, and user creation.
+
+### Tested
+- Backend lint, test lint, typecheck, full backend test suite, and backend production build pass.
+- Frontend lint, typecheck, full frontend test suite, and production build pass.
+
 ## [2.5.1] - 2026-05-04
 
 ### Fixed
