@@ -124,6 +124,13 @@ vi.mock("child_process", () => ({
       cb: (error: Error | null, stdout: string, stderr: string) => void,
     ) => cb(null, "output", ""),
   ),
+  execFile: vi.fn(
+    (
+      _cmd: string,
+      _args: string[],
+      cb: (error: Error | null, stdout: string, stderr: string) => void,
+    ) => cb(null, "12345 node 0.1 0.2", ""),
+  ),
   execSync: vi.fn(() => Buffer.from("output")),
 }));
 
@@ -136,6 +143,7 @@ vi.mock("fs/promises", () => ({
   writeFile: vi.fn(() => Promise.resolve()),
   copyFile: vi.fn(() => Promise.resolve()),
   stat: vi.fn(() => Promise.resolve({ isDirectory: () => true } as any)),
+  statfs: vi.fn(() => Promise.resolve({ blocks: 1000, bsize: 4096, bavail: 250 } as any)),
   unlink: vi.fn(() => Promise.resolve()),
   rm: vi.fn(() => Promise.resolve()),
   chmod: vi.fn(() => Promise.resolve()),

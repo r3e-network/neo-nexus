@@ -54,6 +54,11 @@ describe("hasUsableDownloadFile", () => {
     expect(hasUsableDownloadFile(file)).toBe(true);
   });
 
+  it("refuses download size probes to private literal targets", async () => {
+    const { DownloadManager } = await import("../../src/core/DownloadManager");
+    await expect(DownloadManager.getDownloadSize("https://127.0.0.1/releases/node.zip")).resolves.toBeNull();
+  });
+
   it("returns an extracted plugin cache without downloading or extracting again", async () => {
     const root = mkdtempSync(join(tmpdir(), "neonexus-download-"));
     const { DownloadManager, extractZip } = await importDownloadManagerWithTempPaths(root);

@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync } from 'node:fs';
-import { stat, readdir, unlink, rmdir } from 'node:fs/promises';
+import { stat, readdir, unlink, rmdir, statfs } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { StorageInfo } from '../types/index';
 import { validateDataContextId } from '../utils/paths';
@@ -244,21 +244,18 @@ export class StorageManager {
   }
 
   /**
-   * Check available disk space (Linux only)
+   * Check available disk space without shelling out.
    */
   static async getDiskSpace(path: string): Promise<{ total: number; free: number; used: number } | null> {
     try {
-      const { execShell } = await import('../utils/exec');
-      const { stdout } = await execShell(`df -B1 "${path}" | tail -1`);
-      const parts = stdout.trim().split(/\s+/);
-      
-      if (parts.length >= 4) {
-        return {
-          total: parseInt(parts[1], 10),
-          used: parseInt(parts[2], 10),
-          free: parseInt(parts[3], 10),
-        };
-      }
+      const stats = await statfs(path);
+      const total = stats.blocks * stats.bsize;
+      const free = stats.bavail * stats.bsize;
+      return {
+        total,
+        free,
+        used: Math.max(0, total - free),
+      };
     } catch {
       // Ignore errors
     }

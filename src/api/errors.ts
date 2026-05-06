@@ -204,6 +204,24 @@ export const Errors = {
       `Integration URL targets a private or local address: ${hostname}`,
       "Use a public HTTPS endpoint, or set NEONEXUS_ALLOW_PRIVATE_INTEGRATION_TARGETS=true only for trusted private deployments."),
 
+  // Agent providers
+  agentProviderUrlInvalid: (reason = "Base URL must be a valid HTTP(S) URL without query or fragment parameters") =>
+    new ApiError("AGENT_PROVIDER_URL_INVALID",
+      `Agent provider base URL is invalid: ${reason}`,
+      "Use a clean HTTPS provider origin such as https://api.openai.com or https://api.mistral.ai."),
+  agentProviderUrlInsecure: () =>
+    new ApiError("AGENT_PROVIDER_URL_INSECURE",
+      "Agent provider base URL must use HTTPS",
+      "Use HTTPS for provider API keys, or set NEONEXUS_ALLOW_INSECURE_AGENT_PROVIDER_URLS=true only in trusted private labs."),
+  agentProviderUrlPrivateTarget: (hostname: string) =>
+    new ApiError("AGENT_PROVIDER_URL_PRIVATE_TARGET",
+      `Agent provider base URL targets a private or local address: ${hostname}`,
+      "Use a public HTTPS provider endpoint, or set NEONEXUS_ALLOW_PRIVATE_INTEGRATION_TARGETS=true only for trusted private deployments."),
+  agentMessageInvalid: (reason: string) =>
+    new ApiError("AGENT_MESSAGE_INVALID",
+      `Agent message is invalid: ${reason}`,
+      "Send a non-empty message within the configured size limit."),
+
   // Servers
   serverFieldsRequired: () =>
     new ApiError("MISSING_FIELDS",

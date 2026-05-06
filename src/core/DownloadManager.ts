@@ -4,7 +4,9 @@ import { get, request as httpsRequest } from "node:https";
 import { join } from "node:path";
 import { paths } from "../utils/paths";
 import { assertReleaseVersion } from "../utils/nodeValidation";
+import { assertLiteralPublicTarget } from "../utils/outboundTargets";
 import type { NodeType, ReleaseInfo } from "../types/index";
+import { ApiError } from "../api/errors";
 
 const GITHUB_API_BASE = "https://api.github.com/repos";
 
@@ -371,6 +373,11 @@ export class DownloadManager {
     if (parsed.protocol !== "https:") {
       throw new Error(`Refusing to download from non-HTTPS URL: ${url}`);
     }
+    assertLiteralPublicTarget(
+      parsed.hostname,
+      downloadPrivateTargetError,
+      process.env.NEONEXUS_ALLOW_PRIVATE_DOWNLOAD_TARGETS === "true",
+    );
 
     return new Promise((resolve, reject) => {
       const file = createWriteStream(destination);
@@ -447,7 +454,23 @@ export class DownloadManager {
    */
   static async getDownloadSize(url: string): Promise<number | null> {
     return new Promise((resolve) => {
-      const req = httpsRequest(url, { method: "HEAD" }, (response) => {
+      let parsed: URL;
+      try {
+        parsed = new URL(url);
+        if (parsed.protocol !== "https:") {
+          resolve(null);
+          return;
+        }
+        assertLiteralPublicTarget(
+          parsed.hostname,
+          downloadPrivateTargetError,
+          process.env.NEONEXUS_ALLOW_PRIVATE_DOWNLOAD_TARGETS === "true",
+        );
+      } catch {
+        resolve(null);
+        return;
+      }
+      const req = httpsRequest(parsed, { method: "HEAD" }, (response) => {
         const size = response.headers["content-length"];
         resolve(size ? parseInt(size, 10) : null);
       });
@@ -455,4 +478,12 @@ export class DownloadManager {
       req.end();
     });
   }
+}
+
+function downloadPrivateTargetError(hostname: string): ApiError {
+  return new ApiError(
+    "DOWNLOAD_PRIVATE_TARGET",
+    `Download URL targets a private or local address: ${hostname}`,
+    "Use public GitHub release URLs, or set NEONEXUS_ALLOW_PRIVATE_DOWNLOAD_TARGETS=true only for trusted private mirrors.",
+  );
 }

@@ -12,9 +12,12 @@ import type {
 } from "./types";
 import { executeTool, toolsForUser } from "./tools";
 import { getProviderClient } from "./providers";
+import { Errors } from "../api/errors";
+import { assertLiteralPublicTarget } from "../utils/outboundTargets";
 
 const DEFAULT_MAX_TOKENS = 4096;
 const MAX_TURNS_PER_RUN = 8; // Hard cap on tool-call → response loops to avoid runaway.
+const MAX_AGENT_MESSAGE_CHARS = 16_000;
 const VALID_PROVIDERS: AgentProvider[] = ["anthropic", "openai", "openai-compatible"];
 
 export interface AgentManagerOptions {
@@ -74,6 +77,7 @@ export class AgentManager {
     if (input.provider === "openai-compatible" && !input.baseUrl?.trim()) {
       throw new Error("baseUrl is required for openai-compatible provider");
     }
+    const baseUrl = normalizeAgentBaseUrl(input.baseUrl);
     const now = Date.now();
     const existing = this.getSettings(userId);
     const enabled = input.enabled ?? existing?.enabled ?? true;
@@ -83,13 +87,13 @@ export class AgentManager {
         .prepare(
           `UPDATE agent_settings SET provider = ?, model = ?, api_key = ?, base_url = ?, enabled = ?, updated_at = ? WHERE user_id = ?`,
         )
-        .run(input.provider, input.model.trim(), input.apiKey, input.baseUrl?.trim() ?? null, enabled ? 1 : 0, now, userId);
+        .run(input.provider, input.model.trim(), input.apiKey, baseUrl ?? null, enabled ? 1 : 0, now, userId);
     } else {
       this.db
         .prepare(
           `INSERT INTO agent_settings (user_id, provider, model, api_key, base_url, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .run(userId, input.provider, input.model.trim(), input.apiKey, input.baseUrl?.trim() ?? null, enabled ? 1 : 0, now, now);
+        .run(userId, input.provider, input.model.trim(), input.apiKey, baseUrl ?? null, enabled ? 1 : 0, now, now);
     }
     return this.getSettings(userId)!;
   }
@@ -175,6 +179,7 @@ export class AgentManager {
 
     const settings = this.getSettings(options.user.id);
     if (!settings || !settings.enabled) throw new Error("Agent settings not configured");
+    const userText = normalizeUserText(options.text);
 
     const provider = getProviderClient(settings.provider);
     const tools = toolsForUser(options.user.role);
@@ -184,12 +189,12 @@ export class AgentManager {
       id: randomUUID(),
       conversationId: conversation.id,
       role: "user",
-      content: [{ type: "text", text: options.text }],
+      content: [{ type: "text", text: userText }],
       createdAt: Date.now(),
     };
     this.persistMessage(userMsg);
     options.onEvent({ type: "message_start", messageId: userMsg.id, role: "user" });
-    options.onEvent({ type: "delta", messageId: userMsg.id, text: options.text });
+    options.onEvent({ type: "delta", messageId: userMsg.id, text: userText });
     options.onEvent({ type: "message_end", messageId: userMsg.id });
 
     // Wire up cancellation.
@@ -352,6 +357,50 @@ function stringifyToolOutput(output: unknown): string {
   } catch {
     return String(output);
   }
+}
+
+function normalizeAgentBaseUrl(rawBaseUrl?: string): string | undefined {
+  const value = rawBaseUrl?.trim();
+  if (!value) {
+    return undefined;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw Errors.agentProviderUrlInvalid();
+  }
+
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw Errors.agentProviderUrlInvalid("Base URL must use http or https");
+  }
+  if (parsed.search || parsed.hash) {
+    throw Errors.agentProviderUrlInvalid("Base URL cannot include query or fragment parameters");
+  }
+  if (parsed.protocol !== "https:" && process.env.NEONEXUS_ALLOW_INSECURE_AGENT_PROVIDER_URLS !== "true") {
+    throw Errors.agentProviderUrlInsecure();
+  }
+
+  assertLiteralPublicTarget(
+    parsed.hostname,
+    Errors.agentProviderUrlPrivateTarget,
+    process.env.NEONEXUS_ALLOW_PRIVATE_INTEGRATION_TARGETS === "true",
+  );
+
+  const path = parsed.pathname === "/" ? "" : parsed.pathname.replace(/\/+$/, "");
+  return `${parsed.origin}${path}`;
+}
+
+function normalizeUserText(text: string): string {
+  const value = text.trim();
+  if (!value) {
+    throw Errors.agentMessageInvalid("text is required");
+  }
+  if (value.length > MAX_AGENT_MESSAGE_CHARS) {
+    throw Errors.agentMessageInvalid(`text must be ${MAX_AGENT_MESSAGE_CHARS} characters or fewer`);
+  }
+  return value;
 }
 
 interface ConversationRow {
