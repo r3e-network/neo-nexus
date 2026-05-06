@@ -76,16 +76,43 @@ NeoNexus is a **self-hosted node management platform** for Neo N3. Deploy, monit
 - **Node.js** 20+
 - **npm** 9+
 - **.NET 10+** (for neo-cli nodes)
+- **Docker** 24+ (optional, for container deployment)
 
 ### Installation
+
+One-command install for Linux and macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/r3e-network/neo-nexus/main/install.sh | bash
+```
+
+The installer clones NeoNexus into `~/.neonexus/app`, stores runtime data in `~/.neonexus/data`, installs backend and frontend dependencies from lockfiles, builds the app, generates a persistent `JWT_SECRET`, and creates a `systemd` service on Linux when available.
+
+For a reviewable install, download the script first:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/r3e-network/neo-nexus/main/install.sh
+less install.sh
+bash install.sh
+```
+
+Manual install:
 
 ```bash
 git clone https://github.com/r3e-network/neo-nexus.git
 cd neo-nexus
 
-npm install
+npm ci
+npm --prefix web ci
 npm run build
-npm start
+JWT_SECRET=$(openssl rand -hex 32) npm start
+```
+
+Docker Compose:
+
+```bash
+export JWT_SECRET=$(openssl rand -hex 32)
+docker compose up --build
 ```
 
 Open http://localhost:8080 and create the first admin account in the setup screen.
