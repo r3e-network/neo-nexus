@@ -6,6 +6,7 @@ import { getPublicDashboardFreshness, PUBLIC_DASHBOARD_STALE_AFTER_MS } from "..
 import { mergeNodeLogs, type RealtimeLogEntry } from "../src/utils/realtime";
 import { PROJECT_LINKS } from "../src/config/constants";
 import { getDefaultCreateNodeFormValues } from "../src/pages/CreateNode";
+import { getBlockHeightStatus } from "../src/utils/blockHeightStatus";
 
 describe("frontend formatting utilities", () => {
   it("formats byte counts for dashboard resource cards", () => {
@@ -83,6 +84,59 @@ describe("operator surface helpers", () => {
       stale: true,
       tone: "warning",
       label: "Stale, updated just now",
+    });
+  });
+
+  it("marks public-network block heights stale while the node is still catching up", () => {
+    expect(getBlockHeightStatus(
+      { network: "mainnet", metrics: { blockHeight: 95 } },
+      { mainnet: 100, testnet: 0, timestamp: 1_700_000_000_000 },
+      1_700_000_001_000,
+    )).toMatchObject({
+      status: "syncing",
+      label: "Syncing",
+      detail: "5 blocks behind latest",
+      localHeight: 95,
+      networkHeight: 100,
+      remainingBlocks: 5,
+      progressPercent: 95,
+      stale: true,
+      safeToUseAsLatest: false,
+    });
+  });
+
+  it("marks caught-up public-network block heights safe to use as latest", () => {
+    expect(getBlockHeightStatus(
+      { network: "testnet", metrics: { blockHeight: 101 } },
+      { mainnet: 0, testnet: 100, timestamp: 1_700_000_000_000 },
+      1_700_000_001_000,
+    )).toMatchObject({
+      status: "synced",
+      label: "Synced",
+      detail: "Caught up to latest network height",
+      localHeight: 101,
+      networkHeight: 100,
+      remainingBlocks: 0,
+      progressPercent: 100,
+      stale: false,
+      safeToUseAsLatest: true,
+    });
+  });
+
+  it("does not call a node syncing when block height has not been reported", () => {
+    expect(getBlockHeightStatus(
+      { network: "mainnet" },
+      { mainnet: 100, testnet: 0, timestamp: 1_700_000_000_000 },
+      1_700_000_001_000,
+    )).toMatchObject({
+      status: "unknown",
+      label: "No height",
+      detail: "Block height has not been reported yet",
+      localHeight: null,
+      networkHeight: 100,
+      remainingBlocks: null,
+      stale: false,
+      safeToUseAsLatest: false,
     });
   });
 

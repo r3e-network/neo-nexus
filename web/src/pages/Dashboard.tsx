@@ -17,11 +17,13 @@ import {
 import { Link } from "react-router-dom";
 import { EmptyState } from "../components/EmptyState";
 import { StatSkeleton } from "../components/LoadingSkeleton";
+import { BlockHeightStatus } from "../components/BlockHeightStatus";
 import { NodeProtectionLabel } from "../components/NodeProtectionLabel";
 import { ProgressBar } from "../components/ProgressBar";
 import { SignerStatus } from "../components/SignerStatus";
 import { useAuth } from "../hooks/useAuth";
-import { useNodes, useSystemMetrics, type Node } from "../hooks/useNodes";
+import { useNetworkHeight, useNodes, useSystemMetrics, type Node } from "../hooks/useNodes";
+import { getBlockHeightStatus } from "../utils/blockHeightStatus";
 import { formatBytes } from "../utils/format";
 import { countProtectedNodes } from "../utils/signerVisibility";
 
@@ -43,6 +45,7 @@ function healthTone(value: number) {
 export default function Dashboard() {
   const { data: nodes = [], isLoading } = useNodes();
   const { data: systemMetrics } = useSystemMetrics();
+  const { data: networkHeights } = useNetworkHeight();
   const { user } = useAuth();
 
   const isDefaultPassword = user?.usingDefaultPassword === true;
@@ -222,34 +225,37 @@ export default function Dashboard() {
             ) : (
               <div className="overflow-hidden rounded-lg border border-slate-200">
                 <div className="divide-y divide-slate-200">
-                  {topNodes.map((node) => (
-                    <Link key={node.id} to={`/nodes/${node.id}`} className="flex flex-col gap-3 bg-white p-4 transition-colors hover:bg-slate-50 md:flex-row md:items-center md:justify-between">
-                      <div className="flex items-start gap-3">
-                        <div className={`rounded-lg p-2 ${node.type === "neo-cli" ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700"}`}>
-                          <Activity className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-medium text-slate-950">{node.name}</h3>
-                            <span className={`status-badge status-${node.process.status}`}>{node.process.status}</span>
+                  {topNodes.map((node) => {
+                    const blockStatus = getBlockHeightStatus(node, networkHeights);
+                    return (
+                      <Link key={node.id} to={`/nodes/${node.id}`} className="flex flex-col gap-3 bg-white p-4 transition-colors hover:bg-slate-50 md:flex-row md:items-center md:justify-between">
+                        <div className="flex items-start gap-3">
+                          <div className={`rounded-lg p-2 ${node.type === "neo-cli" ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700"}`}>
+                            <Activity className="h-5 w-5" />
                           </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                            <span>{node.type}</span>
-                            <span>•</span>
-                            <span className="capitalize">{node.network}</span>
-                            <span>•</span>
-                            <span>{nodeOwnershipLabel(node)}</span>
-                            <NodeProtectionLabel node={node} padding="px-2 py-0.5" />
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="font-medium text-slate-950">{node.name}</h3>
+                              <span className={`status-badge status-${node.process.status}`}>{node.process.status}</span>
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                              <span>{node.type}</span>
+                              <span>•</span>
+                              <span className="capitalize">{node.network}</span>
+                              <span>•</span>
+                              <span>{nodeOwnershipLabel(node)}</span>
+                              <NodeProtectionLabel node={node} padding="px-2 py-0.5" />
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600">
-                        <span>Block {node.metrics?.blockHeight?.toLocaleString() ?? "—"}</span>
-                        <span>{node.metrics?.connectedPeers ?? "—"} peers</span>
-                        {node.settings?.keyProtection?.mode === "secure-signer" && <SignerStatus nodeId={node.id} showPrefix textSize="text-[11px]" />}
-                      </div>
-                    </Link>
-                  ))}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600">
+                          <BlockHeightStatus status={blockStatus} showDetail={blockStatus.status !== "synced"} />
+                          <span>{node.metrics?.connectedPeers ?? "—"} peers</span>
+                          {node.settings?.keyProtection?.mode === "secure-signer" && <SignerStatus nodeId={node.id} showPrefix textSize="text-[11px]" />}
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
                 {nodes.length > topNodes.length && (
                   <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">

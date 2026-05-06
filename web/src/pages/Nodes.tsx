@@ -19,11 +19,13 @@ import { useMemo, useState } from "react";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
 import { TableRowSkeleton } from "../components/LoadingSkeleton";
+import { BlockHeightStatus } from "../components/BlockHeightStatus";
 import { formatVersion } from "../utils/format";
 import { NodeProtectionLabel } from "../components/NodeProtectionLabel";
 import { SignerStatus } from "../components/SignerStatus";
 import { SpinnerButton } from "../components/SpinnerButton";
-import { useDeleteNode, useNodes, useStartNode, useStopNode, type Node } from "../hooks/useNodes";
+import { useDeleteNode, useNetworkHeight, useNodes, useStartNode, useStopNode, type Node } from "../hooks/useNodes";
+import { getBlockHeightStatus } from "../utils/blockHeightStatus";
 
 type NodeFilter = "all" | "running" | "needs-attention" | "protected" | "imported";
 
@@ -62,6 +64,7 @@ function filterNodes(nodes: Node[], filter: NodeFilter, searchTerm: string) {
 
 export default function Nodes() {
   const { data: nodes = [], isLoading } = useNodes();
+  const { data: networkHeights } = useNetworkHeight();
   const startNode = useStartNode();
   const stopNode = useStopNode();
   const deleteNode = useDeleteNode();
@@ -204,6 +207,7 @@ export default function Nodes() {
             {filteredNodes.map((node) => {
               const canControlLifecycle = lifecycleAllowed(node);
               const isRunning = node.process.status === "running";
+              const blockStatus = getBlockHeightStatus(node, networkHeights);
               return (
                 <article key={node.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="flex items-start gap-3">
@@ -243,7 +247,9 @@ export default function Nodes() {
                     </div>
                     <div className="rounded-lg bg-slate-50 p-3">
                       <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">Block</dt>
-                      <dd className="mt-1 text-slate-900">{node.metrics?.blockHeight?.toLocaleString() ?? "—"}</dd>
+                      <dd className="mt-1">
+                        <BlockHeightStatus status={blockStatus} showDetail={blockStatus.status !== "synced"} />
+                      </dd>
                     </div>
                     <div className="rounded-lg bg-slate-50 p-3">
                       <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">Peers</dt>
@@ -326,6 +332,7 @@ export default function Nodes() {
                 {filteredNodes.map((node) => {
                   const canControlLifecycle = lifecycleAllowed(node);
                   const isRunning = node.process.status === "running";
+                  const blockStatus = getBlockHeightStatus(node, networkHeights);
                   return (
                     <tr key={node.id} className="group bg-transparent transition-colors hover:bg-slate-50">
                       <td className="px-4 py-4">
@@ -353,7 +360,7 @@ export default function Nodes() {
                         <p className="mt-1 text-xs text-slate-500">{node.syncMode} sync</p>
                       </td>
                       <td className="px-4 py-4 text-sm text-slate-700">
-                        <p>Block {node.metrics?.blockHeight?.toLocaleString() ?? "—"}</p>
+                        <BlockHeightStatus status={blockStatus} showDetail={blockStatus.status !== "synced"} showLatest />
                         <p className="mt-1 text-xs text-slate-500">{node.metrics?.connectedPeers ?? "—"} peers</p>
                       </td>
                       <td className="px-4 py-4 text-sm text-slate-700">

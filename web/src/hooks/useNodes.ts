@@ -3,6 +3,19 @@ import { api } from '../utils/api';
 import { REFETCH_INTERVALS } from '../config/constants';
 
 export type ImportedNodeOwnershipMode = 'observe-only' | 'managed-config' | 'managed-process';
+export type BlockHeightSyncStatus = 'synced' | 'syncing' | 'unknown' | 'private';
+
+export interface NodeBlockHeightStatus {
+  status: BlockHeightSyncStatus;
+  localHeight: number;
+  networkHeight: number | null;
+  remainingBlocks: number | null;
+  progressPercent: number;
+  stale: boolean;
+  safeToUseAsLatest: boolean;
+  checkedAt: number;
+  message: string;
+}
 
 export interface Node {
   id: string;
@@ -28,8 +41,12 @@ export interface Node {
     blockHeight: number;
     headerHeight: number;
     connectedPeers: number;
+    unconnectedPeers?: number;
+    syncProgress?: number;
     memoryUsage: number;
     cpuUsage: number;
+    lastUpdate?: number;
+    blockHeightStatus?: NodeBlockHeightStatus;
   };
   settings: {
     maxConnections?: number;

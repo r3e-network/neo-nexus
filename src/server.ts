@@ -307,7 +307,7 @@ export function createAppServer(config: ServerConfig) {
     requireAdmin,
     createNodeRolesRouter({ roleManager: nodeRoleManager, applicationService: nodeRoleApplicationService }),
   );
-  app.use("/api/metrics", requireAuth, createMetricsRouter(nodeManager, metricsCollector));
+  app.use("/api/metrics", requireAuth, createMetricsRouter(nodeManager, metricsCollector, networkHeightTracker));
   app.use("/api/system", requireAuth, requireAdmin, createSystemRouter(nodeManager));
   app.use("/api/servers", requireAuth, requireAdminForUnsafeMethods, createServersRouter(remoteServerManager));
   app.use("/api/secure-signers", requireAuth, requireAdmin, createSecureSignersRouter(secureSignerManager));

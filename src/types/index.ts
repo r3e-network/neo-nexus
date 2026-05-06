@@ -102,6 +102,20 @@ export interface NodeInstance extends NodeConfig {
 }
 
 // Metrics
+export type BlockHeightSyncStatus = 'synced' | 'syncing' | 'unknown' | 'private';
+
+export interface BlockHeightStatus {
+  status: BlockHeightSyncStatus;
+  localHeight: number;
+  networkHeight: number | null;
+  remainingBlocks: number | null;
+  progressPercent: number;
+  stale: boolean;
+  safeToUseAsLatest: boolean;
+  checkedAt: number;
+  message: string;
+}
+
 export interface NodeMetrics {
   blockHeight: number;
   headerHeight: number;
@@ -111,6 +125,7 @@ export interface NodeMetrics {
   memoryUsage: number;
   cpuUsage: number;
   lastUpdate: number;
+  blockHeightStatus?: BlockHeightStatus;
 }
 
 export interface SystemMetrics {
