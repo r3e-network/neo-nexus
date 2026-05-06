@@ -62,7 +62,10 @@ export class IntegrationManager {
     const missingFields = definition.configSchema
       .filter(f => f.required && !config[f.key])
       .map(f => f.key);
-    if (missingFields.length > 0) return;
+    if (missingFields.length > 0) {
+      this.updateLastError(row.id, `Missing required integration fields: ${missingFields.join(', ')}`);
+      return;
+    }
 
     try {
       const provider = definition.createProvider(config);
@@ -83,7 +86,7 @@ export class IntegrationManager {
           break;
         case 'uptime':
           // Uptime providers auto-register a monitor for the NeoNexus health endpoint
-          this.registerUptimeMonitor(id, provider as UptimeProvider);
+          this.registerUptimeMonitor(id, provider as UptimeProvider, config);
           break;
       }
     } catch (error) {
@@ -121,11 +124,12 @@ export class IntegrationManager {
     }
   }
 
-  private registerUptimeMonitor(id: string, provider: UptimeProvider): void {
-    const port = process.env.PORT || '8080';
-    const host = process.env.HOST || '0.0.0.0';
-    const healthUrl = `http://${host === '0.0.0.0' ? 'localhost' : host}:${port}/api/health`;
-
+  private registerUptimeMonitor(id: string, provider: UptimeProvider, config: Record<string, string>): void {
+    const healthUrl = config.healthUrl?.trim();
+    if (!healthUrl) {
+      this.handleProviderError(id, new Error('Missing public health URL for uptime monitoring'));
+      return;
+    }
     provider.registerMonitor(healthUrl, `NeoNexus (${id})`).then(monitorId => {
       // Store the monitor ID so we can remove it later
       this.db.prepare(

@@ -36,7 +36,7 @@ export const integrationRegistry: IntegrationDefinition[] = [
     description: 'Ship structured logs to Better Stack (Logtail)',
     category: 'logging',
     configSchema: betterStackLoggingSchema,
-    createProvider: (config) => new BetterStackLoggingProvider(config as { sourceToken: string }),
+    createProvider: (config) => new BetterStackLoggingProvider(config as { sourceToken: string; ingestingUrl?: string }),
   },
   {
     id: 'grafana_loki',

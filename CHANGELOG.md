@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- Grafana Cloud metrics now use Prometheus `remote_write` payloads with snappy compression instead of sending plain text to a remote-write endpoint.
+- Better Stack Logs now supports source-specific ingest URLs while keeping the default Better Stack ingest endpoint.
+- Better Stack Uptime and UptimeRobot now require a public health URL, preventing external monitors from being registered against local-only `localhost` addresses.
+- Compatible dependency updates refreshed Sentry, React, React Router, TanStack Query, better-sqlite3, tar, PostCSS, and TypeScript ESLint within the existing major-version ranges.
+
+### Tested
+- Added provider-level tests for Grafana remote_write, Better Stack log ingest routing, and uptime public health URL registration.
+
 ## [2.5.2] - 2026-05-06
 
 ### Added
