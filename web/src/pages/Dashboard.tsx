@@ -15,9 +15,9 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { EmptyState } from "../components/EmptyState";
 import { StatSkeleton } from "../components/LoadingSkeleton";
 import { BlockHeightStatus } from "../components/BlockHeightStatus";
+import { FirstRunGuide } from "../components/FirstRunGuide";
 import { NodeProtectionLabel } from "../components/NodeProtectionLabel";
 import { ProgressBar } from "../components/ProgressBar";
 import { SignerStatus } from "../components/SignerStatus";
@@ -213,15 +213,7 @@ export default function Dashboard() {
                 {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-16" />)}
               </div>
             ) : nodes.length === 0 ? (
-              <EmptyState
-                icon={Server}
-                title="No nodes yet"
-                description="Deploy a new Neo node or import an existing installation. Imports start observe-only so native nodes are not modified accidentally."
-                actions={[
-                  { label: "Create Node", href: "/nodes/create", variant: "primary" },
-                  { label: "Import Existing", href: "/nodes/import", variant: "secondary" },
-                ]}
-              />
+              <FirstRunGuide />
             ) : (
               <div className="overflow-hidden rounded-lg border border-slate-200">
                 <div className="divide-y divide-slate-200">
