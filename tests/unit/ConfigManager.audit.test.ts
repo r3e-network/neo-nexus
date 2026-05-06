@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConfigManager } from "../../src/core/ConfigManager";
+import { DownloadManager } from "../../src/core/DownloadManager";
 import type { NodeConfig } from "../../src/types";
 
 vi.mock("../../src/core/DownloadManager", () => ({
@@ -190,6 +191,52 @@ describe("ConfigManager audit", () => {
           path: "ApplicationConfiguration.P2P.SecretPassword",
           message: "Extra key \"SecretPassword\" found in on-disk config",
         }),
+      ]),
+    );
+  });
+
+  it("does not require managed download binaries for managed-config imported nodes", async () => {
+    const getNodeBinaryPath = vi.mocked(DownloadManager.getNodeBinaryPath);
+    getNodeBinaryPath.mockReturnValue(null);
+    const base = mkdtempSync(join(tmpdir(), "neonexus-audit-imported-binary-"));
+    tempDirs.push(base);
+    const importedConfigPath = join(base, "config.json");
+
+    const node: NodeConfig = {
+      id: "node-imported-binary",
+      name: "Imported config-only neo-cli",
+      type: "neo-cli",
+      network: "testnet",
+      syncMode: "full",
+      version: "3.8.0",
+      ports: { rpc: 20332, p2p: 20333 },
+      paths: {
+        base,
+        config: importedConfigPath,
+        data: join(base, "Chain"),
+        logs: join(base, "Logs"),
+      },
+      settings: {
+        import: {
+          imported: true,
+          existingPath: base,
+          importType: "path",
+          ownershipMode: "managed-config",
+        },
+      },
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const expectedConfig = await (ConfigManager as unknown as {
+      generateNeoCliConfig: (node: NodeConfig, plugins: string[]) => Promise<Record<string, unknown>>;
+    }).generateNeoCliConfig(node, []);
+    writeFileSync(importedConfigPath, JSON.stringify(expectedConfig), "utf-8");
+
+    const result = await ConfigManager.auditNodeConfig(node);
+
+    expect(result.issues).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: "binary" }),
       ]),
     );
   });
