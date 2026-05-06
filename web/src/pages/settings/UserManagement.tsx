@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Users, Trash2, ChevronDown, ChevronUp, UserPlus } from "lucide-react";
 import { FeedbackBanner } from "../../components/FeedbackBanner";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { PasswordStrengthMeter } from "../../components/PasswordStrengthMeter";
 import { useAuth } from "../../hooks/useAuth";
 import { useUsers, useCreateUser, useDeleteUser } from "../../hooks/useUsers";
 
@@ -149,6 +150,9 @@ export function UserManagement() {
               >
                 {createUser.isPending ? "Creating..." : "Create User"}
               </button>
+            </div>
+            <div className="md:col-span-4">
+              <PasswordStrengthMeter password={newPassword} compact />
             </div>
           </form>
         </div>

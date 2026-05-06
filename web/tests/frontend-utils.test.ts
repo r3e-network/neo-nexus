@@ -7,6 +7,7 @@ import { mergeNodeLogs, type RealtimeLogEntry } from "../src/utils/realtime";
 import { PROJECT_LINKS } from "../src/config/constants";
 import { getDefaultCreateNodeFormValues } from "../src/pages/CreateNode";
 import { getBlockHeightStatus } from "../src/utils/blockHeightStatus";
+import { evaluatePasswordStrength } from "../src/utils/passwordStrength";
 
 describe("frontend formatting utilities", () => {
   it("formats byte counts for dashboard resource cards", () => {
@@ -137,6 +138,22 @@ describe("operator surface helpers", () => {
       remainingBlocks: null,
       stale: false,
       safeToUseAsLatest: false,
+    });
+  });
+
+  it("gives actionable password feedback for weak setup credentials", () => {
+    expect(evaluatePasswordStrength("password")).toMatchObject({
+      label: "Weak",
+      acceptable: true,
+    });
+    expect(evaluatePasswordStrength("password").feedback).toContain("Add a number or symbol.");
+  });
+
+  it("recognizes long mixed passwords as excellent", () => {
+    expect(evaluatePasswordStrength("NeoNexus-Validator-2026!")).toMatchObject({
+      label: "Excellent",
+      acceptable: true,
+      feedback: [],
     });
   });
 

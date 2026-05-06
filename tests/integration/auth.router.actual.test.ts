@@ -86,6 +86,24 @@ describe("Actual auth router protection", () => {
     });
   });
 
+  it("trims login usernames before credential verification", async () => {
+    mockUserManager.verifyCredentials.mockResolvedValue({
+      id: "test-user-id",
+      username: "admin",
+      role: "admin",
+    });
+
+    const response = await request(app)
+      .post("/api/auth/login")
+      .send({
+        username: "  admin  ",
+        password: "admin12345",
+      });
+
+    expect(response.status).toBe(200);
+    expect(mockUserManager.verifyCredentials).toHaveBeenCalledWith("admin", "admin12345");
+  });
+
   it("returns structured error when login credentials are missing", async () => {
     const response = await request(app)
       .post("/api/auth/login")
@@ -120,6 +138,26 @@ describe("Actual auth router protection", () => {
     expect(response.status).toBe(403);
     expect(response.body.code).toBe("SETUP_COMPLETED");
     expect(response.body.suggestion).toBeDefined();
+  });
+
+  it("trims the initial setup username before creating the admin", async () => {
+    mockUserManager.hasUsers.mockReturnValue(false);
+    mockUserManager.createUser.mockResolvedValue({
+      id: "admin-1",
+      username: "admin",
+      role: "admin",
+    });
+
+    const response = await request(app)
+      .post("/api/auth/setup")
+      .send({ username: "  admin  ", password: "admin12345" });
+
+    expect(response.status).toBe(201);
+    expect(mockUserManager.createUser).toHaveBeenCalledWith({
+      username: "admin",
+      password: "admin12345",
+      role: "admin",
+    });
   });
 
   it("returns structured error when password fields are missing", async () => {
@@ -182,6 +220,30 @@ describe("Actual auth router protection", () => {
     expect(response.body.user).toEqual({
       id: "viewer-1",
       username: "viewer",
+      role: "viewer",
+    });
+  });
+
+  it("trims registered usernames before persistence", async () => {
+    mockUserManager.createUser.mockResolvedValue({
+      id: "viewer-1",
+      username: "viewer",
+      role: "viewer",
+    });
+
+    const response = await request(app)
+      .post("/api/auth/register")
+      .set("Authorization", "Bearer valid-token")
+      .send({
+        username: "  viewer  ",
+        password: "viewer-password",
+        role: "viewer",
+      });
+
+    expect(response.status).toBe(201);
+    expect(mockUserManager.createUser).toHaveBeenCalledWith({
+      username: "viewer",
+      password: "viewer-password",
       role: "viewer",
     });
   });
