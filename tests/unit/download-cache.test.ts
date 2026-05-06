@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import https from "node:https";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -25,9 +26,12 @@ async function importDownloadManagerWithTempPaths(root: string) {
 
 describe("hasUsableDownloadFile", () => {
   afterEach(() => {
+    vi.restoreAllMocks();
     delete process.env.NEO_PLUGIN_BUILD_DIR;
+    delete process.env.NEONEXUS_ALLOW_PRIVATE_DOWNLOAD_TARGETS;
     vi.doUnmock("extract-zip");
     vi.doUnmock("../../src/utils/paths");
+    vi.doUnmock("node:dns/promises");
     vi.resetModules();
   });
 
@@ -54,9 +58,58 @@ describe("hasUsableDownloadFile", () => {
     expect(hasUsableDownloadFile(file)).toBe(true);
   });
 
+  it("does not treat symlinks as usable download cache files", async () => {
+    const { hasUsableDownloadFile } = await import("../../src/core/DownloadManager");
+    const dir = mkdtempSync(join(tmpdir(), "neonexus-download-"));
+    const target = join(dir, "target.zip");
+    const link = join(dir, "asset.zip");
+    writeFileSync(target, "data");
+    symlinkSync(target, link);
+
+    expect(hasUsableDownloadFile(link)).toBe(false);
+  });
+
   it("refuses download size probes to private literal targets", async () => {
     const { DownloadManager } = await import("../../src/core/DownloadManager");
     await expect(DownloadManager.getDownloadSize("https://127.0.0.1/releases/node.zip")).resolves.toBeNull();
+  });
+
+  it("refuses download size probes when DNS resolves to a private target", async () => {
+    vi.doMock("node:dns/promises", () => ({
+      lookup: vi.fn(async () => [{ address: "127.0.0.1", family: 4 }]),
+    }));
+    const requestSpy = vi.spyOn(https, "request");
+    const { DownloadManager } = await import("../../src/core/DownloadManager");
+
+    await expect(DownloadManager.getDownloadSize("https://downloads.example.test/releases/node.zip")).resolves.toBeNull();
+
+    expect(requestSpy).not.toHaveBeenCalled();
+  });
+
+  it("refuses binary downloads when DNS resolves GitHub to a private target", async () => {
+    vi.doMock("node:dns/promises", () => ({
+      lookup: vi.fn(async () => [{ address: "127.0.0.1", family: 4 }]),
+    }));
+    const requestSpy = vi.spyOn(https, "request");
+    const root = mkdtempSync(join(tmpdir(), "neonexus-download-"));
+    const { DownloadManager } = await importDownloadManagerWithTempPaths(root);
+
+    await expect(DownloadManager.downloadNeoGo("v0.104.0")).rejects.toThrow(/private or local address/i);
+
+    expect(requestSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not resolve node binary paths through symlinks", async () => {
+    const root = mkdtempSync(join(tmpdir(), "neonexus-download-"));
+    const { DownloadManager } = await importDownloadManagerWithTempPaths(root);
+    const binaryDir = join(root, "downloads", "neo-go-v0.104.0");
+    mkdirSync(binaryDir, { recursive: true });
+    const target = join(binaryDir, "target-neo-go");
+    const link = join(binaryDir, process.platform === "win32" ? "neo-go.exe" : "neo-go");
+    writeFileSync(target, "binary");
+    symlinkSync(target, link);
+
+    expect(DownloadManager.getNodeBinaryPath("neo-go", "v0.104.0")).toBeNull();
   });
 
   it("returns an extracted plugin cache without downloading or extracting again", async () => {

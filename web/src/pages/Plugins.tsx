@@ -16,6 +16,7 @@ import {
 } from "../hooks/usePlugins";
 import { getPluginMeta } from "../utils/pluginMeta";
 import { PluginCard } from "./plugins/PluginCard";
+import { useAuth } from "../hooks/useAuth";
 
 const EMPTY_NODES: Node[] = [];
 const EMPTY_PLUGINS: PluginDefinition[] = [];
@@ -23,17 +24,21 @@ const EMPTY_INSTALLED_PLUGINS: InstalledPlugin[] = [];
 
 // ── Plugins page ───────────────────────────────────────────────────────
 export default function Plugins() {
+  const { user } = useAuth();
   const { data: nodesData } = useNodes();
   const nodes = nodesData ?? EMPTY_NODES;
   const neoCliNodes = useMemo(() => nodes.filter((node) => node.type === "neo-cli"), [nodes]);
   const [selectedNodeId, setSelectedNodeId] = useState("");
   const [configDrafts, setConfigDrafts] = useState<Record<string, Record<string, unknown>>>({});
   const [feedback, setFeedback] = useState<{ type: "error" | "success"; message: string } | null>(null);
+  const isAdmin = user?.role === "admin";
   const selectedNode = neoCliNodes.find((node) => node.id === selectedNodeId) || null;
   const selectedNodeOwnership = selectedNode?.settings?.import?.ownershipMode;
-  const pluginMutationDisabledReason = selectedNodeOwnership === "observe-only"
-    ? "This imported node is observe-only. Plugin changes are blocked until ownership is explicitly upgraded."
-    : undefined;
+  const pluginMutationDisabledReason = !isAdmin
+    ? "Admin access is required to change node plugins."
+    : selectedNodeOwnership === "observe-only"
+      ? "This imported node is observe-only. Plugin changes are blocked until ownership is explicitly upgraded."
+      : undefined;
 
   useEffect(() => {
     if (!selectedNodeId && neoCliNodes[0]) {
@@ -199,10 +204,12 @@ export default function Plugins() {
               <p className="text-sm text-slate-600">
                 Create or import a neo-cli node first, then return here to enable features.
               </p>
-              <Link to="/nodes/create" className="btn btn-primary">
-                <Server className="w-4 h-4" />
-                Create Node
-              </Link>
+              {isAdmin && (
+                <Link to="/nodes/create" className="btn btn-primary">
+                  <Server className="w-4 h-4" />
+                  Create Node
+                </Link>
+              )}
             </div>
           </div>
         </div>

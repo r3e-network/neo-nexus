@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync } from 'node:fs';
-import { stat, readdir, unlink, rmdir, statfs } from 'node:fs/promises';
+import { lstat, readdir, unlink, rmdir, statfs } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { StorageInfo } from '../types/index';
 import { validateDataContextId } from '../utils/paths';
@@ -78,7 +78,7 @@ export class StorageManager {
     
     for (const file of files) {
       const filePath = join(logsPath, file);
-      const stats = await stat(filePath);
+      const stats = await lstat(filePath);
       
       if (stats.isFile() && stats.mtime.getTime() < cutoffTime) {
         await unlink(filePath);
@@ -101,7 +101,7 @@ export class StorageManager {
       const entryPath = join(dataPath, entry);
       
       try {
-        const stats = await stat(entryPath);
+        const stats = await lstat(entryPath);
         if (stats.isDirectory()) {
           await this.removeDirectory(entryPath);
         } else {
@@ -128,10 +128,10 @@ export class StorageManager {
         const entryPath = join(dirPath, entry);
         
         try {
-          const stats = await stat(entryPath);
+          const stats = await lstat(entryPath);
           if (stats.isDirectory()) {
             totalSize += await this.getDirectorySize(entryPath);
-          } else {
+          } else if (stats.isFile()) {
             totalSize += stats.size;
           }
         } catch {
@@ -163,7 +163,7 @@ export class StorageManager {
         const filePath = join(logsPath, file);
         
         try {
-          const stats = await stat(filePath);
+          const stats = await lstat(filePath);
           if (stats.isFile()) {
             totalSize += stats.size;
             fileCount++;
@@ -202,7 +202,7 @@ export class StorageManager {
     for (const entry of entries) {
       const entryPath = join(dirPath, entry);
       
-      const stats = await stat(entryPath);
+      const stats = await lstat(entryPath);
       if (stats.isDirectory()) {
         await this.removeDirectory(entryPath);
       } else {

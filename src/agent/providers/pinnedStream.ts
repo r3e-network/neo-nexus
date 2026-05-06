@@ -38,7 +38,7 @@ export async function pinnedStreamingRequest(url: string, init: PinnedRequestIni
 
   const request = parsed.protocol === "https:" ? httpsRequest : httpRequest;
   const headers: Record<string, string> = { ...(init.headers ?? {}) };
-  headers.Host = parsed.host;
+  setPinnedHostHeader(headers, parsed.host);
 
   return new Promise<IncomingMessage>((resolve, reject) => {
     const req = request(
@@ -80,6 +80,15 @@ export async function pinnedStreamingRequest(url: string, init: PinnedRequestIni
 
 function stripBrackets(hostname: string): string {
   return hostname.replace(/^\[/, "").replace(/\]$/, "");
+}
+
+function setPinnedHostHeader(headers: Record<string, string>, host: string): void {
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === "host") {
+      delete headers[key];
+    }
+  }
+  headers.Host = host;
 }
 
 /**

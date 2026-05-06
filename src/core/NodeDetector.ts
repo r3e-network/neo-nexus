@@ -224,15 +224,10 @@ export class NodeDetector {
     return 'v3.6.0';
   }
 
-  private static detectNeoGoVersion(basePath: string): string {
-    try {
-      const binary = join(basePath, 'neo-go');
-      const output = execFileSync(binary, ['--version'], { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'pipe'] });
-      const match = output.match(/v?(\d+\.\d+\.\d+)/);
-      if (match) return match[1];
-    } catch {
-      // Fall through to default
-    }
+  private static detectNeoGoVersion(_basePath: string): string {
+    // Detection must remain passive: the supplied path may be an imported
+    // operator directory, so never execute binaries from it just to identify
+    // a version.
     return '0.104.0';
   }
 

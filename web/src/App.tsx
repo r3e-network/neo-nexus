@@ -68,7 +68,7 @@ const queryClient = new QueryClient({
 });
 
 // Protected route wrapper - requires authentication
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
@@ -81,6 +81,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (adminOnly && user.role !== 'admin') {
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
@@ -129,9 +133,9 @@ function SetupRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function ProtectedPage({ children }: { children: React.ReactNode }) {
+function ProtectedPage({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
   return (
-    <ProtectedRoute>
+    <ProtectedRoute adminOnly={adminOnly}>
       <Layout>{children}</Layout>
     </ProtectedRoute>
   );
@@ -146,12 +150,12 @@ function AppRoutes() {
 
       <Route path="/" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
       <Route path="/nodes" element={<ProtectedPage><Nodes /></ProtectedPage>} />
-      <Route path="/nodes/create" element={<ProtectedPage><CreateNode /></ProtectedPage>} />
-      <Route path="/nodes/import" element={<ProtectedPage><ImportNode /></ProtectedPage>} />
+      <Route path="/nodes/create" element={<ProtectedPage adminOnly><CreateNode /></ProtectedPage>} />
+      <Route path="/nodes/import" element={<ProtectedPage adminOnly><ImportNode /></ProtectedPage>} />
       <Route path="/nodes/:id" element={<ProtectedPage><NodeDetail /></ProtectedPage>} />
-      <Route path="/private-networks" element={<ProtectedPage><PrivateNetworks /></ProtectedPage>} />
+      <Route path="/private-networks" element={<ProtectedPage adminOnly><PrivateNetworks /></ProtectedPage>} />
       <Route path="/servers" element={<ProtectedPage><Servers /></ProtectedPage>} />
-      <Route path="/integrations" element={<ProtectedPage><Integrations /></ProtectedPage>} />
+      <Route path="/integrations" element={<ProtectedPage adminOnly><Integrations /></ProtectedPage>} />
       <Route path="/plugins" element={<ProtectedPage><Plugins /></ProtectedPage>} />
       <Route path="/agent" element={<ProtectedPage><Agent /></ProtectedPage>} />
       <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />

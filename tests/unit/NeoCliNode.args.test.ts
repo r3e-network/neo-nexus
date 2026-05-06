@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -40,6 +40,40 @@ describe("NeoCliNode getStartArgs", () => {
       expect(command).toContain("'\"'\"'");
       expect(command).not.toContain(`${base}/neo-cli.dll --rpc`);
       expect(args[2]).toBe("/dev/null");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not treat a local neo-cli.dll symlink as a trusted per-node binary", () => {
+    const root = mkdtempSync(join(tmpdir(), "neonexus-cli-symlink-"));
+    const base = join(root, "node");
+    mkdirSync(base, { recursive: true });
+    const target = join(root, "outside.dll");
+    writeFileSync(target, "dll");
+    symlinkSync(target, join(base, "neo-cli.dll"));
+
+    try {
+      const node = new NeoCliNode({
+        id: "node-imported",
+        name: "Imported",
+        type: "neo-cli",
+        network: "testnet",
+        syncMode: "full",
+        version: "v999.999.999",
+        ports: { rpc: 20332, p2p: 20333 },
+        paths: {
+          base,
+          data: join(base, "Chain"),
+          logs: join(base, "Logs"),
+          config: join(base, "config.json"),
+        },
+        settings: {},
+        createdAt: 1,
+        updatedAt: 1,
+      });
+
+      expect(() => node.getStartArgs()).toThrow(/not downloaded/i);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

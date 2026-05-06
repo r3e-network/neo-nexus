@@ -14,6 +14,7 @@ import { PROJECT_LINKS } from "../config/constants";
 export default function SettingsPage() {
   const { data: systemMetrics } = useSystemMetrics();
   const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   return (
     <div className="space-y-7 animate-fade-in">
@@ -22,7 +23,9 @@ export default function SettingsPage() {
           <p className="console-kicker">Control plane settings</p>
           <h1 className="mt-2 text-3xl font-semibold text-slate-950">Settings</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Configure storage, secure signer profiles, users, audit trails, and guarded destructive operations.
+            {isAdmin
+              ? "Configure storage, secure signer profiles, users, audit trails, and guarded destructive operations."
+              : "Manage your account password and review current control plane resources."}
           </p>
         </div>
       </section>
@@ -75,12 +78,12 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <StorageSection />
-      <SecureSignerSection />
+      {isAdmin && <StorageSection />}
+      {isAdmin && <SecureSignerSection />}
       <PasswordSection />
-      {user?.role === 'admin' && <UserManagement />}
-      {user?.role === 'admin' && <AuditLogSection />}
-      <DangerZoneSection />
+      {isAdmin && <UserManagement />}
+      {isAdmin && <AuditLogSection />}
+      {isAdmin && <DangerZoneSection />}
 
       {/* About */}
       <div className="card">

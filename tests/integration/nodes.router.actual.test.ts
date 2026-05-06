@@ -710,6 +710,37 @@ describe("Actual nodes router", () => {
     expect(response.body.logs).toEqual(["Recent log"]);
   });
 
+  it("redacts sensitive log content for viewer log reads", async () => {
+    const viewerApp = createViewerApp();
+    mockNodeManager.getNode.mockReturnValue({
+      id: "node-1",
+      paths: {
+        base: "/home/operator/.neonexus/nodes/node-1",
+        data: "/home/operator/.neonexus/nodes/node-1/data",
+        logs: "/home/operator/.neonexus/nodes/node-1/logs",
+        config: "/home/operator/.neonexus/nodes/node-1/config.json",
+        wallet: "/home/operator/.neonexus/nodes/node-1/wallet.json",
+      },
+    });
+    mockNodeManager.getNodeLogs.mockReturnValue([
+      {
+        timestamp: 1,
+        level: "error",
+        message: "Failed to open /home/operator/.neonexus/nodes/node-1/wallet.json password=hunter2 token=abc123",
+      },
+    ]);
+
+    const response = await request(viewerApp).get("/api/nodes/node-1/logs?count=50");
+
+    expect(response.status).toBe(200);
+    expect(response.body.logs[0].message).toContain("[node-path]");
+    expect(response.body.logs[0].message).toContain("password=[redacted]");
+    expect(response.body.logs[0].message).toContain("token=[redacted]");
+    expect(JSON.stringify(response.body)).not.toContain("/home/operator");
+    expect(JSON.stringify(response.body)).not.toContain("hunter2");
+    expect(JSON.stringify(response.body)).not.toContain("abc123");
+  });
+
   it("redacts storage paths for viewer storage reads", async () => {
     const viewerApp = createViewerApp();
     mockNodeManager.getStorageInfo.mockResolvedValue({

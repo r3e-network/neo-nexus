@@ -47,6 +47,7 @@ export default function Dashboard() {
   const { data: systemMetrics } = useSystemMetrics();
   const { data: networkHeights } = useNetworkHeight();
   const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   const isDefaultPassword = user?.usingDefaultPassword === true;
   const runningNodes = nodes.filter((n) => n.process.status === "running");
@@ -83,7 +84,7 @@ export default function Dashboard() {
     { title: "Import existing node", description: "Attach observe-only first, then adopt safely.", href: "/nodes/import", icon: FolderOpen, accent: "text-amber-700" },
     { title: "Configure plugins", description: "Enable RPC, storage, monitoring and tooling.", href: "/plugins", icon: PlugZap, accent: "text-teal-700" },
     { title: "Protect private keys", description: "Register TEE, Nitro, SGX or HSM signer profiles.", href: "/settings#secure-signers", icon: KeyRound, accent: "text-teal-700" },
-  ];
+  ].filter((action) => isAdmin || action.href === "/plugins");
 
   const topNodes = nodes.slice(0, 6);
 
@@ -105,17 +106,19 @@ export default function Dashboard() {
               Fleet health, node lifecycle, plugins, monitoring, and signer posture in one clear workspace.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Link to="/nodes/create" className="btn btn-primary">
-              <Plus className="h-4 w-4" /> Create node
-            </Link>
-            <Link to="/nodes/import" className="btn btn-secondary">
-              <FolderOpen className="h-4 w-4" /> Import
-            </Link>
-            <Link to="/settings#secure-signers" className="btn btn-secondary">
-              <KeyRound className="h-4 w-4" /> Signers
-            </Link>
-          </div>
+          {isAdmin && (
+            <div className="flex flex-wrap gap-2">
+              <Link to="/nodes/create" className="btn btn-primary">
+                <Plus className="h-4 w-4" /> Create node
+              </Link>
+              <Link to="/nodes/import" className="btn btn-secondary">
+                <FolderOpen className="h-4 w-4" /> Import
+              </Link>
+              <Link to="/settings#secure-signers" className="btn btn-secondary">
+                <KeyRound className="h-4 w-4" /> Signers
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 

@@ -25,6 +25,7 @@ import { NodeProtectionLabel } from "../components/NodeProtectionLabel";
 import { SignerStatus } from "../components/SignerStatus";
 import { SpinnerButton } from "../components/SpinnerButton";
 import { useDeleteNode, useNetworkHeight, useNodes, useStartNode, useStopNode, type Node } from "../hooks/useNodes";
+import { useAuth } from "../hooks/useAuth";
 import { getBlockHeightStatus } from "../utils/blockHeightStatus";
 
 type NodeFilter = "all" | "running" | "needs-attention" | "protected" | "imported";
@@ -63,6 +64,7 @@ function filterNodes(nodes: Node[], filter: NodeFilter, searchTerm: string) {
 }
 
 export default function Nodes() {
+  const { user } = useAuth();
   const { data: nodes = [], isLoading } = useNodes();
   const { data: networkHeights } = useNetworkHeight();
   const startNode = useStartNode();
@@ -72,6 +74,7 @@ export default function Nodes() {
   const [activeFilter, setActiveFilter] = useState<NodeFilter>("all");
   const [deleting, setDeleting] = useState<string | null>(null);
   const [nodePendingDelete, setNodePendingDelete] = useState<Node | null>(null);
+  const isAdmin = user?.role === "admin";
 
   const filteredNodes = useMemo(() => filterNodes(nodes, activeFilter, searchTerm), [nodes, activeFilter, searchTerm]);
   const runningCount = nodes.filter((node) => node.process.status === "running").length;
@@ -112,17 +115,19 @@ export default function Nodes() {
               Configure networks, lifecycle, plugin readiness, signer protection and imported-node ownership from one operations table.
             </p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link to="/private-networks" className="btn btn-secondary justify-center">
-              <Network className="h-4 w-4" /> Private network
-            </Link>
-            <Link to="/nodes/import" className="btn btn-secondary justify-center">
-              <FolderOpen className="h-4 w-4" /> Import existing
-            </Link>
-            <Link to="/nodes/create" className="btn btn-primary justify-center">
-              <Plus className="h-4 w-4" /> Create node
-            </Link>
-          </div>
+          {isAdmin && (
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Link to="/private-networks" className="btn btn-secondary justify-center">
+                <Network className="h-4 w-4" /> Private network
+              </Link>
+              <Link to="/nodes/import" className="btn btn-secondary justify-center">
+                <FolderOpen className="h-4 w-4" /> Import existing
+              </Link>
+              <Link to="/nodes/create" className="btn btn-primary justify-center">
+                <Plus className="h-4 w-4" /> Create node
+              </Link>
+            </div>
+          )}
         </div>
 
         <div className="relative z-10 mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -195,10 +200,10 @@ export default function Nodes() {
               icon={Server}
               title="No nodes configured"
               description="Create a managed node or import an existing native node in observe-only mode."
-              actions={[
+              actions={isAdmin ? [
                 { label: "Create Node", href: "/nodes/create", variant: "primary" },
                 { label: "Import Existing", href: "/nodes/import", variant: "secondary" },
-              ]}
+              ] : undefined}
             />
           )
         ) : (
@@ -277,40 +282,42 @@ export default function Nodes() {
                     </div>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    {isRunning ? (
+                  {isAdmin && (
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      {isRunning ? (
+                        <SpinnerButton
+                          onClick={() => stopNode.mutate({ id: node.id })}
+                          loading={stopNode.isPending}
+                          disabled={!canControlLifecycle}
+                          className="btn btn-secondary justify-center"
+                          title={canControlLifecycle ? "Stop" : "Lifecycle locked by imported ownership mode"}
+                          aria-label="Stop node"
+                        >
+                          <Square className="h-4 w-4" /> Stop
+                        </SpinnerButton>
+                      ) : (
+                        <SpinnerButton
+                          onClick={() => startNode.mutate(node.id)}
+                          loading={startNode.isPending}
+                          disabled={!canControlLifecycle || node.process.status === "starting"}
+                          className="btn btn-success justify-center"
+                          title={canControlLifecycle ? "Start" : "Lifecycle locked by imported ownership mode"}
+                          aria-label="Start node"
+                        >
+                          <Play className="h-4 w-4" /> Start
+                        </SpinnerButton>
+                      )}
                       <SpinnerButton
-                        onClick={() => stopNode.mutate({ id: node.id })}
-                        loading={stopNode.isPending}
-                        disabled={!canControlLifecycle}
-                        className="btn btn-secondary justify-center"
-                        title={canControlLifecycle ? "Stop" : "Lifecycle locked by imported ownership mode"}
-                        aria-label="Stop node"
+                        onClick={() => setNodePendingDelete(node)}
+                        loading={deleting === node.id}
+                        className="btn btn-error justify-center"
+                        title="Delete registration"
+                        aria-label="Delete node"
                       >
-                        <Square className="h-4 w-4" /> Stop
+                        <Trash2 className="h-4 w-4" /> Delete
                       </SpinnerButton>
-                    ) : (
-                      <SpinnerButton
-                        onClick={() => startNode.mutate(node.id)}
-                        loading={startNode.isPending}
-                        disabled={!canControlLifecycle || node.process.status === "starting"}
-                        className="btn btn-success justify-center"
-                        title={canControlLifecycle ? "Start" : "Lifecycle locked by imported ownership mode"}
-                        aria-label="Start node"
-                      >
-                        <Play className="h-4 w-4" /> Start
-                      </SpinnerButton>
-                    )}
-                    <SpinnerButton
-                      onClick={() => setNodePendingDelete(node)}
-                      loading={deleting === node.id}
-                      className="btn btn-error justify-center"
-                      title="Delete registration"
-                      aria-label="Delete node"
-                    >
-                      <Trash2 className="h-4 w-4" /> Delete
-                    </SpinnerButton>
-                  </div>
+                    </div>
+                  )}
                 </article>
               );
             })}
@@ -325,7 +332,9 @@ export default function Nodes() {
                   <th className="px-4 py-3 font-semibold">Sync / Peers</th>
                   <th className="px-4 py-3 font-semibold">Ports</th>
                   <th className="px-4 py-3 font-semibold">Security</th>
-                  <th className="sticky right-0 w-[112px] bg-slate-50 px-4 py-3 text-right font-semibold shadow-[-10px_0_16px_-16px_rgba(15,23,42,0.45)]">Actions</th>
+                  {isAdmin && (
+                    <th className="sticky right-0 w-[112px] bg-slate-50 px-4 py-3 text-right font-semibold shadow-[-10px_0_16px_-16px_rgba(15,23,42,0.45)]">Actions</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -380,42 +389,44 @@ export default function Nodes() {
                           )}
                         </div>
                       </td>
-                      <td className="sticky right-0 bg-white/95 px-4 py-4 shadow-[-10px_0_16px_-16px_rgba(15,23,42,0.45)] backdrop-blur transition-colors group-hover:bg-slate-50/95">
-                        <div className="flex items-center justify-end gap-2">
-                          {isRunning ? (
+                      {isAdmin && (
+                        <td className="sticky right-0 bg-white/95 px-4 py-4 shadow-[-10px_0_16px_-16px_rgba(15,23,42,0.45)] backdrop-blur transition-colors group-hover:bg-slate-50/95">
+                          <div className="flex items-center justify-end gap-2">
+                            {isRunning ? (
+                              <SpinnerButton
+                                onClick={() => stopNode.mutate({ id: node.id })}
+                                loading={stopNode.isPending}
+                                disabled={!canControlLifecycle}
+                                className="btn btn-secondary p-2"
+                                title={canControlLifecycle ? "Stop" : "Lifecycle locked by imported ownership mode"}
+                                aria-label="Stop node"
+                              >
+                                <Square className="h-4 w-4" />
+                              </SpinnerButton>
+                            ) : (
+                              <SpinnerButton
+                                onClick={() => startNode.mutate(node.id)}
+                                loading={startNode.isPending}
+                                disabled={!canControlLifecycle || node.process.status === "starting"}
+                                className="btn btn-success p-2"
+                                title={canControlLifecycle ? "Start" : "Lifecycle locked by imported ownership mode"}
+                                aria-label="Start node"
+                              >
+                                <Play className="h-4 w-4" />
+                              </SpinnerButton>
+                            )}
                             <SpinnerButton
-                              onClick={() => stopNode.mutate({ id: node.id })}
-                              loading={stopNode.isPending}
-                              disabled={!canControlLifecycle}
-                              className="btn btn-secondary p-2"
-                              title={canControlLifecycle ? "Stop" : "Lifecycle locked by imported ownership mode"}
-                              aria-label="Stop node"
+                              onClick={() => setNodePendingDelete(node)}
+                              loading={deleting === node.id}
+                              className="btn btn-error p-2"
+                              title="Delete registration"
+                              aria-label="Delete node"
                             >
-                              <Square className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" />
                             </SpinnerButton>
-                          ) : (
-                            <SpinnerButton
-                              onClick={() => startNode.mutate(node.id)}
-                              loading={startNode.isPending}
-                              disabled={!canControlLifecycle || node.process.status === "starting"}
-                              className="btn btn-success p-2"
-                              title={canControlLifecycle ? "Start" : "Lifecycle locked by imported ownership mode"}
-                              aria-label="Start node"
-                            >
-                              <Play className="h-4 w-4" />
-                            </SpinnerButton>
-                          )}
-                          <SpinnerButton
-                            onClick={() => setNodePendingDelete(node)}
-                            loading={deleting === node.id}
-                            className="btn btn-error p-2"
-                            title="Delete registration"
-                            aria-label="Delete node"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </SpinnerButton>
-                        </div>
-                      </td>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

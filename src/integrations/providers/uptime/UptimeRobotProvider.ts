@@ -1,5 +1,6 @@
 // src/integrations/providers/uptime/UptimeRobotProvider.ts
 import type { UptimeProvider, ConfigField } from '../../types';
+import { safeIntegrationFetch } from '../../safeFetch';
 
 export const uptimeRobotSchema: ConfigField[] = [
   { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'ur-api-key-...', required: true },
@@ -20,7 +21,7 @@ export class UptimeRobotProvider implements UptimeProvider {
       interval: '60',
     });
 
-    const response = await fetch('https://api.uptimerobot.com/v2/newMonitor', {
+    const response = await safeIntegrationFetch('https://api.uptimerobot.com/v2/newMonitor', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: params.toString(),
@@ -44,7 +45,7 @@ export class UptimeRobotProvider implements UptimeProvider {
       id: monitorId,
     });
 
-    const response = await fetch('https://api.uptimerobot.com/v2/deleteMonitor', {
+    const response = await safeIntegrationFetch('https://api.uptimerobot.com/v2/deleteMonitor', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: params.toString(),
@@ -62,7 +63,7 @@ export class UptimeRobotProvider implements UptimeProvider {
       limit: '1',
     });
 
-    const response = await fetch('https://api.uptimerobot.com/v2/getMonitors', {
+    const response = await safeIntegrationFetch('https://api.uptimerobot.com/v2/getMonitors', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: params.toString(),

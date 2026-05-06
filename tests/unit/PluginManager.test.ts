@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { copyFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { copyFileSync, lstatSync, readdirSync, rmSync } from "node:fs";
 
 vi.mock("../../src/core/DownloadManager", () => ({
   DownloadManager: {
@@ -17,7 +17,7 @@ vi.mock("node:fs", () => ({
   mkdirSync: vi.fn(),
   copyFileSync: vi.fn(),
   readdirSync: vi.fn(() => []),
-  statSync: vi.fn(() => ({ isDirectory: () => false })),
+  lstatSync: vi.fn(() => ({ isDirectory: () => false, isSymbolicLink: () => false })),
   rmSync: vi.fn(),
 }));
 
@@ -25,6 +25,8 @@ describe("PluginManager", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    vi.mocked(readdirSync).mockReturnValue([]);
+    vi.mocked(lstatSync).mockImplementation(() => ({ isDirectory: () => false, isSymbolicLink: () => false }) as never);
     delete process.env.NEO_PLUGIN_BUILD_DIR;
   });
 
@@ -467,8 +469,9 @@ describe("PluginManager", () => {
       if (path.endsWith("runtimes")) return ["native-lib.dylib"];
       return ["RpcServer.dll", "Neo.dll", "RpcServer.pdb", "config.json", "runtimes"];
     });
-    vi.mocked(statSync).mockImplementation((path: string) => ({
+    vi.mocked(lstatSync).mockImplementation((path: string) => ({
       isDirectory: () => path.endsWith("runtimes"),
+      isSymbolicLink: () => false,
     }) as never);
 
     const { PluginManager } = await import("../../src/core/PluginManager");
@@ -537,6 +540,84 @@ describe("PluginManager", () => {
     expect(copyFileSync).toHaveBeenCalledWith("/tmp/plugin-source/config.json", "/tmp/node-1/Plugins/RpcServer/config.json");
     expect(copyFileSync).toHaveBeenCalledWith("/tmp/plugin-source/runtimes/native-lib.dylib", "/tmp/node-1/Plugins/RpcServer/runtimes/native-lib.dylib");
     expect(copyFileSync).not.toHaveBeenCalledWith("/tmp/plugin-source/Neo.dll", expect.any(String));
+  });
+
+  it("does not follow symlinks from plugin build output", async () => {
+    const writePluginConfig = vi.fn();
+    vi.doMock("../../src/core/ConfigManager", () => ({
+      ConfigManager: {
+        writePluginConfig,
+      },
+    }));
+    vi.mocked(readdirSync).mockReturnValue(["RpcServer.dll", "leaked-key.json"] as never);
+    vi.mocked(lstatSync).mockImplementation((path: string) => ({
+      isDirectory: () => false,
+      isSymbolicLink: () => path.endsWith("leaked-key.json"),
+    }) as never);
+
+    const { PluginManager } = await import("../../src/core/PluginManager");
+    const db = {
+      prepare: vi.fn((sql: string) => {
+        if (sql.includes("SELECT * FROM plugins WHERE id")) {
+          return {
+            get: vi.fn(() => ({
+              id: "RpcServer",
+              name: "RPC Server",
+              description: "Provides RPC access",
+              category: "API",
+              requires_config: 1,
+              dependencies: null,
+              default_config: "{}",
+            })),
+          };
+        }
+
+        if (sql.includes("SELECT np.*, p.name, p.category")) {
+          return { all: vi.fn(() => []) };
+        }
+
+        if (sql.includes("SELECT base_path FROM nodes WHERE id = ?")) {
+          return { get: vi.fn(() => ({ base_path: "/tmp/node-1" })) };
+        }
+
+        if (sql.includes("SELECT * FROM nodes WHERE id = ?")) {
+          return {
+            get: vi.fn(() => ({
+              id: "node-1",
+              name: "Testnet CLI Node",
+              type: "neo-cli",
+              network: "testnet",
+              sync_mode: "full",
+              version: "3.9.2",
+              rpc_port: 20332,
+              p2p_port: 20333,
+              websocket_port: 20334,
+              metrics_port: 2112,
+              base_path: "/tmp/node-1",
+              data_path: "/tmp/node-1/data",
+              logs_path: "/tmp/node-1/logs",
+              config_path: "/tmp/node-1/config",
+              wallet_path: null,
+              settings: "{}",
+              created_at: 1,
+              updated_at: 1,
+            })),
+          };
+        }
+
+        if (sql.includes("INSERT INTO node_plugins")) {
+          return { run: vi.fn() };
+        }
+
+        throw new Error(`Unexpected SQL: ${sql}`);
+      }),
+    };
+
+    const manager = new PluginManager(db as never);
+    await manager.installPlugin("node-1", "RpcServer", "3.9.2");
+
+    expect(copyFileSync).toHaveBeenCalledWith("/tmp/plugin-source/RpcServer.dll", "/tmp/node-1/Plugins/RpcServer/RpcServer.dll");
+    expect(copyFileSync).not.toHaveBeenCalledWith("/tmp/plugin-source/leaked-key.json", expect.any(String));
   });
 
   it("rejects config updates for plugins that are not installed on the node", async () => {

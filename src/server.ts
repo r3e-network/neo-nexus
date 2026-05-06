@@ -48,6 +48,7 @@ import { NodeDataContextManager } from "./core/NodeDataContextManager";
 import { NodeRoleApplicationService } from "./core/NodeRoleApplicationService";
 import { createNodeRoleApplicationsRouter, createNodeRolesRouter } from "./api/routes/nodeRoles";
 import { createNodeDataContextsRouter } from "./api/routes/nodeDataContexts";
+import { sanitizeLogForViewer } from "./api/serializers/nodeResponses";
 
 const pkg = JSON.parse(readFileSync(join(import.meta.dirname ?? ".", "..", "package.json"), "utf-8"));
 const APP_VERSION: string = pkg.version || "0.0.0";
@@ -123,6 +124,7 @@ function tokenFromWebSocketProtocols(protocolHeader: string | undefined): string
 
 export function createAppServer(config: ServerConfig) {
   const app = express();
+  app.disable("x-powered-by");
   app.set('appVersion', APP_VERSION);
 
   // Load HTTPS config and create appropriate server
@@ -191,6 +193,31 @@ export function createAppServer(config: ServerConfig) {
   }, SESSION_CLEANUP_INTERVAL_MS); // Every hour
 
   // Middleware
+  app.use((_req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+    res.setHeader(
+      "Content-Security-Policy",
+      [
+        "default-src 'self'",
+        "base-uri 'self'",
+        "object-src 'none'",
+        "frame-ancestors 'none'",
+        "form-action 'self'",
+        "img-src 'self' data:",
+        "style-src 'self' 'unsafe-inline'",
+        "script-src 'self'",
+        "connect-src 'self' ws: wss:",
+      ].join("; "),
+    );
+    if (httpsCredentials) {
+      res.setHeader("Strict-Transport-Security", "max-age=15552000; includeSubDomains");
+    }
+    next();
+  });
+
   const corsOrigin = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
     : process.env.NODE_ENV === "production"
@@ -447,10 +474,15 @@ export function createAppServer(config: ServerConfig) {
 
   // Broadcast function
   function broadcast(message: object) {
-    const data = JSON.stringify(message);
+    broadcastForUser(() => message);
+  }
+
+  function broadcastForUser(
+    messageForUser: (user: { id: string; username: string; role: "admin" | "viewer" } | undefined) => object,
+  ) {
     clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
-        client.send(data);
+        client.send(JSON.stringify(messageForUser(wsUsers.get(client))));
       }
     });
   }
@@ -493,8 +525,13 @@ export function createAppServer(config: ServerConfig) {
   });
 
   nodeManager.on("nodeLog", ({ nodeId, entry }) => {
-    broadcast(buildNodeLogMessage(nodeId, entry));
     const logNode = nodeManager.getNode(nodeId);
+    broadcastForUser((user) =>
+      buildNodeLogMessage(
+        nodeId,
+        user?.role === "admin" ? entry : sanitizeLogForViewer(entry, logNode),
+      )
+    );
     logBuffer.push({ ...entry, nodeId, nodeName: logNode?.name ?? nodeId });
   });
 

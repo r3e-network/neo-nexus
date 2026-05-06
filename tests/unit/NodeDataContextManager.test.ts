@@ -107,6 +107,34 @@ describe("StorageManager data context paths", () => {
     expect(info.chain.size).toBe(3);
   });
 
+  it("does not follow symlinks while measuring chain storage", async () => {
+    const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "neonexus-context-symlink-size-"));
+    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), "neonexus-context-outside-"));
+    fs.writeFileSync(path.join(outsideDir, "outside.dat"), "outside-secret");
+    fs.mkdirSync(path.join(baseDir, "Data"), { recursive: true });
+    fs.writeFileSync(path.join(baseDir, "Data", "inside.dat"), "inside");
+    fs.symlinkSync(outsideDir, path.join(baseDir, "Data", "outside-link"), "dir");
+
+    const size = await StorageManager.getDirectorySize(path.join(baseDir, "Data"));
+
+    expect(size).toBe("inside".length);
+  });
+
+  it("removes chain-data symlinks without deleting their targets", async () => {
+    const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "neonexus-context-symlink-clean-"));
+    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), "neonexus-context-outside-clean-"));
+    const outsideFile = path.join(outsideDir, "outside.dat");
+    const linkPath = path.join(baseDir, "Data", "outside-link");
+    fs.writeFileSync(outsideFile, "outside-secret");
+    fs.mkdirSync(path.join(baseDir, "Data"), { recursive: true });
+    fs.symlinkSync(outsideDir, linkPath, "dir");
+
+    await StorageManager.cleanChainData(path.join(baseDir, "Data"));
+
+    expect(fs.existsSync(linkPath)).toBe(false);
+    expect(fs.existsSync(outsideFile)).toBe(true);
+  });
+
   it.each(["../ctx", "ctx/state", "ctx\\state", ""])("rejects unsafe context id %j when resolving storage paths", (contextId) => {
     const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "neonexus-context-unsafe-"));
     const paths = {

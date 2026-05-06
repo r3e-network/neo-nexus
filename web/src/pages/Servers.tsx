@@ -5,6 +5,7 @@ import { FeedbackBanner } from "../components/FeedbackBanner";
 import { CardSkeleton } from "../components/LoadingSkeleton";
 import { EmptyState } from "../components/EmptyState";
 import { useCreateServer, useDeleteServer, useServers, useUpdateServer, type RemoteServerSummary } from "../hooks/useServers";
+import { useAuth } from "../hooks/useAuth";
 import { formatVersion } from "../utils/format";
 
 interface ServerFormState {
@@ -26,6 +27,7 @@ function formatNumber(value?: number) {
 }
 
 export default function Servers() {
+  const { user } = useAuth();
   const { data: servers = [], isLoading, refetch, isFetching } = useServers();
   const createServer = useCreateServer();
   const updateServer = useUpdateServer();
@@ -36,6 +38,7 @@ export default function Servers() {
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const isAdmin = user?.role === "admin";
 
   useEffect(() => {
     if (!selectedServerId && servers[0]) {
@@ -57,7 +60,7 @@ export default function Servers() {
 
     setForm({
       name: server.profile.name,
-      baseUrl: server.profile.baseUrl,
+      baseUrl: server.profile.baseUrl ?? "",
       description: server.profile.description || "",
       enabled: server.profile.enabled,
     });
@@ -73,6 +76,11 @@ export default function Servers() {
   const handleSubmit = async () => {
     setFeedback("");
     setError("");
+
+    if (!isAdmin) {
+      setError("Admin access is required to change remote server profiles.");
+      return;
+    }
 
     if (!form.name.trim() || !form.baseUrl.trim()) {
       setError("Name and base URL are required.");
@@ -107,7 +115,7 @@ export default function Servers() {
   };
 
   const handleDelete = async () => {
-    if (!selectedServer) {
+    if (!selectedServer || !isAdmin) {
       return;
     }
 
@@ -148,6 +156,7 @@ export default function Servers() {
 
       <div className={`grid grid-cols-1 gap-6 ${selectedServer ? "xl:grid-cols-[360px_minmax(0,1fr)]" : ""}`}>
         <div className="space-y-6">
+          {isAdmin && (
           <div className="card space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -241,6 +250,7 @@ export default function Servers() {
               )}
             </div>
           </div>
+          )}
 
           <div className="card">
             <h2 className="text-lg font-semibold text-slate-950 mb-4">Server Profiles</h2>
@@ -271,7 +281,7 @@ export default function Servers() {
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="font-medium text-slate-950">{server.profile.name}</p>
-                        <p className="text-xs text-slate-600 mt-1">{server.profile.baseUrl}</p>
+                        <p className="text-xs text-slate-600 mt-1">{server.profile.baseUrl ?? "Endpoint hidden"}</p>
                       </div>
                       <span className={`status-badge ${server.reachable ? "status-running" : "status-error"}`}>
                         {server.reachable ? "reachable" : "offline"}
@@ -290,17 +300,19 @@ export default function Servers() {
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                   <div>
                     <h2 className="text-xl font-semibold text-slate-950">{selectedServer.profile.name}</h2>
-                    <p className="text-sm text-slate-600 mt-1">{selectedServer.profile.description || selectedServer.profile.baseUrl}</p>
+                    <p className="text-sm text-slate-600 mt-1">{selectedServer.profile.description || selectedServer.profile.baseUrl || "Endpoint hidden"}</p>
                   </div>
-                  <a
-                    href={selectedServer.profile.baseUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-secondary"
-                  >
-                    <Globe className="w-4 h-4" />
-                    Open Remote
-                  </a>
+                  {selectedServer.profile.baseUrl && (
+                    <a
+                      href={selectedServer.profile.baseUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary"
+                    >
+                      <Globe className="w-4 h-4" />
+                      Open Remote
+                    </a>
+                  )}
                 </div>
 
                 {!selectedServer.reachable && (
@@ -401,7 +413,7 @@ export default function Servers() {
       </div>
 
       <ConfirmDialog
-        open={deleteDialogOpen && Boolean(selectedServer)}
+        open={isAdmin && deleteDialogOpen && Boolean(selectedServer)}
         title="Delete remote server profile?"
         description={
           selectedServer

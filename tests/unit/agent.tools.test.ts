@@ -140,6 +140,87 @@ describe("agent tools", () => {
     expect(JSON.stringify(result)).not.toContain("plugin-secret");
   });
 
+  it("redacts integration config and provider errors for viewer list_integrations", async () => {
+    const ctx = makeContext({
+      deps: {
+        ...makeContext().deps,
+        integrationManager: {
+          listAll: () => [{
+            id: "webhook",
+            name: "Webhook",
+            description: "Send event notifications",
+            category: "alerting",
+            enabled: true,
+            configured: true,
+            configSchema: [{ key: "url", label: "URL", type: "url", placeholder: "https://hooks.example", required: true }],
+            configValues: { url: "https://hooks.example.test/secret-path" },
+            lastTestAt: "2026-05-06T12:00:00Z",
+            lastError: "upstream rejected token=super-secret",
+          }],
+        },
+      } as never,
+    });
+
+    const result = await executeTool("list_integrations", {}, ctx);
+    const json = JSON.stringify(result);
+
+    expect(result).toEqual([{
+      id: "webhook",
+      name: "Webhook",
+      description: "Send event notifications",
+      category: "alerting",
+      enabled: true,
+      configured: true,
+      lastTestAt: "2026-05-06T12:00:00Z",
+    }]);
+    expect(json).not.toContain("secret-path");
+    expect(json).not.toContain("super-secret");
+    expect(json).not.toContain("configSchema");
+    expect(json).not.toContain("configValues");
+    expect(json).not.toContain("lastError");
+  });
+
+  it("redacts remote server URLs and probe errors for viewer list_remote_servers", async () => {
+    const ctx = makeContext({
+      deps: {
+        ...makeContext().deps,
+        remoteServerManager: {
+          listServersWithStatus: async () => [{
+            profile: {
+              id: "srv-1",
+              name: "Tokyo",
+              baseUrl: "https://tokyo.internal.example",
+              description: "Remote control plane",
+              enabled: true,
+              createdAt: 1710000000000,
+              updatedAt: 1710000001000,
+            },
+            reachable: false,
+            error: "connect ECONNREFUSED https://tokyo.internal.example/api/public/status",
+          }],
+        },
+      } as never,
+    });
+
+    const result = await executeTool("list_remote_servers", {}, ctx);
+    const json = JSON.stringify(result);
+
+    expect(result).toEqual([{
+      profile: {
+        id: "srv-1",
+        name: "Tokyo",
+        description: "Remote control plane",
+        enabled: true,
+        createdAt: 1710000000000,
+        updatedAt: 1710000001000,
+      },
+      reachable: false,
+    }]);
+    expect(json).not.toContain("baseUrl");
+    expect(json).not.toContain("tokyo.internal.example");
+    expect(json).not.toContain("ECONNREFUSED");
+  });
+
   it("executeTool routes start_node through nodeManager and audits", async () => {
     const ctx = makeContext({ user: { id: "u1", username: "alice", role: "admin" } });
     const result = await executeTool("start_node", { node_id: "node-abc" }, ctx);
@@ -154,9 +235,10 @@ describe("agent tools", () => {
   });
 
   it("get_node_logs clamps count to bounds", async () => {
+    const node = makeNode();
     const getNodeLogs = vi.fn(() => [{ timestamp: 0, level: "info", source: "n", message: "" }]);
     const ctx = makeContext({
-      deps: { ...makeContext().deps, nodeManager: { ...makeContext().deps.nodeManager, getNodeLogs } as never },
+      deps: { ...makeContext().deps, nodeManager: { ...makeContext().deps.nodeManager, getNode: () => node, getNodeLogs } as never },
     });
     await executeTool("get_node_logs", { node_id: "n1", count: 999999 }, ctx);
     expect(getNodeLogs).toHaveBeenCalledWith("n1", 500);
@@ -164,5 +246,28 @@ describe("agent tools", () => {
     expect(getNodeLogs).toHaveBeenCalledWith("n1", 1);
     await executeTool("get_node_logs", { node_id: "n1" }, ctx);
     expect(getNodeLogs).toHaveBeenCalledWith("n1", 100);
+  });
+
+  it("redacts node paths and secrets for viewer get_node_logs", async () => {
+    const node = makeNode();
+    const getNodeLogs = vi.fn(() => [{
+      timestamp: 0,
+      level: "error",
+      source: "node",
+      message: "Could not load /srv/neo/node-1/wallet.json password=hunter2 token=abc123",
+    }]);
+    const ctx = makeContext({
+      deps: { ...makeContext().deps, nodeManager: { ...makeContext().deps.nodeManager, getNode: () => node, getNodeLogs } as never },
+    });
+
+    const result = await executeTool("get_node_logs", { node_id: "node-1" }, ctx);
+    const json = JSON.stringify(result);
+
+    expect(json).toContain("[node-path]");
+    expect(json).toContain("password=[redacted]");
+    expect(json).toContain("token=[redacted]");
+    expect(json).not.toContain("/srv/neo");
+    expect(json).not.toContain("hunter2");
+    expect(json).not.toContain("abc123");
   });
 });

@@ -32,10 +32,10 @@ interface LayoutProps {
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Overview' },
   { path: '/nodes', icon: Server, label: 'Nodes' },
-  { path: '/private-networks', icon: Network, label: 'Private nets' },
+  { path: '/private-networks', icon: Network, label: 'Private nets', adminOnly: true },
   { path: '/servers', icon: Network, label: 'Servers' },
   { path: '/plugins', icon: Puzzle, label: 'Plugins' },
-  { path: '/integrations', icon: Plug, label: 'Integrations' },
+  { path: '/integrations', icon: Plug, label: 'Integrations', adminOnly: true },
   { path: '/agent', icon: Sparkles, label: 'Hermes Agent' },
   { path: '/settings', icon: Settings, label: 'Settings' },
 ];
@@ -51,6 +51,7 @@ export default function Layout({ children }: LayoutProps) {
   const recentNotifications = notifications.slice(0, 8);
   const toastNotifications = notifications.filter((notification) => !notification.read).slice(0, 3);
   const secureSignerActive = location.pathname === '/settings' && location.hash === '#secure-signers';
+  const visibleNavItems = navItems.filter((item) => !item.adminOnly || user?.role === 'admin');
 
   const iconForLevel = (level: string) => {
     if (level === 'error') return AlertOctagon;
@@ -102,7 +103,7 @@ export default function Layout({ children }: LayoutProps) {
           {/* Navigation */}
           <nav className="flex-1 px-3 py-4 space-y-1">
             <p className="px-2 pb-2 text-[11px] font-semibold uppercase text-slate-400">Operate</p>
-            {navItems.map((item, i) => (
+            {visibleNavItems.map((item, i) => (
               <NavLink
                 key={item.path}
                 to={item.path}
@@ -122,18 +123,20 @@ export default function Layout({ children }: LayoutProps) {
             ))}
 
             <div className="mx-2 my-4 border-t border-slate-200" />
-            <Link
-              to="/settings#secure-signers"
-              onClick={() => setSidebarOpen(false)}
-              className={`mx-0 flex items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-all ${
-                secureSignerActive
-                  ? 'border-teal-200 bg-teal-50 text-teal-950'
-                  : 'border-transparent bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-950'
-              }`}
-            >
-              <KeyRound className="h-5 w-5" />
-              <span className="font-medium">Key vault</span>
-            </Link>
+            {user?.role === 'admin' && (
+              <Link
+                to="/settings#secure-signers"
+                onClick={() => setSidebarOpen(false)}
+                className={`mx-0 flex items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-all ${
+                  secureSignerActive
+                    ? 'border-teal-200 bg-teal-50 text-teal-950'
+                    : 'border-transparent bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+                }`}
+              >
+                <KeyRound className="h-5 w-5" />
+                <span className="font-medium">Key vault</span>
+              </Link>
+            )}
           </nav>
 
           {/* Footer */}
