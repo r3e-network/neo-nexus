@@ -11,6 +11,12 @@ import { NodeOrchestrationPanel } from './node-detail/NodeOrchestrationPanel';
 import { NodeProtectionLabel } from '../components/NodeProtectionLabel';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ApiRequestError } from '../utils/api';
+import {
+  blockHeightBadgeClass,
+  blockHeightDetailClass,
+  blockHeightProgressClass,
+  getBlockHeightStatus,
+} from '../utils/blockHeightStatus';
 
 function ownershipLabel(node: NonNullable<ReturnType<typeof useNode>['data']>) {
   if (!node.settings?.import) return 'NeoNexus managed';
@@ -124,6 +130,7 @@ export default function NodeDetail() {
     );
   }
 
+  const blockHeightStatus = node.metrics ? getBlockHeightStatus(node, networkHeightQuery.data) : null;
   const canControlLifecycle = lifecycleAllowed(node);
 
   const confirmDelete = async () => {
@@ -348,29 +355,39 @@ export default function NodeDetail() {
                 <h3 className="text-lg font-semibold text-slate-950 mb-4">Metrics</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div className="metric-tile group">
-                    <p className="text-slate-600 text-sm font-medium">Block Height</p>
-                    <p className="text-2xl font-bold text-slate-950">{node.metrics.blockHeight.toLocaleString()}</p>
-                    {(node.network === 'mainnet' || node.network === 'testnet') && (() => {
-                      const networkHeight = node.network === 'mainnet'
-                        ? networkHeightQuery.data?.mainnet
-                        : networkHeightQuery.data?.testnet;
-                      if (!networkHeight || networkHeight <= 0) return null;
-                      const syncPct = (node.metrics!.blockHeight / networkHeight * 100).toFixed(1);
-                      return (
-                        <div className="mt-2 space-y-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-slate-600 text-sm font-medium">Block Height</p>
+                      {blockHeightStatus && (
+                        <span
+                          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${blockHeightBadgeClass(blockHeightStatus.status)}`}
+                          title={blockHeightStatus.detail}
+                        >
+                          {blockHeightStatus.label}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-2xl font-bold text-slate-950">{node.metrics.blockHeight.toLocaleString()}</p>
+                    {blockHeightStatus && (
+                      <div className="mt-2 space-y-1.5">
+                        <p className={`text-xs leading-5 ${blockHeightDetailClass(blockHeightStatus.status)}`}>
+                          {blockHeightStatus.detail}
+                        </p>
+                        {blockHeightStatus.networkHeight !== null && (
                           <p className="text-xs text-slate-600">
-                            Network: {networkHeight.toLocaleString()}
+                            Latest: {blockHeightStatus.networkHeight.toLocaleString()}
+                            {blockHeightStatus.remainingBlocks !== null && blockHeightStatus.remainingBlocks > 0
+                              ? ` · Remaining: ${blockHeightStatus.remainingBlocks.toLocaleString()}`
+                              : ""}
                           </p>
-                          <p className="text-xs text-slate-600">Sync: {syncPct}%</p>
-                          <div className="h-1 rounded-full bg-slate-200 overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-teal-500 transition-all duration-500"
-                              style={{ width: `${Math.min(100, parseFloat(syncPct))}%` }}
-                            />
-                          </div>
+                        )}
+                        <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${blockHeightProgressClass(blockHeightStatus.status)}`}
+                            style={{ width: `${blockHeightStatus.progressPercent}%` }}
+                          />
                         </div>
-                      );
-                    })()}
+                      </div>
+                    )}
                   </div>
                   <div className="metric-tile group">
                     <p className="text-slate-600 text-sm font-medium">Peers</p>

@@ -1,12 +1,17 @@
 import { Router, type Request, type Response } from 'express';
 import type { NodeManager } from '../../core/NodeManager';
 import type { MetricsCollector } from '../../monitoring/MetricsCollector';
+import { enrichMetricsWithBlockHeightStatus, type NetworkHeightReader } from '../../core/blockHeightStatus';
 
 interface NodeParams {
   id: string;
 }
 
-export function createMetricsRouter(nodeManager: NodeManager, metricsCollector: MetricsCollector): Router {
+export function createMetricsRouter(
+  nodeManager: NodeManager,
+  metricsCollector: MetricsCollector,
+  networkHeightTracker?: NetworkHeightReader,
+): Router {
   const router = Router();
 
   // GET /api/metrics/system - System-wide metrics
@@ -31,7 +36,13 @@ export function createMetricsRouter(nodeManager: NodeManager, metricsCollector: 
       if (!refreshedNode) {
         return res.status(404).json({ error: 'Node not found' });
       }
-      res.json({ metrics: refreshedNode.metrics });
+      res.json({
+        metrics: enrichMetricsWithBlockHeightStatus(
+          refreshedNode.metrics,
+          refreshedNode.network,
+          networkHeightTracker,
+        ),
+      });
     } catch (error) {
       res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }

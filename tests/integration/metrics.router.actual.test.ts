@@ -13,6 +13,9 @@ describe("Actual metrics router", () => {
     collectSystemMetrics: ReturnType<typeof vi.fn>;
     getProcessMetrics: ReturnType<typeof vi.fn>;
   };
+  let networkHeightTracker: {
+    getHeight: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     app = express();
@@ -30,7 +33,10 @@ describe("Actual metrics router", () => {
       }),
       getProcessMetrics: vi.fn().mockResolvedValue({ cpu: 1.5, memory: 1024 }),
     };
-    app.use("/api/metrics", createMetricsRouter(nodeManager as never, metricsCollector as never));
+    networkHeightTracker = {
+      getHeight: vi.fn((network: string) => network === "mainnet" ? 20 : 0),
+    };
+    app.use("/api/metrics", createMetricsRouter(nodeManager as never, metricsCollector as never, networkHeightTracker));
   });
 
   it("returns system metrics from the collector", async () => {
@@ -63,14 +69,25 @@ describe("Actual metrics router", () => {
     const staleMetrics = { blockHeight: 10, headerHeight: 12, connectedPeers: 1 };
     const refreshedMetrics = { blockHeight: 11, headerHeight: 12, connectedPeers: 2 };
     nodeManager.getNode
-      .mockReturnValueOnce({ id: "node-1", metrics: staleMetrics })
-      .mockReturnValueOnce({ id: "node-1", metrics: refreshedMetrics });
+      .mockReturnValueOnce({ id: "node-1", network: "mainnet", metrics: staleMetrics })
+      .mockReturnValueOnce({ id: "node-1", network: "mainnet", metrics: refreshedMetrics });
 
     const response = await request(app).get("/api/metrics/nodes/node-1/metrics");
 
     expect(response.status).toBe(200);
     expect(nodeManager.updateMetrics).toHaveBeenCalledWith("node-1");
-    expect(response.body.metrics).toEqual(refreshedMetrics);
+    expect(response.body.metrics).toMatchObject({
+      ...refreshedMetrics,
+      blockHeightStatus: {
+        status: "syncing",
+        localHeight: 11,
+        networkHeight: 20,
+        remainingBlocks: 9,
+        progressPercent: 55,
+        stale: true,
+        safeToUseAsLatest: false,
+      },
+    });
   });
 
   it("returns 404 when a node disappears after metrics refresh", async () => {
