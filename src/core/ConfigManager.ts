@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync, readFileSync, lstatSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import YAML from 'js-yaml';
 import type { NodeConfig, N3NodeNetwork, NodeNetwork, PluginId, StorageEngine } from '../types/index';
@@ -601,11 +601,19 @@ export class ConfigManager {
       }
     }
 
-    // Check binary availability
-    const { DownloadManager } = await import('./DownloadManager');
-    const binaryPath = DownloadManager.getNodeBinaryPath(node.type, node.version);
-    if (!binaryPath) {
-      issues.push({ path: 'binary', severity: 'error', message: `${node.type} ${node.version} binary not found in downloads` });
+    // Check binary availability. Imported native nodes can be observe-only or
+    // managed-config, so they must not be falsely tied to NeoNexus' managed
+    // downloads directory. Only managed-process imports need a local binary.
+    if (this.isImportedNativeNode(node)) {
+      if (node.settings.import?.ownershipMode === 'managed-process' && !this.hasImportedNodeBinary(node)) {
+        issues.push({ path: 'binary', severity: 'error', message: `${node.type} binary not found in imported node path` });
+      }
+    } else {
+      const { DownloadManager } = await import('./DownloadManager');
+      const binaryPath = DownloadManager.getNodeBinaryPath(node.type, node.version);
+      if (!binaryPath) {
+        issues.push({ path: 'binary', severity: 'error', message: `${node.type} ${node.version} binary not found in downloads` });
+      }
     }
 
     // Check port conflicts across all config
@@ -693,6 +701,26 @@ export class ConfigManager {
         }
       }
     }
+  }
+
+  private static isImportedNativeNode(node: NodeConfig): boolean {
+    return node.settings.import?.imported === true;
+  }
+
+  private static hasImportedNodeBinary(node: NodeConfig): boolean {
+    const candidates = node.type === 'neo-cli'
+      ? [join(node.paths.base, 'neo-cli.dll'), join(node.paths.base, 'neo-cli')]
+      : node.type === 'neox-go'
+        ? [join(node.paths.base, 'geth')]
+        : [join(node.paths.base, 'neo-go'), join(node.paths.base, 'neo-go.exe')];
+
+    return candidates.some((candidate) => {
+      try {
+        return lstatSync(candidate).isFile();
+      } catch {
+        return false;
+      }
+    });
   }
 }
 

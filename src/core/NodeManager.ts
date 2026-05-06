@@ -12,6 +12,7 @@ import type {
   NodeStatus,
   NodeMetrics,
   PluginId,
+  PortConfig,
   LogEntry,
   ConfigurationSnapshot,
   ImportedNodeOwnershipMode,
@@ -104,17 +105,29 @@ export class NodeManager extends EventEmitter {
     const version = request.version || detected.version;
     const ports = { ...detected.ports, ...request.ports };
 
-    // Allocate ports for any that weren't detected, then release the
-    // speculative allocation so overridden ports don't leak in PortManager.
-    const nodeIndex = await this.portManager.findNextIndex();
-    const allocatedPorts = await this.portManager.allocatePorts(nodeIndex);
-    const finalPorts = {
-      rpc: ports.rpc || allocatedPorts.rpc,
-      p2p: ports.p2p || allocatedPorts.p2p,
-      websocket: ports.websocket || allocatedPorts.websocket,
-      metrics: ports.metrics || allocatedPorts.metrics,
-    };
-    this.portManager.releasePorts(allocatedPorts);
+    // Imported native nodes should keep their detected/operator-provided
+    // ports. Do not probe NeoNexus' default managed range unless the import
+    // lacks required RPC/P2P ports, otherwise unrelated local services can
+    // block adoption of a perfectly valid existing node.
+    let finalPorts: PortConfig;
+    if (typeof ports.rpc === 'number' && typeof ports.p2p === 'number') {
+      finalPorts = {
+        rpc: ports.rpc,
+        p2p: ports.p2p,
+        ...(typeof ports.websocket === 'number' ? { websocket: ports.websocket } : {}),
+        ...(typeof ports.metrics === 'number' ? { metrics: ports.metrics } : {}),
+      };
+    } else {
+      const nodeIndex = await this.portManager.findNextIndex(100, chainOf(type));
+      const allocatedPorts = await this.portManager.allocatePorts(nodeIndex, chainOf(type));
+      finalPorts = {
+        rpc: ports.rpc || allocatedPorts.rpc,
+        p2p: ports.p2p || allocatedPorts.p2p,
+        websocket: ports.websocket || allocatedPorts.websocket,
+        metrics: ports.metrics || allocatedPorts.metrics,
+      };
+      this.portManager.releasePorts(allocatedPorts);
+    }
     await this.portManager.reservePorts(finalPorts);
 
     // Create node configuration

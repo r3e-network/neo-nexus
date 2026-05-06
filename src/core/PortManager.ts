@@ -36,12 +36,7 @@ export class PortManager {
   async allocatePorts(nodeIndex: number, chain: NodeChain = 'n3'): Promise<PortConfig> {
     if (chain === 'x') return this.allocateNeoXPorts(nodeIndex);
 
-    const baseOffset = nodeIndex * PORT_INCREMENT;
-
-    const rpc = BASE_RPC_PORT + baseOffset;
-    const p2p = BASE_P2P_PORT + baseOffset;
-    const websocket = BASE_WS_PORT + baseOffset;
-    const metrics = BASE_METRICS_PORT + baseOffset;
+    const { rpc, p2p, websocket, metrics } = this.n3PortsForIndex(nodeIndex);
 
     // Verify ports are available
     const portsToCheck = [
@@ -77,11 +72,7 @@ export class PortManager {
   }
 
   private async allocateNeoXPorts(nodeIndex: number): Promise<PortConfig> {
-    const offset = nodeIndex * NEOX_PORT_INCREMENT;
-    const rpc = NEOX_BASE_RPC_PORT + offset;
-    const p2p = NEOX_BASE_P2P_PORT + offset;
-    const websocket = NEOX_BASE_WS_PORT + offset;
-    const metrics = NEOX_BASE_AUTHRPC_PORT + offset;
+    const { rpc, p2p, websocket, metrics } = this.neoXPortsForIndex(nodeIndex);
     const portsToCheck = [
       { name: 'RPC', port: rpc },
       { name: 'P2P', port: p2p },
@@ -125,15 +116,45 @@ export class PortManager {
    * Find next available node index
    */
   async findNextIndex(maxNodes = 100, chain: NodeChain = 'n3'): Promise<number> {
-    const base = chain === 'x' ? NEOX_BASE_RPC_PORT : BASE_RPC_PORT;
-    const inc = chain === 'x' ? NEOX_PORT_INCREMENT : PORT_INCREMENT;
     for (let i = 0; i < maxNodes; i++) {
-      const rpcPort = base + i * inc;
-      if (!this.usedPorts.has(rpcPort) && await isPortAvailable(rpcPort)) {
+      const ports = chain === 'x' ? this.neoXPortsForIndex(i) : this.n3PortsForIndex(i);
+      if (await this.arePortsAvailable(ports)) {
         return i;
       }
     }
     throw Errors.noPortRange();
+  }
+
+  private n3PortsForIndex(nodeIndex: number): Required<PortConfig> {
+    const baseOffset = nodeIndex * PORT_INCREMENT;
+    return {
+      rpc: BASE_RPC_PORT + baseOffset,
+      p2p: BASE_P2P_PORT + baseOffset,
+      websocket: BASE_WS_PORT + baseOffset,
+      metrics: BASE_METRICS_PORT + baseOffset,
+    };
+  }
+
+  private neoXPortsForIndex(nodeIndex: number): Required<PortConfig> {
+    const offset = nodeIndex * NEOX_PORT_INCREMENT;
+    return {
+      rpc: NEOX_BASE_RPC_PORT + offset,
+      p2p: NEOX_BASE_P2P_PORT + offset,
+      websocket: NEOX_BASE_WS_PORT + offset,
+      metrics: NEOX_BASE_AUTHRPC_PORT + offset,
+    };
+  }
+
+  private async arePortsAvailable(ports: PortConfig): Promise<boolean> {
+    const values = [ports.rpc, ports.p2p, ports.websocket, ports.metrics].filter(
+      (port): port is number => port !== undefined,
+    );
+    for (const port of values) {
+      if (this.usedPorts.has(port) || !(await isPortAvailable(port))) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**

@@ -1,4 +1,6 @@
-import { readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("node:fs", async (importOriginal) => {
@@ -430,6 +432,54 @@ describe("NodeManager system actions", () => {
 
     expect(manager.portManager.releasePorts).toHaveBeenCalledWith({ rpc: 20332, p2p: 20333, websocket: 20334, metrics: 20335 });
     expect(manager.repo.saveNode).not.toHaveBeenCalled();
+  });
+
+  it("imports native nodes with detected ports without probing managed defaults", async () => {
+    const base = mkdtempSync(join(tmpdir(), "neonexus-import-ports-"));
+    mkdirSync(join(base, "Data"), { recursive: true });
+    writeFileSync(join(base, "config.json"), JSON.stringify({
+      ProtocolConfiguration: { Network: 894710606 },
+      ApplicationConfiguration: {
+        Storage: { Path: "Data" },
+        P2P: { Port: 21333 },
+        RPC: { Port: 21332 },
+      },
+    }));
+
+    const manager = Object.create(NodeManager.prototype) as NodeManager & {
+      portManager: {
+        findNextIndex: ReturnType<typeof vi.fn>;
+        allocatePorts: ReturnType<typeof vi.fn>;
+        releasePorts: ReturnType<typeof vi.fn>;
+        reservePorts: ReturnType<typeof vi.fn>;
+      };
+      repo: { saveNode: ReturnType<typeof vi.fn> };
+      getNode: ReturnType<typeof vi.fn>;
+    };
+    let savedConfig: { id: string; ports: unknown } | undefined;
+
+    manager.portManager = {
+      findNextIndex: vi.fn(),
+      allocatePorts: vi.fn(),
+      releasePorts: vi.fn(),
+      reservePorts: vi.fn().mockResolvedValue(undefined),
+    };
+    manager.repo = {
+      saveNode: vi.fn((config) => { savedConfig = config; }),
+    };
+    manager.getNode = vi.fn(() => savedConfig as never);
+
+    await manager.importExistingNode({
+      name: "Imported",
+      existingPath: base,
+      ownershipMode: "managed-config",
+    });
+
+    expect(manager.portManager.findNextIndex).not.toHaveBeenCalled();
+    expect(manager.portManager.allocatePorts).not.toHaveBeenCalled();
+    expect(manager.portManager.releasePorts).not.toHaveBeenCalled();
+    expect(manager.portManager.reservePorts).toHaveBeenCalledWith({ rpc: 21332, p2p: 21333 });
+    expect(savedConfig?.ports).toEqual({ rpc: 21332, p2p: 21333 });
   });
 
   it("strips reserved import metadata while restoring managed snapshots", async () => {
