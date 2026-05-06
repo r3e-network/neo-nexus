@@ -2,7 +2,7 @@ import { request as httpRequest, type IncomingMessage } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { isIP } from "node:net";
 import { Errors } from "../../api/errors";
-import { assertResolvedPublicTarget, defaultHostnameResolver } from "../../utils/outboundTargets";
+import { assertLiteralPublicTarget, assertResolvedPublicTarget, defaultHostnameResolver } from "../../utils/outboundTargets";
 
 export interface PinnedRequestInit {
   method?: string;
@@ -24,6 +24,7 @@ export async function pinnedStreamingRequest(url: string, init: PinnedRequestIni
   }
 
   const allowPrivate = process.env.NEONEXUS_ALLOW_PRIVATE_INTEGRATION_TARGETS === "true";
+  assertLiteralPublicTarget(parsed.hostname, Errors.integrationUrlPrivateTarget, allowPrivate);
   const addresses = await assertResolvedPublicTarget(
     parsed.hostname,
     defaultHostnameResolver,

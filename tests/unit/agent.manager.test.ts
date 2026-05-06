@@ -93,6 +93,8 @@ function makeDeps() {
 describe("AgentManager", () => {
   beforeEach(() => {
     mockState.events = [];
+    delete process.env.NEONEXUS_ALLOW_INSECURE_AGENT_PROVIDER_URLS;
+    delete process.env.NEONEXUS_ALLOW_PRIVATE_INTEGRATION_TARGETS;
   });
 
   it("refuses to send when feature flag is off", async () => {
@@ -117,6 +119,48 @@ describe("AgentManager", () => {
     ).toThrow(/baseUrl/i);
   });
 
+  it("normalizes public HTTPS provider base URLs before persisting", () => {
+    const db = makeDb();
+    const mgr = new AgentManager(db, { deps: makeDeps(), enabled: true });
+
+    const settings = mgr.saveSettings("u1", {
+      provider: "openai-compatible",
+      model: "x",
+      apiKey: "k",
+      baseUrl: "https://api.example.com/",
+    });
+
+    expect(settings.baseUrl).toBe("https://api.example.com");
+  });
+
+  it("rejects insecure agent provider base URLs by default", () => {
+    const db = makeDb();
+    const mgr = new AgentManager(db, { deps: makeDeps(), enabled: true });
+
+    expect(() =>
+      mgr.saveSettings("u1", {
+        provider: "openai-compatible",
+        model: "x",
+        apiKey: "k",
+        baseUrl: "http://api.example.com",
+      }),
+    ).toThrow(/HTTPS/i);
+  });
+
+  it("rejects private literal agent provider base URLs by default", () => {
+    const db = makeDb();
+    const mgr = new AgentManager(db, { deps: makeDeps(), enabled: true });
+
+    expect(() =>
+      mgr.saveSettings("u1", {
+        provider: "openai-compatible",
+        model: "x",
+        apiKey: "k",
+        baseUrl: "https://127.0.0.1:11434",
+      }),
+    ).toThrow(/private|local/i);
+  });
+
   it("redacts settings round-trip and persists conversations + messages", async () => {
     const db = makeDb();
     const mgr = new AgentManager(db, { deps: makeDeps(), enabled: true });
@@ -126,6 +170,22 @@ describe("AgentManager", () => {
     expect(settings.apiKey).toBe("secret-key-1234");
     const conv = mgr.createConversation("u1", settings, "First chat");
     expect(mgr.listConversations("u1")).toHaveLength(1);
+    expect(mgr.listMessages(conv.id)).toEqual([]);
+  });
+
+  it("rejects oversized agent messages before persistence or provider calls", async () => {
+    const db = makeDb();
+    const mgr = new AgentManager(db, { deps: makeDeps(), enabled: true });
+    mgr.saveSettings("u1", { provider: "anthropic", model: "claude-x", apiKey: "k" });
+    const conv = mgr.createConversation("u1", mgr.getSettings("u1")!);
+
+    await expect(mgr.send({
+      user: { id: "u1", username: "alice", role: "admin" },
+      conversationId: conv.id,
+      text: "x".repeat(16_001),
+      onEvent: () => {},
+      signal: new AbortController().signal,
+    })).rejects.toThrow(/16000 characters or fewer/);
     expect(mgr.listMessages(conv.id)).toEqual([]);
   });
 

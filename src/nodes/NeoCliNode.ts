@@ -45,8 +45,10 @@ export class NeoCliNode extends BaseNode {
       dotnetArgs.push("--log-level", "Info");
     }
 
-    // `script -qfc "command" /dev/null` provides a pseudo-TTY
-    return ["-qfc", dotnetArgs.join(" "), "/dev/null"];
+    // `script -qfc "command" /dev/null` provides a pseudo-TTY. It accepts a
+    // shell command string, so quote every token before paths from imported
+    // nodes can cross that boundary.
+    return ["-qfc", dotnetArgs.map(shellQuote).join(" "), "/dev/null"];
   }
 
   getWorkingDirectory(): string {
@@ -149,4 +151,8 @@ export class NeoCliNode extends BaseNode {
     await execShell("sudo apt-get update");
     await execShell("sudo apt-get install -y dotnet-runtime-8.0");
   }
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\"'\"'`)}'`;
 }

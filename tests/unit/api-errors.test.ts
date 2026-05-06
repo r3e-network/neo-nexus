@@ -74,6 +74,11 @@ describe("Errors catalog", () => {
       () => Errors.passwordRequired(),
       () => Errors.cannotDeleteSelf(),
       () => Errors.notAuthenticated(),
+      () => Errors.integrationUrlPrivateTarget("127.0.0.1"),
+      () => Errors.agentProviderUrlInvalid(),
+      () => Errors.agentProviderUrlInsecure(),
+      () => Errors.agentProviderUrlPrivateTarget("127.0.0.1"),
+      () => Errors.agentMessageInvalid("text is too long"),
       () => Errors.serverFieldsRequired(),
       () => Errors.snapshotRequired(),
     ];

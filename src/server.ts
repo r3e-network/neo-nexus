@@ -73,6 +73,7 @@ const FORCE_EXIT_TIMEOUT_MS = 30_000;
 const DEFAULT_LOG_RETENTION_MAX_ROWS = 50_000;
 const DEFAULT_AUDIT_LOG_MAX_ROWS = 100_000;
 const DEFAULT_LOG_PRUNE_BATCH_SIZE = 500_000;
+const DEFAULT_WS_MAX_PAYLOAD_BYTES = 256 * 1024;
 const WS_AUTH_PROTOCOL = "neonexus.auth";
 
 export interface ServerConfig {
@@ -130,7 +131,11 @@ export function createAppServer(config: ServerConfig) {
 
   const server = httpsCredentials ? createHttpsServer(httpsCredentials, app) : createHttpServer(app);
 
-  const wss = new WebSocketServer({ server, path: "/ws" });
+  const wss = new WebSocketServer({
+    server,
+    path: "/ws",
+    maxPayload: positiveIntegerEnv("NEONEXUS_WS_MAX_PAYLOAD_BYTES", DEFAULT_WS_MAX_PAYLOAD_BYTES),
+  });
 
   // Ensure directories exist
   mkdirSync(paths.base, { recursive: true });
@@ -651,6 +656,15 @@ export function createAppServer(config: ServerConfig) {
     metricsCollector,
     integrationManager,
   };
+}
+
+function positiveIntegerEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) {
+    return fallback;
+  }
+  const value = Number.parseInt(raw, 10);
+  return Number.isSafeInteger(value) && value > 0 ? value : fallback;
 }
 
 /**

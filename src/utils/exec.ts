@@ -1,8 +1,9 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { promisify } from 'node:util';
-import { exec as execCallback } from 'node:child_process';
+import { exec as execCallback, execFile as execFileCallback } from 'node:child_process';
 
 export const execAsync = promisify(execCallback);
+const execFileAsync = promisify(execFileCallback);
 
 export interface ProcessResult {
   stdout: string;
@@ -89,7 +90,10 @@ export function spawnProcess(
 
 export async function checkCommandExists(command: string): Promise<boolean> {
   try {
-    await execAsync(`which ${command}`);
+    if (!/^[A-Za-z0-9._-]+$/.test(command)) {
+      return false;
+    }
+    await execFileAsync('which', [command]);
     return true;
   } catch {
     return false;
@@ -98,7 +102,10 @@ export async function checkCommandExists(command: string): Promise<boolean> {
 
 export async function getProcessInfo(pid: number): Promise<{ pid: number; name: string; cpu: number; memory: number } | null> {
   try {
-    const { stdout } = await execAsync(`ps -p ${pid} -o pid,comm,pcpu,pmem --no-headers`);
+    if (!Number.isSafeInteger(pid) || pid <= 0) {
+      return null;
+    }
+    const { stdout } = await execFileAsync('ps', ['-p', String(pid), '-o', 'pid,comm,pcpu,pmem', '--no-headers']);
     const parts = stdout.trim().split(/\s+/);
     if (parts.length >= 4) {
       return {
