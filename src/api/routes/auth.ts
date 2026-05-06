@@ -4,6 +4,10 @@ import { createAuthMiddleware, generateToken, getTokenExpiresInHours, type Authe
 import { Errors } from '../errors';
 import { respondWithApiError } from '../respond';
 
+function normalizeUsername(username: unknown): string {
+  return typeof username === "string" ? username.trim() : "";
+}
+
 export function createAuthRouter(userManager: UserManager): Router {
   const router = Router();
   const requireAuth = createAuthMiddleware(userManager);
@@ -19,7 +23,8 @@ export function createAuthRouter(userManager: UserManager): Router {
         throw Errors.setupCompleted();
       }
 
-      const { username, password } = req.body;
+      const { password } = req.body;
+      const username = normalizeUsername(req.body.username);
 
       if (!username || !password) {
         throw Errors.credentialsRequired();
@@ -67,7 +72,8 @@ export function createAuthRouter(userManager: UserManager): Router {
    */
   router.post("/login", async (req: Request, res: Response) => {
     try {
-      const { username, password } = req.body;
+      const { password } = req.body;
+      const username = normalizeUsername(req.body.username);
 
       if (!username || !password) {
         throw Errors.credentialsRequired();
@@ -126,7 +132,8 @@ export function createAuthRouter(userManager: UserManager): Router {
         throw Errors.adminRequired();
       }
 
-      const { username, password, role } = req.body;
+      const { password, role } = req.body;
+      const username = normalizeUsername(req.body.username);
 
       if (!username || !password) {
         throw Errors.credentialsRequired();

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Loader2, Lock } from "lucide-react";
 import { FeedbackBanner } from "../../components/FeedbackBanner";
+import { PasswordStrengthMeter } from "../../components/PasswordStrengthMeter";
 import { ApiRequestError } from "../../utils/api";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -102,6 +103,9 @@ export function PasswordSection() {
             placeholder="Repeat new password"
             autoComplete="new-password"
           />
+        </div>
+        <div className="md:col-span-3">
+          <PasswordStrengthMeter password={newPassword} compact />
         </div>
 
         <div className="md:col-span-3 flex justify-end">
