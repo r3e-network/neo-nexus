@@ -3,7 +3,15 @@ import type { SystemMetrics } from '../types/index';
 interface SystemInformationFacade {
   currentLoad(): Promise<{ currentLoad: number }>;
   cpu(): Promise<{ cores: number }>;
-  mem(): Promise<{ total: number; used: number; free: number }>;
+  // `active` and `available` are reported by Linux/macOS/Windows; they
+  // exclude buffers/cache so the dashboard doesn't read 96% on idle hosts.
+  mem(): Promise<{
+    total: number;
+    used: number;
+    free: number;
+    active?: number;
+    available?: number;
+  }>;
   fsSize(): Promise<Array<{ size: number; used: number; use: number }>>;
   networkStats(): Promise<Array<{ rx_bytes: number; tx_bytes: number }>>;
   processes(): Promise<{
@@ -65,16 +73,28 @@ export class MetricsCollector {
 
   /**
    * Get memory metrics
+   *
+   * Linux's `mem.used` field counts buffers and disk cache against the
+   * "used" total, so a healthy idle box reads as 90%+ utilized. That made
+   * the dashboard's "Memory" tile alarm-looking even on hosts with plenty
+   * of free RAM. Prefer `mem.active` (memory actually allocated to
+   * processes) and fall back to `total - available` / `total - free` so
+   * platforms that don't report active still get a reasonable number.
    */
   private async getMemoryMetrics(): Promise<SystemMetrics['memory']> {
     const si = await getSystemInformation();
     const mem = await si.mem();
 
+    const active = typeof mem.active === 'number' && mem.active > 0 ? mem.active : null;
+    const available = typeof mem.available === 'number' && mem.available > 0 ? mem.available : null;
+    const used = active ?? (available !== null ? mem.total - available : mem.used);
+    const free = available ?? mem.free;
+
     return {
       total: mem.total,
-      used: mem.used,
-      free: mem.free,
-      percentage: Math.round((mem.used / mem.total) * 100 * 10) / 10,
+      used,
+      free,
+      percentage: Math.round((used / mem.total) * 100 * 10) / 10,
     };
   }
 
