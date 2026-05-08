@@ -1,8 +1,18 @@
 import type { NodeNetwork, NodeType } from "../types";
 import { Errors } from "../api/errors";
 
-const NODE_TYPES = new Set(["neo-cli", "neo-go"]);
-const NODE_NETWORKS = new Set(["mainnet", "testnet", "private"]);
+// Keep this in sync with the NodeType union in src/types/index.ts.
+// Missing entries cause `assertNodeType` to reject otherwise valid
+// payloads with a 400 (e.g. 'neofura' was 400-rejected before being
+// added here even though the rest of the stack already supported it).
+const NODE_TYPES = new Set(["neo-cli", "neo-go", "neox-go", "neofura"]);
+const NODE_NETWORKS = new Set([
+  "mainnet",
+  "testnet",
+  "private",
+  "neox-mainnet",
+  "neox-testnet",
+]);
 const RELEASE_VERSION_PATTERN = /^v?\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.-]+)?$/;
 
 export function isNodeType(value: unknown): value is NodeType {
