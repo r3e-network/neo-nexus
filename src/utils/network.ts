@@ -23,12 +23,16 @@ export function getSeedList(network: Exclude<N3NodeNetwork, 'private'>): string[
       'seed5.neo.org:10333',
     ];
   } else {
+    // T5 testnet (post-2024 reset). The legacy seedNt.neo.org hosts no
+    // longer resolve / serve RPC, so neither the network-height tracker
+    // nor neo-go config generation worked against them — testnet nodes
+    // showed "Latest network height unavailable" on the dashboard.
     return [
-      'seed1t.neo.org:20333',
-      'seed2t.neo.org:20333',
-      'seed3t.neo.org:20333',
-      'seed4t.neo.org:20333',
-      'seed5t.neo.org:20333',
+      'seed1t5.neo.org:20333',
+      'seed2t5.neo.org:20333',
+      'seed3t5.neo.org:20333',
+      'seed4t5.neo.org:20333',
+      'seed5t5.neo.org:20333',
     ];
   }
 }
