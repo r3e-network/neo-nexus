@@ -149,6 +149,10 @@ export function createAppServer(config: ServerConfig) {
   // Initialize core services
   const nodeManager = new NodeManager(config.db);
   nodeManager.reconcileProcessStates();
+  // Auto-resume observe-only sidecars (e.g. neofura) that were running
+  // before the last restart. Fire-and-forget — startup must not block on
+  // network polling. Errors are logged inside the method.
+  void nodeManager.resumeSidecarNodes();
 
   const watchdog = new WatchdogManager(async (nodeId) => {
     try {
