@@ -391,15 +391,15 @@ export default function NodeDetail() {
                   </div>
                   <div className="metric-tile group">
                     <p className="text-slate-600 text-sm font-medium">Peers</p>
-                    <p className="text-2xl font-bold text-slate-950">{node.metrics.connectedPeers}</p>
+                    <p className="text-2xl font-bold text-slate-950">{node.metrics.connectedPeers ?? '—'}</p>
                   </div>
                   <div className="metric-tile group">
                     <p className="text-slate-600 text-sm font-medium">CPU</p>
-                    <p className="text-2xl font-bold text-slate-950">{node.metrics.cpuUsage.toFixed(1)}%</p>
+                    <p className="text-2xl font-bold text-slate-950">{typeof node.metrics.cpuUsage === 'number' ? `${node.metrics.cpuUsage.toFixed(1)}%` : '—'}</p>
                   </div>
                   <div className="metric-tile group">
                     <p className="text-slate-600 text-sm font-medium">Memory</p>
-                    <p className="text-2xl font-bold text-slate-950">{formatBytes(node.metrics.memoryUsage)}</p>
+                    <p className="text-2xl font-bold text-slate-950">{typeof node.metrics.memoryUsage === 'number' ? formatBytes(node.metrics.memoryUsage) : '—'}</p>
                   </div>
                 </div>
               </div>

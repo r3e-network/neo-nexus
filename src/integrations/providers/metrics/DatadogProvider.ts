@@ -33,7 +33,10 @@ export class DatadogProvider implements MetricsProvider {
       tags?: string[];
     }> = [];
 
-    const addMetric = (metric: string, value: number, tags?: string[]) => {
+    const addMetric = (metric: string, value: number | null | undefined, tags?: string[]) => {
+      // Skip null/undefined for nullable metrics (e.g. peers/cpu/memory on
+      // sidecars). Datadog rejects null values; better to omit the series.
+      if (value == null || !Number.isFinite(value)) return;
       series.push({
         metric,
         type: 3, // gauge

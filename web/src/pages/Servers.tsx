@@ -395,7 +395,7 @@ export default function Servers() {
                             </div>
                             <div>
                               <p className="text-slate-600">Peers</p>
-                              <p className="text-slate-950">{node.metrics.connectedPeers}</p>
+                              <p className="text-slate-950">{node.metrics.connectedPeers ?? '—'}</p>
                             </div>
                             <div>
                               <p className="text-slate-600">Sync</p>
