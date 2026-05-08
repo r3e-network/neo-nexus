@@ -158,7 +158,7 @@ describe("Utils: network", () => {
       const seeds = getSeedList("testnet");
       expect(seeds.length).toBeGreaterThan(0);
       expect(seeds[0]).toContain("seed");
-      expect(seeds[0]).toContain("t.neo.org");
+      expect(seeds[0]).toContain("t5.neo.org");
     });
   });
 });
