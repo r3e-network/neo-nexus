@@ -414,6 +414,47 @@ export class NodeManager extends EventEmitter {
   }
 
   /**
+   * Re-instantiate sidecar (observe-only) nodes whose persisted status was
+   * 'running' before the process exited. Managed nodes are handled by
+   * reconcileProcessStates() via PID re-attach; sidecars have no PID, so
+   * without this sweep they appear as 'running' in the DB but have no
+   * in-memory instance — metric polling silently no-ops and the operator
+   * has to click Start again after every systemd restart.
+   *
+   * Failures are logged, not thrown — a misconfigured sidecar shouldn't
+   * block server startup.
+   */
+  async resumeSidecarNodes(): Promise<void> {
+    const nodes = this.getAllNodes();
+    for (const node of nodes) {
+      if (!isSidecarNodeType(node.type)) continue;
+      if (node.process.status !== 'running' && node.process.status !== 'starting') continue;
+      if (this.nodes.has(node.id)) continue;
+      try {
+        let instance: BaseNode;
+        if (node.type === 'neofura') {
+          instance = new NeofuraNode(node);
+        } else {
+          continue;
+        }
+        instance.on('status', (status, previous) => {
+          this.repo.updateStatus(node.id, status);
+          this.emit('nodeStatus', { nodeId: node.id, status, previousStatus: previous });
+        });
+        instance.on('log', (entry) => {
+          this.repo.saveLogEntry(node.id, entry);
+          this.emit('nodeLog', { nodeId: node.id, entry });
+        });
+        await instance.start();
+        this.nodes.set(node.id, instance);
+        console.log(`♻️  Resumed sidecar ${node.name} (${node.type}) — polling observe-only target`);
+      } catch (err) {
+        console.warn(`⚠️  Failed to resume sidecar ${node.name}:`, err instanceof Error ? err.message : err);
+      }
+    }
+  }
+
+  /**
    * Stop all running nodes
    */
   async stopAllNodes(): Promise<{ stoppedCount: number; alreadyStoppedCount: number }> {
