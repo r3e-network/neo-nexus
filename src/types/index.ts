@@ -2,7 +2,11 @@
 export type NodeChain = 'n3' | 'x';
 export type N3NodeType = 'neo-cli' | 'neo-go';
 export type XNodeType = 'neox-go';
-export type NodeType = N3NodeType | XNodeType;
+// Sidecars are externally-owned processes that NeoNexus observes
+// rather than spawns. Today: neo3fura indexer (HTTP API at
+// /<network>/...). They serve N3 data, so they share the n3 chain.
+export type SidecarNodeType = 'neofura';
+export type NodeType = N3NodeType | XNodeType | SidecarNodeType;
 export type N3NodeNetwork = 'mainnet' | 'testnet' | 'private';
 export type XNodeNetwork = 'neox-mainnet' | 'neox-testnet';
 export type NodeNetwork = N3NodeNetwork | XNodeNetwork;
@@ -34,7 +38,18 @@ export interface NodeConfig {
 }
 
 export function chainOf(type: NodeType): NodeChain {
-  return type === 'neox-go' ? 'x' : 'n3';
+  if (type === 'neox-go') return 'x';
+  // neo-cli, neo-go, neofura → n3
+  return 'n3';
+}
+
+/**
+ * Sidecars are externally-owned processes that NeoNexus monitors
+ * rather than spawns. They skip binary download, port allocation
+ * for their own protocol, and config generation.
+ */
+export function isSidecarNodeType(type: NodeType): type is SidecarNodeType {
+  return type === 'neofura';
 }
 
 export function defaultNetworkForChain(chain: NodeChain): NodeNetwork {
