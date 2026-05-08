@@ -137,6 +137,25 @@ describe("NodeManager.resumeSidecarNodes", () => {
     warnSpy.mockRestore();
   });
 
+  it("stopAllNodes leaves sidecar status untouched so resume can find it next boot", async () => {
+    hoisted.NeofuraNode.mockImplementation(() => new FakeNeofura());
+    const { NodeManager } = await import("../../src/core/NodeManager");
+    const manager = new NodeManager(createMockDb() as never) as unknown as {
+      stopAllNodes: () => Promise<{ stoppedCount: number; alreadyStoppedCount: number }>;
+      stopNode: (id: string) => Promise<void>;
+    };
+    vi.spyOn(manager as unknown as { getAllNodes: () => NodeConfig[] }, "getAllNodes").mockReturnValue([
+      makeNode({ id: "side", type: "neofura", process: { status: "running" } }),
+    ]);
+    const stopSpy = vi.spyOn(manager, "stopNode").mockResolvedValue();
+
+    const result = await manager.stopAllNodes();
+
+    expect(stopSpy).not.toHaveBeenCalled();
+    expect(result.stoppedCount).toBe(0);
+    expect(result.alreadyStoppedCount).toBe(1);
+  });
+
   it("does not double-instantiate a sidecar already in the map", async () => {
     const existing = new FakeNeofura();
     hoisted.NeofuraNode.mockImplementation(() => new FakeNeofura());

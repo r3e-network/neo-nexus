@@ -463,6 +463,14 @@ export class NodeManager extends EventEmitter {
     let alreadyStoppedCount = 0;
 
     for (const node of nodes) {
+      // Sidecars (observe-only) have no process to stop — flipping their
+      // status to 'stopped' on graceful shutdown loses the desired-state
+      // signal that resumeSidecarNodes() needs on next boot. Leave their
+      // status alone; they'll be re-instantiated automatically.
+      if (isSidecarNodeType(node.type)) {
+        alreadyStoppedCount++;
+        continue;
+      }
       if (node.process.status === 'running') {
         try {
           await this.stopNode(node.id);
