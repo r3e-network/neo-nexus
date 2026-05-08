@@ -134,11 +134,14 @@ export interface BlockHeightStatus {
 export interface NodeMetrics {
   blockHeight: number;
   headerHeight: number;
-  connectedPeers: number;
+  // Nullable: sidecars (observe-only adapters like neofura) have no peer
+  // concept and no in-process resource usage NeoNexus can measure. Renderers
+  // must fall back to "—" instead of showing a misleading 0.
+  connectedPeers: number | null;
   unconnectedPeers: number;
   syncProgress: number;
-  memoryUsage: number;
-  cpuUsage: number;
+  memoryUsage: number | null;
+  cpuUsage: number | null;
   lastUpdate: number;
   blockHeightStatus?: BlockHeightStatus;
 }

@@ -66,8 +66,8 @@ export function buildGrafanaTimeseries(
 ): PrometheusTimeseries[] {
   const series: PrometheusTimeseries[] = [];
 
-  const addSeries = (name: string, value: number, labels: Record<string, string> = {}) => {
-    if (!Number.isFinite(value)) return;
+  const addSeries = (name: string, value: number | null | undefined, labels: Record<string, string> = {}) => {
+    if (value == null || !Number.isFinite(value)) return;
     series.push({
       labels: { __name__: name, job: 'neonexus', ...labels },
       samples: [{ value, timestamp }],
