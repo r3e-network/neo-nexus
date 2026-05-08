@@ -35,6 +35,15 @@ const REPOS: Record<NodeType, { owner: string; repo: string; binaryName: string 
     repo: "go-ethereum",
     binaryName: "geth",
   },
+  // neo3fura ships as source via docker-compose / `go build`; there
+  // are no GitHub release artifacts to auto-download. The entry is
+  // present for the Record<NodeType,…> completeness check; download
+  // paths must gate on isSidecarNodeType() before reaching here.
+  "neofura": {
+    owner: "neo-ngd",
+    repo: "neo3fura",
+    binaryName: "neo3fura_http",
+  },
 };
 
 // Plugin repository

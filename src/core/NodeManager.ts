@@ -22,7 +22,7 @@ import type {
   RoleSyncStrategy,
   SyncMode,
 } from '../types/index';
-import { chainOf } from '../types/index';
+import { chainOf, isSidecarNodeType } from '../types/index';
 import { getNodePath, getNodeDataPath, getNodeLogsPath, getNodeConfigPath, getNodeWalletPath } from '../utils/paths';
 import { NodeRepository } from './NodeRepository';
 import { isProcessAlive, getProcessCommand } from '../utils/lifecycle';
@@ -35,6 +35,7 @@ import { SecureSignerManager } from './SecureSignerManager';
 import { NeoCliNode } from '../nodes/NeoCliNode';
 import { NeoGoNode } from '../nodes/NeoGoNode';
 import { NeoXNode } from '../nodes/NeoXNode';
+import { NeofuraNode } from '../nodes/NeofuraNode';
 import { BaseNode } from '../nodes/BaseNode';
 import { Errors } from '../api/errors';
 import { assertNodeNetwork, assertNodeType, assertReleaseVersion } from '../utils/nodeValidation';
@@ -246,19 +247,32 @@ export class NodeManager extends EventEmitter {
       this.assertSecureSignerCompatibility(type, secureSignerBinding.signerProfileId);
     }
 
+    // Sidecars (neofura) are observe-only — NeoNexus doesn't manage
+    // their binary lifecycle. Skip download / version-resolution
+    // entirely. A symbolic version string is still recorded in the
+    // config for display purposes.
+    const isSidecar = isSidecarNodeType(type);
+
     // Validate version or get latest
     let version = request.version ? assertReleaseVersion(request.version) : undefined;
     if (!version) {
-      const release = await DownloadManager.getLatestRelease(type);
-      if (!release) {
-        throw new Error(`Could not determine latest version for ${type}`);
+      if (isSidecar) {
+        // No GitHub releases for neo3fura. Use a placeholder so the
+        // shape of NodeConfig stays consistent across types.
+        version = "external";
+      } else {
+        const release = await DownloadManager.getLatestRelease(type);
+        if (!release) {
+          throw new Error(`Could not determine latest version for ${type}`);
+        }
+        version = assertReleaseVersion(release.version);
       }
-      version = assertReleaseVersion(release.version);
     }
 
-    // Ensure binary is downloaded
+    // Ensure binary is downloaded — skip for sidecars (their process
+    // is owned by an external supervisor).
     const chain = chainOf(type);
-    if (!DownloadManager.hasNodeBinary(type, version)) {
+    if (!isSidecar && !DownloadManager.hasNodeBinary(type, version)) {
       console.log(`Downloading ${type} ${version}...`);
       if (type === 'neo-cli') {
         await DownloadManager.downloadNeoCli(version);
@@ -773,7 +787,9 @@ export class NodeManager extends EventEmitter {
       ? new NeoCliNode(node)
       : node.type === 'neox-go'
         ? new NeoXNode(node)
-        : new NeoGoNode(node);
+        : node.type === 'neofura'
+          ? new NeofuraNode(node)
+          : new NeoGoNode(node);
 
     // Set up event handlers
     nodeInstance.on('status', (status, previous) => {
