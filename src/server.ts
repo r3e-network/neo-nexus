@@ -615,7 +615,7 @@ export function createAppServer(config: ServerConfig) {
   }, LOG_RETENTION_INTERVAL_MS); // Every 10 minutes
 
   // Periodically fetch network heights from seed nodes
-  const networkHeightInterval = setInterval(async () => {
+  const refreshNetworkHeights = async (): Promise<void> => {
     try {
       const [mainnetHeight, testnetHeight] = await Promise.allSettled([
         networkHeightTracker.fetchNetworkHeight("mainnet"),
@@ -630,6 +630,13 @@ export function createAppServer(config: ServerConfig) {
     } catch (error) {
       console.error("Error fetching network heights:", error);
     }
+  };
+  // Fire once immediately on startup so the dashboard / node-detail pages
+  // don't show "Latest network height unavailable" for the first 60 seconds
+  // after a systemctl restart. The interval below keeps it fresh.
+  void refreshNetworkHeights();
+  const networkHeightInterval = setInterval(() => {
+    void refreshNetworkHeights();
   }, NETWORK_HEIGHT_INTERVAL_MS); // Every 60 seconds
 
   // Start server
