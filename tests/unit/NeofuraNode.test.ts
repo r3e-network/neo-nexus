@@ -91,8 +91,69 @@ describe("NeofuraNode", () => {
     expect(await node.getPeersCount()).toBeNull();
   });
 
-  it("getBinaryPath() throws — sidecars are observe-only", async () => {
+  it("observe-only mode: getBinaryPath() throws with a clear message", async () => {
     const node = new NeofuraNode(makeConfig());
-    await expect(node.getBinaryPath()).rejects.toThrow(/observe-only/);
+    await expect(node.getBinaryPath()).rejects.toThrow(/observe-only mode/);
+  });
+
+  it("managed mode: getBinaryPath() returns the configured path when the binary exists", async () => {
+    // Use the running node executable as a stand-in real file —
+    // every machine that runs vitest has it on disk.
+    const realBinary = process.execPath;
+    const node = new NeofuraNode(
+      makeConfig({
+        ports: { rpc: 8081, p2p: 0 },
+        settings: {
+          customConfig: { binaryPath: realBinary, workingDir: "/tmp/neofura" },
+        },
+      }),
+    );
+    await expect(node.getBinaryPath()).resolves.toBe(realBinary);
+  });
+
+  it("managed mode: getBinaryPath() throws when the configured binary is missing", async () => {
+    const node = new NeofuraNode(
+      makeConfig({
+        settings: {
+          customConfig: { binaryPath: "/nonexistent/neo3fura_http" },
+        },
+      }),
+    );
+    await expect(node.getBinaryPath()).rejects.toThrow(/not found/);
+  });
+
+  it("managed mode: getBlockHeight() falls back to localhost:rpc when no endpoint is configured", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { last_indexed_block: 42 } }),
+    }) as unknown as typeof fetch;
+
+    const node = new NeofuraNode(
+      makeConfig({
+        ports: { rpc: 8181, p2p: 0 },
+        settings: {
+          customConfig: { binaryPath: process.execPath },
+        },
+      }),
+    );
+    const height = await node.getBlockHeight();
+    expect(height).toBe(42);
+
+    const calls = (globalThis.fetch as unknown as { mock: { calls: [string][] } }).mock.calls;
+    expect(calls[0][0]).toBe("http://127.0.0.1:8181/summary");
+  });
+
+  it("getWorkingDirectory() honors customConfig.workingDir when set", () => {
+    const node = new NeofuraNode(
+      makeConfig({
+        settings: {
+          customConfig: {
+            binaryPath: process.execPath,
+            workingDir: "/srv/neo3fura",
+          },
+        },
+      }),
+    );
+    expect(node.getWorkingDirectory()).toBe("/srv/neo3fura");
   });
 });

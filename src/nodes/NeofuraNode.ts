@@ -1,78 +1,153 @@
+import { existsSync, statSync } from 'node:fs';
 import { BaseNode } from './BaseNode';
 import type { LogEntry, NodeConfig } from '../types/index';
 
 /**
- * NeofuraNode — observe-only adapter for an externally-managed
- * neo3fura indexer process.
+ * NeofuraNode — adapter for the neo3fura indexer sidecar.
  *
- * neo3fura ships as Go source (docker-compose + start.sh in the
- * upstream repo) and does not publish GitHub release binaries. The
- * common deployment shape is a sidecar managed by docker-compose,
- * systemd, or a process supervisor outside NeoNexus's view. Rather
- * than fork that responsibility, NeoNexus models neofura as an
- * observable target:
+ * Two operating modes, selected by config:
  *
- *   - start() / stop() / restart() do not spawn or kill anything;
- *     they flip in-memory state so the rest of NeoNexus's status
- *     plumbing keeps working.
+ *   1. **managed-process** — NeoNexus owns the neofura process
+ *      lifecycle. Activated when `settings.customConfig.binaryPath`
+ *      is set. Falls through to BaseNode's start()/stop()/spawn
+ *      machinery, so crash recovery, log capture, and resource
+ *      limits all apply for free.
+ *
+ *   2. **observe-only** — the operator manages neofura externally
+ *      (docker-compose / systemd) and just wants NeoNexus to
+ *      monitor it. Activated when `binaryPath` is unset and
+ *      `settings.customConfig.endpoint` is set. start()/stop()
+ *      flip in-memory status without spawning or killing anything.
+ *
+ * Health (in both modes):
  *   - getBlockHeight() polls the indexer's /summary endpoint and
  *     reads `last_indexed_block` — the same number the explorer's
- *     home-page summary card displays.
- *   - getPeersCount() returns null (a neo3fura process has no peer
- *     concept; it consumes RPC + WebSocket from one upstream node).
+ *     home-page summary card displays. In managed mode the endpoint
+ *     defaults to http://127.0.0.1:<config.ports.rpc>; in observe
+ *     mode the operator supplies an absolute URL via
+ *     customConfig.endpoint.
+ *   - getPeersCount() returns null (neo3fura has no peer concept;
+ *     it consumes RPC + WebSocket from exactly one upstream node).
  *
- * Required config:
+ * Required config (managed-process):
+ *   settings.customConfig.binaryPath = absolute path to the
+ *     neo3fura_http binary built from `go build` against the
+ *     upstream source.
+ *   settings.customConfig.workingDir = directory containing the
+ *     neo3fura config.yml (defaults to paths.base if unset).
+ *   ports.rpc = the HTTP port neo3fura will listen on (NeoNexus
+ *     allocates one automatically; the operator can override via
+ *     customPorts at create time).
+ *
+ * Required config (observe-only):
  *   settings.customConfig.endpoint = absolute URL of the neofura
  *     HTTP API root, e.g. "https://api.n3index.dev/mainnet".
- *
- * The class deliberately doesn't override getBinaryPath /
- * getStartArgs / getWorkingDirectory — they're abstract on BaseNode
- * but never called once start() is overridden, and surfacing them
- * as `throw` would just produce noisier stack traces if some
- * unrelated code ever stumbled in.
  */
 export class NeofuraNode extends BaseNode {
   constructor(config: NodeConfig) {
     super(config);
   }
 
-  /** Endpoint URL for the running neofura HTTP API, or null if unset. */
-  private getEndpoint(): string | null {
-    const raw = this.config.settings.customConfig?.endpoint;
+  /**
+   * Returns the absolute neo3fura binary path the operator
+   * registered, or null when running in observe-only mode.
+   */
+  private getConfiguredBinaryPath(): string | null {
+    const raw = this.config.settings.customConfig?.binaryPath;
     if (typeof raw !== 'string') return null;
-    const trimmed = raw.trim().replace(/\/+$/, '');
+    const trimmed = raw.trim();
     return trimmed || null;
   }
 
-  // BaseNode abstract methods — neofura is observe-only, so these
-  // are never reached via the overridden start() path. They're
-  // implemented to satisfy TypeScript and to give a clear error if
-  // future code calls them by mistake.
+  /**
+   * Decide between managed-process and observe-only mode based
+   * solely on whether a binary path was supplied. Operators who
+   * want NeoNexus to take over lifecycle set binaryPath; those
+   * who just want monitoring set endpoint instead.
+   */
+  private getMode(): 'managed' | 'observe' {
+    return this.getConfiguredBinaryPath() ? 'managed' : 'observe';
+  }
+
+  /** Endpoint URL for /summary polling — managed mode falls back to localhost:rpc. */
+  private getEndpoint(): string | null {
+    const raw = this.config.settings.customConfig?.endpoint;
+    if (typeof raw === 'string' && raw.trim()) {
+      return raw.trim().replace(/\/+$/, '');
+    }
+    if (this.getMode() === 'managed' && this.config.ports?.rpc) {
+      return `http://127.0.0.1:${this.config.ports.rpc}`;
+    }
+    return null;
+  }
+
+  // BaseNode abstract methods — used by the BaseNode.start() spawn
+  // path in managed mode. In observe mode the overridden start()
+  // never reaches these.
+
   async getBinaryPath(): Promise<string> {
-    throw new Error(
-      'NeofuraNode is observe-only; binaries are managed by the external supervisor (docker-compose / systemd).',
-    );
+    const binaryPath = this.getConfiguredBinaryPath();
+    if (!binaryPath) {
+      throw new Error(
+        'NeofuraNode is in observe-only mode; no binary configured. ' +
+        'Set settings.customConfig.binaryPath to switch to managed-process mode.',
+      );
+    }
+    if (!existsSync(binaryPath)) {
+      throw new Error(`Configured neo3fura binary not found: ${binaryPath}`);
+    }
+    const stat = statSync(binaryPath);
+    if (!stat.isFile()) {
+      throw new Error(`Configured neo3fura binary is not a regular file: ${binaryPath}`);
+    }
+    return binaryPath;
   }
 
   getStartArgs(): string[] {
+    // neo3fura_http reads ./config.yml from cwd; the working dir
+    // (set below) puts that file in the right place. Pass no
+    // extra args by default — operators tune behavior via the
+    // YAML config, not flags.
     return [];
   }
 
   getWorkingDirectory(): string {
+    const configured = this.config.settings.customConfig?.workingDir;
+    if (typeof configured === 'string' && configured.trim()) {
+      return configured.trim();
+    }
     return this.config.paths.base;
   }
 
   /**
-   * Override BaseNode.start(): no process spawn. Flip state to
-   * 'running' and emit a status event so dashboards see the row
-   * as online. The actual neofura process must already be up;
-   * health is verified lazily via getBlockHeight().
-   *
-   * Don't gate on BaseNode.isRunning() — that helper checks
-   * `this.process !== null`, which is always null for an
-   * observe-only node. Use the status field directly.
+   * Override BaseNode.isRunning() so callers like NodeManager
+   * .updateMetrics() see observe-only neofura rows as running
+   * when their status field says so. The base implementation
+   * requires `this.process !== null`, which is always null for
+   * an observe-only target — without this override, metric polling
+   * (block height, peer count) silently no-ops for the entire
+   * observe-mode lifetime. In managed mode, fall through to
+   * BaseNode's stricter check so we don't report running while a
+   * spawned subprocess is actually dead.
+   */
+  isRunning(): boolean {
+    if (this.getMode() === 'managed') {
+      return super.isRunning();
+    }
+    return this.processStatus.status === 'running';
+  }
+
+  /**
+   * In managed mode: delegate to BaseNode.start() so we get the
+   * spawn + crash-recovery + log-capture pipeline for free.
+   * In observe mode: flip in-memory status without touching any
+   * process.
    */
   async start(): Promise<void> {
+    if (this.getMode() === 'managed') {
+      await super.start();
+      return;
+    }
     if (this.processStatus.status === 'running' || this.processStatus.status === 'starting') {
       throw new Error('NeofuraNode is already marked as running');
     }
@@ -87,13 +162,16 @@ export class NeofuraNode extends BaseNode {
   }
 
   /**
-   * Override BaseNode.stop(): mark observed-target as stopped
-   * without killing any process — NeoNexus does not own the
-   * neofura process lifecycle. Mirror the start() reasoning: gate
-   * on the status field, not BaseNode.isRunning(), since
-   * `this.process` is always null.
+   * In managed mode: delegate to BaseNode.stop() so the spawned
+   * process is signaled and reaped. In observe mode: flip the
+   * status field — NeoNexus doesn't own the process so nothing
+   * to kill.
    */
-  async stop(_force = false): Promise<void> {
+  async stop(force = false): Promise<void> {
+    if (this.getMode() === 'managed') {
+      await super.stop(force);
+      return;
+    }
     if (this.processStatus.status !== 'running' && this.processStatus.status !== 'starting') {
       this.processStatus.status = 'stopped';
       return;
@@ -120,6 +198,10 @@ export class NeofuraNode extends BaseNode {
    * (/<root>/summary returns { data: { last_indexed_block, ... } }).
    * Returns null on any failure so the caller can render
    * "indexer offline" without crashing.
+   *
+   * In managed mode, calling this before the process is fully
+   * listening will return null — the dashboard's existing stalled-
+   * sync detection will surface that as a transient condition.
    */
   async getBlockHeight(): Promise<number | null> {
     const endpoint = this.getEndpoint();
