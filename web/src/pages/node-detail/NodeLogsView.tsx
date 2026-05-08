@@ -14,7 +14,14 @@ interface NodeLogsViewProps {
   nodeId: string;
   realtimeLogs: LogEntry[];
   connected: boolean;
+  // Sidecars (e.g. neofura) run as external systemd services — NeoNexus
+  // doesn't own their stdout, so live logs aren't available. The empty
+  // state tells the operator where to look instead of falsely promising
+  // logs that will never appear.
+  nodeType?: string;
 }
+
+const SIDECAR_NODE_TYPES = new Set(['neofura']);
 
 function getLogColor(level: string) {
   switch (level.toLowerCase()) {
@@ -31,20 +38,25 @@ export function NodeLogsToolbar({
   onToggleFollow,
   onCopy,
   onClear,
+  isSidecar = false,
 }: {
   connected: boolean;
   following: boolean;
   onToggleFollow: () => void;
   onCopy: () => void;
   onClear: () => void;
+  isSidecar?: boolean;
 }) {
+  const statusText = isSidecar
+    ? 'External process — log capture unavailable'
+    : connected
+      ? 'Live stream connected · Last 50 entries'
+      : 'Reconnecting live stream · Last 50 entries';
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h3 className="text-lg font-semibold text-slate-950">Logs</h3>
-        <span className="text-sm text-slate-600">
-          {connected ? 'Live stream connected' : 'Reconnecting live stream'} · Last 50 entries
-        </span>
+        <span className="text-sm text-slate-600">{statusText}</span>
       </div>
       <div className="flex flex-wrap gap-2">
         <button type="button" className="btn btn-secondary" onClick={onToggleFollow}>
@@ -64,7 +76,8 @@ export function NodeLogsToolbar({
   );
 }
 
-export function NodeLogsView({ nodeId, realtimeLogs, connected }: NodeLogsViewProps) {
+export function NodeLogsView({ nodeId, realtimeLogs, connected, nodeType }: NodeLogsViewProps) {
+  const isSidecar = nodeType ? SIDECAR_NODE_TYPES.has(nodeType) : false;
   const { data: logs = [] } = useNodeLogs(nodeId, 50);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -107,6 +120,7 @@ export function NodeLogsView({ nodeId, realtimeLogs, connected }: NodeLogsViewPr
           onToggleFollow={() => setFollowing((value) => !value)}
           onCopy={handleCopy}
           onClear={handleClear}
+          isSidecar={isSidecar}
         />
       </div>
       <div
@@ -115,11 +129,19 @@ export function NodeLogsView({ nodeId, realtimeLogs, connected }: NodeLogsViewPr
         className="log-console rounded-lg p-4 font-mono text-xs max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent shadow-inner"
       >
         {displayedLogs.length === 0 ? (
-          <EmptyState
-            icon={FileText}
-            title="No logs yet"
-            description="Logs will appear here when the node is running"
-          />
+          isSidecar ? (
+            <EmptyState
+              icon={FileText}
+              title="Log capture not supported"
+              description="This is an observe-only sidecar — NeoNexus doesn't own its stdout. View logs on the host with: journalctl -u <service> -f"
+            />
+          ) : (
+            <EmptyState
+              icon={FileText}
+              title="No logs yet"
+              description="Logs will appear here when the node is running"
+            />
+          )
         ) : (
           <div className="space-y-1">
             {displayedLogs.map((log) => (

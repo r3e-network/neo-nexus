@@ -521,7 +521,7 @@ export default function NodeDetail() {
 
       {/* Logs Tab */}
       {activeTab === 'logs' && (
-        <NodeLogsView nodeId={id} realtimeLogs={realtimeLogs} connected={connected} />
+        <NodeLogsView nodeId={id} realtimeLogs={realtimeLogs} connected={connected} nodeType={node.type} />
       )}
 
       <ConfirmDialog
