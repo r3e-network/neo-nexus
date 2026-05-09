@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, Globe, Loader2, Network, Plus, RefreshCw, Server, Trash2 } from "lucide-react";
+import { AlertCircle, ExternalLink, Globe, Loader2, Network, Plus, RefreshCw, Server, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FeedbackBanner } from "../components/FeedbackBanner";
 import { CardSkeleton } from "../components/LoadingSkeleton";
@@ -370,15 +370,36 @@ export default function Servers() {
                   <p className="text-sm text-slate-600">No remote nodes reported.</p>
                 ) : (
                   <div className="space-y-3">
-                    {selectedServer.nodes.map((node) => (
-                      <div key={node.id} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                    {selectedServer.nodes.map((node) => {
+                      // Remote-server nodes live on a different NeoNexus instance,
+                      // so the detail page exists at <baseUrl>/nodes/<id>. Open in
+                      // a new tab — staying on the local Servers page lets the
+                      // operator scan multiple nodes without losing context.
+                      const remoteHref = selectedServer.profile.baseUrl
+                        ? `${selectedServer.profile.baseUrl.replace(/\/+$/, "")}/nodes/${node.id}`
+                        : null;
+                      return (
+                      <div key={node.id} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 transition-colors hover:bg-slate-100">
                         <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
                               <Server className="w-4 h-4 text-blue-400" />
                             </div>
-                            <div>
-                              <p className="font-medium text-slate-950">{node.name}</p>
+                            <div className="min-w-0">
+                              {remoteHref ? (
+                                <a
+                                  href={remoteHref}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-medium text-slate-950 hover:text-teal-700 inline-flex items-center gap-1.5"
+                                  title={`Open ${node.name} on ${selectedServer.profile.name}`}
+                                >
+                                  {node.name}
+                                  <ExternalLink className="w-3 h-3 opacity-60" aria-hidden="true" />
+                                </a>
+                              ) : (
+                                <p className="font-medium text-slate-950">{node.name}</p>
+                              )}
                               <p className="text-xs text-slate-600">{node.type} • {node.network} • {formatVersion(node.version)}</p>
                             </div>
                           </div>
@@ -404,7 +425,8 @@ export default function Servers() {
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
             </div>
