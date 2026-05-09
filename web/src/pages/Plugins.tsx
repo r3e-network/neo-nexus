@@ -258,9 +258,9 @@ export default function Plugins() {
             </p>
           )}
         </div>
-        <div className="w-full max-w-md">
+        <div className="flex w-full max-w-md items-center gap-2">
           <select
-            className="select"
+            className="select flex-1"
             value={selectedNodeId}
             onChange={(event) => setSelectedNodeId(event.target.value)}
           >
@@ -270,6 +270,15 @@ export default function Plugins() {
               </option>
             ))}
           </select>
+          {selectedNodeId && (
+            <Link
+              to={`/nodes/${selectedNodeId}`}
+              className="text-sm font-medium text-teal-700 hover:text-teal-800 whitespace-nowrap"
+              title="Open this node's detail page"
+            >
+              View node →
+            </Link>
+          )}
         </div>
       </div>
 
