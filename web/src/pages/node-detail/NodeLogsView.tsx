@@ -3,6 +3,7 @@ import { ClipboardCopy, FileText, Pause, Play, Trash2 } from 'lucide-react';
 import { useNodeLogs } from '../../hooks/useNodes';
 import { mergeNodeLogs } from '../../utils/realtime';
 import { EmptyState } from '../../components/EmptyState';
+import { isSidecarNodeType } from '../../utils/nodeKind';
 
 interface LogEntry {
   timestamp: number;
@@ -20,8 +21,6 @@ interface NodeLogsViewProps {
   // logs that will never appear.
   nodeType?: string;
 }
-
-const SIDECAR_NODE_TYPES = new Set(['neofura']);
 
 function getLogColor(level: string) {
   switch (level.toLowerCase()) {
@@ -77,7 +76,7 @@ export function NodeLogsToolbar({
 }
 
 export function NodeLogsView({ nodeId, realtimeLogs, connected, nodeType }: NodeLogsViewProps) {
-  const isSidecar = nodeType ? SIDECAR_NODE_TYPES.has(nodeType) : false;
+  const isSidecar = isSidecarNodeType(nodeType);
   const { data: logs = [] } = useNodeLogs(nodeId, 50);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
