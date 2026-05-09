@@ -358,9 +358,14 @@ export default function PublicDashboard() {
           ) : (
             <div className="space-y-4">
               {nodes.map((node) => (
-                <div
+                // Public dashboard is unauthenticated; clicking a node card
+                // routes to /nodes/<id>. Authenticated operators land on the
+                // detail page directly; anonymous users hit the login wall
+                // first, which is the correct gate for managed-node detail.
+                <Link
                   key={node.id}
-                  className="p-4 bg-slate-50 rounded-lg border border-slate-200"
+                  to={`/nodes/${node.id}`}
+                  className="block p-4 bg-slate-50 rounded-lg border border-slate-200 transition-colors hover:bg-slate-100 hover:border-slate-300"
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
@@ -441,7 +446,7 @@ export default function PublicDashboard() {
                       </div>
                     </div>
                   )}
-                </div>
+                </Link>
               ))}
             </div>
           )}
