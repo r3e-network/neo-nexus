@@ -162,15 +162,19 @@ export function createPublicRouter(nodeManager: NodeManager, metricsCollector: M
   router.get("/metrics/nodes", (req: Request, res: Response) => {
     try {
       const nodes = nodeManager.getAllNodes();
-      
+
+      // Preserve null for fields a sidecar (e.g. neofura) doesn't expose.
+      // Coercing to 0 conflates "not available" with "actually zero" and
+      // makes external monitoring dashboards interpret a healthy sidecar
+      // as a node with 0 peers / 0% CPU.
       const metrics = nodes.map(node => ({
         id: node.id,
         name: node.name,
         status: node.process.status,
-        blockHeight: node.metrics?.blockHeight ?? 0,
-        peers: node.metrics?.connectedPeers ?? 0,
-        cpuUsage: node.metrics?.cpuUsage ?? 0,
-        memoryUsage: node.metrics?.memoryUsage ?? 0,
+        blockHeight: node.metrics?.blockHeight ?? null,
+        peers: node.metrics?.connectedPeers ?? null,
+        cpuUsage: node.metrics?.cpuUsage ?? null,
+        memoryUsage: node.metrics?.memoryUsage ?? null,
         lastUpdate: node.metrics?.lastUpdate,
       }));
 
