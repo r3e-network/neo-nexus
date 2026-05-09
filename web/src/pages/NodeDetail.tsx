@@ -232,7 +232,13 @@ export default function NodeDetail() {
               onClick={handleRestart}
               disabled={node.process.status !== 'running' || isRestarting || !canControlLifecycle}
               className="btn btn-secondary"
-              title={canControlLifecycle ? 'Restart node' : 'Lifecycle locked by imported ownership mode'}
+              title={
+                !canControlLifecycle
+                  ? 'Lifecycle locked by imported ownership mode'
+                  : isSidecarNodeType(node.type)
+                    ? 'Re-arm polling for this sidecar (the upstream indexer is unaffected)'
+                    : 'Restart node'
+              }
               aria-label="Restart node"
             >
               {isRestarting ? (
