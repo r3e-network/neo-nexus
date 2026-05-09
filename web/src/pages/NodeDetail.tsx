@@ -8,7 +8,7 @@ import { formatBytes, formatDuration, formatVersion } from '../utils/format';
 import { NodeConfigEditor } from './node-detail/NodeConfigEditor';
 import { NodeLogsView } from './node-detail/NodeLogsView';
 import { NodeOrchestrationPanel } from './node-detail/NodeOrchestrationPanel';
-import { isSidecarNodeType } from '../utils/nodeKind';
+import { isSidecarNodeType, nodeOwnershipLabel as ownershipLabel } from '../utils/nodeKind';
 import { NodeProtectionLabel } from '../components/NodeProtectionLabel';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ApiRequestError } from '../utils/api';
@@ -18,14 +18,6 @@ import {
   blockHeightProgressClass,
   getBlockHeightStatus,
 } from '../utils/blockHeightStatus';
-
-function ownershipLabel(node: NonNullable<ReturnType<typeof useNode>['data']>) {
-  if (!node.settings?.import) return 'NeoNexus managed';
-  const mode = node.settings.import.ownershipMode ?? 'observe-only';
-  if (mode === 'managed-process') return 'Imported · process managed';
-  if (mode === 'managed-config') return 'Imported · config managed';
-  return 'Imported · observe only';
-}
 
 function lifecycleAllowed(node: NonNullable<ReturnType<typeof useNode>['data']>) {
   return !node.settings?.import || node.settings.import.ownershipMode === 'managed-process';

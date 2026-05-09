@@ -27,16 +27,9 @@ import { SpinnerButton } from "../components/SpinnerButton";
 import { useDeleteNode, useNetworkHeight, useNodes, useStartNode, useStopNode, type Node } from "../hooks/useNodes";
 import { useAuth } from "../hooks/useAuth";
 import { getBlockHeightStatus } from "../utils/blockHeightStatus";
+import { nodeOwnershipLabel as ownershipLabel } from "../utils/nodeKind";
 
 type NodeFilter = "all" | "running" | "needs-attention" | "protected" | "imported";
-
-function ownershipLabel(node: Node) {
-  if (!node.settings?.import) return "NeoNexus managed";
-  const mode = node.settings.import.ownershipMode ?? "observe-only";
-  if (mode === "managed-process") return "Imported · process managed";
-  if (mode === "managed-config") return "Imported · config managed";
-  return "Imported · observe only";
-}
 
 function lifecycleAllowed(node: Node) {
   return !node.settings?.import || node.settings.import.ownershipMode === "managed-process";
