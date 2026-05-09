@@ -4,6 +4,7 @@ import { AlertTriangle, Info, Puzzle, Server, ShieldCheck } from "lucide-react";
 import { FeedbackBanner } from "../components/FeedbackBanner";
 import { CardSkeleton } from "../components/LoadingSkeleton";
 import { type Node, useNodes } from "../hooks/useNodes";
+import { nodeOwnershipLabel } from "../utils/nodeKind";
 import {
   type InstalledPlugin,
   type PluginDefinition,
@@ -254,7 +255,7 @@ export default function Plugins() {
           {selectedNode && (
             <p className="mt-2 inline-flex items-center gap-2 text-xs text-slate-500">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-              Ownership: {selectedNode.settings?.import?.ownershipMode ?? "NeoNexus managed"}
+              Ownership: {nodeOwnershipLabel(selectedNode)}
             </p>
           )}
         </div>
