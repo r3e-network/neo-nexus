@@ -22,19 +22,11 @@ import { NodeProtectionLabel } from "../components/NodeProtectionLabel";
 import { ProgressBar } from "../components/ProgressBar";
 import { SignerStatus } from "../components/SignerStatus";
 import { useAuth } from "../hooks/useAuth";
-import { useNetworkHeight, useNodes, useSystemMetrics, type Node } from "../hooks/useNodes";
+import { useNetworkHeight, useNodes, useSystemMetrics } from "../hooks/useNodes";
 import { getBlockHeightStatus } from "../utils/blockHeightStatus";
 import { formatBytes } from "../utils/format";
 import { countProtectedNodes } from "../utils/signerVisibility";
-
-function nodeOwnershipLabel(node: Node) {
-  if (!node.settings?.import) return "NeoNexus managed";
-  return node.settings.import.ownershipMode === "managed-process"
-    ? "Imported · managed process"
-    : node.settings.import.ownershipMode === "managed-config"
-      ? "Imported · managed config"
-      : "Imported · observe only";
-}
+import { nodeOwnershipLabel } from "../utils/nodeKind";
 
 function healthTone(value: number) {
   if (value >= 90) return "text-emerald-700";
