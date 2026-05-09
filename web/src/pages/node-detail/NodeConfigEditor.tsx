@@ -329,44 +329,71 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-            <div>
-              <p className="text-slate-600">Max Connections</p>
-              <p className="text-slate-950">{node.settings?.maxConnections ?? 'Default'}</p>
+          {/*
+            Peer/protocol/signer rows describe spawned-process knobs and
+            don't apply to sidecars (e.g. neofura runs as an external
+            systemd service whose config is managed on the host). Showing
+            them as "Default / Enabled / Standard local wallet" misled
+            operators into thinking NeoNexus had set those values.
+          */}
+          {!isSidecar && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+              <div>
+                <p className="text-slate-600">Max Connections</p>
+                <p className="text-slate-950">{node.settings?.maxConnections ?? 'Default'}</p>
+              </div>
+              <div>
+                <p className="text-slate-600">Min Peers</p>
+                <p className="text-slate-950">{node.settings?.minPeers ?? 'Default'}</p>
+              </div>
+              <div>
+                <p className="text-slate-600">Max Peers</p>
+                <p className="text-slate-950">{node.settings?.maxPeers ?? 'Default'}</p>
+              </div>
+              <div>
+                <p className="text-slate-600">Relay</p>
+                <p className="text-slate-950">{node.settings?.relay === false ? 'Disabled' : 'Enabled'}</p>
+              </div>
+              <div>
+                <p className="text-slate-600">Debug Mode</p>
+                <p className="text-slate-950">{node.settings?.debugMode ? 'Enabled' : 'Disabled'}</p>
+              </div>
+              <div>
+                <p className="text-slate-600">Custom Config</p>
+                <p className="text-slate-950">{node.settings?.customConfig ? 'Present' : 'None'}</p>
+              </div>
+              <div>
+                <p className="text-slate-600">Key Protection</p>
+                <p className="text-slate-950">
+                  {node.settings?.keyProtection?.mode === 'secure-signer' ? 'Secure signer / TEE' : 'Standard local wallet'}
+                </p>
+              </div>
+              <div>
+                <p className="text-slate-600">Signer Profile</p>
+                <p className="text-slate-950">
+                  {node.settings?.keyProtection?.signerProfileId || 'None'}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-slate-600">Min Peers</p>
-              <p className="text-slate-950">{node.settings?.minPeers ?? 'Default'}</p>
+          )}
+          {isSidecar && (
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-slate-600">Endpoint</p>
+                <p className="text-slate-950 break-words font-mono text-xs">
+                  {(node.settings?.customConfig as Record<string, unknown> | undefined)?.endpoint as string ?? '—'}
+                </p>
+              </div>
+              <div>
+                <p className="text-slate-600">Mode</p>
+                <p className="text-slate-950">
+                  {(node.settings?.customConfig as Record<string, unknown> | undefined)?.binaryPath
+                    ? 'Managed process'
+                    : 'Observe only'}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-slate-600">Max Peers</p>
-              <p className="text-slate-950">{node.settings?.maxPeers ?? 'Default'}</p>
-            </div>
-            <div>
-              <p className="text-slate-600">Relay</p>
-              <p className="text-slate-950">{node.settings?.relay === false ? 'Disabled' : 'Enabled'}</p>
-            </div>
-            <div>
-              <p className="text-slate-600">Debug Mode</p>
-              <p className="text-slate-950">{node.settings?.debugMode ? 'Enabled' : 'Disabled'}</p>
-            </div>
-            <div>
-              <p className="text-slate-600">Custom Config</p>
-              <p className="text-slate-950">{node.settings?.customConfig ? 'Present' : 'None'}</p>
-            </div>
-            <div>
-              <p className="text-slate-600">Key Protection</p>
-              <p className="text-slate-950">
-                {node.settings?.keyProtection?.mode === 'secure-signer' ? 'Secure signer / TEE' : 'Standard local wallet'}
-              </p>
-            </div>
-            <div>
-              <p className="text-slate-600">Signer Profile</p>
-              <p className="text-slate-950">
-                {node.settings?.keyProtection?.signerProfileId || 'None'}
-              </p>
-            </div>
-          </div>
+          )}
         </div>
       )}
     </div>
