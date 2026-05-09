@@ -197,4 +197,36 @@ describe("Public routes", () => {
       },
     ]);
   });
+
+  it("preserves null for metrics a sidecar node doesn't expose", async () => {
+    // Sidecars (e.g. neofura) don't report peer counts or process-level
+    // CPU/memory. Returning 0 here would make external monitoring dashboards
+    // (Grafana, Datadog) misread a healthy sidecar as a node with 0 peers
+    // and 0% CPU.
+    nodeManager.getAllNodes.mockReturnValue([
+      createNode({
+        type: "neofura",
+        metrics: {
+          blockHeight: 9_700_000,
+          headerHeight: 9_700_000,
+          connectedPeers: null,
+          unconnectedPeers: null,
+          syncProgress: 100,
+          cpuUsage: null,
+          memoryUsage: null,
+          lastUpdate: 1_700_000_000_000,
+        },
+      }),
+    ]);
+
+    const response = await request(app).get("/api/public/metrics/nodes");
+
+    expect(response.status).toBe(200);
+    expect(response.body.metrics[0]).toMatchObject({
+      blockHeight: 9_700_000,
+      peers: null,
+      cpuUsage: null,
+      memoryUsage: null,
+    });
+  });
 });
