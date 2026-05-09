@@ -259,7 +259,17 @@ export default function NodeDetail() {
           <div className="stat-tile">
             <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Private keys</p>
             <p className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-teal-800">
-              <KeyRound className="h-4 w-4" /> {node.settings?.keyProtection?.mode === 'secure-signer' ? 'Secure signer' : 'Local wallet'}
+              <KeyRound className="h-4 w-4" />
+              {/*
+                Sidecars (e.g. neofura) are observe-only indexers — they
+                don't sign anything, so the wallet/signer indicator was
+                semantically wrong. Treat them as "Not applicable".
+              */}
+              {isSidecarNodeType(node.type)
+                ? 'Not applicable'
+                : node.settings?.keyProtection?.mode === 'secure-signer'
+                  ? 'Secure signer'
+                  : 'Local wallet'}
             </p>
           </div>
           <div className="stat-tile">
