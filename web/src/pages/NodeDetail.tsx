@@ -8,6 +8,7 @@ import { formatBytes, formatDuration, formatVersion } from '../utils/format';
 import { NodeConfigEditor } from './node-detail/NodeConfigEditor';
 import { NodeLogsView } from './node-detail/NodeLogsView';
 import { NodeOrchestrationPanel } from './node-detail/NodeOrchestrationPanel';
+import { isSidecarNodeType } from '../utils/nodeKind';
 import { NodeProtectionLabel } from '../components/NodeProtectionLabel';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ApiRequestError } from '../utils/api';
@@ -405,7 +406,17 @@ export default function NodeDetail() {
               </div>
             )}
 
-            <NodeOrchestrationPanel node={node} />
+            {/*
+              Role orchestration / data contexts / snapshots are all
+              concepts NeoNexus drives via the spawned process and its
+              config files. Sidecars (e.g. neofura) run externally — the
+              panel would render but every action would no-op or break,
+              and "No compatible roles" + "No compatible snapshots"
+              banners just add noise.
+            */}
+            {!isSidecarNodeType(node.type) && (
+              <NodeOrchestrationPanel node={node} />
+            )}
 
             <NodeConfigEditor node={node} />
           </div>
