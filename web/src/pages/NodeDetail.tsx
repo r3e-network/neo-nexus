@@ -198,7 +198,13 @@ export default function NodeDetail() {
                 onClick={() => stopNode.mutate({ id: node.id })}
                 disabled={stopNode.isPending || !canControlLifecycle}
                 className="btn btn-error"
-                title={canControlLifecycle ? 'Stop node' : 'Lifecycle locked by imported ownership mode'}
+                title={
+                  !canControlLifecycle
+                    ? 'Lifecycle locked by imported ownership mode'
+                    : isSidecarNodeType(node.type)
+                      ? 'Stop polling this sidecar (does not stop the upstream indexer process)'
+                      : 'Stop node'
+                }
                 aria-label="Stop node"
               >
                 <Square className="w-4 h-4" />
@@ -209,7 +215,13 @@ export default function NodeDetail() {
                 onClick={() => startNode.mutate(node.id)}
                 disabled={startNode.isPending || !canControlLifecycle}
                 className="btn btn-success"
-                title={canControlLifecycle ? 'Start node' : 'Lifecycle locked by imported ownership mode'}
+                title={
+                  !canControlLifecycle
+                    ? 'Lifecycle locked by imported ownership mode'
+                    : isSidecarNodeType(node.type)
+                      ? 'Resume polling this sidecar (the upstream indexer is unaffected)'
+                      : 'Start node'
+                }
                 aria-label="Start node"
               >
                 <Play className="w-4 h-4" />
