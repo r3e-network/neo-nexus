@@ -75,6 +75,10 @@ export default function Agent() {
           setActiveId(convBody.conversations[0].id);
         }
       } catch (err) {
+        // Aborted requests (component unmount, route change) aren't user
+        // failures — surfacing them as "Failed to load agent" caused a
+        // banner flash on quick navigation between pages.
+        if (err instanceof Error && (err.name === 'AbortError' || (err as Error & { code?: string }).code === 'ERR_CANCELED')) return;
         setError(err instanceof Error ? err.message : 'Failed to load agent');
       }
     })();
