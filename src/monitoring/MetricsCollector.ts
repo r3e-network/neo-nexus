@@ -13,7 +13,8 @@ interface SystemInformationFacade {
     available?: number;
   }>;
   fsSize(): Promise<Array<{ size: number; used: number; use: number; mount?: string; type?: string; fs?: string }>>;
-  networkStats(): Promise<Array<{ rx_bytes: number; tx_bytes: number }>>;
+  networkStats(iface?: string): Promise<Array<{ iface?: string; rx_bytes: number; tx_bytes: number }>>;
+  networkInterfaceDefault?(): Promise<string>;
   processes(): Promise<{
     list: Array<{
       pid: number;
@@ -136,11 +137,37 @@ export class MetricsCollector {
 
   /**
    * Get network metrics (delta since last call)
+   *
+   * networkStats() returns every interface — lo, docker0, vethXXX,
+   * br-XXX, etc. Picking [0] caused the dashboard to sometimes report
+   * loopback or container-bridge traffic as "host network", which on a
+   * box with docker is mostly noise. Resolve the default-route
+   * interface (the one that egresses to the internet) and aggregate just
+   * that. Falls back to the first non-virtual interface if the default
+   * lookup isn't supported.
    */
   private async getNetworkMetrics(): Promise<{ rx: number; tx: number }> {
     const si = await getSystemInformation();
-    const network = await si.networkStats();
-    const mainInterface = network[0];
+
+    let defaultIface: string | null = null;
+    try {
+      defaultIface = (await si.networkInterfaceDefault?.()) ?? null;
+    } catch {
+      defaultIface = null;
+    }
+
+    const network = defaultIface
+      ? await si.networkStats(defaultIface)
+      : await si.networkStats();
+
+    const VIRTUAL_PREFIXES = ['lo', 'docker', 'veth', 'br-', 'virbr', 'cni', 'flannel', 'tailscale'];
+    const isVirtual = (name?: string) =>
+      typeof name === 'string' && VIRTUAL_PREFIXES.some((prefix) => name === prefix || name.startsWith(prefix));
+
+    const mainInterface =
+      network.find((entry) => entry.iface === defaultIface) ??
+      network.find((entry) => !isVirtual(entry.iface)) ??
+      network[0];
 
     if (!mainInterface) {
       return { rx: 0, tx: 0 };
