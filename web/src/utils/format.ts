@@ -10,11 +10,18 @@ export function formatBytes(bytes: number): string {
  * Render a release tag as "v1.2.3" regardless of whether the stored value
  * already has a leading "v". Without this, places like "v{node.version}"
  * render "vv1.2.3" when the stored version is "v1.2.3".
+ *
+ * For non-semver labels (e.g. sidecars persist `version: "external"` to
+ * mark "NeoNexus didn't download a binary"), skip the v-prefix entirely
+ * so the UI doesn't show "vexternal". Heuristic: only prepend "v" when
+ * the value starts with a digit.
  */
 export function formatVersion(version: string | undefined | null): string {
   const trimmed = (version ?? '').trim();
   if (!trimmed) return '';
-  return trimmed.startsWith('v') ? trimmed : `v${trimmed}`;
+  if (trimmed.startsWith('v')) return trimmed;
+  if (/^\d/.test(trimmed)) return `v${trimmed}`;
+  return trimmed;
 }
 
 export function formatDuration(ms: number): string {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatBytes, formatDuration } from "../src/utils/format";
+import { formatBytes, formatDuration, formatVersion } from "../src/utils/format";
 import { hasPluginConfigChanges } from "../src/pages/plugins/PluginCard";
 import { nextSaveAndTestEnabledState } from "../src/components/IntegrationCard";
 import { getPublicDashboardFreshness, PUBLIC_DASHBOARD_STALE_AFTER_MS } from "../src/pages/PublicDashboard";
@@ -14,6 +14,25 @@ describe("frontend formatting utilities", () => {
     expect(formatBytes(0)).toBe("0 B");
     expect(formatBytes(1024)).toBe("1 KB");
     expect(formatBytes(1.5 * 1024 * 1024)).toBe("1.5 MB");
+  });
+
+  it("formats version tags without double-prefixing 'v'", () => {
+    expect(formatVersion("3.5.2")).toBe("v3.5.2");
+    expect(formatVersion("v3.5.2")).toBe("v3.5.2");
+  });
+
+  it("leaves non-semver labels (e.g. 'external' on sidecars) unprefixed", () => {
+    // Sidecars persist `version: "external"`; rendering "vexternal" was
+    // ugly and operationally wrong since there's no such version.
+    expect(formatVersion("external")).toBe("external");
+    expect(formatVersion("nightly")).toBe("nightly");
+  });
+
+  it("returns empty string for null/undefined/empty input", () => {
+    expect(formatVersion(null)).toBe("");
+    expect(formatVersion(undefined)).toBe("");
+    expect(formatVersion("")).toBe("");
+    expect(formatVersion("   ")).toBe("");
   });
 
   it("formats uptime durations compactly", () => {
