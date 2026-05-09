@@ -143,6 +143,23 @@ describe("Public routes", () => {
     expect(response.body.peers).toBe(0);
   });
 
+  it("reports a running sidecar (peers=null) as healthy", async () => {
+    // Sidecars (e.g. neofura) don't expose a peer count, so connectedPeers
+    // is null. Without special handling the previous `peers > 0` check
+    // marked every running sidecar as healthy=false, which broke external
+    // monitoring (curl /health | jq .healthy).
+    nodeManager.getNode.mockReturnValue(createNode({
+      type: "neofura",
+      metrics: { ...baseMetrics, connectedPeers: null },
+    }));
+
+    const response = await request(app).get("/api/public/nodes/node-1/health");
+
+    expect(response.status).toBe(200);
+    expect(response.body.healthy).toBe(true);
+    expect(response.body.peers).toBeNull();
+  });
+
   it("returns status summary derived from node process status and metrics", async () => {
     nodeManager.getAllNodes.mockReturnValue([
       createNode({ id: "running", process: { status: "running" }, metrics: { ...baseMetrics, blockHeight: 100, connectedPeers: 3 } }),
