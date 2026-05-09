@@ -4,6 +4,7 @@ import { useUpdateNode, type Node } from '../../hooks/useNodes';
 import { useSecureSigners } from '../../hooks/useSecureSigners';
 import { normalizeNodeUpsertPayload, toNodeFormValues } from '../../utils/nodePayloads';
 import { FeedbackBanner } from '../../components/FeedbackBanner';
+import { isSidecarNodeType } from '../../utils/nodeKind';
 
 interface NodeConfigEditorProps {
   node: Node;
@@ -23,12 +24,17 @@ export function NodeConfigEditor({ node }: NodeConfigEditorProps) {
     }
   }, [node, isEditing]);
 
-  const canEditConfiguration = !node.settings?.import || node.settings.import.ownershipMode === 'managed-config' || node.settings.import.ownershipMode === 'managed-process';
-  const editDisabledReason = !canEditConfiguration
-    ? 'This imported node is observe-only. Upgrade ownership before editing configuration or key protection.'
-    : node.process.status === 'running'
-      ? 'Stop the node to edit configuration'
-      : '';
+  const isSidecar = isSidecarNodeType(node.type);
+  const canEditConfiguration =
+    !isSidecar &&
+    (!node.settings?.import || node.settings.import.ownershipMode === 'managed-config' || node.settings.import.ownershipMode === 'managed-process');
+  const editDisabledReason = isSidecar
+    ? 'Sidecar nodes (e.g. neofura) are managed externally — edit their config on the host (e.g. /opt/neo3fura/config.yml) and restart the upstream service.'
+    : !canEditConfiguration
+      ? 'This imported node is observe-only. Upgrade ownership before editing configuration or key protection.'
+      : node.process.status === 'running'
+        ? 'Stop the node to edit configuration'
+        : '';
   const enabledSecureSigners = (secureSigners.data ?? []).filter((profile) => profile.enabled);
 
   const handleSave = async () => {
