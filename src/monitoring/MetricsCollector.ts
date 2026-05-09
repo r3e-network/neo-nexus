@@ -12,7 +12,7 @@ interface SystemInformationFacade {
     active?: number;
     available?: number;
   }>;
-  fsSize(): Promise<Array<{ size: number; used: number; use: number }>>;
+  fsSize(): Promise<Array<{ size: number; used: number; use: number; mount?: string; type?: string; fs?: string }>>;
   networkStats(): Promise<Array<{ rx_bytes: number; tx_bytes: number }>>;
   processes(): Promise<{
     list: Array<{
@@ -100,11 +100,27 @@ export class MetricsCollector {
 
   /**
    * Get disk metrics
+   *
+   * fsSize() returns *every* mounted filesystem in implementation-defined
+   * order — picking [0] gave whatever the kernel happened to enumerate
+   * first, which on hosts with docker / overlay / tmpfs mounts could be
+   * a 5MB tmpfs reading 0% used. Operationally the dashboard wants the
+   * filesystem the operator cares about: the root volume. Prefer the
+   * mount at "/", then fall back to the largest non-pseudo filesystem.
    */
   private async getDiskMetrics(): Promise<SystemMetrics['disk']> {
     const si = await getSystemInformation();
     const fs = await si.fsSize();
-    const mainFs = fs[0]; // Use first filesystem
+
+    // Skip pseudo / container-overlay filesystems; operators have no
+    // signal-to-noise from those numbers on the dashboard.
+    const PSEUDO_TYPES = new Set(['tmpfs', 'devtmpfs', 'overlay', 'squashfs', 'proc', 'sysfs', 'cgroup', 'cgroup2']);
+    const real = fs.filter((entry) => !entry.type || !PSEUDO_TYPES.has(entry.type.toLowerCase()));
+
+    const mainFs =
+      real.find((entry) => entry.mount === '/') ??
+      real.slice().sort((a, b) => (b.size || 0) - (a.size || 0))[0] ??
+      fs[0];
 
     if (!mainFs) {
       return { total: 0, used: 0, free: 0, percentage: 0 };
