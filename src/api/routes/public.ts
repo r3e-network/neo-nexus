@@ -109,14 +109,18 @@ export function createPublicRouter(nodeManager: NodeManager, metricsCollector: M
         return res.status(404).json({ error: "Node not found" });
       }
 
+      // For sidecars (e.g. neofura) connectedPeers is null because the
+      // sidecar doesn't expose a peer count. Treat unknown peers as healthy
+      // — otherwise every running sidecar reports healthy=false.
+      const peers = node.metrics?.connectedPeers ?? null;
       const isHealthy = node.process.status === "running" &&
-        (node.metrics?.connectedPeers ?? 0) > 0;
+        (peers === null || peers > 0);
 
       res.json({
         healthy: isHealthy,
         status: node.process.status,
-        blockHeight: node.metrics?.blockHeight ?? 0,
-        peers: node.metrics?.connectedPeers ?? 0,
+        blockHeight: node.metrics?.blockHeight ?? null,
+        peers,
         timestamp: Date.now(),
       });
     } catch (error) {
