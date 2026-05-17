@@ -2,14 +2,35 @@
 
 ## [Unreleased]
 
+## [2.5.3] - 2026-05-17
+
+### Security
+- Patched `systeminformation` to `^5.31.6` to clear the high-severity Linux command-injection advisory (GHSA-hvx9-hwr7-wjj9, CVE category CWE-78) affecting `networkInterfaces()` parsing of NetworkManager profile names.
+- Login now runs `bcrypt.compare` against a constant dummy hash when the requested username does not exist, so successful and failed logins take the same wall-clock time and remote attackers cannot enumerate valid usernames via timing.
+- The dev-mode JWT secret fallback now uses 32 bytes from `crypto.randomBytes` instead of `Math.random()`, eliminating a predictable secret if a developer forgets to set `JWT_SECRET` outside production.
+- `/api/public/*` endpoints no longer return raw `error.message` strings to unauthenticated callers; failures are logged server-side and the response is a generic 500 so internal paths or library traces never leak.
+- `validateNodePath` (used by `/api/nodes/detect`, `/scan`, and `/import`) now resolves symlinks with `realpathSync` and re-verifies the real path against the allow-list, closing a symlink-escape vector that could have leaked files outside `/home`, `/opt`, `/var/lib`, and the NeoNexus data directory.
+- Fast-sync local snapshot sources are restricted to the same allow-list (plus `os.tmpdir()` for staging), preventing operators from probing arbitrary files via the verify endpoint.
+- Telegram bot tokens and chat IDs are now validated against strict regexes before being interpolated into the request URL/body, preventing path-injection or unexpected payload shapes.
+- Failed and successful login attempts are now written to the audit log with username and IP (never the password) so operators can detect brute-force or credential-stuffing patterns.
+
 ### Changed
 - Grafana Cloud metrics now use Prometheus `remote_write` payloads with snappy compression instead of sending plain text to a remote-write endpoint.
 - Better Stack Logs now supports source-specific ingest URLs while keeping the default Better Stack ingest endpoint.
 - Better Stack Uptime and UptimeRobot now require a public health URL, preventing external monitors from being registered against local-only `localhost` addresses.
 - Compatible dependency updates refreshed Sentry, React, React Router, TanStack Query, better-sqlite3, tar, PostCSS, and TypeScript ESLint within the existing major-version ranges.
 
+### Fixed
+- Integration URL validation errors now respond with `INTEGRATION_CONFIG_INVALID` (HTTP 400) and a usable suggestion instead of being re-coded as `INTERNAL_ERROR` (HTTP 500).
+- `IntegrationCard` now surfaces save failures inline so a bad URL or DSN no longer silently fails — the user sees the exact API message.
+- Every integration provider field now has a proper `<label htmlFor>` ↔ `<input id>` association, satisfying Chrome / assistive-tech form-label heuristics.
+- README version badge and package manifests now point at `2.5.3`.
+
 ### Tested
 - Added provider-level tests for Grafana remote_write, Better Stack log ingest routing, and uptime public health URL registration.
+- Backend lint, test lint, typecheck, full backend test suite (668 tests across 82 files), and backend production build pass.
+- Frontend lint, typecheck, full frontend test suite (34 tests across 8 files), and production build pass.
+- `npm audit` reports zero vulnerabilities across all severities for both backend and frontend dependencies.
 
 ## [2.5.2] - 2026-05-06
 

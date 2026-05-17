@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express';
+import { existsSync, realpathSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 import type { NodeManager } from '../../core/NodeManager';
 import { ConfigManager } from '../../core/ConfigManager';
@@ -28,8 +29,33 @@ function validateNodePath(inputPath: string): string {
     throw Errors.pathBlocked(resolved);
   }
 
-  if (!allowedPrefixes.some((prefix) => isPathWithinOrEqual(resolved, prefix))) {
-    throw Errors.pathNotAllowed();
+  const candidates: string[] = [resolved];
+
+  // resolve() only normalizes the lexical path; it does not follow symlinks.
+  // A path like /home/operator/escape -> /etc/passwd would pass the allow-list
+  // check above but then leak files outside the allow-list once readFileSync
+  // (which does follow symlinks) is called. Canonicalize via realpathSync and
+  // verify the real path is still under an allowed prefix.
+  if (existsSync(resolved)) {
+    try {
+      const realPath = realpathSync(resolved);
+      if (realPath !== resolved) {
+        candidates.push(realPath);
+      }
+    } catch {
+      // realpathSync only fails on permission denied or races; fall back to the
+      // lexical path. The downstream existsSync check will fail safely in that
+      // case.
+    }
+  }
+
+  for (const candidate of candidates) {
+    if (blocked.includes(candidate)) {
+      throw Errors.pathBlocked(candidate);
+    }
+    if (!allowedPrefixes.some((prefix) => isPathWithinOrEqual(candidate, prefix))) {
+      throw Errors.pathNotAllowed();
+    }
   }
 
   return resolved;

@@ -7,6 +7,17 @@ export const telegramSchema: ConfigField[] = [
   { key: 'chatId', label: 'Chat ID', type: 'text', placeholder: '-1001234567890', required: true },
 ];
 
+// Telegram bot tokens are `<bot_id>:<token>` where bot_id is digits and the
+// token is base64url-ish (letters, digits, dash, underscore). The token is
+// interpolated into a URL path; without a strict format check a value such as
+// `evil@attacker.example.com/` could break out of the api.telegram.org host or
+// inject path segments that change request semantics.
+const TELEGRAM_BOT_TOKEN_PATTERN = /^\d{6,}:[A-Za-z0-9_-]{20,}$/;
+// Chat ID is also interpolated into the request body, but Telegram only
+// accepts integer IDs (positive or negative) or @-prefixed channel handles.
+// Disallow anything else so we never send unexpected payloads.
+const TELEGRAM_CHAT_ID_PATTERN = /^(?:-?\d+|@[A-Za-z][A-Za-z0-9_]{4,})$/;
+
 const SEVERITY_EMOJI: Record<string, string> = {
   info: '\u2139\ufe0f',
   warning: '\u26a0\ufe0f',
@@ -16,7 +27,14 @@ const SEVERITY_EMOJI: Record<string, string> = {
 export class TelegramProvider implements NotificationProvider {
   readonly name = 'Telegram';
 
-  constructor(private config: { botToken: string; chatId: string }) {}
+  constructor(private config: { botToken: string; chatId: string }) {
+    if (!TELEGRAM_BOT_TOKEN_PATTERN.test(config.botToken.trim())) {
+      throw new Error('Invalid Telegram bot token format');
+    }
+    if (!TELEGRAM_CHAT_ID_PATTERN.test(config.chatId.trim())) {
+      throw new Error('Invalid Telegram chat id format');
+    }
+  }
 
   async notify(event: IntegrationEvent): Promise<void> {
     const emoji = SEVERITY_EMOJI[event.severity] || '\u2139\ufe0f';

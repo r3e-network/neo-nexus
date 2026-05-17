@@ -18,6 +18,7 @@ export function IntegrationCard({ integration, onSave, onTest, isSaving, isTesti
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [enabled, setEnabled] = useState(integration.enabled);
   const [testResult, setTestResult] = useState<{ success: boolean; error?: string } | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [revealedFields, setRevealedFields] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -25,25 +26,50 @@ export function IntegrationCard({ integration, onSave, onTest, isSaving, isTesti
     setEnabled(integration.enabled);
   }, [integration]);
 
+  const formatError = (error: unknown): string => {
+    if (error instanceof Error) return error.message;
+    return typeof error === 'string' ? error : 'Failed to save integration.';
+  };
+
   const handleSaveAndTest = async () => {
     setTestResult(null);
+    setSaveError(null);
     const nextEnabled = nextSaveAndTestEnabledState(enabled);
-    await onSave(integration.id, formValues, nextEnabled);
-    const result = await onTest(integration.id);
-    setTestResult(result);
+    try {
+      await onSave(integration.id, formValues, nextEnabled);
+    } catch (error) {
+      setSaveError(formatError(error));
+      return;
+    }
+    try {
+      const result = await onTest(integration.id);
+      setTestResult(result);
+    } catch (error) {
+      setTestResult({ success: false, error: formatError(error) });
+    }
     setEnabled(nextEnabled);
   };
 
   const handleEnable = async () => {
     setTestResult(null);
-    await onSave(integration.id, formValues, true);
-    setEnabled(true);
+    setSaveError(null);
+    try {
+      await onSave(integration.id, formValues, true);
+      setEnabled(true);
+    } catch (error) {
+      setSaveError(formatError(error));
+    }
   };
 
   const handleDisable = async () => {
     setTestResult(null);
-    await onSave(integration.id, formValues, false);
-    setEnabled(false);
+    setSaveError(null);
+    try {
+      await onSave(integration.id, formValues, false);
+      setEnabled(false);
+    } catch (error) {
+      setSaveError(formatError(error));
+    }
   };
 
   const toggleReveal = (key: string) => {
@@ -100,13 +126,16 @@ export function IntegrationCard({ integration, onSave, onTest, isSaving, isTesti
       )}
 
       <div className="space-y-3">
-        {integration.configSchema.map(field => (
+        {integration.configSchema.map(field => {
+          const fieldId = `${integration.id}-${field.key}`;
+          return (
           <div key={field.key}>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">{field.label}</label>
+            <label htmlFor={fieldId} className="block text-sm font-medium text-slate-700 mb-1.5">{field.label}</label>
             <div className="relative">
               <input
+                id={fieldId}
                 type={(field.type === 'password' || field.sensitive) && !revealedFields.has(field.key) ? 'password' : 'text'}
-                name={`${integration.id}-${field.key}`}
+                name={fieldId}
                 className="input w-full pr-10"
                 value={formValues[field.key] || ''}
                 onChange={e => setFormValues(prev => ({ ...prev, [field.key]: e.target.value }))}
@@ -125,8 +154,16 @@ export function IntegrationCard({ integration, onSave, onTest, isSaving, isTesti
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
+
+      {saveError && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <XCircle className="mt-0.5 w-4 h-4 shrink-0" />
+          <span>{saveError}</span>
+        </div>
+      )}
 
       {testResult && (
         <div className={`flex items-center gap-2 text-sm ${testResult.success ? 'text-emerald-700' : 'text-red-700'}`}>

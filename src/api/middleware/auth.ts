@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import type { SignOptions } from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
+import { randomBytes } from "node:crypto";
 import { ApiError, Errors } from "../errors";
 
 function getJwtSecret(): string {
@@ -8,7 +9,10 @@ function getJwtSecret(): string {
   if (!secret && process.env.NODE_ENV === "production") {
     throw new Error("JWT_SECRET environment variable is required in production");
   }
-  return secret || "dev-only-secret-" + Math.random().toString(36);
+  // Dev fallback: 32 bytes of CSPRNG-backed entropy. Math.random() is not
+  // cryptographically secure and could be brute-forced by a local attacker
+  // who knows when the process started.
+  return secret || `dev-only-secret-${randomBytes(32).toString("hex")}`;
 }
 
 const JWT_SECRET = getJwtSecret();
