@@ -293,7 +293,11 @@ export class IntegrationManager {
           if (error instanceof ApiError) {
             throw error;
           }
-          throw new Error(`Invalid URL for ${field.label}: ${value}`);
+          throw new ApiError(
+            'INTEGRATION_CONFIG_INVALID',
+            `Invalid URL for ${field.label}: ${value}`,
+            'Provide a complete http(s) URL (e.g. https://example.com/path).',
+          );
         }
       }
       if (id === 'sentry' && field.key === 'dsn' && value) {

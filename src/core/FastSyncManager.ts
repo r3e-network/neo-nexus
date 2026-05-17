@@ -1,10 +1,11 @@
 import crypto from "node:crypto";
-import { createReadStream, createWriteStream } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, realpathSync } from "node:fs";
 import { mkdir, open, unlink } from "node:fs/promises";
 import type { IncomingMessage } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { isIP } from "node:net";
-import { join } from "node:path";
+import os from "node:os";
+import { isAbsolute, join, relative, resolve as resolvePath } from "node:path";
 import { pipeline } from "node:stream/promises";
 import type Database from "better-sqlite3";
 import type {
@@ -24,7 +25,7 @@ import {
   defaultHostnameResolver,
   type HostnameResolver,
 } from "../utils/outboundTargets";
-import { getFastSyncStagingPath } from "../utils/paths";
+import { getFastSyncStagingPath, paths } from "../utils/paths";
 
 const SOURCE_TYPES = ["local", "url", "catalog"] as const satisfies readonly FastSyncSourceType[];
 const CHAINS = ["n3", "x"] as const satisfies readonly NodeChain[];
@@ -266,8 +267,14 @@ export class FastSyncManager {
     }
 
     const name = this.assertNonEmptyString(input.name, "name");
-    const source = this.assertNonEmptyString(input.source, "source");
+    const rawSource = this.assertNonEmptyString(input.source, "source");
     const sourceType = this.assertEnum(input.sourceType, SOURCE_TYPES, "sourceType");
+    // Local snapshot sources are filesystem paths that the verifier will open
+    // and hash. Without a strict allow-list an admin could register a manifest
+    // pointing at e.g. /etc/passwd or another tenant's data file and probe its
+    // sha256 / existence through the verify endpoint. Restrict local paths to
+    // the NeoNexus data dir and other operator-supplied node prefixes.
+    const source = sourceType === "local" ? this.assertLocalSnapshotPath(rawSource) : rawSource;
     const chain = this.assertEnum(input.chain, CHAINS, "chain");
     const network = this.assertEnum(input.network, NETWORKS, "network");
     const nodeType = this.assertEnum(input.nodeType, NODE_TYPES, "nodeType");
@@ -299,6 +306,37 @@ export class FastSyncManager {
       signature,
       trusted: false,
     };
+  }
+
+  private assertLocalSnapshotPath(rawPath: string): string {
+    if (!isAbsolute(rawPath)) {
+      throw this.invalidManifest("local snapshot source must be an absolute filesystem path");
+    }
+    const resolved = resolvePath(rawPath);
+    // Match the import path allow-list used by node import/scan/detect so the
+    // attack surface is consistent across the two filesystem-reading paths.
+    // OS tmp dirs are included so verifiers can stage downloaded archives
+    // there; realpathSync below catches symlink escape attempts.
+    const allowedPrefixes = [paths.base, os.tmpdir(), "/home", "/opt", "/var/lib"];
+    const candidates = [resolved];
+    if (existsSync(resolved)) {
+      try {
+        const realPath = realpathSync(resolved);
+        if (realPath !== resolved) candidates.push(realPath);
+      } catch {
+        // Fall through; downstream open() will surface a precise error.
+      }
+    }
+    for (const candidate of candidates) {
+      if (!allowedPrefixes.some((prefix) => isPathWithinPrefix(candidate, prefix))) {
+        throw new ApiError(
+          "FAST_SYNC_SNAPSHOT_SOURCE_NOT_ALLOWED",
+          `Local snapshot source must be under the NeoNexus data directory or an allowed prefix: ${rawPath}`,
+          "Move the snapshot under /home, /opt, /var/lib, the system temp dir, or the NeoNexus data directory before registering it.",
+        );
+      }
+    }
+    return resolved;
   }
 
   private assertNonEmptyString(value: unknown, field: string): string {
@@ -508,6 +546,12 @@ export class FastSyncManager {
       lastVerifiedAt: row.last_verified_at ?? undefined,
     };
   }
+}
+
+function isPathWithinPrefix(candidate: string, prefix: string): boolean {
+  const normalizedPrefix = resolvePath(prefix);
+  const rel = relative(normalizedPrefix, candidate);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
 function allowPrivateFastSyncTargets(): boolean {

@@ -2,6 +2,15 @@ import { Router, type Request, type Response } from "express";
 import type { NodeManager } from "../../core/NodeManager";
 import type { MetricsCollector } from "../../monitoring/MetricsCollector";
 
+// Public endpoints are reachable without authentication. Returning the raw
+// error.message can leak internal paths, library traces, or other host detail
+// to unauthenticated callers. Log the actual error server-side and respond
+// with a generic message.
+function publicError(res: Response, route: string, error: unknown): void {
+  console.error(`[public] ${route}:`, error);
+  res.status(500).json({ error: "Internal server error" });
+}
+
 export function createPublicRouter(nodeManager: NodeManager, metricsCollector: MetricsCollector): Router {
   const router = Router();
 
@@ -9,7 +18,7 @@ export function createPublicRouter(nodeManager: NodeManager, metricsCollector: M
    * GET /api/public/status - Overall system status
    * Returns summary of all nodes without sensitive details
    */
-  router.get("/status", (req: Request, res: Response) => {
+  router.get("/status", (_req: Request, res: Response) => {
     try {
       const nodes = nodeManager.getAllNodes();
       
@@ -25,17 +34,17 @@ export function createPublicRouter(nodeManager: NodeManager, metricsCollector: M
 
       res.json({ status: summary });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      publicError(res, "GET /status", error);
     }
   });
 
   /**
    * GET /api/public/nodes - List all nodes (public info only)
    */
-  router.get("/nodes", (req: Request, res: Response) => {
+  router.get("/nodes", (_req: Request, res: Response) => {
     try {
       const nodes = nodeManager.getAllNodes();
-      
+
       // Return only public-safe information
       const publicNodes = nodes.map(node => ({
         id: node.id,
@@ -56,7 +65,7 @@ export function createPublicRouter(nodeManager: NodeManager, metricsCollector: M
 
       res.json({ nodes: publicNodes });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      publicError(res, "GET /nodes", error);
     }
   });
 
@@ -95,7 +104,7 @@ export function createPublicRouter(nodeManager: NodeManager, metricsCollector: M
 
       res.json({ node: publicNode });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      publicError(res, "GET /nodes/:id", error);
     }
   });
 
@@ -124,14 +133,14 @@ export function createPublicRouter(nodeManager: NodeManager, metricsCollector: M
         timestamp: Date.now(),
       });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      publicError(res, "GET /nodes/:id/health", error);
     }
   });
 
   /**
    * GET /api/public/metrics/system - System metrics (public)
    */
-  router.get("/metrics/system", async (req: Request, res: Response) => {
+  router.get("/metrics/system", async (_req: Request, res: Response) => {
     try {
       const metrics = await metricsCollector.collectSystemMetrics();
       
@@ -156,14 +165,14 @@ export function createPublicRouter(nodeManager: NodeManager, metricsCollector: M
 
       res.json({ metrics: publicMetrics });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      publicError(res, "GET /metrics/system", error);
     }
   });
 
   /**
    * GET /api/public/metrics/nodes - All nodes metrics summary
    */
-  router.get("/metrics/nodes", (req: Request, res: Response) => {
+  router.get("/metrics/nodes", (_req: Request, res: Response) => {
     try {
       const nodes = nodeManager.getAllNodes();
 
@@ -184,7 +193,7 @@ export function createPublicRouter(nodeManager: NodeManager, metricsCollector: M
 
       res.json({ metrics });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+      publicError(res, "GET /metrics/nodes", error);
     }
   });
 

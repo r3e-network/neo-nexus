@@ -17,6 +17,17 @@ export interface CreateUserRequest {
   role?: "admin" | "viewer";
 }
 
+// Pre-computed bcrypt hash used as a dummy compare target when the requested
+// username does not exist. Without this, the early `if (!row) return null;`
+// path skips bcrypt.compare entirely and the response is ~100ms faster than
+// when a real account exists — leaking which usernames are registered.
+// Comparing against this constant keeps the wall-clock cost identical. The
+// hash itself encodes the string "neonexus-dummy-credential-placeholder" with
+// cost factor 10, matching how real passwords are hashed in createUser(); it
+// is precomputed instead of generated at startup so test suites that mock the
+// bcrypt module (e.g. without `hashSync`) still load this file successfully.
+const DUMMY_BCRYPT_HASH = "$2b$10$jaTuAhHRBefujTuBzyBChuJG0y6XJdZYktru.LvAg6plKD5wBV/r2";
+
 export class UserManager {
   constructor(private db: Database.Database) {}
 
@@ -76,12 +87,14 @@ export class UserManager {
         }
       | undefined;
 
-    if (!row) {
-      return null;
-    }
+    // Always run bcrypt.compare to keep the wall-clock cost identical whether
+    // the username exists or not. Comparing against a fixed dummy hash leaks
+    // no information about real credentials and prevents username enumeration
+    // by timing the login response.
+    const hashToCheck = row?.password_hash ?? DUMMY_BCRYPT_HASH;
+    const valid = await bcrypt.compare(password, hashToCheck);
 
-    const valid = await bcrypt.compare(password, row.password_hash);
-    if (!valid) {
+    if (!row || !valid) {
       return null;
     }
 

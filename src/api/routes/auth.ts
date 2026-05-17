@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import type { UserManager } from "../../core/UserManager";
+import type { AuditLogger } from "../../core/AuditLogger";
 import { createAuthMiddleware, generateToken, getTokenExpiresInHours, type AuthenticatedRequest } from "../middleware/auth";
 import { Errors } from '../errors';
 import { respondWithApiError } from '../respond';
@@ -8,7 +9,14 @@ function normalizeUsername(username: unknown): string {
   return typeof username === "string" ? username.trim() : "";
 }
 
-export function createAuthRouter(userManager: UserManager): Router {
+function requestIpAddress(req: Request): string | undefined {
+  // express trusts the first X-Forwarded-For entry only if app.set('trust proxy')
+  // is configured; default behavior uses req.ip from the socket which is what
+  // we want here (the install ships behind no proxy by default).
+  return req.ip || req.socket?.remoteAddress || undefined;
+}
+
+export function createAuthRouter(userManager: UserManager, auditLogger?: AuditLogger): Router {
   const router = Router();
   const requireAuth = createAuthMiddleware(userManager);
 
@@ -82,6 +90,16 @@ export function createAuthRouter(userManager: UserManager): Router {
       const user = await userManager.verifyCredentials(username, password);
 
       if (!user) {
+        // Audit the failure for security monitoring. We log the attempted
+        // username so operators can detect brute force / credential stuffing
+        // patterns; the password is never logged.
+        auditLogger?.log({
+          action: "auth.login.failed",
+          resourceType: "user",
+          resourceId: username,
+          username,
+          ipAddress: requestIpAddress(req),
+        });
         throw Errors.invalidCredentials();
       }
 
@@ -94,6 +112,15 @@ export function createAuthRouter(userManager: UserManager): Router {
       // Create session
       userManager.createSession(user.id, token, getTokenExpiresInHours(token));
       const usingDefaultPassword = await userManager.isUsingDefaultPassword(user.id);
+
+      auditLogger?.log({
+        action: "auth.login.success",
+        resourceType: "user",
+        resourceId: user.id,
+        userId: user.id,
+        username: user.username,
+        ipAddress: requestIpAddress(req),
+      });
 
       res.json({
         user: {

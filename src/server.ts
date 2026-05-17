@@ -264,7 +264,7 @@ export function createAppServer(config: ServerConfig) {
   app.use("/api/public", createPublicRouter(nodeManager, metricsCollector));
 
   // Public routes (no auth required)
-  app.use("/api/auth", createAuthRouter(userManager));
+  app.use("/api/auth", createAuthRouter(userManager, auditLogger));
 
   // Apply stricter rate limit to control endpoints
   app.use("/api/nodes/:id/start", requireAuth, requireAdmin, controlLimiter);
