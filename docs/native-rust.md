@@ -344,7 +344,9 @@ Runtime data is stored under the platform data directory by default, or under
   downloading/installing the recommended release, applying compatible
   installed runtimes to stopped nodes, and applying selected or fleet running
   node catalog upgrades through restart readiness plus supervised process
-  replacement.
+  replacement with stopped-direct, running-rollout, blocked-active, and
+  current/unavailable completion, no-op, and blocked-attempt event-journal
+  summaries, including the failed node when an interrupted batch stops.
 - Persisting a runtime upgrade policy from Settings that binds to a saved
   catalog profile, enforces signed catalogs by default, checks on a configured
   interval, rolls stopped and running fleet-node upgrades through the safe

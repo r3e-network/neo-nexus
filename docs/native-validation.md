@@ -378,8 +378,10 @@ Current Rust tests cover:
 - Native Runtime Manager and runtime upgrade policy fleet catalog rollouts
   upgrade stopped candidates directly, roll running candidates through restart
   readiness and supervised process replacement, respect per-run batch limits,
-  report ready and planned stopped/running breakdowns, and keep blocked active
-  nodes out of unattended replacement.
+  report ready, planned, and completed stopped/running breakdowns, write
+  aggregate fleet-run audit events for applied runs, no-op runs, and blocked
+  attempts, retain partial-completion evidence and the failed node name when
+  interrupted, and keep blocked active nodes out of unattended replacement.
 - SQL-backed runtime installation inventory persistence.
 - SQL-backed runtime catalog source profile persistence, last-load metadata
   updates, and deletion.
