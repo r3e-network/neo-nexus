@@ -4,6 +4,7 @@ use super::{view::View, NeoNexusApp, NODE_PAGE_SIZE};
 
 mod commands;
 mod input;
+pub(in crate::app) mod labels;
 mod nodes;
 mod views;
 
@@ -14,6 +15,8 @@ mod tests;
 pub(in crate::app) enum AppShortcut {
     ReloadWorkspace,
     NewNode,
+    StartSelectedNode,
+    StopSelectedNode,
     RestartSelectedNode,
     ToggleSelectedNode,
     PreviousNode,
