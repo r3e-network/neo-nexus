@@ -18,7 +18,7 @@ impl RuntimeUpgradePolicy {
         };
 
         format!(
-            "every {} min, max {} stopped nodes{window}{wave}, {} catalog",
+            "every {} min, max {} fleet nodes{window}{wave}, {} catalog",
             self.interval_minutes,
             self.max_nodes_per_run,
             if self.require_signed_catalog {

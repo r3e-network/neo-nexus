@@ -3,7 +3,7 @@ use anyhow::Context;
 use crate::runtime::{RuntimeCatalogUpgradePlan, RuntimePackageManager, RuntimePlatform};
 
 use super::super::NeoNexusApp;
-use super::model::RuntimeUpgradePolicySummary;
+use super::model::{RuntimeUpgradePolicyBreakdown, RuntimeUpgradePolicySummary};
 
 impl NeoNexusApp {
     pub(super) fn execute_runtime_upgrade_policy(
@@ -16,25 +16,37 @@ impl NeoNexusApp {
             &context.catalog,
             &RuntimePlatform::current(),
         );
-        let available = fleet_plan.candidates.len();
+        let available = fleet_plan.ready_count();
+        let stopped_ready = fleet_plan.stopped_ready_count();
+        let running_ready = fleet_plan.running_ready_count();
+        let planned_stopped = stopped_ready.min(policy.max_nodes_per_run);
+        let planned_running = running_ready.min(policy.max_nodes_per_run - planned_stopped);
+        let full_breakdown = RuntimeUpgradePolicyBreakdown {
+            stopped_ready,
+            running_ready,
+            planned_stopped,
+            planned_running,
+            blocked_active: fleet_plan.blocked_active,
+            current_or_unavailable: fleet_plan.current_or_unavailable,
+        };
         let candidates = fleet_plan
-            .candidates
+            .into_ready_candidates()
             .into_iter()
             .take(policy.max_nodes_per_run)
             .collect::<Vec<_>>();
         let limited = available > candidates.len();
         let catalog_label = context.profile.label.clone();
-        let blocked_running = fleet_plan.blocked_running;
-        let current_or_unavailable = fleet_plan.current_or_unavailable;
 
         self.publish_runtime_upgrade_catalog(context);
 
         if candidates.is_empty() {
             return Ok(RuntimeUpgradePolicySummary::new(
                 0,
-                available,
-                blocked_running,
-                current_or_unavailable,
+                RuntimeUpgradePolicyBreakdown {
+                    planned_stopped: 0,
+                    planned_running: 0,
+                    ..full_breakdown
+                },
                 catalog_label,
                 false,
             ));
@@ -48,9 +60,7 @@ impl NeoNexusApp {
         self.reload_nodes();
         Ok(RuntimeUpgradePolicySummary::new(
             upgraded,
-            available,
-            blocked_running,
-            current_or_unavailable,
+            full_breakdown,
             catalog_label,
             limited,
         ))
@@ -72,14 +82,7 @@ impl NeoNexusApp {
             else {
                 continue;
             };
-            self.ensure_catalog_release_installed(&plan.release)
-                .and_then(|installation| {
-                    self.apply_runtime_installation_to_node(
-                        &node,
-                        &installation,
-                        &plan.from_version,
-                    )
-                })
+            self.apply_catalog_upgrade_plan_to_node(&node, &plan)
                 .with_context(|| {
                     format!(
                         "stopped after {upgraded} of {limit} planned upgrades for {catalog_label}"

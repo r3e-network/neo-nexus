@@ -11,6 +11,7 @@ struct RuntimeCatalogSummary {
     trust: &'static str,
     bytes: u64,
     fleet_ready: usize,
+    fleet_ready_label: String,
     fleet_blocked: usize,
     fleet_current: usize,
 }
@@ -28,8 +29,12 @@ impl RuntimeCatalogSummary {
                 "local"
             },
             bytes: app.runtime_catalog_bytes,
-            fleet_ready: fleet_plan.as_ref().map_or(0, |plan| plan.candidates.len()),
-            fleet_blocked: fleet_plan.as_ref().map_or(0, |plan| plan.blocked_running),
+            fleet_ready: fleet_plan.as_ref().map_or(0, |plan| plan.ready_count()),
+            fleet_ready_label: fleet_plan.as_ref().map_or_else(
+                || "0 ready (0 stopped, 0 running)".to_string(),
+                |plan| plan.ready_breakdown_label(),
+            ),
+            fleet_blocked: fleet_plan.as_ref().map_or(0, |plan| plan.blocked_active),
             fleet_current: fleet_plan
                 .as_ref()
                 .map_or(0, |plan| plan.current_or_unavailable),
@@ -55,11 +60,7 @@ impl NeoNexusApp {
         });
         fact(ui, "Generated", &summary.generated);
         ui.columns(3, |columns| {
-            fact(
-                &mut columns[0],
-                "Fleet ready",
-                &summary.fleet_ready.to_string(),
-            );
+            fact(&mut columns[0], "Fleet ready", &summary.fleet_ready_label);
             fact(
                 &mut columns[1],
                 "Blocked",
@@ -73,13 +74,10 @@ impl NeoNexusApp {
         });
         ui.horizontal(|ui| {
             if ui
-                .add_enabled(
-                    summary.fleet_ready > 0,
-                    egui::Button::new("Upgrade Stopped Fleet"),
-                )
+                .add_enabled(summary.fleet_ready > 0, egui::Button::new("Upgrade Fleet"))
                 .clicked()
             {
-                self.upgrade_stopped_nodes_from_catalog();
+                self.upgrade_fleet_nodes_from_catalog();
             }
         });
     }

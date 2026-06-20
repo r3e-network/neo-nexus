@@ -23,7 +23,7 @@ pub(super) fn render_policy_status(ui: &mut egui::Ui, active_policy: &RuntimeUpg
     );
     ui.label(
         egui::RichText::new(
-            "Runs never stop running nodes; they only apply ready stopped-node upgrades.",
+            "Runs upgrade stopped nodes directly and roll running nodes through restart readiness.",
         )
         .color(muted_text()),
     );

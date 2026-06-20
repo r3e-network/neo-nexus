@@ -7,7 +7,7 @@ use crate::{
 use super::super::super::NeoNexusApp;
 
 impl NeoNexusApp {
-    pub(in crate::app::runtime_upgrade::upgrades) fn upgrade_running_node_from_catalog(
+    pub(in crate::app) fn upgrade_running_node_from_catalog(
         &mut self,
         node: &NodeConfig,
         plan: &RuntimeCatalogUpgradePlan,

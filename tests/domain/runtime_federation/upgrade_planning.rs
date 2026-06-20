@@ -171,8 +171,15 @@ fn runtime_catalog_fleet_plan_counts_ready_blocked_and_current_nodes() {
         &platform,
     );
 
-    assert_eq!(plan.candidates.len(), 1);
-    assert_eq!(plan.candidates[0].node_id, "ready");
-    assert_eq!(plan.blocked_running, 1);
+    assert_eq!(plan.stopped_candidates.len(), 1);
+    assert_eq!(plan.stopped_candidates[0].node_id, "ready");
+    assert_eq!(plan.running_candidates.len(), 1);
+    assert_eq!(plan.running_candidates[0].node_id, "running");
+    assert_eq!(plan.ready_count(), 2);
+    assert_eq!(
+        plan.ready_breakdown_label(),
+        "2 ready (1 stopped, 1 running)"
+    );
+    assert_eq!(plan.blocked_active, 0);
     assert_eq!(plan.current_or_unavailable, 2);
 }

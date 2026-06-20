@@ -200,7 +200,7 @@ including failed-verification messages with a non-zero exit code.
   release and installation registries, and derives node runtime upgrade plans.
 - `src/app/runtime_upgrade.rs` owns the native Runtime Manager actions for
   runtime package install/download, catalog release application, selected
-  running-node upgrade restarts, fleet stopped-node upgrades, and scheduled
+  running-node upgrade restarts, fleet catalog rollouts, and scheduled
   runtime upgrade policy execution so `src/app.rs` does not keep absorbing
   runtime orchestration code.
 - `src/app/operations_flow/` owns non-visual Operations behavior for action
@@ -342,14 +342,16 @@ Runtime data is stored under the platform data directory by default, or under
   source profiles, trusted signer profiles, and runtime inventory in SQLite,
   planning selected-node and fleet managed catalog upgrades,
   downloading/installing the recommended release, applying compatible
-  installed runtimes to stopped nodes, and applying a selected running node's
-  compatible catalog upgrade through restart readiness plus supervised process
+  installed runtimes to stopped nodes, and applying selected or fleet running
+  node catalog upgrades through restart readiness plus supervised process
   replacement.
 - Persisting a runtime upgrade policy from Settings that binds to a saved
   catalog profile, enforces signed catalogs by default, checks on a configured
-  interval, applies only stopped-node upgrades, caps each run's batch size,
+  interval, rolls stopped and running fleet-node upgrades through the safe
+  runtime path, caps each run's batch size,
   limits scheduled runs to optional UTC maintenance windows, spaces upgrade
-  waves with an optional delay, and records policy update/run events.
+  waves with an optional delay, and records policy update/run events with
+  ready and planned stopped/running rollout breakdowns.
 - Starting, stopping, and restarting configured node binaries.
 - Parsing and displaying Node Studio runtime arguments through a no-shell argv
   vector with quoted-value support, so paths with spaces remain one argument,
@@ -628,27 +630,28 @@ Trusted signer profiles remember reusable Ed25519 public keys, enabled state,
 creation time, and last-used time. A signer can be applied explicitly to the
 catalog verification key or to the runtime package verification key so source
 selection and trust selection remain separate operator decisions.
-For a stopped selected node, a running selected node, or every stopped fleet
-candidate, Runtime Manager can plan the latest compatible catalog release and
-run a managed upgrade that downloads the package, verifies its SHA-256,
-installs it into the workspace, records runtime events, and applies the
-installed binary/version to node definitions. A running selected node is
-checked with restart readiness before the definition changes, then restarted
-through the native supervisor; fleet and scheduled policy runs remain
-stopped-node-only so unattended upgrades do not implicitly stop live nodes.
+For stopped or running selected and fleet candidates, Runtime Manager can plan
+the latest compatible catalog release and run a managed upgrade that downloads
+the package, verifies its SHA-256, installs it into the workspace, records
+runtime events, and applies the installed binary/version to node definitions.
+Running nodes are checked with restart readiness before the definition changes,
+then replaced through the native supervisor; starting or errored nodes remain
+blocked until operators reconcile them.
 
 ## Runtime Upgrade Policy
 
 Settings includes a native Runtime upgrade policy panel. The policy is disabled
 by default. When enabled, it requires a saved runtime catalog profile, can
-require a signed catalog, stores a check interval and per-run stopped-node
+require a signed catalog, stores a check interval and per-run fleet-node
 limit, can restrict scheduled runs to a UTC maintenance window, can space
 rollout waves after a successful apply, and records last-check and last-apply
 timestamps in SQLite. Due checks run inside the native application lifecycle;
 manual policy runs use the same apply path and remain operator-triggered. A
-policy run never stops running nodes. It loads the configured catalog, plans
-compatible upgrades, applies only stopped-node candidates, writes runtime
-download/install/apply events, and adds an aggregate policy-run audit event.
+policy run loads the configured catalog, plans compatible stopped and running
+fleet upgrades, applies stopped nodes directly, rolls running nodes through
+restart readiness plus supervised replacement, writes runtime
+download/install/apply/restart events, and adds an aggregate policy-run audit
+event that names ready and planned stopped/running rollout counts.
 
 Catalog schema version 1 contains:
 
