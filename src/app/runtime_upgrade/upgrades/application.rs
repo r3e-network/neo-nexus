@@ -1,13 +1,28 @@
 use crate::{
     events::{EventKind, EventSeverity},
-    runtime::RuntimeInstallation,
-    types::NodeConfig,
+    runtime::{RuntimeCatalogUpgradePlan, RuntimeInstallation},
+    types::{NodeConfig, NodeStatus},
 };
 
 use super::{super::super::NeoNexusApp, input::runtime_installation_node_input};
 use crate::app::short_path;
 
 impl NeoNexusApp {
+    pub(in crate::app) fn apply_catalog_upgrade_plan_to_node(
+        &mut self,
+        node: &NodeConfig,
+        plan: &RuntimeCatalogUpgradePlan,
+    ) -> anyhow::Result<String> {
+        if node.status == NodeStatus::Running {
+            return self.upgrade_running_node_from_catalog(node, plan);
+        }
+
+        self.ensure_catalog_release_installed(&plan.release)
+            .and_then(|installation| {
+                self.apply_runtime_installation_to_node(node, &installation, &plan.from_version)
+            })
+    }
+
     pub(in crate::app) fn apply_runtime_installation_to_node(
         &mut self,
         node: &NodeConfig,

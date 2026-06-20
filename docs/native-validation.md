@@ -368,12 +368,18 @@ Current Rust tests cover:
   for a node's runtime and host platform.
 - Runtime catalog upgrade planning that prefers the latest matching compatible
   release and skips current or older releases.
-- Runtime catalog fleet upgrade planning that separates ready stopped nodes,
-  blocked running nodes, and current/unavailable nodes.
+- Runtime catalog fleet upgrade planning that separates stopped candidates,
+  running rollout candidates, blocked active nodes, and current/unavailable
+  nodes.
 - Native Runtime Manager selected-node catalog upgrades for running nodes,
   including pre-change restart readiness, runtime binary/version application,
   supervised process replacement, new PID persistence, `runtime-applied` audit
   evidence, and `node-restarted` audit evidence.
+- Native Runtime Manager and runtime upgrade policy fleet catalog rollouts
+  upgrade stopped candidates directly, roll running candidates through restart
+  readiness and supervised process replacement, respect per-run batch limits,
+  report ready and planned stopped/running breakdowns, and keep blocked active
+  nodes out of unattended replacement.
 - SQL-backed runtime installation inventory persistence.
 - SQL-backed runtime catalog source profile persistence, last-load metadata
   updates, and deletion.

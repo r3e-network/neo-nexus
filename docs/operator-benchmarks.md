@@ -232,16 +232,17 @@ download/install drafts, and persists reusable catalog source profiles with
 last-load metadata. It also persists reusable trusted signer profiles with
 valid Ed25519 public keys and last-used metadata, then applies those trust
 anchors explicitly to catalog or package verification. For selected nodes and
-stopped fleet candidates it can plan the latest compatible catalog release and
-run a managed download, install, event-recording, and apply flow; selected
-running nodes pass through restart readiness and native supervisor process
-replacement, while fleet and scheduled policy runs remain stopped-node-only
-for unattended safety. It also persists a scheduled runtime upgrade policy
-that binds to a saved catalog profile, requires signed catalogs by default,
-limits each run to stopped-node batches, supports UTC maintenance windows and
-delayed rollout waves, records last-check/apply metadata, and writes aggregate
-audit events. It also includes generic, Slack, Discord,
-Telegram, PagerDuty, and Opsgenie alert routing with local delivery history,
+fleet candidates it can plan the latest compatible catalog release and run a
+managed download, install, event-recording, and apply flow; stopped nodes are
+updated directly, while running nodes pass through restart readiness and native
+supervisor process replacement. It also persists a scheduled runtime upgrade
+policy that binds to a saved catalog profile, requires signed catalogs by
+default, limits each run to fleet-node batches, supports UTC maintenance
+windows and delayed rollout waves, records last-check/apply metadata, and
+writes aggregate audit events that distinguish ready and planned stopped
+direct-apply work from running restart-rollout work. It also includes generic,
+Slack, Discord, Telegram, PagerDuty, and Opsgenie alert routing with local
+delivery history,
 metadata-only Neo wallet profile import/registry/audit and Roles
 signer-reference application, plus private-network launch-pack signer sidecar
 command-template orchestration and native Roles start/stop/audit/watchdog
@@ -251,11 +252,10 @@ for external/PATH signer binaries, workspace backup of that policy, and
 audited policy changes plus blocked starts. Remote Federation profiles retain
 status/query-filtered paged probe history for endpoint inspection. The process
 supervisor is now generic enough for node daemons and
-signer sidecars, but it does not yet support unattended fleet restart rollouts
-for running nodes, runtime-specific live config reloads for already-running nodes,
-deeper signer protocol checks beyond HTTP reachability and process execution
-policy, audited encrypted private-network wallet generation and richer
-authoring UI, or additional provider integrations beyond the current alert
-routes and headless metrics exports, such as logging, uptime, and broader
-incident-management services. Those remain future native Rust
+signer sidecars, but it does not yet support runtime-specific live config
+reloads for already-running nodes, deeper signer protocol checks beyond HTTP
+reachability and process execution policy, audited encrypted private-network
+wallet generation and richer authoring UI, or additional provider integrations
+beyond the current alert routes and headless metrics exports, such as logging,
+uptime, and broader incident-management services. Those remain future native Rust
 features.

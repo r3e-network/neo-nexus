@@ -183,10 +183,9 @@ accidentally launch the desktop application.
   installed-runtime registries by runtime, host platform, trust state, and
   query, persisting runtime catalog source profiles, trusted signer profiles,
   and runtime inventory,
-  planning fleet catalog upgrades, running managed catalog upgrades for stopped
-  nodes, applying compatible runtimes to stopped nodes, and running selected
-  running-node catalog upgrades through restart readiness plus supervised
-  process replacement.
+  planning fleet catalog upgrades, applying compatible runtimes to stopped
+  nodes, and rolling selected or fleet running-node catalog upgrades through
+  restart readiness plus supervised process replacement.
 - Wallet Profiles workspace for importing encrypted NEP-6 Neo wallet metadata,
   usage/query-filtered saved profile registry, inspecting address, contract
   public keys, account counts, wallet SHA-256, validation/last-used timestamps,
@@ -194,9 +193,10 @@ accidentally launch the desktop application.
   `neo-wallet-profile-*` audit events without storing private keys, passwords,
   or copied wallet bytes.
 - Runtime upgrade policy controls in Settings for scheduled catalog checks,
-  signed-catalog enforcement, per-run stopped-node batch limits, UTC
-  maintenance windows, rollout wave delays, manual policy runs, persisted
-  last-check/apply metadata, and event-journal audit records.
+  signed-catalog enforcement, per-run fleet-node batch limits, UTC maintenance
+  windows, rollout wave delays, manual policy runs, persisted last-check/apply
+  metadata, ready/planned stopped/running rollout breakdowns, and event-journal
+  audit records.
 - Runtime binary preflight for configured node commands, including PATH
   resolution, host executable checks, neo-cli direct or `dotnet Neo.CLI.dll`
   wrapper recognition, neo-go binary recognition, and neo-rs `neo-node`

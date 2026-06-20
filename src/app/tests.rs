@@ -6,7 +6,7 @@ use crate::{
     private_network::CommitteeRoster,
     repository::Repository,
     rpc_health::{RpcHealthMonitorPolicy, RpcHealthStatus},
-    runtime::RuntimeUpgradePolicy,
+    runtime::{RuntimeCatalogProfile, RuntimeUpgradePolicy},
     runtime::{RuntimeInstallation, RuntimePlatform, RuntimeRelease, RuntimeReleaseCatalog},
     snapshots::{FastSyncSnapshot, FastSyncSnapshotCatalog, FastSyncSnapshotCatalogEntry},
     types::{Network, NewNode, NodeStatus, NodeType, StorageEngine},

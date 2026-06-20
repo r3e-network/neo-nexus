@@ -27,9 +27,40 @@ pub struct RuntimeCatalogUpgradePlan {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeCatalogFleetPlan {
-    pub candidates: Vec<RuntimeCatalogUpgradePlan>,
-    pub blocked_running: usize,
+    pub stopped_candidates: Vec<RuntimeCatalogUpgradePlan>,
+    pub running_candidates: Vec<RuntimeCatalogUpgradePlan>,
+    pub blocked_active: usize,
     pub current_or_unavailable: usize,
+}
+
+impl RuntimeCatalogFleetPlan {
+    pub fn ready_count(&self) -> usize {
+        self.stopped_candidates.len() + self.running_candidates.len()
+    }
+
+    pub fn stopped_ready_count(&self) -> usize {
+        self.stopped_candidates.len()
+    }
+
+    pub fn running_ready_count(&self) -> usize {
+        self.running_candidates.len()
+    }
+
+    pub fn ready_breakdown_label(&self) -> String {
+        format!(
+            "{} ready ({} stopped, {} running)",
+            self.ready_count(),
+            self.stopped_ready_count(),
+            self.running_ready_count()
+        )
+    }
+
+    pub fn into_ready_candidates(self) -> Vec<RuntimeCatalogUpgradePlan> {
+        self.stopped_candidates
+            .into_iter()
+            .chain(self.running_candidates)
+            .collect()
+    }
 }
 
 impl RuntimePackageManager {
@@ -84,21 +115,24 @@ impl RuntimePackageManager {
         catalog: &RuntimeReleaseCatalog,
         platform: &RuntimePlatform,
     ) -> RuntimeCatalogFleetPlan {
-        let mut candidates = Vec::new();
-        let mut blocked_running = 0usize;
+        let mut stopped_candidates = Vec::new();
+        let mut running_candidates = Vec::new();
+        let mut blocked_active = 0usize;
         let mut current_or_unavailable = 0usize;
 
         for node in nodes {
             match Self::plan_catalog_upgrade(node, catalog, platform) {
-                Some(plan) if node.status == NodeStatus::Stopped => candidates.push(plan),
-                Some(_) => blocked_running += 1,
+                Some(plan) if node.status == NodeStatus::Stopped => stopped_candidates.push(plan),
+                Some(plan) if node.status == NodeStatus::Running => running_candidates.push(plan),
+                Some(_) => blocked_active += 1,
                 None => current_or_unavailable += 1,
             }
         }
 
         RuntimeCatalogFleetPlan {
-            candidates,
-            blocked_running,
+            stopped_candidates,
+            running_candidates,
+            blocked_active,
             current_or_unavailable,
         }
     }

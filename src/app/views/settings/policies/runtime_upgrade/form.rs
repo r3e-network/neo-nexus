@@ -19,7 +19,7 @@ pub(super) fn render_policy_form(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
 
     ui.checkbox(
         &mut app.runtime_upgrade_policy_draft.enabled,
-        "Schedule catalog upgrades for stopped nodes",
+        "Schedule catalog upgrades for fleet nodes",
     );
     labeled_combo(
         ui,
