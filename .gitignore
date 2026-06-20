@@ -1,66 +1,39 @@
-# Dependencies
-node_modules/
-web/node_modules/
-.pnp
-.pnp.js
-
-# Build outputs
+# Rust build output
+target/
 dist/
-web/dist/
-build/
-*.tsbuildinfo
+
+# Runtime data
+.neonexus/
+*.db
+*.db-journal
+*.db-wal
+Data_LevelDB_*/
+/nodes/
 
 # Environment
 .env
 .env.local
 .env.*.local
 
-# IDE
-.vscode/
-.idea/
-.claude/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
+# Logs and temporary files
 logs/
+!src/**/logs/
+!src/**/logs/*.rs
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# Testing
-coverage/
-.nyc_output/
-
-# NeoNexus specific
-.neonexus/
-!docs/.neonexus
-*.db
-*.db-journal
-*.db-wal
-Data_LevelDB_*/
-
-# Temporary files
 *.tmp
 *.temp
 .cache/
 
-# Archive (old code)
-archive/
+# IDE and OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
 
-# Misc
+# Process files
 *.pid
-*.seed
 *.pid.lock
-/nodes/
-.superpowers/
-.omx/
-.gstack/
+*.seed

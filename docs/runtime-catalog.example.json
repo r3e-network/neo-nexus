@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "generated_at_unix": 1800000000,
+  "releases": [
+    {
+      "id": "neo-rs-v0.1.0-macos-aarch64",
+      "label": "neo-rs v0.1.0 macOS Apple Silicon",
+      "node_type": "neo-rs",
+      "version": "v0.1.0",
+      "platform": {
+        "os": "macos",
+        "arch": "aarch64"
+      },
+      "url": "https://downloads.example.invalid/neo-rs/v0.1.0/macos-aarch64/neo-node",
+      "file_name": "neo-node",
+      "executable_name": "neo-node",
+      "expected_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "max_bytes": 536870912
+    },
+    {
+      "id": "neo-rs-v0.1.0-linux-x86_64",
+      "label": "neo-rs v0.1.0 Linux x86_64",
+      "node_type": "neo-rs",
+      "version": "v0.1.0",
+      "platform": {
+        "os": "linux",
+        "arch": "x86_64"
+      },
+      "url": "https://downloads.example.invalid/neo-rs/v0.1.0/linux-x86_64/neo-node",
+      "file_name": "neo-node",
+      "executable_name": "neo-node",
+      "expected_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "max_bytes": 536870912
+    },
+    {
+      "id": "neo-rs-v0.1.0-windows-x86_64",
+      "label": "neo-rs v0.1.0 Windows x86_64",
+      "node_type": "neo-rs",
+      "version": "v0.1.0",
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "url": "https://downloads.example.invalid/neo-rs/v0.1.0/windows-x86_64/neo-node.exe",
+      "file_name": "neo-node.exe",
+      "executable_name": "neo-node.exe",
+      "expected_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "max_bytes": 536870912
+    },
+    {
+      "id": "neo-cli-v3.8.0-windows-x86_64",
+      "label": "neo-cli v3.8.0 Windows x86_64",
+      "node_type": "neo-cli",
+      "version": "v3.8.0",
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "url": "https://downloads.example.invalid/neo-cli/v3.8.0/windows-x86_64/neo-cli.exe",
+      "file_name": "neo-cli.exe",
+      "executable_name": "neo-cli.exe",
+      "expected_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "max_bytes": 536870912
+    }
+  ]
+}
