@@ -3,7 +3,7 @@ use crate::types::NodeStatus;
 use super::{nodes::NODE_SHORTCUT_PAGE_SIZE, views, AppShortcut, NeoNexusApp, View};
 
 impl NeoNexusApp {
-    pub(super) fn apply_application_shortcut(&mut self, shortcut: AppShortcut) {
+    pub(in crate::app) fn apply_application_shortcut(&mut self, shortcut: AppShortcut) {
         match shortcut {
             AppShortcut::ReloadWorkspace => {
                 self.reload_workspace_data();
@@ -13,6 +13,8 @@ impl NeoNexusApp {
                 self.selected_view = View::Nodes;
                 self.notice = Some("Node studio ready".to_string());
             }
+            AppShortcut::StartSelectedNode => self.start_selected_node(),
+            AppShortcut::StopSelectedNode => self.stop_selected_node(),
             AppShortcut::RestartSelectedNode => self.restart_selected_node(),
             AppShortcut::ToggleSelectedNode => self.toggle_selected_node_lifecycle(),
             AppShortcut::PreviousNode => self.shift_selected_node(-1),

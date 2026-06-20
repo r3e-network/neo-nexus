@@ -23,7 +23,7 @@ impl NeoNexusApp {
         self.select_node_index_from_visible(&visible_nodes, index);
     }
 
-    pub(super) fn visible_node_count(&self) -> usize {
+    pub(in crate::app) fn visible_node_count(&self) -> usize {
         self.filtered_inventory_nodes().len()
     }
 
