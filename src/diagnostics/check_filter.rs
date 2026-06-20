@@ -1,4 +1,8 @@
-use super::{CheckSeverity, DiagnosticCheck, DiagnosticResolution};
+use super::{
+    resolution_counts::{empty_resolution_counts, increment_resolution_count},
+    severity_counts::{empty_severity_counts, increment_severity_count},
+    CheckSeverity, DiagnosticCheck, DiagnosticResolution,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct DiagnosticCheckFilter {
@@ -44,6 +48,40 @@ pub fn filter_diagnostic_checks(
         .collect::<Vec<_>>();
     rows.sort_by(check_order);
     rows
+}
+
+pub fn diagnostic_check_resolution_counts(
+    checks: &[DiagnosticCheck],
+    filter: &DiagnosticCheckFilter,
+) -> Vec<(DiagnosticResolution, usize)> {
+    let query = filter.query.trim().to_lowercase();
+    let mut counts = empty_resolution_counts();
+    for check in checks {
+        if filter
+            .severity
+            .is_some_and(|severity| check.severity != severity)
+        {
+            continue;
+        }
+        if !query.is_empty() && !check_matches(check, &query) {
+            continue;
+        }
+        increment_resolution_count(&mut counts, check.resolution);
+    }
+    counts
+}
+
+pub fn diagnostic_check_severity_counts(
+    checks: &[DiagnosticCheck],
+    filter: &DiagnosticCheckFilter,
+) -> Vec<(CheckSeverity, usize)> {
+    let count_filter =
+        DiagnosticCheckFilter::new(None, filter.query.as_str()).with_resolution(filter.resolution);
+    let mut counts = empty_severity_counts();
+    for check in filter_diagnostic_checks(checks, &count_filter) {
+        increment_severity_count(&mut counts, check.severity);
+    }
+    counts
 }
 
 fn check_order(left: &DiagnosticCheck, right: &DiagnosticCheck) -> std::cmp::Ordering {

@@ -3,25 +3,40 @@ use eframe::egui;
 use crate::diagnostics::{CheckSeverity, NodeDiagnostics};
 
 use super::super::super::super::{theme::muted_text, NeoNexusApp};
-use super::super::helpers::resolution_filter_combo;
+use super::super::helpers::{resolution_filter_combo, severity_filter_label};
 
 pub(super) fn render_check_filters(
     app: &mut NeoNexusApp,
     ui: &mut egui::Ui,
     node: &NodeDiagnostics,
 ) {
+    let resolution_counts = app.readiness_check_resolution_counts(node);
+    let severity_counts = app.readiness_check_severity_counts(node);
     ui.horizontal_wrapped(|ui| {
         ui.label(egui::RichText::new("Severity").color(muted_text()));
-        severity_button(app, ui, "All", None);
-        severity_button(app, ui, "Critical", Some(CheckSeverity::Critical));
-        severity_button(app, ui, "Warning", Some(CheckSeverity::Warning));
-        severity_button(app, ui, "Info", Some(CheckSeverity::Info));
-        severity_button(app, ui, "Pass", Some(CheckSeverity::Pass));
+        severity_button(app, ui, "All", None, &severity_counts);
+        severity_button(
+            app,
+            ui,
+            "Critical",
+            Some(CheckSeverity::Critical),
+            &severity_counts,
+        );
+        severity_button(
+            app,
+            ui,
+            "Warning",
+            Some(CheckSeverity::Warning),
+            &severity_counts,
+        );
+        severity_button(app, ui, "Info", Some(CheckSeverity::Info), &severity_counts);
+        severity_button(app, ui, "Pass", Some(CheckSeverity::Pass), &severity_counts);
         ui.separator();
         if resolution_filter_combo(
             ui,
             "readiness_check_resolution_filter",
             &mut app.readiness_check_resolution_filter,
+            &resolution_counts,
         ) {
             app.set_readiness_check_resolution_filter(node, app.readiness_check_resolution_filter);
         }
@@ -69,9 +84,13 @@ fn severity_button(
     ui: &mut egui::Ui,
     label: &str,
     severity: Option<CheckSeverity>,
+    counts: &[(CheckSeverity, usize)],
 ) {
     if ui
-        .selectable_label(app.readiness_check_severity_filter == severity, label)
+        .selectable_label(
+            app.readiness_check_severity_filter == severity,
+            severity_filter_label(label, severity, counts),
+        )
         .clicked()
     {
         app.readiness_check_severity_filter = severity;

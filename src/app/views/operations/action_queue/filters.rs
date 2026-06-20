@@ -3,23 +3,38 @@ use eframe::egui;
 use crate::diagnostics::{CheckSeverity, FleetDiagnostics};
 
 use super::super::super::super::{theme::muted_text, NeoNexusApp};
-use super::super::helpers::resolution_filter_combo;
+use super::super::helpers::{resolution_filter_combo, severity_filter_label};
 
 pub(super) fn render_action_filters(
     app: &mut NeoNexusApp,
     ui: &mut egui::Ui,
     diagnostics: &FleetDiagnostics,
 ) {
+    let resolution_counts = app.action_queue_resolution_counts(diagnostics);
+    let severity_counts = app.action_queue_severity_counts(diagnostics);
     ui.horizontal_wrapped(|ui| {
         ui.label(egui::RichText::new("Severity").color(muted_text()));
-        severity_button(app, ui, "All", None);
-        severity_button(app, ui, "Critical", Some(CheckSeverity::Critical));
-        severity_button(app, ui, "Warning", Some(CheckSeverity::Warning));
+        severity_button(app, ui, "All", None, &severity_counts);
+        severity_button(
+            app,
+            ui,
+            "Critical",
+            Some(CheckSeverity::Critical),
+            &severity_counts,
+        );
+        severity_button(
+            app,
+            ui,
+            "Warning",
+            Some(CheckSeverity::Warning),
+            &severity_counts,
+        );
         ui.separator();
         if resolution_filter_combo(
             ui,
             "action_queue_resolution_filter",
             &mut app.action_queue_resolution_filter,
+            &resolution_counts,
         ) {
             app.set_action_queue_resolution_filter(diagnostics, app.action_queue_resolution_filter);
         }
@@ -70,9 +85,13 @@ fn severity_button(
     ui: &mut egui::Ui,
     label: &str,
     severity: Option<CheckSeverity>,
+    counts: &[(CheckSeverity, usize)],
 ) {
     if ui
-        .selectable_label(app.action_queue_severity_filter == severity, label)
+        .selectable_label(
+            app.action_queue_severity_filter == severity,
+            severity_filter_label(label, severity, counts),
+        )
         .clicked()
     {
         app.action_queue_severity_filter = severity;

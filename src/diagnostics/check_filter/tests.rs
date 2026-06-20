@@ -1,6 +1,8 @@
 use super::*;
 use crate::diagnostics::DiagnosticResolution;
 
+mod severity_counts;
+
 #[test]
 fn diagnostic_check_filter_sorts_by_severity_then_title() {
     let checks = vec![
@@ -85,6 +87,40 @@ fn diagnostic_check_filter_applies_resolution_facet() {
     assert_eq!(rows[0].title, "Binary");
 }
 
+#[test]
+fn diagnostic_check_resolution_counts_preserve_severity_and_query_facets() {
+    let checks = vec![
+        check_with_resolution(
+            CheckSeverity::Warning,
+            "Plugin",
+            "plugin disabled",
+            DiagnosticResolution::PluginManager,
+        ),
+        check_with_resolution(
+            CheckSeverity::Critical,
+            "Runtime",
+            "neo-rs missing",
+            DiagnosticResolution::RuntimeManager,
+        ),
+        check_with_resolution(
+            CheckSeverity::Warning,
+            "Config",
+            "plugin setting stale",
+            DiagnosticResolution::ConfigWorkspace,
+        ),
+    ];
+
+    let counts = diagnostic_check_resolution_counts(
+        &checks,
+        &DiagnosticCheckFilter::new(Some(CheckSeverity::Warning), "plugin")
+            .with_resolution(Some(DiagnosticResolution::RuntimeManager)),
+    );
+
+    assert_eq!(count_for(&counts, DiagnosticResolution::PluginManager), 1);
+    assert_eq!(count_for(&counts, DiagnosticResolution::ConfigWorkspace), 1);
+    assert_eq!(count_for(&counts, DiagnosticResolution::RuntimeManager), 0);
+}
+
 fn check(severity: CheckSeverity, title: &'static str, detail: &str) -> DiagnosticCheck {
     DiagnosticCheck::new(severity, title, detail, DiagnosticResolution::Operations)
 }
@@ -96,4 +132,11 @@ fn check_with_resolution(
     resolution: DiagnosticResolution,
 ) -> DiagnosticCheck {
     DiagnosticCheck::new(severity, title, detail, resolution)
+}
+
+fn count_for(counts: &[(DiagnosticResolution, usize)], resolution: DiagnosticResolution) -> usize {
+    counts
+        .iter()
+        .find_map(|(counted, count)| (*counted == resolution).then_some(*count))
+        .unwrap_or(0)
 }

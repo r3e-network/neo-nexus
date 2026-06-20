@@ -26,6 +26,17 @@ pub(super) fn severity_color(severity: CheckSeverity) -> egui::Color32 {
     }
 }
 
+pub(super) fn severity_filter_label(
+    label: &str,
+    severity: Option<CheckSeverity>,
+    counts: &[(CheckSeverity, usize)],
+) -> String {
+    severity.map_or_else(
+        || format!("{label} ({})", total_severity_count(counts)),
+        |severity| format!("{label} ({})", severity_count(counts, severity)),
+    )
+}
+
 pub(super) fn event_color(severity: EventSeverity) -> egui::Color32 {
     match severity {
         EventSeverity::Info => muted_text(),
@@ -38,18 +49,72 @@ pub(super) fn resolution_filter_combo(
     ui: &mut egui::Ui,
     id: &'static str,
     selected: &mut Option<DiagnosticResolution>,
+    counts: &[(DiagnosticResolution, usize)],
 ) -> bool {
     let previous = *selected;
     ui.label(egui::RichText::new("Workspace").color(muted_text()));
     egui::ComboBox::from_id_salt(id)
-        .selected_text(selected.map_or("All Workspaces", |resolution| resolution.label()))
-        .width(150.0)
+        .selected_text(resolution_filter_label(*selected, counts))
+        .width(170.0)
         .show_ui(ui, |ui| {
-            ui.selectable_value(selected, None, "All Workspaces");
+            ui.selectable_value(
+                selected,
+                None,
+                format!("All Workspaces ({})", total_resolution_count(counts)),
+            );
             for resolution in DiagnosticResolution::ALL {
-                ui.selectable_value(selected, Some(resolution), resolution.label())
-                    .on_hover_text(resolution.hint());
+                ui.selectable_value(
+                    selected,
+                    Some(resolution),
+                    format!(
+                        "{} ({})",
+                        resolution.label(),
+                        resolution_count(counts, resolution)
+                    ),
+                )
+                .on_hover_text(resolution.hint());
             }
         });
     *selected != previous
+}
+
+fn resolution_filter_label(
+    selected: Option<DiagnosticResolution>,
+    counts: &[(DiagnosticResolution, usize)],
+) -> String {
+    selected.map_or_else(
+        || format!("All Workspaces ({})", total_resolution_count(counts)),
+        |resolution| {
+            format!(
+                "{} ({})",
+                resolution.label(),
+                resolution_count(counts, resolution)
+            )
+        },
+    )
+}
+
+fn resolution_count(
+    counts: &[(DiagnosticResolution, usize)],
+    resolution: DiagnosticResolution,
+) -> usize {
+    counts
+        .iter()
+        .find_map(|(counted, count)| (*counted == resolution).then_some(*count))
+        .unwrap_or(0)
+}
+
+fn total_resolution_count(counts: &[(DiagnosticResolution, usize)]) -> usize {
+    counts.iter().map(|(_, count)| count).sum()
+}
+
+fn severity_count(counts: &[(CheckSeverity, usize)], severity: CheckSeverity) -> usize {
+    counts
+        .iter()
+        .find_map(|(counted, count)| (*counted == severity).then_some(*count))
+        .unwrap_or(0)
+}
+
+fn total_severity_count(counts: &[(CheckSeverity, usize)]) -> usize {
+    counts.iter().map(|(_, count)| count).sum()
 }

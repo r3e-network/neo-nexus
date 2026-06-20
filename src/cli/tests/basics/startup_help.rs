@@ -64,3 +64,24 @@ fn cli_prints_version_and_help_without_gui() -> Result<()> {
     }
     Ok(())
 }
+
+#[test]
+fn cargo_does_not_run_native_gui_binary_as_test_target() -> Result<()> {
+    let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+    let manifest = std::fs::read_to_string(manifest_path)?;
+    let parsed = toml::from_str::<toml::Value>(&manifest)?;
+    let bins = parsed
+        .get("bin")
+        .and_then(toml::Value::as_array)
+        .ok_or_else(|| anyhow::anyhow!("missing binary targets"))?;
+    let neo_nexus_bin = bins
+        .iter()
+        .find(|bin| bin.get("name").and_then(toml::Value::as_str) == Some("neo-nexus"))
+        .ok_or_else(|| anyhow::anyhow!("missing neo-nexus binary target"))?;
+
+    assert_eq!(
+        neo_nexus_bin.get("test").and_then(toml::Value::as_bool),
+        Some(false)
+    );
+    Ok(())
+}

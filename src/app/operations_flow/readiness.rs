@@ -1,5 +1,6 @@
 use super::resolution::view_for_resolution;
 use super::*;
+use crate::diagnostics::{diagnostic_check_resolution_counts, diagnostic_check_severity_counts};
 
 impl NeoNexusApp {
     pub(in crate::app) fn readiness_check_filter(&self) -> DiagnosticCheckFilter {
@@ -15,6 +16,20 @@ impl NeoNexusApp {
         node: &NodeDiagnostics,
     ) -> Vec<DiagnosticCheck> {
         filter_diagnostic_checks(&node.checks, &self.readiness_check_filter())
+    }
+
+    pub(in crate::app) fn readiness_check_resolution_counts(
+        &self,
+        node: &NodeDiagnostics,
+    ) -> Vec<(DiagnosticResolution, usize)> {
+        diagnostic_check_resolution_counts(&node.checks, &self.readiness_check_filter())
+    }
+
+    pub(in crate::app) fn readiness_check_severity_counts(
+        &self,
+        node: &NodeDiagnostics,
+    ) -> Vec<(CheckSeverity, usize)> {
+        diagnostic_check_severity_counts(&node.checks, &self.readiness_check_filter())
     }
 
     pub(in crate::app) fn has_active_readiness_check_filter(&self) -> bool {

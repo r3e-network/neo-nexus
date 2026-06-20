@@ -6,12 +6,19 @@ mod model;
 mod port_matrix;
 mod ports;
 mod readiness;
+mod resolution_counts;
+mod severity_counts;
 
 pub use self::{
     actions::{
-        filter_readiness_actions, ReadinessAction, ReadinessActionFilter, ReadinessActionKey,
+        filter_readiness_actions, readiness_action_resolution_counts,
+        readiness_action_severity_counts, ReadinessAction, ReadinessActionFilter,
+        ReadinessActionKey,
     },
-    check_filter::{filter_diagnostic_checks, DiagnosticCheckFilter},
+    check_filter::{
+        diagnostic_check_resolution_counts, diagnostic_check_severity_counts,
+        filter_diagnostic_checks, DiagnosticCheckFilter,
+    },
     fleet::{evaluate_fleet, evaluate_node},
     model::{
         CheckSeverity, DiagnosticCheck, DiagnosticCheckKey, DiagnosticResolution, FleetDiagnostics,

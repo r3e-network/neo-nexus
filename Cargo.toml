@@ -13,6 +13,7 @@ path = "src/lib.rs"
 [[bin]]
 name = "neo-nexus"
 path = "src/main.rs"
+test = false
 
 [dependencies]
 anyhow = "1"
