@@ -27,6 +27,11 @@ NeoNexus workbench.
 
 - Workbench over pages: a fixed native shell with Inventory, Workspace,
   Inspector, and Status areas.
+- Native command discoverability: common operator actions live in stable
+  desktop menus, a compact toolbar, and keyboard accelerators backed by the
+  same command dispatcher, so reload, node creation, view switching, inventory
+  movement, and selected-node lifecycle controls are reachable without
+  changing layout context.
 - Operator-first triage: mature node tools guide operators from a warning to a
   concrete maintenance surface. NeoNexus applies the same pattern by attaching
   every readiness finding to a native resolution workspace, action label, and
@@ -208,14 +213,15 @@ NeoNexus workbench.
 
 ## Current Boundaries
 
-NeoNexus now models version intent, exports generated config files, captures
-and displays process logs, reconciles process state, applies bounded watchdog
-restarts, exposes persisted watchdog policy controls, records structured
-runtime events with selectable native audit detail, exposes resource telemetry,
-exports/imports workspace backups, applies role presets where plugin state is
-the right abstraction, previews private-network topologies, and materializes
-those templates into local node definitions. It also exports private-network
-launch packs with managed
+NeoNexus now models version intent, exposes common commands through native
+menus, toolbar buttons, and keyboard accelerators, exports generated config
+files, captures and displays process logs, reconciles process state, applies
+bounded watchdog restarts, exposes persisted watchdog policy controls, records
+structured runtime events with selectable native audit detail, exposes resource
+telemetry, exports/imports workspace backups, applies role presets where plugin
+state is the right abstraction, previews private-network topologies, and
+materializes those templates into local node definitions. It also exports
+private-network launch packs with managed
 configs, deterministic seed lists, validator counts, operator-supplied
 committee public keys, manifests, and start orders for stopped materialized
 layouts. It also registers local or HTTPS Fast Sync manifests, downloads

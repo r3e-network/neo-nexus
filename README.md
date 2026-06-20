@@ -8,6 +8,11 @@ is a desktop operations workbench: fixed inventory, workspace, inspector,
 toolbar, and status areas that are designed for repeated node-management work
 instead of document-style page scrolling.
 
+The menu row, fixed toolbar, and keyboard accelerators share one native
+command model. Operators can reload the workspace, create nodes, switch
+workspaces, move through filtered inventory pages, and start, stop, or restart
+the selected node without leaving the desktop workbench layout.
+
 ## Operator Workflow
 
 1. Add or import node definitions for neo-cli, neo-go, or neo-rs.
@@ -247,14 +252,16 @@ accidentally launch the desktop application.
   config parse errors, permission problems, missing files, database locks, and
   runtime crashes, with actionable recommendations shown in the native Logs
   workspace and included in abnormal-exit notices.
-- Native keyboard accelerators for workspace reload, node creation,
-  selected-node lifecycle toggling, selected-node restart, primary workspace
-  selection, and next/previous workspace cycling, plus filter-aware Alt/Option
-  inventory navigation for previous/next node, page jumps, first node, and last
-  node.
-- First-class selected-node restart from the native toolbar, Node menu, Summary,
-  and inspector surfaces, plus restart handling when a supervised child process
-  has already exited.
+- Native command menus, fixed toolbar actions, and keyboard accelerators for
+  workspace reload, node creation, selected-node start, stop, lifecycle toggle,
+  restart, primary workspace selection, and next/previous workspace cycling,
+  plus filter-aware Alt/Option inventory navigation for previous/next node,
+  page jumps, first node, and last node. Workspace, View, and Node menu entries
+  dispatch through the same tested application commands as the New Node,
+  Reload, Start, Stop, and Restart toolbar buttons.
+- First-class selected-node lifecycle actions from the native toolbar, Node
+  menu, Summary, and inspector surfaces, plus restart handling when a
+  supervised child process has already exited.
 - Runtime state reconciliation for exited children, stale previous sessions, and
   operator-confirmed missing PID records from the native Monitor workspace.
 - Automatic watchdog restarts for abnormal exits with capped exponential backoff.

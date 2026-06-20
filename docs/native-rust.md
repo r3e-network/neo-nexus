@@ -136,9 +136,10 @@ including failed-verification messages with a non-zero exit code.
 - `src/federation.rs` normalizes remote NeoNexus base URLs, models saved
   searchable federation profiles and monitor policy, and probes the read-only
   public status/node endpoints with retained, filterable probe history.
-- `src/app/shortcuts.rs` maps cross-platform native keyboard accelerators to
-  existing workspace, node lifecycle, selected-node restart, filter-aware node
-  inventory navigation, and view-selection actions.
+- `src/app/shortcuts.rs` maps cross-platform native keyboard accelerators,
+  menu labels, toolbar labels, and command lists to existing workspace, node
+  lifecycle, selected-node restart, filter-aware node inventory navigation, and
+  view-selection actions.
 - `src/backup.rs` exports and imports workspace snapshots for node
   definitions, plugin state, plugin installation inventory, remote federation
   profiles, allowlisted workspace settings, runtime catalog profiles, trusted
@@ -286,6 +287,10 @@ The UI is a desktop application workbench: native menu row, command toolbar,
 left inventory panel, central task workspace, right property inspector, and
 bottom status bar. Long collections are paginated inside fixed panels instead
 of rendered as a scrolling document.
+Workspace, View, and Node menus plus the fixed New Node, Reload, Start, Stop,
+and Restart toolbar buttons dispatch through the same command layer as
+keyboard accelerators, so desktop actions remain discoverable and testable
+instead of being scattered across view-specific callbacks.
 
 Runtime data is stored under the platform data directory by default, or under
 `NEONEXUS_DATA_DIR` when that environment variable is set.
@@ -359,7 +364,8 @@ Runtime data is stored under the platform data directory by default, or under
   limits scheduled runs to optional UTC maintenance windows, spaces upgrade
   waves with an optional delay, and records policy update/run events with
   ready and planned stopped/running rollout breakdowns.
-- Starting, stopping, and restarting configured node binaries.
+- Starting, stopping, and restarting configured node binaries from fixed
+  native controls.
 - Parsing and displaying Node Studio runtime arguments through a no-shell argv
   vector with quoted-value support, so paths with spaces remain one argument,
   command previews stay unambiguous, and unterminated quotes are rejected
@@ -374,9 +380,9 @@ Runtime data is stored under the platform data directory by default, or under
 - Viewing captured logs in a bounded, paginated native workspace.
 - Searching captured logs and following the retained tail window without
   switching to a document-style layout.
-- Restarting a selected running node from native controls or keyboard
-  accelerator, plus restart handling after a previously supervised child
-  process has exited.
+- Starting, stopping, and restarting the selected node from the toolbar, Node
+  menu, Summary, inspector, or keyboard accelerator, plus restart handling
+  after a previously supervised child process has exited.
 - Reconciling child process exits, stale runtime state from previous app
   sessions, and operator-confirmed missing PID records from Monitor.
 - Automatically restarting abnormal exits with bounded exponential backoff.
