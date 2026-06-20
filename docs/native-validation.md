@@ -115,6 +115,9 @@ Expected result:
 - Workspace readiness and launch readiness report managed-config posture,
   warning when neo-go or neo-rs runtime args preserve an existing config flag
   and therefore bypass generated managed config injection.
+- Workspace readiness findings carry structured native resolution metadata:
+  a stable key, visible workspace label, action label, and operator hint for
+  GUI action queue triage, text output, JSON output, and exported evidence.
 - Launch readiness blocks configured active-node port collisions and occupied
   IPv4/IPv6 localhost TCP listeners before the native supervisor starts a node
   process.
@@ -429,8 +432,9 @@ Current Rust tests cover:
 - Fleet diagnostics for port conflicts, runtime binary preflight, generated
   config validation, launch readiness, node readiness, local listener launch
   blockers, and headless workspace readiness CLI exit status, including
-  machine-readable JSON output and timestamped text/JSON readiness report
-  exports for CI and operator evidence.
+  machine-readable JSON output, native resolution key/action/hint metadata,
+  and timestamped text/JSON readiness report exports for CI and operator
+  evidence.
 - Neo-CLI plugin alignment diagnostics for RPC and storage plugins.
 - neo-rs runtime parsing, built-in RPC diagnostics, and plugin-free catalog
   behavior.
@@ -462,11 +466,13 @@ Current Rust tests cover:
   longer visible and active-node synchronization when a node-scoped event is
   selected.
 - Native Operations action queue filtering, one-click critical/warning focus,
-  selected-action summary, and active-node synchronization for visible work
-  rows.
+  selected-action summary, active-node synchronization for visible work rows,
+  and structured resolution shortcuts that open Config, Logs, Monitor, Node
+  Studio, Operations, Plugins, Roles, Runtimes, or Wallets as appropriate.
 - Native Operations selected-node readiness filtering, one-click
   critical/warning focus, selectable check detail, pagination, and visible
-  selection recovery.
+  selection recovery, using the same structured diagnostic checks as the
+  action queue and headless readiness reports.
 - Native Operations port matrix status/network/health/query filtering,
   one-click blocked-port focus, selected-port summary, pagination, and
   active-node synchronization.
