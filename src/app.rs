@@ -48,7 +48,7 @@ use crate::{
         alert_target_label, deliver_webhook_alert, preview_alert_route, should_route_alert,
         AlertDeliveryReport, AlertDeliveryStatus, AlertPreviewReport, AlertRoutingPolicy,
     },
-    backup::{WorkspaceBackupExporter, WorkspaceBackupImporter},
+    backup::{WorkspaceBackupExporter, WorkspaceBackupImporter, WorkspaceBackupValidation},
     catalog::{
         filter_plugin_definitions, PluginCatalog, PluginCategory, PluginDefinition,
         PluginDefinitionFilter, PluginId, PluginState,
@@ -57,8 +57,9 @@ use crate::{
     diagnostics::{
         evaluate_launch_readiness, evaluate_restart_readiness, filter_diagnostic_checks,
         filter_port_matrix_rows, filter_readiness_actions, CheckSeverity, DiagnosticCheck,
-        DiagnosticCheckFilter, FleetDiagnostics, NodeDiagnostics, PortMatrixFilter, PortMatrixRow,
-        ReadinessAction, ReadinessActionFilter,
+        DiagnosticCheckFilter, DiagnosticCheckKey, FleetDiagnostics, NodeDiagnostics,
+        PortMatrixFilter, PortMatrixRow, ReadinessAction, ReadinessActionFilter,
+        ReadinessActionKey,
     },
     event_journal_report::{EventJournalReporter, DEFAULT_EVENT_EXPORT_LIMIT},
     events::{EventKind, EventSeverity, NewRuntimeEvent, RuntimeEvent, RuntimeEventFilter},

@@ -136,7 +136,8 @@ Expected result:
 - Native Operations event journal rows are selectable and expose full
   structured event detail in the fixed panel, so operators can audit id, kind,
   node, timestamp, severity, and full message without relying on truncated row
-  summaries.
+  summaries. Selecting a node-scoped event also synchronizes the active node
+  context so follow-up readiness, logs, and node actions stay aligned.
 - Native Operations and headless support bundle export write a diagnostics
   directory and ZIP archive containing readiness, read-only integrity, bounded
   event journal, metrics text/JSON/Prometheus snapshots, redacted node
@@ -158,6 +159,9 @@ Expected result:
 - Headless backup import validates the backup before restore, refuses target
   workspaces with active nodes, and its JSON mode emits structured import
   evidence for automation.
+- Native Operations backup import requires current latest-backup validation
+  evidence before enabling restore, keeps the latest validation counts visible
+  in Workspace Safety, and records `backup-validated` audit evidence.
 - Headless encrypted wallet validation checks NEP-6 wallet structure,
   Base58Check account addresses, encrypted NEP-2 account keys, scrypt
   parameters, address-to-contract-script hash consistency, extracted contract
@@ -455,7 +459,20 @@ Current Rust tests cover:
 - SQL-backed runtime event filtering, counting, and bounded retention pruning.
 - Native runtime event selection alignment for filtered event journal results,
   including automatic selection recovery when the previous selected event is no
-  longer visible.
+  longer visible and active-node synchronization when a node-scoped event is
+  selected.
+- Native Operations action queue filtering, one-click critical/warning focus,
+  selected-action summary, and active-node synchronization for visible work
+  rows.
+- Native Operations selected-node readiness filtering, one-click
+  critical/warning focus, selectable check detail, pagination, and visible
+  selection recovery.
+- Native Operations port matrix status/network/health/query filtering,
+  one-click blocked-port focus, selected-port summary, pagination, and
+  active-node synchronization.
+- Native Operations backup validation flow, including latest-backup validation
+  state, import enablement gating, displayed validation counts, and
+  `backup-validated` audit events.
 - Headless event journal report export with redacted text and JSON evidence,
   bounded limits, severity/query filters recorded in report metadata,
   matched/exported event counts, and latest-event ordering.
@@ -523,7 +540,8 @@ Current Rust tests cover:
   and persisted watchdog policy settings.
 - Resource telemetry formatting, pressure classification, node process totals,
   missing-process snapshot modeling, telemetry refresh, and missing-process
-  repair.
+  repair, including Telemetry health focus into the Missing managed-process
+  filter before repair.
 - Shared argv parsing/display formatting, Node draft argument conversion,
   quoted runtime args, unterminated-quote rejection, loaded-args display
   formatting, and explicit per-node non-zero/distinct port validation.

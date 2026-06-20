@@ -74,7 +74,25 @@ fn render_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
             app.notice = Some("Telemetry refreshed".to_string());
         }
         if ui
+            .add_enabled(can_reconcile, egui::Button::new("Focus Missing"))
+            .on_hover_text("Show missing running-node PIDs in the process table")
+            .clicked()
+        {
+            app.focus_missing_processes();
+        }
+        if ui
+            .add_enabled(
+                app.has_active_monitor_process_filter(),
+                egui::Button::new("Clear Filters"),
+            )
+            .on_hover_text("Show all managed process rows")
+            .clicked()
+        {
+            app.clear_monitor_process_filters();
+        }
+        if ui
             .add_enabled(can_reconcile, egui::Button::new("Repair Missing"))
+            .on_hover_text("Mark missing running process records as stopped")
             .clicked()
         {
             app.reconcile_missing_process_records();
@@ -89,6 +107,10 @@ fn render_missing_processes(app: &NeoNexusApp, ui: &mut egui::Ui) {
         return;
     }
 
+    ui.label(
+        egui::RichText::new("Missing running-node PIDs need review before repair.")
+            .color(muted_text()),
+    );
     for row in 0..MISSING_ROWS {
         if let Some(missing) = app.metrics_snapshot.missing_processes.get(row) {
             ui.horizontal(|ui| {

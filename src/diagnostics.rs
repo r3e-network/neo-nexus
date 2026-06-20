@@ -8,11 +8,14 @@ mod ports;
 mod readiness;
 
 pub use self::{
-    actions::{filter_readiness_actions, ReadinessAction, ReadinessActionFilter},
+    actions::{
+        filter_readiness_actions, ReadinessAction, ReadinessActionFilter, ReadinessActionKey,
+    },
     check_filter::{filter_diagnostic_checks, DiagnosticCheckFilter},
     fleet::{evaluate_fleet, evaluate_node},
     model::{
-        CheckSeverity, DiagnosticCheck, FleetDiagnostics, LaunchReadinessReport, NodeDiagnostics,
+        CheckSeverity, DiagnosticCheck, DiagnosticCheckKey, FleetDiagnostics,
+        LaunchReadinessReport, NodeDiagnostics,
     },
     port_matrix::{filter_port_matrix_rows, PortMatrixFilter, PortMatrixRow},
     readiness::{

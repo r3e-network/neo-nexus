@@ -25,6 +25,34 @@ pub struct ReadinessAction {
     pub detail: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadinessActionKey {
+    pub node_id: String,
+    pub severity: CheckSeverity,
+    pub title: String,
+    pub detail: String,
+}
+
+impl ReadinessAction {
+    pub fn key(&self) -> ReadinessActionKey {
+        ReadinessActionKey {
+            node_id: self.node_id.clone(),
+            severity: self.severity,
+            title: self.title.clone(),
+            detail: self.detail.clone(),
+        }
+    }
+}
+
+impl ReadinessActionKey {
+    pub fn matches(&self, action: &ReadinessAction) -> bool {
+        self.node_id == action.node_id
+            && self.severity == action.severity
+            && self.title == action.title
+            && self.detail == action.detail
+    }
+}
+
 pub fn filter_readiness_actions(
     diagnostics: &FleetDiagnostics,
     filter: &ReadinessActionFilter,

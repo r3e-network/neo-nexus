@@ -64,6 +64,69 @@ fn port_matrix_filters_rows_and_clamps_page() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn port_matrix_focuses_blocked_ports_and_clears_filters() -> anyhow::Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let repository = Repository::open(temp_dir.path().join("neonexus.db"))?;
+    let main = repository.create_node(port_node("main-rpc", Network::Mainnet, 10332))?;
+    repository.create_node(port_node("test-rpc", Network::Testnet, 20332))?;
+    let mut app = NeoNexusApp::new(repository);
+    app.repository
+        .update_node_status(&main.id, NodeStatus::Running, Some(42))?;
+    app.reload_nodes();
+    let main_id = app
+        .nodes
+        .iter()
+        .find(|node| node.name == "main-rpc")
+        .map(|node| node.id.clone())
+        .ok_or_else(|| anyhow::anyhow!("main node should exist"))?;
+    let test_id = app
+        .nodes
+        .iter()
+        .find(|node| node.name == "test-rpc")
+        .map(|node| node.id.clone())
+        .ok_or_else(|| anyhow::anyhow!("test node should exist"))?;
+    let diagnostics = FleetDiagnostics {
+        score: 50,
+        ready_nodes: 0,
+        warning_count: 0,
+        critical_count: 1,
+        nodes: vec![
+            diagnostic(&main_id, "main-rpc", CheckSeverity::Critical),
+            diagnostic(&test_id, "test-rpc", CheckSeverity::Pass),
+        ],
+    };
+
+    app.port_matrix_status_filter = Some(NodeStatus::Stopped);
+    app.port_matrix_network_filter = Some(Network::Testnet);
+    app.port_matrix_health_filter = Some(CheckSeverity::Pass);
+    app.port_matrix_query = "20332".to_string();
+    app.port_matrix_page = 3;
+
+    app.focus_blocked_ports(&diagnostics);
+
+    assert_eq!(app.port_matrix_status_filter, None);
+    assert_eq!(app.port_matrix_network_filter, None);
+    assert_eq!(app.port_matrix_health_filter, Some(CheckSeverity::Critical));
+    assert!(app.port_matrix_query.is_empty());
+    assert_eq!(app.port_matrix_page, 0);
+    assert_eq!(app.selected_node.as_deref(), Some(main_id.as_str()));
+    let blocked_rows = app.filtered_port_matrix_rows(&diagnostics);
+    assert_eq!(blocked_rows.len(), 1);
+    assert_eq!(blocked_rows[0].node_id, main_id);
+    assert!(app.has_active_port_matrix_filter());
+
+    app.clear_port_matrix_filters(&diagnostics);
+
+    assert!(!app.has_active_port_matrix_filter());
+    assert_eq!(app.filtered_port_matrix_rows(&diagnostics).len(), 2);
+    assert!(app
+        .selected_visible_port_matrix_row(&app.filtered_port_matrix_rows(&diagnostics))
+        .is_some());
+
+    Ok(())
+}
+
 fn port_node(name: &str, network: Network, rpc_port: u16) -> NewNode {
     NewNode {
         name: name.to_string(),

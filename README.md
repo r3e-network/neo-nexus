@@ -222,11 +222,14 @@ make verify
   Monitor workspace, including one-click refresh, missing-process repair, and
   a paged managed-process table with state, high-CPU, high-RSS, and query
   filters that keep node selection aligned with the visible process row.
+  Telemetry health can focus missing running-node PIDs directly into the
+  process table before repair.
 - Structured runtime event journal for lifecycle, restart, config, logs, backup,
   plugin, and watchdog activity.
 - Event journal search, severity filtering, match counts, selectable full
-  event detail, and bounded retention pruning from the Operations workspace,
-  plus native filtered redacted text/JSON audit evidence export that records an
+  event detail, node-event selection that synchronizes the active node, and
+  bounded retention pruning from the Operations workspace, plus native filtered
+  redacted text/JSON audit evidence export that records an
   `event-journal-exported` event. The same export is available headlessly from
   `--export-event-journal`, including optional limit, severity, and query
   filters.
@@ -342,11 +345,13 @@ make verify
   timestamped text and JSON evidence from the native Operations workspace or
   `--export-readiness-report <neonexus.db> <output-dir>`. The native action
   queue flattens fleet findings into a paged, severity/query-filtered operator
-  list that prioritizes blocking nodes and keeps row selection aligned with
-  the active node. The port matrix is also paged and can be filtered by node
-  status, chain network, port health, or query while keeping the selected node
-  synchronized with the visible row. Selected-node readiness checks expose the
-  same native severity/query filtering and pagination for focused triage.
+  list that prioritizes blocking nodes, can focus critical or warning work in
+  one click, and keeps row selection aligned with the active node. The port
+  matrix is also paged, can focus blocked port rows in one click, and can be
+  filtered by node status, chain network, port health, or query while keeping
+  the selected node synchronized with the visible row. Selected-node readiness
+  checks expose native severity/query filtering, one-click critical/warning
+  focus, selectable detail, and pagination for focused triage.
 - Headless workspace metrics from `--workspace-metrics <neonexus.db>` and
   `--workspace-metrics-json <neonexus.db>` capture system CPU/memory pressure,
   managed node process CPU/memory/uptime, and stale running-node PID
@@ -371,7 +376,11 @@ make verify
   `--import-backup <neonexus.db> <backup.json>` or
   `--import-backup-json <neonexus.db> <backup.json>` after the backup passes
   validation, and the CLI refuses to import into workspaces with active
-  running/starting nodes. The same deep validation is available from
+  running/starting nodes. The native Operations workspace can validate the
+  latest backup before import, requires that current validation before enabling
+  native import, keeps the last validation counts visible in Workspace Safety,
+  and records a `backup-validated` audit event. The same deep validation is
+  available from
   `--validate-backup <backup.json>` and
   `--validate-backup-json <backup.json>`, including duplicate identifier,
   duplicate plugin inventory, and duplicate node-port rejection. Runtime event
@@ -435,7 +444,9 @@ src/
       plugins.rs          plugin catalog, package installation, and details
       config.rs           paged native config preview and export controls
       logs.rs             paged process log viewer
+      operations/         split action queue, port matrix, event journal, readiness, and safety panels
     widgets.rs            reusable native UI primitives
+  app/operations_flow/    non-visual Operations actions, filters, reports, backup validation, and retention
   backup.rs               workspace backup export/import
   catalog.rs              plugin definitions
   plugins.rs              neo-cli plugin ZIP installation and manifest writing

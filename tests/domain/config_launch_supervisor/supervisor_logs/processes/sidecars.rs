@@ -1,4 +1,5 @@
 use super::*;
+use neo_nexus::supervisor::ProcessExit;
 
 #[cfg(unix)]
 #[test]
@@ -23,8 +24,7 @@ fn supervisor_starts_generic_sidecar_process_with_stable_logs() {
     let start = supervisor
         .start_process(&sidecar_spec, &sidecar_log_path)
         .unwrap();
-    thread::sleep(Duration::from_millis(100));
-    let exits = supervisor.reap_finished().unwrap();
+    let exits = reap_until_sidecar_exit(&mut supervisor, &sidecar_spec.id);
 
     let text = std::fs::read_to_string(&sidecar_log_path).unwrap();
     assert_eq!(start.log_path, sidecar_log_path);
@@ -71,4 +71,21 @@ fn supervisor_redacts_sensitive_sidecar_display_command_in_logs() {
     assert!(!text.contains("raw-api-key"));
     assert!(!text.contains("raw-password"));
     assert!(!text.contains("raw-seed"));
+}
+
+fn reap_until_sidecar_exit(
+    supervisor: &mut ProcessSupervisor,
+    process_id: &str,
+) -> Vec<ProcessExit> {
+    let started = std::time::Instant::now();
+    loop {
+        let exits = supervisor.reap_finished().unwrap();
+        if exits.iter().any(|exit| exit.process_id == process_id) {
+            return exits;
+        }
+        if started.elapsed() >= Duration::from_secs(2) {
+            return exits;
+        }
+        thread::sleep(Duration::from_millis(25));
+    }
 }

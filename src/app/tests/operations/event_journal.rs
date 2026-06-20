@@ -91,3 +91,42 @@ fn event_journal_selection_tracks_visible_events() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn event_journal_selection_syncs_node_context_for_node_events() -> anyhow::Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let repository = Repository::open(temp_dir.path().join("neonexus.db"))?;
+    let workspace_event = repository.record_event_at(
+        NewRuntimeEvent {
+            node_id: None,
+            node_name: None,
+            kind: EventKind::WorkspaceIntegrityChecked,
+            severity: EventSeverity::Info,
+            message: "workspace integrity ok".to_string(),
+        },
+        10,
+    )?;
+    let node_event = repository.record_event_at(
+        NewRuntimeEvent {
+            node_id: Some("node-a".to_string()),
+            node_name: Some("validator-a".to_string()),
+            kind: EventKind::WatchdogRestarted,
+            severity: EventSeverity::Warning,
+            message: "restart after abnormal exit".to_string(),
+        },
+        20,
+    )?;
+    let mut app = NeoNexusApp::new(repository);
+    app.selected_node = Some("node-before".to_string());
+
+    app.select_event(&workspace_event);
+    assert_eq!(app.selected_event, Some(workspace_event.id));
+    assert_eq!(app.selected_node.as_deref(), Some("node-before"));
+
+    app.select_event(&node_event);
+
+    assert_eq!(app.selected_event, Some(node_event.id));
+    assert_eq!(app.selected_node.as_deref(), Some("node-a"));
+
+    Ok(())
+}
