@@ -61,6 +61,69 @@ fn readiness_actions_filter_by_severity_and_query() {
     assert_eq!(warnings[0].title, "config");
 }
 
+#[test]
+fn readiness_actions_filter_by_resolution_handoff_metadata() {
+    let diagnostics = fleet(vec![node(
+        "validator",
+        "Validator",
+        50,
+        vec![
+            check_with_resolution(
+                CheckSeverity::Critical,
+                "binary",
+                "missing",
+                DiagnosticResolution::RuntimeManager,
+            ),
+            check_with_resolution(
+                CheckSeverity::Warning,
+                "plugin",
+                "disabled",
+                DiagnosticResolution::PluginManager,
+            ),
+        ],
+    )]);
+
+    for query in ["runtime-manager", "Open Runtimes", "apply node runtime"] {
+        let actions =
+            filter_readiness_actions(&diagnostics, &ReadinessActionFilter::new(None, query));
+
+        assert_eq!(actions.len(), 1);
+        assert_eq!(actions[0].title, "binary");
+    }
+}
+
+#[test]
+fn readiness_actions_filter_by_resolution_facet() {
+    let diagnostics = fleet(vec![node(
+        "validator",
+        "Validator",
+        50,
+        vec![
+            check_with_resolution(
+                CheckSeverity::Critical,
+                "binary",
+                "missing",
+                DiagnosticResolution::RuntimeManager,
+            ),
+            check_with_resolution(
+                CheckSeverity::Warning,
+                "plugin",
+                "disabled",
+                DiagnosticResolution::PluginManager,
+            ),
+        ],
+    )]);
+
+    let actions = filter_readiness_actions(
+        &diagnostics,
+        &ReadinessActionFilter::new(None, "")
+            .with_resolution(Some(DiagnosticResolution::PluginManager)),
+    );
+
+    assert_eq!(actions.len(), 1);
+    assert_eq!(actions[0].title, "plugin");
+}
+
 fn fleet(nodes: Vec<NodeDiagnostics>) -> FleetDiagnostics {
     FleetDiagnostics {
         score: 0,
@@ -82,4 +145,13 @@ fn node(id: &str, name: &str, score: usize, checks: Vec<DiagnosticCheck>) -> Nod
 
 fn check(severity: CheckSeverity, title: &'static str, detail: &str) -> DiagnosticCheck {
     DiagnosticCheck::new(severity, title, detail, DiagnosticResolution::Operations)
+}
+
+fn check_with_resolution(
+    severity: CheckSeverity,
+    title: &'static str,
+    detail: &str,
+    resolution: DiagnosticResolution,
+) -> DiagnosticCheck {
+    DiagnosticCheck::new(severity, title, detail, resolution)
 }
