@@ -47,6 +47,8 @@ impl SourceQualityChecker {
             checked_at_unix,
             root_path: root,
             scanned_files: scan.scanned_files,
+            rust_files: scan.rust_files,
+            maintenance_files: scan.maintenance_files,
             scanned_directories: scan.scanned_directories,
             skipped_directories: scan.skipped_directories,
             finding_count: scan.findings.len(),

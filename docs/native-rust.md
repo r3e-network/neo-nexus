@@ -36,6 +36,8 @@ target/release/neo-nexus --source-quality /path/to/neo-nexus/src
 target/release/neo-nexus --source-quality-json /path/to/neo-nexus/src
 target/release/neo-nexus --source-quality /path/to/neo-nexus/tests
 target/release/neo-nexus --source-quality-json /path/to/neo-nexus/tests
+target/release/neo-nexus --source-quality /path/to/neo-nexus
+target/release/neo-nexus --source-quality-json /path/to/neo-nexus
 target/release/neo-nexus --native-ui-audit /path/to/neo-nexus
 target/release/neo-nexus --native-ui-audit-json /path/to/neo-nexus
 target/release/neo-nexus --ci-policy /path/to/neo-nexus/.github/workflows/ci.yml
@@ -167,8 +169,11 @@ including failed-verification messages with a non-zero exit code.
   rejecting panic-oriented development markers and document-style native layout
   containers such as scroll areas or virtual table builders in production
   source, allowing assertion shortcuts in tests, and rejecting all Rust files
-  over the 200-line professional module budget, then emitting text/JSON
-  evidence without relying on external search tools.
+  over the 200-line professional module budget. Repository-root scans also
+  reject JSON, Markdown, TOML, YAML, and named maintenance files such as
+  `Makefile`, `LICENSE`, and `NOTICE` over 1000 lines with case-insensitive
+  matching, then emit text/JSON evidence with Rust and maintenance-file scan
+  counts without relying on external search tools.
 - `src/native_ui.rs` enforces the native application shell by requiring
   eframe/egui dependencies, eframe startup, minimum window sizing, fixed
   top/bottom/left/right/central panels, explicit workspace tabs, and by

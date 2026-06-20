@@ -28,6 +28,7 @@ fn cli_prints_version_and_help_without_gui() -> Result<()> {
         "--source-purity-json",
         "--source-quality",
         "--source-quality-json",
+        "maintenance file budgets",
         "--native-ui-audit",
         "--native-ui-audit-json",
         "--ci-policy",

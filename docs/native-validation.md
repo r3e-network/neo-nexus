@@ -49,6 +49,8 @@ cargo run -- --source-quality /path/to/neo-nexus/src
 cargo run -- --source-quality-json /path/to/neo-nexus/src
 cargo run -- --source-quality /path/to/neo-nexus/tests
 cargo run -- --source-quality-json /path/to/neo-nexus/tests
+cargo run -- --source-quality /path/to/neo-nexus
+cargo run -- --source-quality-json /path/to/neo-nexus
 cargo run -- --native-ui-audit /path/to/neo-nexus
 cargo run -- --native-ui-audit-json /path/to/neo-nexus
 cargo run -- --ci-policy /path/to/neo-nexus/.github/workflows/ci.yml
@@ -108,8 +110,9 @@ Expected result:
 - Headless source quality gates reject panic-oriented Rust development markers
   plus document-style native layout markers such as scroll areas and virtual
   table builders in production source, allow assertion shortcuts in test
-  sources, and reject Rust source files over 200 lines while skipping
-  generated `target`, `dist`, and `.git` directories.
+  sources, reject Rust source files over 200 lines, reject JSON/Markdown/TOML/
+  YAML and named maintenance files over 1000 lines with case-insensitive
+  matching, and skip generated `target`, `dist`, and `.git` directories.
 - Headless native UI audit gates require the desktop shell to use `eframe` and
   `egui`, start through the native eframe runner, set minimum window sizing,
   expose fixed top/bottom/left/right/central panels, define explicit workspace
@@ -237,10 +240,12 @@ Tauri project files such as `src-tauri/` or `tauri.conf.json` return, or if
 
 Production Rust source should not contain panic-oriented development markers,
 native layout markers that reintroduce document-style scrolling, or oversized
-source files that should be split into focused modules. The enforced module
-budget is 200 lines for both `src` and `tests`. Test sources may use assertion
-shortcuts such as `unwrap` / `expect`, but unfinished markers and oversized
-files still fail the quality gate:
+source files that should be split into focused modules. The enforced Rust
+module budget is 200 lines for both `src` and `tests`; repository-root scans
+also keep JSON, Markdown, TOML, YAML, `Makefile`, `LICENSE`, and `NOTICE`
+maintenance files under a 1000-line review budget. Test sources may use
+assertion shortcuts such as `unwrap` / `expect`, but unfinished markers and
+oversized files still fail the quality gate:
 
 ```bash
 rg -n "unwrap\\(|expect\\(|panic!|todo!|unimplemented!|dbg!|ScrollArea::|TableBuilder::|show_rows\\(|vertical_scroll\\(|horizontal_scroll\\(" src
@@ -248,6 +253,8 @@ cargo run -- --source-quality src
 cargo run -- --source-quality-json src
 cargo run -- --source-quality tests
 cargo run -- --source-quality-json tests
+cargo run -- --source-quality .
+cargo run -- --source-quality-json .
 cargo run -- --native-ui-audit .
 cargo run -- --native-ui-audit-json .
 cargo run -- --ci-policy .github/workflows/ci.yml
@@ -255,7 +262,8 @@ cargo run -- --ci-policy-json .github/workflows/ci.yml
 ```
 
 The expected result is no production `rg` matches, `source-quality: ok` for
-both `src` and `tests`, `native-ui-audit: native`, and `ci-policy: native-ci`.
+`src`, `tests`, and the repository root, `native-ui-audit: native`, and
+`ci-policy: native-ci`.
 
 ## Functionality Covered By Tests
 
@@ -276,7 +284,10 @@ Current Rust tests cover:
 - Source quality detection for production panic-oriented Rust markers,
   document-style native layout markers that would reintroduce scroll/table
   work surfaces, test-aware assertion shortcuts, and oversized Rust files
-  above the 200-line professional module budget.
+  above the 200-line professional module budget, plus oversized JSON, Markdown,
+  TOML, YAML, and named maintenance files above the 1000-line review budget
+  regardless of extension/name case, with Rust and maintenance-file scan counts
+  in text/JSON evidence.
 - Native UI audit detection for required eframe/egui desktop shell markers,
   fixed application panels, explicit workspace tabs, minimum native window
   sizing, and forbidden WebView/Tauri/Wry or scrolling UI markers.
