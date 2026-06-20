@@ -111,13 +111,19 @@ NeoNexus workbench.
 - Readiness checks: NeoNexus evaluates binary availability, version posture,
   lifecycle consistency, port conflicts, and plugin alignment before operators
   treat a node as production-ready, with selected-node critical/warning focus
-  and selectable check detail in Operations.
+  and selectable check detail in Operations. Native and headless readiness
+  evidence carries a stable resolution key plus the recommended
+  workspace/action/hint for resolving each finding.
+- Resolution handoff: every readiness finding points to a concrete native
+  workspace, matching mature node-management tools that route operators from
+  a warning directly into config, logs, runtime, plugin, monitor, role, wallet,
+  or node-editing work instead of leaving remediation as free-form text.
 - Port matrix: conflicting RPC/P2P/WS bindings can be focused directly from
   Operations, keeping the selected node aligned with the visible blocked row.
 - Action queue: critical and warning diagnostics are surfaced as operational
   work, can be focused by severity in one click, and keep selected actions
-  synchronized with the active node instead of hiding inside configuration
-  views.
+  synchronized with the active node while opening the right native workspace
+  for resolution instead of hiding inside configuration views.
 - Operations module discipline: action queue, readiness checks, port matrix,
   event journal, metrics, and workspace safety are implemented as focused
   native panels with separate non-visual workflow modules, keeping the desktop

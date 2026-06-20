@@ -346,12 +346,18 @@ make verify
   `--export-readiness-report <neonexus.db> <output-dir>`. The native action
   queue flattens fleet findings into a paged, severity/query-filtered operator
   list that prioritizes blocking nodes, can focus critical or warning work in
-  one click, and keeps row selection aligned with the active node. The port
+  one click, opens the matching native resolution workspace for the selected
+  finding, and keeps row selection aligned with the active node. The port
   matrix is also paged, can focus blocked port rows in one click, and can be
   filtered by node status, chain network, port health, or query while keeping
   the selected node synchronized with the visible row. Selected-node readiness
   checks expose native severity/query filtering, one-click critical/warning
   focus, selectable detail, and pagination for focused triage.
+  Headless workspace readiness text/JSON and exported readiness reports include
+  stable resolution keys, workspace labels, action labels, and operator hints
+  for automation handoff, so GUI triage, CI gates, and support bundles all
+  describe the same next native workspace instead of relying on prose-only
+  remediation.
 - Headless workspace metrics from `--workspace-metrics <neonexus.db>` and
   `--workspace-metrics-json <neonexus.db>` capture system CPU/memory pressure,
   managed node process CPU/memory/uptime, and stale running-node PID

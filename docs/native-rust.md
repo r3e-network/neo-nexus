@@ -204,11 +204,13 @@ including failed-verification messages with a non-zero exit code.
 - `src/dashboard.rs` builds dashboard summary projections.
 - `src/diagnostics.rs` evaluates node readiness, launch readiness, generated
   config validity, configured and live IPv4/IPv6 localhost port safety,
-  lifecycle state, and plugin alignment.
+  lifecycle state, plugin alignment, and the native workspace resolution
+  target for each finding.
 - `src/logs.rs` reads bounded per-node log tails, filters retained output, and
   diagnoses common startup failures with operator recommendations.
 - `src/readiness_report.rs` writes timestamped text and JSON workspace
-  readiness evidence for the desktop Operations panel and headless CLI.
+  readiness evidence for the desktop Operations panel and headless CLI,
+  including stable resolution keys, labels, action labels, and operator hints.
 - `src/support_bundle.rs` combines readiness, read-only integrity, metrics
   text/JSON/Prometheus snapshots, bounded event journal, redacted node
   inventory, redacted runtime log diagnosis, privacy note, SHA-256 file
@@ -444,10 +446,14 @@ Runtime data is stored under the platform data directory by default, or under
 - Per-node working directories for launched processes, keeping relative runtime
   data paths inside the managed workspace.
 - Operations readiness workspace with a paged action queue, one-click
-  critical/warning focus, selected-node readiness check focus with selectable
-  detail, blocked-port focus in the network port matrix, filterable/exportable
-  event journal, and fixed workspace safety controls for backup validation,
-  import/export, and integrity checks.
+  critical/warning focus, selected-action resolution shortcuts into the
+  matching native workspace, selected-node readiness check focus with
+  selectable detail, blocked-port focus in the network port matrix,
+  filterable/exportable event journal, and fixed workspace safety controls for
+  backup validation, import/export, and integrity checks.
+  The same resolution model is used by headless reports so desktop operators
+  and automation see consistent Config, Logs, Monitor, Node Studio, Operations,
+  Plugins, Roles, Runtimes, or Wallets handoff targets.
 - Operations diagnostics and the start path share launch readiness checks for
   runtime binary preflight, managed config validation, lifecycle state, and
   active-node or IPv4/IPv6 localhost TCP listener port conflicts, so critical
@@ -462,9 +468,11 @@ Runtime data is stored under the platform data directory by default, or under
 - Headless `--workspace-readiness <neonexus.db>` evaluates the same fleet
   diagnostics without opening the GUI, while `--workspace-readiness-json`
   emits the same gate as structured JSON for CI and operator scripts. Both
-  commands exit non-zero for critical findings. `--export-readiness-report`
-  writes timestamped `.txt` and `.json` evidence files, and the same export is
-  available from the fixed Operations workspace.
+  commands exit non-zero for critical findings and include stable resolution
+  keys plus the recommended native workspace/action/hint for each finding.
+  `--export-readiness-report` writes timestamped `.txt` and `.json` evidence
+  files with the same resolution metadata, and the same export is available
+  from the fixed Operations workspace.
 - Headless `--workspace-metrics <neonexus.db>` and
   `--workspace-metrics-json <neonexus.db>` expose the native metrics collector
   for scripts and monitoring integrations, including system CPU/memory,
