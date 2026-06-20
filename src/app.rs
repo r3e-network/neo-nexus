@@ -57,8 +57,8 @@ use crate::{
     diagnostics::{
         evaluate_launch_readiness, evaluate_restart_readiness, filter_diagnostic_checks,
         filter_port_matrix_rows, filter_readiness_actions, CheckSeverity, DiagnosticCheck,
-        DiagnosticCheckFilter, DiagnosticCheckKey, FleetDiagnostics, NodeDiagnostics,
-        PortMatrixFilter, PortMatrixRow, ReadinessAction, ReadinessActionFilter,
+        DiagnosticCheckFilter, DiagnosticCheckKey, DiagnosticResolution, FleetDiagnostics,
+        NodeDiagnostics, PortMatrixFilter, PortMatrixRow, ReadinessAction, ReadinessActionFilter,
         ReadinessActionKey,
     },
     event_journal_report::{EventJournalReporter, DEFAULT_EVENT_EXPORT_LIMIT},

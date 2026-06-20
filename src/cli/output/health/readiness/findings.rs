@@ -9,6 +9,10 @@ pub(super) struct WorkspaceReadinessCliFinding {
     pub(super) node_name: String,
     pub(super) title: &'static str,
     pub(super) detail: String,
+    pub(super) resolution_key: &'static str,
+    pub(super) resolution: &'static str,
+    pub(super) resolution_action: &'static str,
+    pub(super) resolution_hint: &'static str,
 }
 
 pub(super) fn workspace_readiness_findings(
@@ -34,6 +38,10 @@ fn severity_findings(
                 node_name: node.node_name.clone(),
                 title: check.title,
                 detail: check.detail.clone(),
+                resolution_key: check.resolution.key(),
+                resolution: check.resolution.label(),
+                resolution_action: check.resolution.action_label(),
+                resolution_hint: check.resolution.hint(),
             })
     })
 }

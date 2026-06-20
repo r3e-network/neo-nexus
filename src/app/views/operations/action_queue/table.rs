@@ -32,11 +32,11 @@ pub(super) fn render_action_table(
 }
 
 pub(super) fn render_selected_action_summary(
-    app: &NeoNexusApp,
+    app: &mut NeoNexusApp,
     ui: &mut egui::Ui,
     actions: &[ReadinessAction],
 ) {
-    let Some(action) = app.selected_visible_readiness_action(actions) else {
+    let Some(action) = app.selected_visible_readiness_action(actions).cloned() else {
         return;
     };
 
@@ -52,8 +52,20 @@ pub(super) fn render_selected_action_summary(
             .on_hover_text(action.node_name.as_str());
         ui.label(truncate_middle(&action.title, 22))
             .on_hover_text(action.title.as_str());
-        ui.label(truncate_middle(&action.detail, 64))
+        ui.label(truncate_middle(&action.detail, 52))
             .on_hover_text(action.detail.as_str());
+        ui.label(
+            egui::RichText::new(action.resolution.label())
+                .strong()
+                .color(muted_text()),
+        );
+        if ui
+            .button(action.resolution.action_label())
+            .on_hover_text(action.resolution.hint())
+            .clicked()
+        {
+            app.open_readiness_action_resolution(&action);
+        }
     });
 }
 

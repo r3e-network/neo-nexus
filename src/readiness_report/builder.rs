@@ -56,6 +56,10 @@ fn readiness_check(check: &DiagnosticCheck) -> WorkspaceReadinessCheckReport {
         severity: check.severity.label(),
         title: check.title,
         detail: check.detail.clone(),
+        resolution_key: check.resolution.key(),
+        resolution: check.resolution.label(),
+        resolution_action: check.resolution.action_label(),
+        resolution_hint: check.resolution.hint(),
     }
 }
 
@@ -90,6 +94,10 @@ fn node_findings_for_severity(
             node_name: node.node_name.clone(),
             title: check.title,
             detail: check.detail.clone(),
+            resolution_key: check.resolution.key(),
+            resolution: check.resolution.label(),
+            resolution_action: check.resolution.action_label(),
+            resolution_hint: check.resolution.hint(),
         })
         .collect()
 }

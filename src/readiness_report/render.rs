@@ -20,8 +20,13 @@ impl WorkspaceReadinessReport {
         } else {
             for finding in &self.findings {
                 lines.push(format!(
-                    "finding: {} | {} | {} | {}",
-                    finding.severity, finding.node_name, finding.title, finding.detail
+                    "finding: {} | {} | {} | {} | resolve: {} | next: {}",
+                    finding.severity,
+                    finding.node_name,
+                    finding.title,
+                    finding.detail,
+                    finding.resolution_action,
+                    finding.resolution_hint
                 ));
             }
         }
@@ -34,8 +39,12 @@ impl WorkspaceReadinessReport {
             ));
             for check in &node.checks {
                 lines.push(format!(
-                    "check: {} | {} | {}",
-                    check.severity, check.title, check.detail
+                    "check: {} | {} | {} | resolve: {} | next: {}",
+                    check.severity,
+                    check.title,
+                    check.detail,
+                    check.resolution_action,
+                    check.resolution_hint
                 ));
             }
         }

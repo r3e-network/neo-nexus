@@ -5,7 +5,7 @@ mod readiness;
 mod severity;
 
 pub use self::{
-    check::{DiagnosticCheck, DiagnosticCheckKey},
+    check::{DiagnosticCheck, DiagnosticCheckKey, DiagnosticResolution},
     fleet::FleetDiagnostics,
     node::NodeDiagnostics,
     readiness::LaunchReadinessReport,

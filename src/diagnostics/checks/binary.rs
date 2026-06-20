@@ -1,5 +1,5 @@
 use crate::{
-    diagnostics::{CheckSeverity, DiagnosticCheck},
+    diagnostics::{CheckSeverity, DiagnosticCheck, DiagnosticResolution},
     preflight::{inspect_node_binary, PreflightSeverity, RuntimePreflightCheck},
     types::NodeConfig,
 };
@@ -13,11 +13,12 @@ pub(in crate::diagnostics) fn binary_checks(node: &NodeConfig) -> Vec<Diagnostic
 }
 
 fn diagnostic_from_preflight(check: RuntimePreflightCheck) -> DiagnosticCheck {
-    DiagnosticCheck {
-        severity: severity_from_preflight(check.severity),
-        title: check.title,
-        detail: check.detail,
-    }
+    DiagnosticCheck::new(
+        severity_from_preflight(check.severity),
+        check.title,
+        check.detail,
+        DiagnosticResolution::RuntimeManager,
+    )
 }
 
 fn severity_from_preflight(severity: PreflightSeverity) -> CheckSeverity {

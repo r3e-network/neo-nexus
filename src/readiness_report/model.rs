@@ -34,6 +34,10 @@ pub struct WorkspaceReadinessFindingReport {
     pub node_name: String,
     pub title: &'static str,
     pub detail: String,
+    pub resolution_key: &'static str,
+    pub resolution: &'static str,
+    pub resolution_action: &'static str,
+    pub resolution_hint: &'static str,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -52,4 +56,8 @@ pub struct WorkspaceReadinessCheckReport {
     pub severity: &'static str,
     pub title: &'static str,
     pub detail: String,
+    pub resolution_key: &'static str,
+    pub resolution: &'static str,
+    pub resolution_action: &'static str,
+    pub resolution_hint: &'static str,
 }

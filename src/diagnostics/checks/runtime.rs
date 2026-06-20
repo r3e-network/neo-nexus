@@ -1,6 +1,6 @@
 use crate::{
     catalog::{PluginId, PluginState},
-    diagnostics::{CheckSeverity, DiagnosticCheck},
+    diagnostics::{CheckSeverity, DiagnosticCheck, DiagnosticResolution},
     types::{NodeConfig, NodeType, StorageEngine},
 };
 
@@ -16,49 +16,54 @@ pub(in crate::diagnostics) fn plugin_checks(
 }
 
 fn neo_go_checks(node: &NodeConfig) -> Vec<DiagnosticCheck> {
-    let mut checks = vec![DiagnosticCheck {
-        severity: CheckSeverity::Pass,
-        title: "RPC",
-        detail: "neo-go exposes RPC through generated YAML configuration.".to_string(),
-    }];
+    let mut checks = vec![DiagnosticCheck::new(
+        CheckSeverity::Pass,
+        "RPC",
+        "neo-go exposes RPC through generated YAML configuration.",
+        DiagnosticResolution::ConfigWorkspace,
+    )];
 
     if node.storage_engine == StorageEngine::LevelDb {
-        checks.push(DiagnosticCheck {
-            severity: CheckSeverity::Pass,
-            title: "Storage",
-            detail: "neo-go LevelDB backend matches the generated DBConfiguration.".to_string(),
-        });
+        checks.push(DiagnosticCheck::new(
+            CheckSeverity::Pass,
+            "Storage",
+            "neo-go LevelDB backend matches the generated DBConfiguration.",
+            DiagnosticResolution::NodeStudio,
+        ));
     } else {
-        checks.push(DiagnosticCheck {
-            severity: CheckSeverity::Warning,
-            title: "Storage",
-            detail: "neo-go support expects LevelDB in NeoNexus; switch storage before export."
-                .to_string(),
-        });
+        checks.push(DiagnosticCheck::new(
+            CheckSeverity::Warning,
+            "Storage",
+            "neo-go support expects LevelDB in NeoNexus; switch storage before export.",
+            DiagnosticResolution::NodeStudio,
+        ));
     }
 
     checks
 }
 
 fn neo_rs_checks(node: &NodeConfig) -> Vec<DiagnosticCheck> {
-    let mut checks = vec![DiagnosticCheck {
-        severity: CheckSeverity::Pass,
-        title: "RPC",
-        detail: "neo-rs exposes JSON-RPC through its TOML [rpc] section.".to_string(),
-    }];
+    let mut checks = vec![DiagnosticCheck::new(
+        CheckSeverity::Pass,
+        "RPC",
+        "neo-rs exposes JSON-RPC through its TOML [rpc] section.",
+        DiagnosticResolution::ConfigWorkspace,
+    )];
 
     if node.storage_engine == StorageEngine::RocksDb {
-        checks.push(DiagnosticCheck {
-            severity: CheckSeverity::Pass,
-            title: "Storage",
-            detail: "neo-rs RocksDB backend matches the selected storage.".to_string(),
-        });
+        checks.push(DiagnosticCheck::new(
+            CheckSeverity::Pass,
+            "Storage",
+            "neo-rs RocksDB backend matches the selected storage.",
+            DiagnosticResolution::NodeStudio,
+        ));
     } else {
-        checks.push(DiagnosticCheck {
-            severity: CheckSeverity::Warning,
-            title: "Storage",
-            detail: "neo-rs support expects RocksDB; switch storage before export.".to_string(),
-        });
+        checks.push(DiagnosticCheck::new(
+            CheckSeverity::Warning,
+            "Storage",
+            "neo-rs support expects RocksDB; switch storage before export.",
+            DiagnosticResolution::NodeStudio,
+        ));
     }
 
     checks
@@ -68,17 +73,19 @@ fn neo_cli_plugin_checks(node: &NodeConfig, states: &[PluginState]) -> Vec<Diagn
     let mut checks = Vec::new();
 
     if plugin_enabled(states, PluginId::RpcServer) {
-        checks.push(DiagnosticCheck {
-            severity: CheckSeverity::Pass,
-            title: "RPC",
-            detail: "RpcServer plugin is enabled.".to_string(),
-        });
+        checks.push(DiagnosticCheck::new(
+            CheckSeverity::Pass,
+            "RPC",
+            "RpcServer plugin is enabled.",
+            DiagnosticResolution::PluginManager,
+        ));
     } else {
-        checks.push(DiagnosticCheck {
-            severity: CheckSeverity::Warning,
-            title: "RPC",
-            detail: "RpcServer plugin is disabled, so API access may be unavailable.".to_string(),
-        });
+        checks.push(DiagnosticCheck::new(
+            CheckSeverity::Warning,
+            "RPC",
+            "RpcServer plugin is disabled, so API access may be unavailable.",
+            DiagnosticResolution::PluginManager,
+        ));
     }
 
     let expected_storage_plugin = match node.storage_engine {
@@ -87,20 +94,22 @@ fn neo_cli_plugin_checks(node: &NodeConfig, states: &[PluginState]) -> Vec<Diagn
     };
 
     if plugin_enabled(states, expected_storage_plugin) {
-        checks.push(DiagnosticCheck {
-            severity: CheckSeverity::Pass,
-            title: "Storage",
-            detail: format!("{expected_storage_plugin} plugin matches selected storage."),
-        });
+        checks.push(DiagnosticCheck::new(
+            CheckSeverity::Pass,
+            "Storage",
+            format!("{expected_storage_plugin} plugin matches selected storage."),
+            DiagnosticResolution::PluginManager,
+        ));
     } else {
-        checks.push(DiagnosticCheck {
-            severity: CheckSeverity::Warning,
-            title: "Storage",
-            detail: format!(
+        checks.push(DiagnosticCheck::new(
+            CheckSeverity::Warning,
+            "Storage",
+            format!(
                 "{expected_storage_plugin} plugin should be enabled for {}.",
                 node.storage_engine
             ),
-        });
+            DiagnosticResolution::PluginManager,
+        ));
     }
 
     checks

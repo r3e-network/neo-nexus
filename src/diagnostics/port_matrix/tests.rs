@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    diagnostics::{DiagnosticCheck, NodeDiagnostics},
+    diagnostics::{DiagnosticCheck, DiagnosticResolution, NodeDiagnostics},
     types::{NodeType, StorageEngine},
 };
 
@@ -104,10 +104,11 @@ fn diagnostic(node_id: &str, severity: CheckSeverity) -> NodeDiagnostics {
         node_id: node_id.to_string(),
         node_name: node_id.to_string(),
         score: 0,
-        checks: vec![DiagnosticCheck {
+        checks: vec![DiagnosticCheck::new(
             severity,
-            title: "Network",
-            detail: "port state".to_string(),
-        }],
+            "Network",
+            "port state",
+            DiagnosticResolution::NodeStudio,
+        )],
     }
 }

@@ -1,5 +1,5 @@
 use super::*;
-use crate::diagnostics::{DiagnosticCheck, NodeDiagnostics};
+use crate::diagnostics::{DiagnosticCheck, DiagnosticResolution, NodeDiagnostics};
 
 #[test]
 fn readiness_actions_prioritize_critical_low_score_nodes() {
@@ -81,9 +81,5 @@ fn node(id: &str, name: &str, score: usize, checks: Vec<DiagnosticCheck>) -> Nod
 }
 
 fn check(severity: CheckSeverity, title: &'static str, detail: &str) -> DiagnosticCheck {
-    DiagnosticCheck {
-        severity,
-        title,
-        detail: detail.to_string(),
-    }
+    DiagnosticCheck::new(severity, title, detail, DiagnosticResolution::Operations)
 }

@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::diagnostics::DiagnosticResolution;
 use crate::diagnostics::{CheckSeverity, DiagnosticCheck, NodeDiagnostics};
 
 #[test]
@@ -81,9 +82,5 @@ fn readiness_checks_focus_severity_and_select_first_visible_check() -> anyhow::R
 }
 
 fn check(severity: CheckSeverity, title: &'static str, detail: &str) -> DiagnosticCheck {
-    DiagnosticCheck {
-        severity,
-        title,
-        detail: detail.to_string(),
-    }
+    DiagnosticCheck::new(severity, title, detail, DiagnosticResolution::Operations)
 }

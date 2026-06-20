@@ -23,7 +23,7 @@ fn workspace_readiness_cli_reports_blocking_findings() -> Result<()> {
     let action = action_from_args(["neo-nexus", "--workspace-readiness", &db_arg])?;
 
     assert!(
-        matches!(action, CliAction::PrintWithExitCode { text, exit_code: 1 } if text.contains("workspace-readiness: blocked") && text.contains("neo-rs blocked") && text.contains("Binary path"))
+        matches!(action, CliAction::PrintWithExitCode { text, exit_code: 1 } if text.contains("workspace-readiness: blocked") && text.contains("neo-rs blocked") && text.contains("Binary path") && text.contains("resolve: Open Runtimes") && text.contains("next: Install, verify, or apply node runtime binaries."))
     );
     Ok(())
 }
@@ -67,6 +67,13 @@ fn workspace_readiness_json_cli_reports_machine_readable_findings() -> Result<()
     assert_eq!(value["findings"][0]["node_name"], "neo-rs blocked");
     assert_eq!(value["findings"][0]["title"], "Binary path");
     assert_eq!(value["findings"][0]["severity"], "critical");
+    assert_eq!(value["findings"][0]["resolution_key"], "runtime-manager");
+    assert_eq!(value["findings"][0]["resolution"], "Runtimes");
+    assert_eq!(value["findings"][0]["resolution_action"], "Open Runtimes");
+    assert_eq!(
+        value["findings"][0]["resolution_hint"],
+        "Install, verify, or apply node runtime binaries."
+    );
     Ok(())
 }
 
@@ -105,6 +112,16 @@ fn workspace_readiness_json_cli_reports_managed_config_bypass_warning() -> Resul
     assert_eq!(value["findings"][0]["node_id"], created.id);
     assert_eq!(value["findings"][0]["title"], "Managed config");
     assert_eq!(value["findings"][0]["severity"], "warning");
+    assert_eq!(value["findings"][0]["resolution_key"], "node-studio");
+    assert_eq!(value["findings"][0]["resolution"], "Node Studio");
+    assert_eq!(
+        value["findings"][0]["resolution_action"],
+        "Open Node Studio"
+    );
+    assert_eq!(
+        value["findings"][0]["resolution_hint"],
+        "Edit node definition, runtime args, ports, and storage settings."
+    );
     assert!(value["findings"][0]["detail"]
         .as_str()
         .is_some_and(|detail| detail.contains("will not inject")));

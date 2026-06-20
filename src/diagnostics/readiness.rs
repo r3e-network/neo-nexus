@@ -11,7 +11,7 @@ use super::{
         restart_lifecycle_checks,
     },
     ports::launch_port_checks,
-    CheckSeverity, DiagnosticCheck, LaunchReadinessReport,
+    CheckSeverity, DiagnosticCheck, DiagnosticResolution, LaunchReadinessReport,
 };
 
 pub fn evaluate_launch_readiness(
@@ -66,11 +66,12 @@ where
     checks.extend(config_checks(node, plugin_states));
     checks.extend(restart_lifecycle_checks(node));
     checks.extend(launch_port_checks(node, all_nodes, is_port_available));
-    checks.push(DiagnosticCheck {
-        severity: CheckSeverity::Pass,
-        title: "Restart command",
-        detail: plan.display_command.clone(),
-    });
+    checks.push(DiagnosticCheck::new(
+        CheckSeverity::Pass,
+        "Restart command",
+        plan.display_command.clone(),
+        DiagnosticResolution::Operations,
+    ));
 
     LaunchReadinessReport {
         node_id: node.id.clone(),
@@ -98,11 +99,12 @@ where
     checks.extend(config_checks(node, plugin_states));
     checks.extend(launch_lifecycle_checks(node));
     checks.extend(launch_port_checks(node, all_nodes, is_port_available));
-    checks.push(DiagnosticCheck {
-        severity: CheckSeverity::Pass,
-        title: "Launch command",
-        detail: plan.display_command.clone(),
-    });
+    checks.push(DiagnosticCheck::new(
+        CheckSeverity::Pass,
+        "Launch command",
+        plan.display_command.clone(),
+        DiagnosticResolution::Operations,
+    ));
 
     LaunchReadinessReport {
         node_id: node.id.clone(),

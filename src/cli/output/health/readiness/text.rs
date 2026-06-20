@@ -44,8 +44,13 @@ fn push_readiness_findings(lines: &mut Vec<String>, diagnostics: &FleetDiagnosti
 
     lines.extend(findings.into_iter().map(|finding| {
         format!(
-            "finding: {} | {} | {} | {}",
-            finding.severity, finding.node_name, finding.title, finding.detail
+            "finding: {} | {} | {} | {} | resolve: {} | next: {}",
+            finding.severity,
+            finding.node_name,
+            finding.title,
+            finding.detail,
+            finding.resolution_action,
+            finding.resolution_hint
         )
     }));
 }
