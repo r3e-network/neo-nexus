@@ -1,9 +1,10 @@
-use super::{CheckSeverity, DiagnosticCheck};
+use super::{CheckSeverity, DiagnosticCheck, DiagnosticResolution};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct DiagnosticCheckFilter {
     pub severity: Option<CheckSeverity>,
     pub query: String,
+    pub resolution: Option<DiagnosticResolution>,
 }
 
 impl DiagnosticCheckFilter {
@@ -11,7 +12,13 @@ impl DiagnosticCheckFilter {
         Self {
             severity,
             query: query.into(),
+            resolution: None,
         }
+    }
+
+    pub fn with_resolution(mut self, resolution: Option<DiagnosticResolution>) -> Self {
+        self.resolution = resolution;
+        self
     }
 }
 
@@ -26,6 +33,11 @@ pub fn filter_diagnostic_checks(
             filter
                 .severity
                 .is_none_or(|severity| check.severity == severity)
+        })
+        .filter(|check| {
+            filter
+                .resolution
+                .is_none_or(|resolution| check.resolution == resolution)
         })
         .filter(|check| query.is_empty() || check_matches(check, &query))
         .cloned()
@@ -46,7 +58,7 @@ fn check_matches(check: &DiagnosticCheck, query: &str) -> bool {
     text_matches(check.severity.label(), query)
         || text_matches(check.title, query)
         || text_matches(&check.detail, query)
-        || text_matches(check.resolution.label(), query)
+        || check.resolution.matches_query(query)
 }
 
 fn text_matches(value: &str, query: &str) -> bool {

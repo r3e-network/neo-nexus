@@ -1,3 +1,4 @@
+use super::resolution::view_for_resolution;
 use super::*;
 
 impl NeoNexusApp {
@@ -6,6 +7,7 @@ impl NeoNexusApp {
             self.readiness_check_severity_filter,
             self.readiness_check_query.as_str(),
         )
+        .with_resolution(self.readiness_check_resolution_filter)
     }
 
     pub(in crate::app) fn filtered_readiness_checks(
@@ -17,11 +19,13 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn has_active_readiness_check_filter(&self) -> bool {
         self.readiness_check_severity_filter.is_some()
+            || self.readiness_check_resolution_filter.is_some()
             || !self.readiness_check_query.trim().is_empty()
     }
 
     pub(in crate::app) fn clear_readiness_check_filters(&mut self, node: &NodeDiagnostics) {
         self.readiness_check_severity_filter = None;
+        self.readiness_check_resolution_filter = None;
         self.readiness_check_query.clear();
         self.readiness_check_page = 0;
         let checks = self.filtered_readiness_checks(node);
@@ -34,7 +38,19 @@ impl NeoNexusApp {
         severity: CheckSeverity,
     ) {
         self.readiness_check_severity_filter = Some(severity);
+        self.readiness_check_resolution_filter = None;
         self.readiness_check_query.clear();
+        self.readiness_check_page = 0;
+        let checks = self.filtered_readiness_checks(node);
+        self.ensure_visible_readiness_check_selection(&checks);
+    }
+
+    pub(in crate::app) fn set_readiness_check_resolution_filter(
+        &mut self,
+        node: &NodeDiagnostics,
+        resolution: Option<DiagnosticResolution>,
+    ) {
+        self.readiness_check_resolution_filter = resolution;
         self.readiness_check_page = 0;
         let checks = self.filtered_readiness_checks(node);
         self.ensure_visible_readiness_check_selection(&checks);
@@ -42,6 +58,21 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn select_readiness_check(&mut self, check: &DiagnosticCheck) {
         self.selected_readiness_check = Some(check.key());
+    }
+
+    pub(in crate::app) fn open_readiness_check_resolution(
+        &mut self,
+        node: &NodeDiagnostics,
+        check: &DiagnosticCheck,
+    ) {
+        self.selected_node = Some(node.node_id.clone());
+        self.select_readiness_check(check);
+        self.selected_view = view_for_resolution(check.resolution);
+        self.notice = Some(format!(
+            "Opened {} for {}",
+            check.resolution.label(),
+            node.node_name
+        ));
     }
 
     pub(in crate::app) fn selected_visible_readiness_check<'a>(

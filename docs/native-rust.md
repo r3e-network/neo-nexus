@@ -170,9 +170,14 @@ including failed-verification messages with a non-zero exit code.
   runtime upgrade policy execution so `src/app.rs` does not keep absorbing
   runtime orchestration code.
 - `src/app/operations_flow/` owns non-visual Operations behavior for action
-  queue filtering and focus actions, selected-node readiness filtering,
-  network port matrix focus, event journal selection/export/pruning,
-  workspace backup validation/import safety, and evidence report generation.
+  queue filtering and focus actions, selected-node readiness filtering and
+  resolution handoff, network port matrix focus, event journal
+  selection/export/pruning, workspace backup validation/import safety, and
+  evidence report generation.
+- `src/app/operations_flow/resolution.rs` keeps the diagnostic resolution
+  target to native workspace mapping in one place, so the fleet action queue
+  and selected-node readiness detail open the same Config, Logs, Monitor, Node
+  Studio, Operations, Plugins, Roles, Runtimes, or Wallets target.
 - `src/app/views/operations/` keeps the fixed native Operations workspace split
   into focused action queue, readiness, port matrix, event journal, metrics,
   and workspace safety panels instead of returning to a monolithic or scrolling
@@ -446,14 +451,22 @@ Runtime data is stored under the platform data directory by default, or under
 - Per-node working directories for launched processes, keeping relative runtime
   data paths inside the managed workspace.
 - Operations readiness workspace with a paged action queue, one-click
-  critical/warning focus, selected-action resolution shortcuts into the
-  matching native workspace, selected-node readiness check focus with
-  selectable detail, blocked-port focus in the network port matrix,
+  critical/warning focus, selected-action and selected-check resolution
+  shortcuts into the matching native workspace, selected-node readiness check
+  focus with selectable detail, blocked-port focus in the network port matrix,
   filterable/exportable event journal, and fixed workspace safety controls for
   backup validation, import/export, and integrity checks.
   The same resolution model is used by headless reports so desktop operators
   and automation see consistent Config, Logs, Monitor, Node Studio, Operations,
-  Plugins, Roles, Runtimes, or Wallets handoff targets.
+  Plugins, Roles, Runtimes, or Wallets handoff targets, and Operations queries
+  can match the stable key, visible label, action label, or operator hint while
+  fixed workspace selectors narrow the action queue or selected-node checks by
+  target resolution workspace without clearing other facets.
+- Resolution filters are intentionally facet-preserving desktop controls. A
+  severity or query search can stay active while the operator narrows the list
+  to remediation work for Config, Logs, Monitor, Node Studio, Operations,
+  Plugins, Roles, Runtimes, or Wallets; selection recovery keeps visible rows
+  and the active node synchronized after each filter change.
 - Operations diagnostics and the start path share launch readiness checks for
   runtime binary preflight, managed config validation, lifecycle state, and
   active-node or IPv4/IPv6 localhost TCP listener port conflicts, so critical

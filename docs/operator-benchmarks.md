@@ -117,7 +117,17 @@ NeoNexus workbench.
 - Resolution handoff: every readiness finding points to a concrete native
   workspace, matching mature node-management tools that route operators from
   a warning directly into config, logs, runtime, plugin, monitor, role, wallet,
-  or node-editing work instead of leaving remediation as free-form text.
+  or node-editing work from either the fleet action queue or the selected-node
+  check detail instead of leaving remediation as free-form text. The same
+  handoff metadata is searchable by stable key, label, action, or hint so
+  operator terms and automation terms converge, and workspace filters let an
+  operator narrow the visible work to a target remediation area while keeping
+  severity and query context intact.
+- Native triage continuity: the active node, selected readiness row, severity
+  facet, query facet, and target workspace facet are treated as persistent
+  operator context. This mirrors professional node tools where an operator can
+  drill into one remediation area, jump to the owning workspace, and return to
+  the same bounded work queue without losing the investigation thread.
 - Port matrix: conflicting RPC/P2P/WS bindings can be focused directly from
   Operations, keeping the selected node aligned with the visible blocked row.
 - Action queue: critical and warning diagnostics are surfaced as operational

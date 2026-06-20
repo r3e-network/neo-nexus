@@ -3,6 +3,7 @@ use eframe::egui;
 use crate::diagnostics::{CheckSeverity, NodeDiagnostics};
 
 use super::super::super::super::{theme::muted_text, NeoNexusApp};
+use super::super::helpers::resolution_filter_combo;
 
 pub(super) fn render_check_filters(
     app: &mut NeoNexusApp,
@@ -16,6 +17,14 @@ pub(super) fn render_check_filters(
         severity_button(app, ui, "Warning", Some(CheckSeverity::Warning));
         severity_button(app, ui, "Info", Some(CheckSeverity::Info));
         severity_button(app, ui, "Pass", Some(CheckSeverity::Pass));
+        ui.separator();
+        if resolution_filter_combo(
+            ui,
+            "readiness_check_resolution_filter",
+            &mut app.readiness_check_resolution_filter,
+        ) {
+            app.set_readiness_check_resolution_filter(node, app.readiness_check_resolution_filter);
+        }
         ui.separator();
         if ui
             .add_enabled(

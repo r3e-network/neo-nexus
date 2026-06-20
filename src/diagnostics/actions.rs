@@ -4,6 +4,7 @@ use super::{CheckSeverity, DiagnosticResolution, FleetDiagnostics};
 pub struct ReadinessActionFilter {
     pub severity: Option<CheckSeverity>,
     pub query: String,
+    pub resolution: Option<DiagnosticResolution>,
 }
 
 impl ReadinessActionFilter {
@@ -11,7 +12,13 @@ impl ReadinessActionFilter {
         Self {
             severity,
             query: query.into(),
+            resolution: None,
         }
+    }
+
+    pub fn with_resolution(mut self, resolution: Option<DiagnosticResolution>) -> Self {
+        self.resolution = resolution;
+        self
     }
 }
 
@@ -86,6 +93,11 @@ pub fn filter_readiness_actions(
                 .severity
                 .is_none_or(|severity| action.severity == severity)
         })
+        .filter(|action| {
+            filter
+                .resolution
+                .is_none_or(|resolution| action.resolution == resolution)
+        })
         .filter(|action| query.is_empty() || action_matches(action, &query))
         .collect::<Vec<_>>();
     actions.sort_by(action_order);
@@ -111,7 +123,7 @@ fn action_matches(action: &ReadinessAction, query: &str) -> bool {
         || text_matches(action.severity.label(), query)
         || text_matches(&action.title, query)
         || text_matches(&action.detail, query)
-        || text_matches(action.resolution.label(), query)
+        || action.resolution.matches_query(query)
         || text_matches(&action.node_score.to_string(), query)
 }
 

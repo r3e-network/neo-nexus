@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::diagnostics::DiagnosticCheck;
+use crate::diagnostics::{DiagnosticCheck, NodeDiagnostics};
 
 use super::super::super::super::widgets::empty_state;
 use super::super::{
@@ -11,7 +11,12 @@ use super::super::{
     helpers::severity_color,
 };
 
-pub(super) fn render_checks(app: &mut NeoNexusApp, ui: &mut egui::Ui, checks: &[DiagnosticCheck]) {
+pub(super) fn render_checks(
+    app: &mut NeoNexusApp,
+    ui: &mut egui::Ui,
+    node: &NodeDiagnostics,
+    checks: &[DiagnosticCheck],
+) {
     if checks.is_empty() {
         empty_state(ui, "No matching checks", "Adjust the readiness filter.");
         return;
@@ -27,7 +32,7 @@ pub(super) fn render_checks(app: &mut NeoNexusApp, ui: &mut egui::Ui, checks: &[
     for check in checks.iter().skip(start).take(READINESS_CHECK_PAGE_SIZE) {
         render_check_row(app, ui, check);
     }
-    render_selected_check_summary(app, ui, checks);
+    render_selected_check_summary(app, ui, node, checks);
 }
 
 fn render_check_row(app: &mut NeoNexusApp, ui: &mut egui::Ui, check: &DiagnosticCheck) {
@@ -53,8 +58,13 @@ fn render_check_row(app: &mut NeoNexusApp, ui: &mut egui::Ui, check: &Diagnostic
     });
 }
 
-fn render_selected_check_summary(app: &NeoNexusApp, ui: &mut egui::Ui, checks: &[DiagnosticCheck]) {
-    let Some(check) = app.selected_visible_readiness_check(checks) else {
+fn render_selected_check_summary(
+    app: &mut NeoNexusApp,
+    ui: &mut egui::Ui,
+    node: &NodeDiagnostics,
+    checks: &[DiagnosticCheck],
+) {
+    let Some(check) = app.selected_visible_readiness_check(checks).cloned() else {
         return;
     };
 
@@ -67,7 +77,19 @@ fn render_selected_check_summary(app: &NeoNexusApp, ui: &mut egui::Ui, checks: &
                 .color(severity_color(check.severity)),
         );
         ui.label(check.title).on_hover_text(check.title);
-        ui.label(truncate_middle(&check.detail, 72))
+        ui.label(truncate_middle(&check.detail, 52))
             .on_hover_text(check.detail.as_str());
+        ui.label(
+            egui::RichText::new(check.resolution.label())
+                .strong()
+                .color(muted_text()),
+        );
+        if ui
+            .button(check.resolution.action_label())
+            .on_hover_text(check.resolution.hint())
+            .clicked()
+        {
+            app.open_readiness_check_resolution(node, &check);
+        }
     });
 }

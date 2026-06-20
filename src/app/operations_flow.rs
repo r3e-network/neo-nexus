@@ -7,4 +7,5 @@ mod port_matrix;
 mod readiness;
 mod release;
 mod reports;
+mod resolution;
 mod retention;

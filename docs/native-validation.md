@@ -117,7 +117,13 @@ Expected result:
   and therefore bypass generated managed config injection.
 - Workspace readiness findings carry structured native resolution metadata:
   a stable key, visible workspace label, action label, and operator hint for
-  GUI action queue triage, text output, JSON output, and exported evidence.
+  GUI action queue triage, selected-node readiness filtering, text output,
+  JSON output, and exported evidence, with native filters that can narrow by
+  target resolution workspace while preserving other facets.
+- Resolution identity is part of selection correctness: two checks with the
+  same severity, title, and detail but different target workspaces must not
+  collapse into one selected row, and changing the resolution workspace filter
+  must preserve any active severity or query filter.
 - Launch readiness blocks configured active-node port collisions and occupied
   IPv4/IPv6 localhost TCP listeners before the native supervisor starts a node
   process.
@@ -468,11 +474,14 @@ Current Rust tests cover:
 - Native Operations action queue filtering, one-click critical/warning focus,
   selected-action summary, active-node synchronization for visible work rows,
   and structured resolution shortcuts that open Config, Logs, Monitor, Node
-  Studio, Operations, Plugins, Roles, Runtimes, or Wallets as appropriate.
+  Studio, Operations, Plugins, Roles, Runtimes, or Wallets as appropriate,
+  with query matching and direct filtering across resolution key, label, action
+  label, and hint while preserving active severity/query facets.
 - Native Operations selected-node readiness filtering, one-click
   critical/warning focus, selectable check detail, pagination, and visible
-  selection recovery, using the same structured diagnostic checks as the
-  action queue and headless readiness reports.
+  selection recovery, using the same structured diagnostic checks and
+  resolution shortcuts, workspace filter, query metadata, and resolution-aware
+  selection identity as the action queue and headless readiness reports.
 - Native Operations port matrix status/network/health/query filtering,
   one-click blocked-port focus, selected-port summary, pagination, and
   active-node synchronization.

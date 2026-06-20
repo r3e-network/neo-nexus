@@ -33,6 +33,67 @@ fn diagnostic_check_filter_applies_severity_and_query() {
     assert_eq!(rows[0].title, "Network");
 }
 
+#[test]
+fn diagnostic_check_filter_matches_resolution_handoff_metadata() {
+    let checks = vec![
+        check_with_resolution(
+            CheckSeverity::Critical,
+            "Binary",
+            "missing",
+            DiagnosticResolution::RuntimeManager,
+        ),
+        check_with_resolution(
+            CheckSeverity::Warning,
+            "Plugin",
+            "disabled",
+            DiagnosticResolution::PluginManager,
+        ),
+    ];
+
+    for query in ["runtime-manager", "Open Runtimes", "apply node runtime"] {
+        let rows = filter_diagnostic_checks(&checks, &DiagnosticCheckFilter::new(None, query));
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].title, "Binary");
+    }
+}
+
+#[test]
+fn diagnostic_check_filter_applies_resolution_facet() {
+    let checks = vec![
+        check_with_resolution(
+            CheckSeverity::Critical,
+            "Binary",
+            "missing",
+            DiagnosticResolution::RuntimeManager,
+        ),
+        check_with_resolution(
+            CheckSeverity::Warning,
+            "Plugin",
+            "disabled",
+            DiagnosticResolution::PluginManager,
+        ),
+    ];
+
+    let rows = filter_diagnostic_checks(
+        &checks,
+        &DiagnosticCheckFilter::new(None, "")
+            .with_resolution(Some(DiagnosticResolution::RuntimeManager)),
+    );
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].title, "Binary");
+}
+
 fn check(severity: CheckSeverity, title: &'static str, detail: &str) -> DiagnosticCheck {
     DiagnosticCheck::new(severity, title, detail, DiagnosticResolution::Operations)
+}
+
+fn check_with_resolution(
+    severity: CheckSeverity,
+    title: &'static str,
+    detail: &str,
+    resolution: DiagnosticResolution,
+) -> DiagnosticCheck {
+    DiagnosticCheck::new(severity, title, detail, resolution)
 }

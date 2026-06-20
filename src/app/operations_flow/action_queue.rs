@@ -1,3 +1,4 @@
+use super::resolution::view_for_resolution;
 use super::*;
 
 impl NeoNexusApp {
@@ -6,6 +7,7 @@ impl NeoNexusApp {
             self.action_queue_severity_filter,
             self.action_queue_query.as_str(),
         )
+        .with_resolution(self.action_queue_resolution_filter)
     }
 
     pub(in crate::app) fn filtered_readiness_actions(
@@ -16,11 +18,14 @@ impl NeoNexusApp {
     }
 
     pub(in crate::app) fn has_active_action_queue_filter(&self) -> bool {
-        self.action_queue_severity_filter.is_some() || !self.action_queue_query.trim().is_empty()
+        self.action_queue_severity_filter.is_some()
+            || self.action_queue_resolution_filter.is_some()
+            || !self.action_queue_query.trim().is_empty()
     }
 
     pub(in crate::app) fn clear_action_queue_filters(&mut self, diagnostics: &FleetDiagnostics) {
         self.action_queue_severity_filter = None;
+        self.action_queue_resolution_filter = None;
         self.action_queue_query.clear();
         self.action_queue_page = 0;
         let actions = self.filtered_readiness_actions(diagnostics);
@@ -33,7 +38,19 @@ impl NeoNexusApp {
         severity: CheckSeverity,
     ) {
         self.action_queue_severity_filter = Some(severity);
+        self.action_queue_resolution_filter = None;
         self.action_queue_query.clear();
+        self.action_queue_page = 0;
+        let actions = self.filtered_readiness_actions(diagnostics);
+        self.ensure_visible_readiness_action_selection(&actions);
+    }
+
+    pub(in crate::app) fn set_action_queue_resolution_filter(
+        &mut self,
+        diagnostics: &FleetDiagnostics,
+        resolution: Option<DiagnosticResolution>,
+    ) {
+        self.action_queue_resolution_filter = resolution;
         self.action_queue_page = 0;
         let actions = self.filtered_readiness_actions(diagnostics);
         self.ensure_visible_readiness_action_selection(&actions);
@@ -86,19 +103,5 @@ impl NeoNexusApp {
             actions.len(),
             ACTION_QUEUE_PAGE_SIZE,
         );
-    }
-}
-
-fn view_for_resolution(resolution: DiagnosticResolution) -> View {
-    match resolution {
-        DiagnosticResolution::ConfigWorkspace => View::Config,
-        DiagnosticResolution::Logs => View::Logs,
-        DiagnosticResolution::Monitor => View::Monitor,
-        DiagnosticResolution::NodeStudio => View::Nodes,
-        DiagnosticResolution::Operations => View::Operations,
-        DiagnosticResolution::PluginManager => View::Plugins,
-        DiagnosticResolution::RolePlanner => View::Roles,
-        DiagnosticResolution::RuntimeManager => View::Runtimes,
-        DiagnosticResolution::WalletProfiles => View::Wallets,
     }
 }

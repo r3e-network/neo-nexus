@@ -2,6 +2,8 @@ use super::super::*;
 use crate::diagnostics::DiagnosticResolution;
 use crate::diagnostics::{CheckSeverity, DiagnosticCheck, NodeDiagnostics};
 
+mod resolution;
+
 #[test]
 fn readiness_check_filters_selected_node_checks_and_clamps_page() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;

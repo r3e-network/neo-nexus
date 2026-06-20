@@ -54,7 +54,7 @@ impl NeoNexusApp {
         render_check_filters(self, ui, &node);
         self.clamp_readiness_check_page(&node);
         let checks = self.filtered_readiness_checks(&node);
-        render_checks(self, ui, &checks);
+        render_checks(self, ui, &node, &checks);
 
         ui.add_space(6.0);
         ui.horizontal(|ui| {

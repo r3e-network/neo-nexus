@@ -352,12 +352,23 @@ make verify
   filtered by node status, chain network, port health, or query while keeping
   the selected node synchronized with the visible row. Selected-node readiness
   checks expose native severity/query filtering, one-click critical/warning
-  focus, selectable detail, and pagination for focused triage.
+  focus, selectable detail, resolution workspace shortcuts, and pagination for
+  focused triage. Action queue and selected-node readiness queries can match
+  resolution keys, workspace labels, action labels, and operator hints, and
+  both panels can filter directly by target resolution workspace.
   Headless workspace readiness text/JSON and exported readiness reports include
   stable resolution keys, workspace labels, action labels, and operator hints
   for automation handoff, so GUI triage, CI gates, and support bundles all
   describe the same next native workspace instead of relying on prose-only
   remediation.
+- Readiness resolution workflow is first-class native application behavior:
+  each diagnostic carries a stable resolution identity, the action queue and
+  selected-node readiness panel preserve severity/query context while filtering
+  by target workspace, selected rows remain tied to the active node, and the
+  resolution button moves the operator directly to Config, Logs, Monitor, Node
+  Studio, Operations, Plugins, Roles, Runtimes, or Wallets. This keeps triage
+  in fixed panels instead of forcing operators through a scrolling document or
+  prose-only checklist.
 - Headless workspace metrics from `--workspace-metrics <neonexus.db>` and
   `--workspace-metrics-json <neonexus.db>` capture system CPU/memory pressure,
   managed node process CPU/memory/uptime, and stale running-node PID
@@ -452,7 +463,7 @@ src/
       logs.rs             paged process log viewer
       operations/         split action queue, port matrix, event journal, readiness, and safety panels
     widgets.rs            reusable native UI primitives
-  app/operations_flow/    non-visual Operations actions, filters, reports, backup validation, and retention
+  app/operations_flow/    non-visual Operations actions, resolution routing, filters, reports, backup validation, and retention
   backup.rs               workspace backup export/import
   catalog.rs              plugin definitions
   plugins.rs              neo-cli plugin ZIP installation and manifest writing
@@ -461,8 +472,8 @@ src/
   runtime_smoke.rs        bounded runtime binary smoke probes
   config.rs               neo-cli JSON, neo-go YAML, neo-rs TOML validation/export/reporting
   dashboard.rs            summary projections
-  diagnostics.rs          fleet and node readiness checks
-  readiness_report.rs     timestamped text/JSON readiness evidence exports
+  diagnostics.rs          fleet and node readiness checks with resolution metadata
+  readiness_report.rs     timestamped text/JSON readiness evidence and resolution exports
   support_bundle.rs       redacted diagnostics support bundle export
   source_purity.rs        pure Rust source tree boundary gate
   source_quality.rs       Rust source marker and 200-line professional module budget gate

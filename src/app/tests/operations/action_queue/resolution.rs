@@ -1,5 +1,6 @@
 use super::super::super::*;
-use crate::diagnostics::{CheckSeverity, DiagnosticResolution, ReadinessAction};
+use super::{readiness_check, readiness_node};
+use crate::diagnostics::{CheckSeverity, DiagnosticResolution, FleetDiagnostics, ReadinessAction};
 
 #[test]
 fn action_queue_resolution_opens_target_workspace_and_preserves_node() -> anyhow::Result<()> {
@@ -33,6 +34,53 @@ fn action_queue_resolution_opens_target_workspace_and_preserves_node() -> anyhow
             .as_ref()
             .is_some_and(|key| key.matches(&action)));
     }
+
+    Ok(())
+}
+
+#[test]
+fn action_queue_sets_resolution_filter_without_clearing_other_facets() -> anyhow::Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let repository = Repository::open(temp_dir.path().join("neonexus.db"))?;
+    let mut app = NeoNexusApp::new(repository);
+    let diagnostics = FleetDiagnostics {
+        score: 30,
+        ready_nodes: 0,
+        warning_count: 1,
+        critical_count: 1,
+        nodes: vec![readiness_node(
+            "validator-node",
+            "Validator Node",
+            20,
+            vec![
+                readiness_check(CheckSeverity::Warning, "Plugin", "Plugin disabled"),
+                readiness_check(CheckSeverity::Critical, "Binary", "Binary missing"),
+            ],
+        )],
+    };
+
+    app.action_queue_severity_filter = Some(CheckSeverity::Warning);
+    app.action_queue_resolution_filter = Some(DiagnosticResolution::PluginManager);
+    app.action_queue_query = "plugin".to_string();
+    app.action_queue_page = 4;
+
+    app.set_action_queue_resolution_filter(
+        &diagnostics,
+        Some(DiagnosticResolution::RuntimeManager),
+    );
+
+    assert_eq!(
+        app.action_queue_resolution_filter,
+        Some(DiagnosticResolution::RuntimeManager)
+    );
+    assert_eq!(
+        app.action_queue_severity_filter,
+        Some(CheckSeverity::Warning)
+    );
+    assert_eq!(app.action_queue_query, "plugin");
+    assert_eq!(app.action_queue_page, 0);
+    let actions = app.filtered_readiness_actions(&diagnostics);
+    assert!(app.selected_visible_readiness_action(&actions).is_none());
 
     Ok(())
 }

@@ -14,6 +14,18 @@ pub enum DiagnosticResolution {
 }
 
 impl DiagnosticResolution {
+    pub const ALL: [Self; 9] = [
+        Self::ConfigWorkspace,
+        Self::Logs,
+        Self::Monitor,
+        Self::NodeStudio,
+        Self::Operations,
+        Self::PluginManager,
+        Self::RolePlanner,
+        Self::RuntimeManager,
+        Self::WalletProfiles,
+    ];
+
     pub fn key(self) -> &'static str {
         match self {
             Self::ConfigWorkspace => "config",
@@ -69,6 +81,13 @@ impl DiagnosticResolution {
             Self::WalletProfiles => "Review encrypted wallet metadata and signer profile links.",
         }
     }
+
+    pub fn matches_query(self, query: &str) -> bool {
+        let query = query.trim().to_lowercase();
+        [self.key(), self.label(), self.action_label(), self.hint()]
+            .into_iter()
+            .any(|value| value.to_lowercase().contains(&query))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -84,6 +103,7 @@ pub struct DiagnosticCheckKey {
     pub severity: CheckSeverity,
     pub title: String,
     pub detail: String,
+    pub resolution: DiagnosticResolution,
 }
 
 impl DiagnosticCheck {
@@ -106,12 +126,42 @@ impl DiagnosticCheck {
             severity: self.severity,
             title: self.title.to_string(),
             detail: self.detail.clone(),
+            resolution: self.resolution,
         }
     }
 }
 
 impl DiagnosticCheckKey {
     pub fn matches(&self, check: &DiagnosticCheck) -> bool {
-        self.severity == check.severity && self.title == check.title && self.detail == check.detail
+        self.severity == check.severity
+            && self.title == check.title
+            && self.detail == check.detail
+            && self.resolution == check.resolution
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn diagnostic_check_key_includes_resolution_identity() {
+        let runtime_check = DiagnosticCheck::new(
+            CheckSeverity::Critical,
+            "Binary",
+            "same detail",
+            DiagnosticResolution::RuntimeManager,
+        );
+        let plugin_check = DiagnosticCheck::new(
+            CheckSeverity::Critical,
+            "Binary",
+            "same detail",
+            DiagnosticResolution::PluginManager,
+        );
+
+        let key = runtime_check.key();
+
+        assert!(key.matches(&runtime_check));
+        assert!(!key.matches(&plugin_check));
     }
 }
