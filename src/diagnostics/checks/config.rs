@@ -4,7 +4,7 @@ use crate::{
         ConfigGenerator, ConfigValidationCheck, ConfigValidationSeverity, ConfigValidator,
         RenderedConfig,
     },
-    diagnostics::{CheckSeverity, DiagnosticCheck},
+    diagnostics::{CheckSeverity, DiagnosticCheck, DiagnosticResolution},
     launch::{runtime_args_include_config, LaunchPlan},
     types::{NodeConfig, NodeType},
 };
@@ -16,14 +16,15 @@ pub(in crate::diagnostics) fn managed_config_checks(
     let configured_external_config = runtime_args_include_config(node.node_type, &node.args);
 
     if configured_external_config {
-        return vec![DiagnosticCheck {
-            severity: CheckSeverity::Warning,
-            title: "Managed config",
-            detail: format!(
+        return vec![DiagnosticCheck::new(
+            CheckSeverity::Warning,
+            "Managed config",
+            format!(
                 "{} runtime args already include a config flag; NeoNexus will preserve it and will not inject the generated managed config.",
                 node.node_type
             ),
-        }];
+            DiagnosticResolution::NodeStudio,
+        )];
     }
 
     let detail = match launch_plan.and_then(|plan| plan.managed_config_path.as_ref()) {
@@ -45,11 +46,12 @@ pub(in crate::diagnostics) fn managed_config_checks(
         },
     };
 
-    vec![DiagnosticCheck {
-        severity: CheckSeverity::Pass,
-        title: "Managed config",
+    vec![DiagnosticCheck::new(
+        CheckSeverity::Pass,
+        "Managed config",
         detail,
-    }]
+        DiagnosticResolution::ConfigWorkspace,
+    )]
 }
 
 pub(in crate::diagnostics) fn config_checks(
@@ -59,11 +61,12 @@ pub(in crate::diagnostics) fn config_checks(
     let rendered = match ConfigGenerator::render_for_node(node, plugin_states) {
         Ok(rendered) => rendered,
         Err(error) => {
-            return vec![DiagnosticCheck {
-                severity: CheckSeverity::Critical,
-                title: "Config",
-                detail: format!("Managed config rendering failed: {error}"),
-            }];
+            return vec![DiagnosticCheck::new(
+                CheckSeverity::Critical,
+                "Config",
+                format!("Managed config rendering failed: {error}"),
+                DiagnosticResolution::ConfigWorkspace,
+            )];
         }
     };
 
@@ -77,15 +80,19 @@ fn config_validation_checks(
     rendered: &RenderedConfig,
     checks: Vec<ConfigValidationCheck>,
 ) -> Vec<DiagnosticCheck> {
-    std::iter::once(DiagnosticCheck {
-        severity: CheckSeverity::Pass,
-        title: "Config format",
-        detail: format!("Managed config renders as {}.", rendered.format.label()),
-    })
-    .chain(checks.into_iter().map(|check| DiagnosticCheck {
-        severity: severity_from_config_validation(check.severity),
-        title: config_check_title(check.title),
-        detail: check.detail,
+    std::iter::once(DiagnosticCheck::new(
+        CheckSeverity::Pass,
+        "Config format",
+        format!("Managed config renders as {}.", rendered.format.label()),
+        DiagnosticResolution::ConfigWorkspace,
+    ))
+    .chain(checks.into_iter().map(|check| {
+        DiagnosticCheck::new(
+            severity_from_config_validation(check.severity),
+            config_check_title(check.title),
+            check.detail,
+            DiagnosticResolution::ConfigWorkspace,
+        )
     }))
     .collect()
 }

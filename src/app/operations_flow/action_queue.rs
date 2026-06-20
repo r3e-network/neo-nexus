@@ -44,6 +44,16 @@ impl NeoNexusApp {
         self.selected_node = Some(action.node_id.clone());
     }
 
+    pub(in crate::app) fn open_readiness_action_resolution(&mut self, action: &ReadinessAction) {
+        self.select_readiness_action(action);
+        self.selected_view = view_for_resolution(action.resolution);
+        self.notice = Some(format!(
+            "Opened {} for {}",
+            action.resolution.label(),
+            action.node_name
+        ));
+    }
+
     pub(in crate::app) fn selected_visible_readiness_action<'a>(
         &self,
         actions: &'a [ReadinessAction],
@@ -76,5 +86,19 @@ impl NeoNexusApp {
             actions.len(),
             ACTION_QUEUE_PAGE_SIZE,
         );
+    }
+}
+
+fn view_for_resolution(resolution: DiagnosticResolution) -> View {
+    match resolution {
+        DiagnosticResolution::ConfigWorkspace => View::Config,
+        DiagnosticResolution::Logs => View::Logs,
+        DiagnosticResolution::Monitor => View::Monitor,
+        DiagnosticResolution::NodeStudio => View::Nodes,
+        DiagnosticResolution::Operations => View::Operations,
+        DiagnosticResolution::PluginManager => View::Plugins,
+        DiagnosticResolution::RolePlanner => View::Roles,
+        DiagnosticResolution::RuntimeManager => View::Runtimes,
+        DiagnosticResolution::WalletProfiles => View::Wallets,
     }
 }

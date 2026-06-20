@@ -1,6 +1,8 @@
 use anyhow::Result;
 
-use crate::diagnostics::{CheckSeverity, DiagnosticCheck, FleetDiagnostics, NodeDiagnostics};
+use crate::diagnostics::{
+    CheckSeverity, DiagnosticCheck, DiagnosticResolution, FleetDiagnostics, NodeDiagnostics,
+};
 
 use super::WorkspaceReadinessReporter;
 
@@ -17,16 +19,18 @@ fn readiness_report_writes_text_and_json_evidence() -> Result<()> {
             node_name: "blocked validator".to_string(),
             score: 65,
             checks: vec![
-                DiagnosticCheck {
-                    severity: CheckSeverity::Critical,
-                    title: "Binary path",
-                    detail: "neo-node was not found.".to_string(),
-                },
-                DiagnosticCheck {
-                    severity: CheckSeverity::Warning,
-                    title: "Version",
-                    detail: "Runtime follows latest.".to_string(),
-                },
+                DiagnosticCheck::new(
+                    CheckSeverity::Critical,
+                    "Binary path",
+                    "neo-node was not found.",
+                    DiagnosticResolution::RuntimeManager,
+                ),
+                DiagnosticCheck::new(
+                    CheckSeverity::Warning,
+                    "Version",
+                    "Runtime follows latest.",
+                    DiagnosticResolution::RuntimeManager,
+                ),
             ],
         }],
     };
@@ -47,6 +51,8 @@ fn readiness_report_writes_text_and_json_evidence() -> Result<()> {
     let text = std::fs::read_to_string(export.text_path)?;
     assert!(text.contains("workspace-readiness-report: blocked"));
     assert!(text.contains("finding: critical | blocked validator | Binary path"));
+    assert!(text.contains("resolve: Open Runtimes"));
+    assert!(text.contains("next: Install, verify, or apply node runtime binaries."));
 
     let value: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(export.json_path)?)?;
@@ -54,6 +60,26 @@ fn readiness_report_writes_text_and_json_evidence() -> Result<()> {
     assert_eq!(value["application_version"], "test-version");
     assert_eq!(value["status"], "blocked");
     assert_eq!(value["findings"][0]["severity"], "critical");
+    assert_eq!(value["findings"][0]["resolution_key"], "runtime-manager");
+    assert_eq!(value["findings"][0]["resolution"], "Runtimes");
+    assert_eq!(value["findings"][0]["resolution_action"], "Open Runtimes");
+    assert_eq!(
+        value["findings"][0]["resolution_hint"],
+        "Install, verify, or apply node runtime binaries."
+    );
     assert_eq!(value["nodes"][0]["checks"][1]["title"], "Version");
+    assert_eq!(
+        value["nodes"][0]["checks"][1]["resolution_key"],
+        "runtime-manager"
+    );
+    assert_eq!(value["nodes"][0]["checks"][1]["resolution"], "Runtimes");
+    assert_eq!(
+        value["nodes"][0]["checks"][1]["resolution_action"],
+        "Open Runtimes"
+    );
+    assert_eq!(
+        value["nodes"][0]["checks"][1]["resolution_hint"],
+        "Install, verify, or apply node runtime binaries."
+    );
     Ok(())
 }

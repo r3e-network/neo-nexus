@@ -1,4 +1,4 @@
-use super::{CheckSeverity, FleetDiagnostics};
+use super::{CheckSeverity, DiagnosticResolution, FleetDiagnostics};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ReadinessActionFilter {
@@ -23,6 +23,7 @@ pub struct ReadinessAction {
     pub severity: CheckSeverity,
     pub title: String,
     pub detail: String,
+    pub resolution: DiagnosticResolution,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,6 +32,7 @@ pub struct ReadinessActionKey {
     pub severity: CheckSeverity,
     pub title: String,
     pub detail: String,
+    pub resolution: DiagnosticResolution,
 }
 
 impl ReadinessAction {
@@ -40,6 +42,7 @@ impl ReadinessAction {
             severity: self.severity,
             title: self.title.clone(),
             detail: self.detail.clone(),
+            resolution: self.resolution,
         }
     }
 }
@@ -50,6 +53,7 @@ impl ReadinessActionKey {
             && self.severity == action.severity
             && self.title == action.title
             && self.detail == action.detail
+            && self.resolution == action.resolution
     }
 }
 
@@ -73,6 +77,7 @@ pub fn filter_readiness_actions(
                     severity: check.severity,
                     title: check.title.to_string(),
                     detail: check.detail.clone(),
+                    resolution: check.resolution,
                 })
             })
         })
@@ -106,6 +111,7 @@ fn action_matches(action: &ReadinessAction, query: &str) -> bool {
         || text_matches(action.severity.label(), query)
         || text_matches(&action.title, query)
         || text_matches(&action.detail, query)
+        || text_matches(action.resolution.label(), query)
         || text_matches(&action.node_score.to_string(), query)
 }
 

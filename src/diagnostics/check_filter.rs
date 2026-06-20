@@ -46,6 +46,7 @@ fn check_matches(check: &DiagnosticCheck, query: &str) -> bool {
     text_matches(check.severity.label(), query)
         || text_matches(check.title, query)
         || text_matches(&check.detail, query)
+        || text_matches(check.resolution.label(), query)
 }
 
 fn text_matches(value: &str, query: &str) -> bool {

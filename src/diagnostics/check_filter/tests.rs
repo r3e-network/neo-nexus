@@ -1,4 +1,5 @@
 use super::*;
+use crate::diagnostics::DiagnosticResolution;
 
 #[test]
 fn diagnostic_check_filter_sorts_by_severity_then_title() {
@@ -33,9 +34,5 @@ fn diagnostic_check_filter_applies_severity_and_query() {
 }
 
 fn check(severity: CheckSeverity, title: &'static str, detail: &str) -> DiagnosticCheck {
-    DiagnosticCheck {
-        severity,
-        title,
-        detail: detail.to_string(),
-    }
+    DiagnosticCheck::new(severity, title, detail, DiagnosticResolution::Operations)
 }

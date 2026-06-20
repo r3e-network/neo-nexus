@@ -57,5 +57,12 @@ fn workspace_readiness_report_cli_writes_text_and_json_evidence() -> Result<()> 
     assert_eq!(value["database"], db_arg);
     assert_eq!(value["nodes"][0]["node_name"], "neo-rs blocked");
     assert_eq!(value["findings"][0]["severity"], "critical");
+    assert_eq!(value["findings"][0]["resolution_key"], "runtime-manager");
+    assert_eq!(value["findings"][0]["resolution"], "Runtimes");
+    assert_eq!(value["findings"][0]["resolution_action"], "Open Runtimes");
+    assert_eq!(
+        value["findings"][0]["resolution_hint"],
+        "Install, verify, or apply node runtime binaries."
+    );
     Ok(())
 }

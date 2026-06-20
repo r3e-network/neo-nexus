@@ -1,7 +1,10 @@
 use super::super::*;
 use crate::diagnostics::{
-    CheckSeverity, DiagnosticCheck, FleetDiagnostics, NodeDiagnostics, ReadinessAction,
+    CheckSeverity, DiagnosticCheck, DiagnosticResolution, FleetDiagnostics, NodeDiagnostics,
+    ReadinessAction,
 };
+
+mod resolution;
 
 #[test]
 fn action_queue_filters_readiness_actions_and_clamps_page() -> anyhow::Result<()> {
@@ -51,6 +54,7 @@ fn action_queue_filters_readiness_actions_and_clamps_page() -> anyhow::Result<()
             severity: CheckSeverity::Warning,
             title: "Plugin".to_string(),
             detail: "Plugin disabled".to_string(),
+            resolution: DiagnosticResolution::PluginManager,
         }]
     );
 
@@ -142,9 +146,11 @@ fn readiness_node(
 }
 
 fn readiness_check(severity: CheckSeverity, title: &'static str, detail: &str) -> DiagnosticCheck {
-    DiagnosticCheck {
-        severity,
-        title,
-        detail: detail.to_string(),
-    }
+    let resolution = match title {
+        "Binary" => DiagnosticResolution::RuntimeManager,
+        "Plugin" => DiagnosticResolution::PluginManager,
+        "Ports" => DiagnosticResolution::NodeStudio,
+        _ => DiagnosticResolution::Operations,
+    };
+    DiagnosticCheck::new(severity, title, detail, resolution)
 }

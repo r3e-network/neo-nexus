@@ -14,7 +14,7 @@ pub use self::{
     check_filter::{filter_diagnostic_checks, DiagnosticCheckFilter},
     fleet::{evaluate_fleet, evaluate_node},
     model::{
-        CheckSeverity, DiagnosticCheck, DiagnosticCheckKey, FleetDiagnostics,
+        CheckSeverity, DiagnosticCheck, DiagnosticCheckKey, DiagnosticResolution, FleetDiagnostics,
         LaunchReadinessReport, NodeDiagnostics,
     },
     port_matrix::{filter_port_matrix_rows, PortMatrixFilter, PortMatrixRow},
