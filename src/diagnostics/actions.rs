@@ -1,4 +1,8 @@
-use super::{CheckSeverity, DiagnosticResolution, FleetDiagnostics};
+use super::{
+    resolution_counts::{empty_resolution_counts, increment_resolution_count},
+    severity_counts::{empty_severity_counts, increment_severity_count},
+    CheckSeverity, DiagnosticResolution, FleetDiagnostics,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ReadinessActionFilter {
@@ -102,6 +106,51 @@ pub fn filter_readiness_actions(
         .collect::<Vec<_>>();
     actions.sort_by(action_order);
     actions
+}
+
+pub fn readiness_action_resolution_counts(
+    diagnostics: &FleetDiagnostics,
+    filter: &ReadinessActionFilter,
+) -> Vec<(DiagnosticResolution, usize)> {
+    let query = filter.query.trim().to_lowercase();
+    let mut counts = empty_resolution_counts();
+    for node in &diagnostics.nodes {
+        for check in &node.checks {
+            if !is_actionable(check.severity)
+                || filter
+                    .severity
+                    .is_some_and(|severity| check.severity != severity)
+            {
+                continue;
+            }
+            let action = ReadinessAction {
+                node_id: node.node_id.clone(),
+                node_name: node.node_name.clone(),
+                node_score: node.score,
+                severity: check.severity,
+                title: check.title.to_string(),
+                detail: check.detail.clone(),
+                resolution: check.resolution,
+            };
+            if query.is_empty() || action_matches(&action, &query) {
+                increment_resolution_count(&mut counts, check.resolution);
+            }
+        }
+    }
+    counts
+}
+
+pub fn readiness_action_severity_counts(
+    diagnostics: &FleetDiagnostics,
+    filter: &ReadinessActionFilter,
+) -> Vec<(CheckSeverity, usize)> {
+    let count_filter =
+        ReadinessActionFilter::new(None, filter.query.as_str()).with_resolution(filter.resolution);
+    let mut counts = empty_severity_counts();
+    for action in filter_readiness_actions(diagnostics, &count_filter) {
+        increment_severity_count(&mut counts, action.severity);
+    }
+    counts
 }
 
 fn is_actionable(severity: CheckSeverity) -> bool {

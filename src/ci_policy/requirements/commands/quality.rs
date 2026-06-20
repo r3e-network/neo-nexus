@@ -14,8 +14,20 @@ pub(super) const QUALITY_COMMANDS: &[RequiredCommand] = &[
         fragment: "cargo clippy --all-targets -- -D warnings",
     },
     RequiredCommand {
-        label: "cargo-test",
-        fragment: "cargo test",
+        label: "cargo-test-lib",
+        fragment: "cargo test --lib",
+    },
+    RequiredCommand {
+        label: "cargo-test-ci-policy",
+        fragment: "cargo test --test ci_policy",
+    },
+    RequiredCommand {
+        label: "cargo-test-domain",
+        fragment: "cargo test --test domain",
+    },
+    RequiredCommand {
+        label: "cargo-test-repository",
+        fragment: "cargo test --test repository",
     },
     RequiredCommand {
         label: "debug-self-check",

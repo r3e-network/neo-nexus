@@ -10,7 +10,10 @@ clippy:
 	cargo clippy --all-targets -- -D warnings
 
 test:
-	cargo test
+	cargo test --lib
+	cargo test --test ci_policy
+	cargo test --test domain
+	cargo test --test repository
 
 build:
 	cargo build
@@ -154,7 +157,10 @@ verify:
 	cargo fmt --all --check
 	cargo check
 	cargo clippy --all-targets -- -D warnings
-	cargo test
+	cargo test --lib
+	cargo test --test ci_policy
+	cargo test --test domain
+	cargo test --test repository
 	cargo run -- --self-check
 	$(MAKE) purity-smoke
 	$(MAKE) quality-smoke

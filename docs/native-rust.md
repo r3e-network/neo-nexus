@@ -2,6 +2,12 @@
 
 NeoNexus is a pure Rust native application.
 
+It is intentionally a desktop application, not a browser wrapper. The UI is a
+fixed-panel workbench with an inventory rail, central task workspace, property
+inspector, command toolbar, menu row, and status bar. Long data sets are
+handled through bounded pagination and focused filters so node operators can
+work in place without scrolling through a document page.
+
 ## Run
 
 ```bash
@@ -65,8 +71,36 @@ target/release/neo-nexus --verify-release-package-json dist
 ## Test
 
 ```bash
-cargo test
+cargo test --lib
+cargo test --test ci_policy
+cargo test --test domain
+cargo test --test repository
 ```
+
+The `neo-nexus` desktop binary is marked `test = false` in Cargo metadata.
+Native behavior is tested through the library plus named integration targets,
+which keeps filtered test runs from invoking the GUI entrypoint.
+
+## Native Operator Flow
+
+The application is organized around repeatable node operations:
+
+1. Model node definitions for neo-cli, neo-go, or neo-rs.
+2. Validate binaries, generated configs, ports, storage posture, and runtime
+   compatibility before launch.
+3. Supervise node processes with native start, stop, restart, log capture,
+   watchdog, reconciliation, and resource telemetry.
+4. Triage fleet work through Operations, where action queue and selected-node
+   readiness filters preserve query, severity, and target workspace context.
+5. Export evidence through readiness reports, event journals, support bundles,
+   backups, metrics, CI policy reports, and release package verification.
+
+neo-rs support is part of the core runtime model. NeoNexus recognizes the
+`neo-node` daemon, constrains neo-rs nodes to RocksDB posture, generates and
+validates TOML configs, preserves explicit `--config` overrides as review
+findings, supports runtime catalog upgrades and Fast Sync snapshot catalog
+entries, and carries neo-rs readiness findings through the same native
+resolution handoff used by neo-cli and neo-go.
 
 ## Release Packaging
 
@@ -466,7 +500,10 @@ Runtime data is stored under the platform data directory by default, or under
   severity or query search can stay active while the operator narrows the list
   to remediation work for Config, Logs, Monitor, Node Studio, Operations,
   Plugins, Roles, Runtimes, or Wallets; selection recovery keeps visible rows
-  and the active node synchronized after each filter change.
+  and the active node synchronized after each filter change. The workspace
+  menu labels and severity buttons include counts computed from the remaining
+  active facets, so operators can choose a remediation area or severity bucket
+  with a clear workload signal.
 - Operations diagnostics and the start path share launch readiness checks for
   runtime binary preflight, managed config validation, lifecycle state, and
   active-node or IPv4/IPv6 localhost TCP listener port conflicts, so critical

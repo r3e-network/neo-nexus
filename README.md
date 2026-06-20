@@ -3,6 +3,30 @@
 NeoNexus is a pure Rust native application for Neo N3 node operations. The
 application is built with Rust, `eframe`/`egui`, and SQLite.
 
+NeoNexus is not a WebView, browser shell, or frontend project. The first screen
+is a desktop operations workbench: fixed inventory, workspace, inspector,
+toolbar, and status areas that are designed for repeated node-management work
+instead of document-style page scrolling.
+
+## Operator Workflow
+
+1. Add or import node definitions for neo-cli, neo-go, or neo-rs.
+2. Validate runtime binaries, generated configs, ports, and RPC health before
+   launch.
+3. Start, stop, restart, upgrade, and reconcile supervised node processes from
+   native controls.
+4. Use Operations to triage fleet readiness, selected-node readiness, port
+   conflicts, event history, backup safety, support bundles, and integrity
+   evidence.
+5. Package and verify the native release artifacts from Settings or the
+   headless CLI before handoff.
+
+neo-rs is a first-class runtime target. NeoNexus recognizes the `neo-node`
+binary, generates and validates TOML config files, supports RocksDB posture,
+imports runtime and Fast Sync catalog entries, plans catalog upgrades, and
+routes neo-rs readiness findings into the same native Operations workflow used
+for neo-cli and neo-go.
+
 ## Requirements
 
 - Rust 1.91+
@@ -75,7 +99,10 @@ target/release/neo-nexus --verify-release-package-json dist
 cargo fmt --all --check
 cargo check
 cargo clippy --all-targets -- -D warnings
-cargo test
+cargo test --lib
+cargo test --test ci_policy
+cargo test --test domain
+cargo test --test repository
 cargo run -- --self-check
 cargo run -- --source-purity .
 cargo run -- --source-quality src
@@ -90,9 +117,18 @@ cargo build --release
 make verify
 ```
 
+The native GUI binary is excluded from Cargo's test harness; tests run through
+the library and named integration targets so filtered test commands do not
+accidentally launch the desktop application.
+
 ## Current Native Feature Surface
 
 - Fixed-panel desktop application layout.
+- Native Operations remediation filters show facet-aware counts for both
+  severity and target resolution workspace, so operators can keep a query or
+  severity active while seeing how much work remains in Config, Logs, Monitor,
+  Node Studio, Operations, Plugins, Roles, Runtimes, or Wallets before moving
+  context.
 - Native Settings release packaging controls that package the current
   executable, verify the ZIP/manifest/checksum trio, and record
   `release-packaged` / `release-package-verified` audit events.
@@ -355,7 +391,10 @@ make verify
   focus, selectable detail, resolution workspace shortcuts, and pagination for
   focused triage. Action queue and selected-node readiness queries can match
   resolution keys, workspace labels, action labels, and operator hints, and
-  both panels can filter directly by target resolution workspace.
+  both panels can filter directly by target resolution workspace. Workspace
+  filter menus and severity buttons show facet-aware counts so operators can
+  see how much matching work belongs to each resolution area or severity
+  bucket before switching context.
   Headless workspace readiness text/JSON and exported readiness reports include
   stable resolution keys, workspace labels, action labels, and operator hints
   for automation handoff, so GUI triage, CI gates, and support bundles all

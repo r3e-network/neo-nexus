@@ -72,3 +72,41 @@ jobs:
 
     Ok(())
 }
+
+#[test]
+fn ci_policy_rejects_ambiguous_integration_test_target() -> anyhow::Result<()> {
+    let workflow = r#"
+name: Rust CI
+
+jobs:
+  verify:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - run: cargo fmt --all --check
+      - run: cargo check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test --lib
+      - run: cargo test --tests
+"#;
+
+    let report =
+        CiPolicyChecker::check_text_at(".github/workflows/ci.yml", workflow, 1_800_000_000)?;
+
+    assert!(!report.is_success());
+    assert!(report
+        .missing_commands
+        .iter()
+        .any(|command| command == "cargo-test-ci-policy"));
+    assert!(report
+        .missing_commands
+        .iter()
+        .any(|command| command == "cargo-test-domain"));
+    assert!(report
+        .missing_commands
+        .iter()
+        .any(|command| command == "cargo-test-repository"));
+
+    Ok(())
+}

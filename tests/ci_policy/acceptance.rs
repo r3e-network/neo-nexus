@@ -14,7 +14,10 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo check
       - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test
+      - run: cargo test --lib
+      - run: cargo test --test ci_policy
+      - run: cargo test --test domain
+      - run: cargo test --test repository
       - run: cargo run -- --self-check
       - run: cargo run -- --ci-policy .github/workflows/ci.yml
       - run: cargo run -- --ci-policy-json .github/workflows/ci.yml

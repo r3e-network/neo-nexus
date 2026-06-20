@@ -27,6 +27,11 @@ NeoNexus workbench.
 
 - Workbench over pages: a fixed native shell with Inventory, Workspace,
   Inspector, and Status areas.
+- Operator-first triage: mature node tools guide operators from a warning to a
+  concrete maintenance surface. NeoNexus applies the same pattern by attaching
+  every readiness finding to a native resolution workspace, action label, and
+  operator hint, then showing facet-aware workload counts before the operator
+  switches severity or target workspace.
 - Source purity: `--source-purity` and `--source-purity-json` reject Node/Web
   manifests, frontend source files, `node_modules`, web/frontend directories,
   Docker/compose artifacts, nginx deployment files, WebView/Tauri project
@@ -51,6 +56,11 @@ NeoNexus workbench.
 - Runtime-specific configuration: NeoNexus keeps JSON exports for neo-cli,
   YAML exports for neo-go, and TOML exports for neo-rs `neo-node`, with
   headless bulk export reports for CI, reviews, and operator handoff.
+- neo-rs parity: the Rust node is treated as a production runtime, not a demo
+  path. Runtime preflight recognizes `neo-node`, config generation and
+  validation use TOML, storage posture favors RocksDB, Fast Sync and runtime
+  catalogs can carry neo-rs entries, and Operations routes neo-rs findings into
+  the same remediation workflow as other Neo runtimes.
 - Launch parity: command previews and process starts share the same launch
   planner, so managed config paths are visible before an operator starts a
   node; explicit neo-go or neo-rs config flags are preserved for advanced use
@@ -128,6 +138,10 @@ NeoNexus workbench.
   operator context. This mirrors professional node tools where an operator can
   drill into one remediation area, jump to the owning workspace, and return to
   the same bounded work queue without losing the investigation thread.
+- Workload visibility: remediation workspace filters show counts under the
+  active severity/query context, and severity buttons show counts under the
+  active query/workspace context, giving operators dashboard-like cues before
+  they switch from one bounded task area to another.
 - Port matrix: conflicting RPC/P2P/WS bindings can be focused directly from
   Operations, keeping the selected node aligned with the visible blocked row.
 - Action queue: critical and warning diagnostics are surfaced as operational

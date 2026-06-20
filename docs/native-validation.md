@@ -1,6 +1,6 @@
 # Native Rust App Validation
 
-Validation date: 2026-06-20
+Validation date: 2026-06-21
 
 ## Scope
 
@@ -8,13 +8,29 @@ This report validates the pure Rust application in this repository. It checks
 build correctness, tested behavior, native-application boundaries, and basic
 engineering quality.
 
+The validation model treats NeoNexus as a native desktop operations program,
+not a frontend or WebView application. Evidence is collected from Rust format,
+compile, lint, library tests, named integration tests, source-boundary gates,
+native UI gates, CI policy gates, and headless operational probes that can run
+without opening a GUI window.
+
+When a local machine already has another Cargo job holding the default
+`target/` lock, the same commands may be run with an isolated target directory:
+
+```bash
+env CARGO_TARGET_DIR=/tmp/neo-nexus-target CARGO_INCREMENTAL=0 cargo test --lib
+```
+
 ## Gates
 
 ```bash
 cargo fmt --all --check
 cargo check
 cargo clippy --all-targets -- -D warnings
-cargo test
+cargo test --lib
+cargo test --test ci_policy
+cargo test --test domain
+cargo test --test repository
 cargo run -- --self-check
 cargo run -- --runtime-smoke neo-rs /definitely/missing/neo-node
 cargo run -- --runtime-smoke-json neo-rs /path/to/neo-node
@@ -74,6 +90,9 @@ Expected result:
 - Rust debug build passes.
 - Rust strict clippy passes with warnings denied.
 - Rust tests pass.
+- Rust tests run through the library plus named `ci_policy`, `domain`, and
+  `repository` integration targets; the native GUI binary is not a Cargo test
+  target, so filtered test runs cannot accidentally launch the desktop app.
 - Headless binary self-check passes without opening a GUI window.
 - Headless runtime smoke CLI reports a bounded blocked result without opening a
   GUI window, and its JSON mode emits structured preflight/attempt evidence
@@ -96,9 +115,10 @@ Expected result:
   expose fixed top/bottom/left/right/central panels, define explicit workspace
   tabs, and reject WebView/Tauri/Wry or document-style scrolling markers.
 - Headless CI policy gates require Ubuntu, macOS, and Windows workflow
-  coverage, source purity/source quality checks, neo-rs runtime and generated
-  config checks, release packaging verification, and no frontend, Node, Tauri,
-  or WebView workflow tooling.
+  coverage, explicit library and named integration test targets, source
+  purity/source quality checks, neo-rs runtime and generated config checks,
+  release packaging verification, and no frontend, Node, Tauri, or WebView
+  workflow tooling.
 - Headless alert preview gates validate provider-specific targets and payload
   construction without sending a network request, then emit redacted text/JSON
   endpoint, header, and payload evidence for operators and CI.
@@ -124,6 +144,15 @@ Expected result:
   same severity, title, and detail but different target workspaces must not
   collapse into one selected row, and changing the resolution workspace filter
   must preserve any active severity or query filter.
+- Workspace resolution filter counts ignore the currently selected workspace
+  facet while retaining severity/query facets, so the visible counts explain
+  the remaining remediation workload before an operator changes workspaces.
+- Severity button counts ignore the currently selected severity facet while
+  retaining query/workspace facets, so action queue and selected-node triage
+  expose accurate Critical, Warning, Info, and Pass workload signals.
+- The action queue and selected-node readiness panels use the same count
+  semantics, so a node operator can switch between fleet and selected-node
+  triage without learning different filter behavior.
 - Launch readiness blocks configured active-node port collisions and occupied
   IPv4/IPv6 localhost TCP listeners before the native supervisor starts a node
   process.
@@ -476,7 +505,8 @@ Current Rust tests cover:
   and structured resolution shortcuts that open Config, Logs, Monitor, Node
   Studio, Operations, Plugins, Roles, Runtimes, or Wallets as appropriate,
   with query matching and direct filtering across resolution key, label, action
-  label, and hint while preserving active severity/query facets.
+  label, and hint while preserving active severity/query facets and exposing
+  resolution workspace and severity counts.
 - Native Operations selected-node readiness filtering, one-click
   critical/warning focus, selectable check detail, pagination, and visible
   selection recovery, using the same structured diagnostic checks and

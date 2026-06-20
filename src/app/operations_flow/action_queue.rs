@@ -1,5 +1,6 @@
 use super::resolution::view_for_resolution;
 use super::*;
+use crate::diagnostics::{readiness_action_resolution_counts, readiness_action_severity_counts};
 
 impl NeoNexusApp {
     pub(in crate::app) fn action_queue_filter(&self) -> ReadinessActionFilter {
@@ -15,6 +16,20 @@ impl NeoNexusApp {
         diagnostics: &FleetDiagnostics,
     ) -> Vec<ReadinessAction> {
         filter_readiness_actions(diagnostics, &self.action_queue_filter())
+    }
+
+    pub(in crate::app) fn action_queue_resolution_counts(
+        &self,
+        diagnostics: &FleetDiagnostics,
+    ) -> Vec<(DiagnosticResolution, usize)> {
+        readiness_action_resolution_counts(diagnostics, &self.action_queue_filter())
+    }
+
+    pub(in crate::app) fn action_queue_severity_counts(
+        &self,
+        diagnostics: &FleetDiagnostics,
+    ) -> Vec<(CheckSeverity, usize)> {
+        readiness_action_severity_counts(diagnostics, &self.action_queue_filter())
     }
 
     pub(in crate::app) fn has_active_action_queue_filter(&self) -> bool {

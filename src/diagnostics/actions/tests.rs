@@ -1,6 +1,9 @@
 use super::*;
 use crate::diagnostics::{DiagnosticCheck, DiagnosticResolution, NodeDiagnostics};
 
+mod resolution_counts;
+mod severity_counts;
+
 #[test]
 fn readiness_actions_prioritize_critical_low_score_nodes() {
     let diagnostics = fleet(vec![

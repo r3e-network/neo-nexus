@@ -37,9 +37,9 @@ fn supervisor_restarts_after_child_exits() {
     let mut supervisor = ProcessSupervisor::default();
 
     supervisor.start(&node, &plan, &log_path).unwrap();
-    thread::sleep(Duration::from_millis(100));
+    wait_for_reaped_exit(&mut supervisor, &node.id);
     supervisor.start(&node, &plan, &log_path).unwrap();
-    thread::sleep(Duration::from_millis(100));
+    wait_for_reaped_exit(&mut supervisor, &node.id);
     let _ = supervisor.stop(&node.id).unwrap();
 
     let text = std::fs::read_to_string(&log_path).unwrap();
@@ -98,4 +98,20 @@ fn supervisor_restart_replaces_running_child_process() {
     assert_eq!(text.matches("== NeoNexus stop").count(), 2);
     assert!(text.contains(&format!("pid: {}", first.pid)));
     assert!(text.contains(&format!("pid: {}", second.pid)));
+}
+
+#[cfg(unix)]
+fn wait_for_reaped_exit(supervisor: &mut ProcessSupervisor, node_id: &str) {
+    let deadline = Instant::now() + Duration::from_secs(2);
+    loop {
+        let exits = supervisor.reap_finished().unwrap();
+        if exits.iter().any(|exit| exit.process_id == node_id) {
+            return;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "timed out waiting for {node_id} to exit"
+        );
+        thread::sleep(Duration::from_millis(10));
+    }
 }
