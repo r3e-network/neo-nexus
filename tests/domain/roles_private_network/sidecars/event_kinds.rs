@@ -75,6 +75,10 @@ fn event_kind_parses_role_application_audit_events() {
         EventKind::RuntimeSmokeTested
     );
     assert_eq!(
+        EventKind::from_str("runtime-fleet-upgrade-run").unwrap(),
+        EventKind::RuntimeFleetUpgradeRun
+    );
+    assert_eq!(
         EventKind::from_str("runtime-upgrade-policy-updated").unwrap(),
         EventKind::RuntimeUpgradePolicyUpdated
     );

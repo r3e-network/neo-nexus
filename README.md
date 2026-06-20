@@ -185,7 +185,9 @@ accidentally launch the desktop application.
   and runtime inventory,
   planning fleet catalog upgrades, applying compatible runtimes to stopped
   nodes, and rolling selected or fleet running-node catalog upgrades through
-  restart readiness plus supervised process replacement.
+  restart readiness plus supervised process replacement with stopped/running
+  completion, skipped-node, blocked-attempt, and interrupted-run
+  event-journal summaries that identify the failed node.
 - Wallet Profiles workspace for importing encrypted NEP-6 Neo wallet metadata,
   usage/query-filtered saved profile registry, inspecting address, contract
   public keys, account counts, wallet SHA-256, validation/last-used timestamps,

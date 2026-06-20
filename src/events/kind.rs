@@ -72,6 +72,7 @@ define_event_kinds! {
     RuntimeRecovered => "runtime-recovered",
     RuntimeStateReconciled => "runtime-state-reconciled",
     RuntimeSmokeTested => "runtime-smoke-tested",
+    RuntimeFleetUpgradeRun => "runtime-fleet-upgrade-run",
     RuntimeUpgradePolicyUpdated => "runtime-upgrade-policy-updated",
     RuntimeUpgradePolicyRun => "runtime-upgrade-policy-run",
     NeoWalletProfileImported => "neo-wallet-profile-imported",

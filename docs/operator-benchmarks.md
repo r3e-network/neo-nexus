@@ -235,12 +235,17 @@ anchors explicitly to catalog or package verification. For selected nodes and
 fleet candidates it can plan the latest compatible catalog release and run a
 managed download, install, event-recording, and apply flow; stopped nodes are
 updated directly, while running nodes pass through restart readiness and native
-supervisor process replacement. It also persists a scheduled runtime upgrade
-policy that binds to a saved catalog profile, requires signed catalogs by
-default, limits each run to fleet-node batches, supports UTC maintenance
-windows and delayed rollout waves, records last-check/apply metadata, and
-writes aggregate audit events that distinguish ready and planned stopped
-direct-apply work from running restart-rollout work. It also includes generic,
+supervisor process replacement, and completion notices distinguish stopped
+direct-apply work, running restart-rollout work, blocked active nodes, and
+current/unavailable nodes while event-journal summaries keep the batch
+searchable when a run applies, interrupts, no-ops, or is blocked before
+planning, with interrupted runs identifying the failed node. It also persists a
+scheduled runtime upgrade policy that binds to a
+saved catalog profile, requires signed catalogs by default, limits each run to
+fleet-node batches, supports UTC maintenance windows and delayed rollout waves,
+records last-check/apply metadata, and writes aggregate audit events that
+distinguish ready and planned stopped direct-apply work from running
+restart-rollout work. It also includes generic,
 Slack, Discord, Telegram, PagerDuty, and Opsgenie alert routing with local
 delivery history,
 metadata-only Neo wallet profile import/registry/audit and Roles

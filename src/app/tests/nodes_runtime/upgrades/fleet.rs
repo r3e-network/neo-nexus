@@ -31,9 +31,40 @@ fn fleet_catalog_upgrade_rolls_running_nodes_with_restart() -> anyhow::Result<()
         p2p_port: 22433,
         ws_port: None,
     })?;
+    let starting = repository.create_node(NewNode {
+        name: "starting fleet neo-rs".to_string(),
+        node_type: NodeType::NeoRs,
+        network: Network::Testnet,
+        binary_path: PathBuf::from("/bin/sh"),
+        args: Vec::new(),
+        runtime_version: "v1.0.0".to_string(),
+        storage_engine: StorageEngine::RocksDb,
+        rpc_port: 22632,
+        p2p_port: 22633,
+        ws_port: None,
+    })?;
+    let current = repository.create_node(NewNode {
+        name: "current fleet neo-rs".to_string(),
+        node_type: NodeType::NeoRs,
+        network: Network::Testnet,
+        binary_path: PathBuf::from("/bin/sh"),
+        args: Vec::new(),
+        runtime_version: "v1.2.0".to_string(),
+        storage_engine: StorageEngine::RocksDb,
+        rpc_port: 22732,
+        p2p_port: 22733,
+        ws_port: None,
+    })?;
     let mut app = NeoNexusApp::new(repository);
     app.selected_node = Some(running.id.clone());
     app.start_selected_node();
+    let active_blocked = app
+        .nodes
+        .iter_mut()
+        .find(|node| node.id == starting.id)
+        .ok_or_else(|| anyhow::anyhow!("starting node should be loaded"))?;
+    active_blocked.status = NodeStatus::Starting;
+    active_blocked.pid = Some(42_424);
     let first_pid = app
         .selected_node()
         .and_then(|node| node.pid)
@@ -92,10 +123,36 @@ fn fleet_catalog_upgrade_rolls_running_nodes_with_restart() -> anyhow::Result<()
     assert_ne!(first_pid, second_pid);
     assert_eq!(running_after.runtime_version, "v1.2.0");
     assert_eq!(stopped_after.runtime_version, "v1.2.0");
-    assert!(app
+    let notice = app
         .notice
         .as_deref()
-        .is_some_and(|notice| { notice.contains("Fleet catalog upgrade applied to 2 nodes") }));
+        .ok_or_else(|| anyhow::anyhow!("fleet upgrade should report a notice"))?;
+    assert!(
+        notice.contains("Fleet catalog upgrade applied to 2 nodes"),
+        "{notice}"
+    );
+    assert!(notice.contains("1 stopped direct"), "{notice}");
+    assert!(notice.contains("1 running rollout"), "{notice}");
+    assert!(notice.contains("1 blocked active"), "{notice}");
+    assert!(notice.contains("1 current/unavailable"), "{notice}");
+    let fleet_events = app.repository.list_events(RuntimeEventFilter::new(
+        None,
+        "runtime-fleet-upgrade-run",
+        10,
+    ))?;
+    assert!(fleet_events.iter().any(|event| {
+        event.kind.label() == "runtime-fleet-upgrade-run"
+            && event.message.contains("2 nodes")
+            && event.message.contains("1 stopped direct")
+            && event.message.contains("1 running rollout")
+            && event.message.contains("1 blocked active")
+            && event.message.contains("1 current/unavailable")
+    }));
+    assert!(app
+        .nodes
+        .iter()
+        .find(|node| node.id == current.id)
+        .is_some_and(|node| node.runtime_version == "v1.2.0"));
 
     app.selected_node = Some(running.id);
     app.stop_selected_node();
