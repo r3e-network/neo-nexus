@@ -60,6 +60,73 @@ fn action_queue_filters_readiness_actions_and_clamps_page() -> anyhow::Result<()
     Ok(())
 }
 
+#[test]
+fn action_queue_focuses_severity_and_selects_highest_risk_action() -> anyhow::Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let repository = Repository::open(temp_dir.path().join("neonexus.db"))?;
+    let mut app = NeoNexusApp::new(repository);
+    let diagnostics = FleetDiagnostics {
+        score: 30,
+        ready_nodes: 0,
+        warning_count: 1,
+        critical_count: 2,
+        nodes: vec![
+            readiness_node(
+                "rpc-node",
+                "RPC Node",
+                65,
+                vec![readiness_check(
+                    CheckSeverity::Critical,
+                    "Binary",
+                    "RPC binary missing",
+                )],
+            ),
+            readiness_node(
+                "validator-node",
+                "Validator Node",
+                20,
+                vec![
+                    readiness_check(CheckSeverity::Warning, "Plugin", "Plugin disabled"),
+                    readiness_check(
+                        CheckSeverity::Critical,
+                        "Ports",
+                        "Validator RPC port unavailable",
+                    ),
+                ],
+            ),
+        ],
+    };
+
+    app.action_queue_severity_filter = Some(CheckSeverity::Warning);
+    app.action_queue_query = "plugin".to_string();
+    app.action_queue_page = 4;
+
+    app.focus_action_queue_severity(&diagnostics, CheckSeverity::Critical);
+
+    assert_eq!(
+        app.action_queue_severity_filter,
+        Some(CheckSeverity::Critical)
+    );
+    assert!(app.action_queue_query.is_empty());
+    assert_eq!(app.action_queue_page, 0);
+    assert_eq!(app.selected_node.as_deref(), Some("validator-node"));
+    let critical_actions = app.filtered_readiness_actions(&diagnostics);
+    let selected = app
+        .selected_visible_readiness_action(&critical_actions)
+        .expect("focused critical action should be selected");
+    assert_eq!(selected.node_id, "validator-node");
+    assert_eq!(selected.title, "Ports");
+    assert!(app.has_active_action_queue_filter());
+
+    app.clear_action_queue_filters(&diagnostics);
+
+    assert!(!app.has_active_action_queue_filter());
+    assert_eq!(app.filtered_readiness_actions(&diagnostics).len(), 3);
+    assert_eq!(app.selected_node.as_deref(), Some("validator-node"));
+
+    Ok(())
+}
+
 fn readiness_node(
     id: &str,
     name: &str,

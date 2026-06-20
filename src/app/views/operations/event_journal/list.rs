@@ -51,7 +51,7 @@ fn render_event_row(app: &mut NeoNexusApp, ui: &mut egui::Ui, event: &RuntimeEve
         .on_hover_text(&event.message)
         .clicked()
     {
-        app.selected_event = Some(event.id);
+        app.select_event(event);
     }
 }
 

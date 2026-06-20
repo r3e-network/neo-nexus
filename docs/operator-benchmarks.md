@@ -78,11 +78,14 @@ NeoNexus workbench.
   stop after a bounded number of attempts, and can be tuned from native
   Settings without editing files.
 - Resource monitoring: host CPU/RAM pressure and managed node process CPU,
-  RSS, uptime, and missing-PID state are visible without leaving the app.
+  RSS, uptime, and missing-PID state are visible without leaving the app, and
+  Telemetry health can focus missing PIDs into the managed-process table before
+  an operator repairs stale runtime records.
 - Event journal: lifecycle, configuration, plugin, backup, log, and watchdog
   activity is persisted as structured operator history, shown in Operations,
-  selectable for full fixed-panel detail, and exportable from Operations or
-  headlessly as filtered timestamped text/JSON audit evidence.
+  selectable for full fixed-panel detail with node-event selection synchronized
+  to the active node, and exportable from Operations or headlessly as filtered
+  timestamped text/JSON audit evidence.
 - Support handoff: native Operations and headless diagnostics bundles combine
   readiness, read-only integrity, metrics text/JSON/Prometheus snapshots,
   bounded event journal, redacted node inventory, privacy notes, SHA-256
@@ -97,18 +100,28 @@ NeoNexus workbench.
   inspect remote health without a scrolling document surface.
 - Backup safety: workspace backups can be exported from the native UI or
   headlessly with text/JSON CLI evidence, imported locally or headlessly with
-  text/JSON restore evidence, and validated before restore, including plugin
-  state and plugin installation inventory, while imports are blocked for
-  workspaces with active nodes and restored node definitions are kept stopped
-  rather than reviving stale PIDs.
+  text/JSON restore evidence, and validated before restore from Operations or
+  headless CLI, with native import requiring current validation evidence in
+  Workspace Safety, including plugin state and plugin installation inventory,
+  while imports are blocked for workspaces with active nodes and restored node
+  definitions are kept stopped rather than reviving stale PIDs.
 - Release handoff: Settings can package the current native executable, verify
   the ZIP/manifest/checksum trio, and record release audit events; the same
   release flow remains available headlessly for CI.
 - Readiness checks: NeoNexus evaluates binary availability, version posture,
   lifecycle consistency, port conflicts, and plugin alignment before operators
-  treat a node as production-ready.
+  treat a node as production-ready, with selected-node critical/warning focus
+  and selectable check detail in Operations.
+- Port matrix: conflicting RPC/P2P/WS bindings can be focused directly from
+  Operations, keeping the selected node aligned with the visible blocked row.
 - Action queue: critical and warning diagnostics are surfaced as operational
-  work, not hidden inside configuration views.
+  work, can be focused by severity in one click, and keep selected actions
+  synchronized with the active node instead of hiding inside configuration
+  views.
+- Operations module discipline: action queue, readiness checks, port matrix,
+  event journal, metrics, and workspace safety are implemented as focused
+  native panels with separate non-visual workflow modules, keeping the desktop
+  application maintainable as the operator surface grows.
 - Role presets: common node duties are represented as explicit operator
   postures, with plugin changes separated from runtime-managed configuration.
 - Plugin package provenance: neo-cli plugin ZIP packages are accepted only for

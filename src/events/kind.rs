@@ -64,6 +64,7 @@ define_event_kinds! {
     ConfigApplied => "config-applied",
     LogCleared => "log-cleared",
     BackupExported => "backup-exported",
+    BackupValidated => "backup-validated",
     BackupImported => "backup-imported",
     RuntimeDownloaded => "runtime-downloaded",
     RuntimeInstalled => "runtime-installed",

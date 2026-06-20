@@ -1,6 +1,13 @@
 use super::*;
 
 impl NeoNexusApp {
+    pub(in crate::app) fn select_event(&mut self, event: &RuntimeEvent) {
+        self.selected_event = Some(event.id);
+        if let Some(node_id) = event.node_id.as_ref() {
+            self.selected_node = Some(node_id.clone());
+        }
+    }
+
     pub(in crate::app) fn ensure_valid_event_selection(&mut self, events: &[RuntimeEvent]) {
         let selected_exists = self
             .selected_event

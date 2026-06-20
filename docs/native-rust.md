@@ -169,6 +169,14 @@ including failed-verification messages with a non-zero exit code.
   running-node upgrade restarts, fleet stopped-node upgrades, and scheduled
   runtime upgrade policy execution so `src/app.rs` does not keep absorbing
   runtime orchestration code.
+- `src/app/operations_flow/` owns non-visual Operations behavior for action
+  queue filtering and focus actions, selected-node readiness filtering,
+  network port matrix focus, event journal selection/export/pruning,
+  workspace backup validation/import safety, and evidence report generation.
+- `src/app/views/operations/` keeps the fixed native Operations workspace split
+  into focused action queue, readiness, port matrix, event journal, metrics,
+  and workspace safety panels instead of returning to a monolithic or scrolling
+  document surface.
 - `src/app/health_events.rs` owns RPC health and remote federation status
   event severity plus duplicate-status suppression.
 - `src/app/sidecar_health.rs` owns signer sidecar execution policy checks,
@@ -326,11 +334,13 @@ Runtime data is stored under the platform data directory by default, or under
   maximum retry delay from a native Settings workspace.
 - Monitoring host CPU and memory pressure plus per-node PID CPU, resident
   memory, uptime, missing-process telemetry, manual telemetry refresh, and
-  missing-process repair.
+  missing-process repair, with one-click focus from Telemetry health into the
+  managed-process table's Missing filter.
 - Recording lifecycle, restart, plugin, config, log, backup, and watchdog
   activity in a structured runtime event journal.
 - Filtering runtime events by severity and text, reporting match counts,
-  selecting full event details in the native Operations workspace, exporting
+  selecting full event details in the native Operations workspace while
+  synchronizing node-event selection with the active node, exporting
   timestamped redacted text/JSON event audit evidence with an
   `event-journal-exported` audit record, exposing the same export headlessly
   with optional limit/severity/query filters, and pruning the journal to a
@@ -433,9 +443,11 @@ Runtime data is stored under the platform data directory by default, or under
   archive paths and target conflicts, and writes an import manifest.
 - Per-node working directories for launched processes, keeping relative runtime
   data paths inside the managed workspace.
-- Operations readiness workspace with action queue, network port matrix,
-  filterable/exportable event journal, and fixed workspace safety controls for
-  backup and integrity checks.
+- Operations readiness workspace with a paged action queue, one-click
+  critical/warning focus, selected-node readiness check focus with selectable
+  detail, blocked-port focus in the network port matrix, filterable/exportable
+  event journal, and fixed workspace safety controls for backup validation,
+  import/export, and integrity checks.
 - Operations diagnostics and the start path share launch readiness checks for
   runtime binary preflight, managed config validation, lifecycle state, and
   active-node or IPv4/IPv6 localhost TCP listener port conflicts, so critical
@@ -479,7 +491,11 @@ Runtime data is stored under the platform data directory by default, or under
   available from `--import-backup <neonexus.db> <backup.json>` and
   `--import-backup-json <neonexus.db> <backup.json>` after validation; imports
   are refused when the target workspace still has running or starting nodes.
-  The same deep backup checks are available headlessly from
+  The native Operations workspace can validate the latest backup before import,
+  requires that current validation before enabling native import, keeps the
+  last validation counts visible in Workspace Safety, and records a
+  `backup-validated` audit event. The same deep backup checks are available
+  headlessly from
   `--validate-backup <backup.json>` and
   `--validate-backup-json <backup.json>` before an operator imports anything,
   including duplicate ID, duplicate plugin inventory, duplicate node-port, and

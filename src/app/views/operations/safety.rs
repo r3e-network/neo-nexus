@@ -18,6 +18,7 @@ impl NeoNexusApp {
             &self.nodes,
             &self.backup_export_dir(),
             self.workspace_integrity_report.as_ref(),
+            self.last_backup_validation.as_ref(),
         );
 
         fact(
@@ -45,6 +46,17 @@ impl NeoNexusApp {
                 .as_ref()
                 .map_or_else(|| "-".to_string(), |path| short_path(path, 36)),
         );
+        ui.horizontal(|ui| {
+            ui.label(egui::RichText::new("Backup").color(muted_text()));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(
+                    egui::RichText::new(&safety.backup_validation.status_label)
+                        .strong()
+                        .color(safety.backup_validation.color),
+                );
+            });
+        });
+        fact(ui, "Validated", &safety.backup_validation.counts_label);
         ui.add_space(8.0);
 
         ui.horizontal(|ui| {
@@ -61,6 +73,13 @@ impl NeoNexusApp {
                 .clicked()
             {
                 self.import_latest_workspace_backup();
+            }
+            if ui
+                .add_enabled(safety.can_validate_backup(), egui::Button::new("Validate"))
+                .on_hover_text("Validate latest workspace backup without importing")
+                .clicked()
+            {
+                self.validate_latest_workspace_backup();
             }
             if ui
                 .button("Integrity")
@@ -80,6 +99,7 @@ impl NeoNexusApp {
 
         ui.add_space(4.0);
         ui.label(egui::RichText::new(&safety.integrity.hint).color(muted_text()));
+        ui.label(egui::RichText::new(&safety.backup_validation.hint).color(muted_text()));
 
         if safety.node_count == 0 {
             ui.label(
