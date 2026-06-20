@@ -130,11 +130,11 @@ Expected result:
   panel without sending a webhook, including a current/stale marker when the
   draft changes after preview.
 - Native workspace interaction stays fixed-panel and paginated, with no
-  application scroll containers; cross-platform keyboard accelerators cover
-  reload, node creation, selected-node lifecycle toggling, selected-node
-  restart, numbered primary
-  workspace selection, next/previous workspace cycling, and node inventory
-  movement across rows, pages, first item, and last item.
+  application scroll containers; cross-platform menus, toolbar buttons, and
+  keyboard accelerators share one command model for reload, node creation,
+  selected-node start/stop/toggle/restart, numbered primary workspace
+  selection, next/previous workspace cycling, and node inventory movement
+  across rows, pages, first item, and last item.
 - Workspace readiness and launch readiness report managed-config posture,
   warning when neo-go or neo-rs runtime args preserve an existing config flag
   and therefore bypass generated managed config injection.
@@ -303,8 +303,9 @@ Current Rust tests cover:
 - Launch-plan display command redaction, with raw process args preserved for
   actual node startup.
 - Native application shortcut mapping for fixed workspace cycling, numbered
-  primary workspace selection, selected-node restart, and filter-aware clamped
-  node inventory navigation.
+  primary workspace selection, selected-node start/stop/restart, and
+  filter-aware clamped node inventory navigation, plus discoverable Workspace,
+  View, and Node menu command lists and fixed toolbar action coverage.
 - Node Inventory filtering for status, name, runtime, network, storage,
   version, binary path, and port fields.
 - Native Wallet Profiles application action for adding the selected profile's
