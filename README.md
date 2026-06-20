@@ -1,372 +1,539 @@
-# NeoNexus Node Manager
+# NeoNexus
 
-> Self-hosted Neo N3 node management, simplified
+NeoNexus is a pure Rust native application for Neo N3 node operations. The
+application is built with Rust, `eframe`/`egui`, and SQLite.
 
-[![Version](https://img.shields.io/badge/version-2.5.3-green.svg)](https://github.com/r3e-network/neo-nexus)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org)
-[![Tests](https://img.shields.io/badge/tests-vitest-brightgreen.svg)](#)
+## Requirements
 
-NeoNexus is a **self-hosted node management platform** for Neo N3. Deploy, monitor, and manage [neo-cli](https://github.com/neo-project/neo-node) and [neo-go](https://github.com/nspcc-dev/neo-go) nodes from a single web dashboard.
+- Rust 1.91+
+- Platform GUI support for `eframe` on Linux, macOS, or Windows
+- neo-cli, neo-go, or neo-rs `neo-node` binaries if you want to start real
+  node processes
 
-## Screenshots
-
-**Operations dashboard** — fleet health, node lifecycle, plugins, monitoring, and signer posture in one workspace.
-
-![Operations dashboard](docs/screenshots/03-dashboard.png)
-
-**Node fleet** — search, filter, and operate every neo-cli / neo-go process you manage.
-
-![Nodes](docs/screenshots/04-nodes.png)
-
-**Plugins** — toggle RPC, storage, and tooling plugins per node with ownership-aware safety guards.
-
-![Plugins](docs/screenshots/06-plugins.png)
-
-**Integrations** — connect metrics, logging, uptime, alerting, and error services with private-target SSRF protection.
-
-![Integrations](docs/screenshots/05-integrations.png)
-
-**Servers** — federate multiple NeoNexus instances through their public status endpoints.
-
-![Servers](docs/screenshots/07-servers.png)
-
-**Settings** — storage management, secure-signer profiles, audit log, users, and guarded destructive operations.
-
-![Settings](docs/screenshots/08-settings.png)
-
-**Public status page** at `/status` — read-only fleet view safe to expose externally.
-
-![Public status page](docs/screenshots/01-public-status.png)
-
-**Sign-in** — bearer-token JWT, with WebSocket auth via the `neonexus.auth` subprotocol.
-
-![Sign-in](docs/screenshots/02-login.png)
-
-**Hermes Agent** — bring your own Anthropic / OpenAI / OpenAI-compatible key. The agent talks to your fleet via streaming tool-calls (start/stop/restart nodes, toggle plugins, fetch logs/metrics/network height) with role-gated permissions and DNS-rebind-protected outbound calls.
-
-![Hermes setup](docs/screenshots/09-agent-setup.png)
-![Hermes chat](docs/screenshots/10-agent-chat.png)
-
-## Features
-
-- **One-Click Deploy** — Deploy Neo nodes in minutes without CLI setup
-- **Real-Time Monitoring** — Track block height, sync progress, peers, CPU, memory via WebSocket
-- **Crash Recovery** — Automatic restart with exponential backoff when nodes crash
-- **Plugin Management** — Install and configure neo-cli plugins through the UI
-- **Role Orchestration** — Apply built-in or custom node identities such as RPC/API, State, Oracle, Consensus, Indexer, and Secure Signer Client
-- **Data Context Switching** — Save isolated blockchain data contexts per node for one-click switching between roles, storage engines, sync strategies, checkpoints, and snapshots
-- **Fast Sync Snapshots** — Register local, HTTPS, or catalog snapshot manifests, verify SHA-256, download packages, and bind checkpoints to isolated contexts
-- **Private Network Planner** — Generate single-node, 4-node, or 7-node private Neo N3 networks with addresses, public keys, ports, seed lists, committee config, and plugin presets
-- **Storage Engine Selection** — Choose LevelDB or RocksDB when creating nodes, applying roles, or planning private networks
-- **Multi-Network** — Mainnet, testnet, and private networks with correct protocol configs
-- **Multi-Server** — Monitor multiple NeoNexus instances from one control panel
-- **Config Audit** — Detect stale configs, missing plugins, hardfork mismatches
-- **Backup/Restore** — JSON export/import of all node configurations
-- **Audit Logging** — Track all state-changing operations
-- **Secure Signers** — TEE key protection via Intel SGX, AWS Nitro, or custom endpoints
-- **SaaS Integrations** — Optional Grafana Cloud, Datadog, Better Stack, Sentry, Slack, Discord, Telegram, and more with credential-gated setup and public health URL checks for uptime monitors
-- **Hermes Agent** — Bring-your-own-key in-app AI agent (Anthropic, OpenAI, OpenAI-compatible) that operates the fleet on your behalf with role-gated tools and DNS-rebind-protected outbound calls — see the Hermes section below
-- **Neo X support (preview)** — Manage `neox-go` (geth fork from `bane-labs/go-ethereum`) alongside Neo N3 nodes. Separate port range (8551 RPC / 30303 P2P), EVM JSON-RPC metrics (`eth_blockNumber`, `net_peerCount`, `eth_chainId`), mainnet (chain id 47763) and testnet (12227332). Linux-only binaries. Enable with `NEONEXUS_ENABLE_NEOX=true`.
-
-## Quick Start
-
-### Requirements
-
-- **Node.js** 20+
-- **npm** 9+
-- **.NET 10+** (for neo-cli nodes)
-- **Docker** 24+ (optional, for container deployment)
-
-### Installation
-
-One-command install for Linux and macOS:
+## Run
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/r3e-network/neo-nexus/main/install.sh | bash
+cargo run
 ```
 
-The installer clones NeoNexus into `~/.neonexus/app`, stores runtime data in `~/.neonexus/data`, installs backend and frontend dependencies from lockfiles, builds the app, generates a persistent `JWT_SECRET`, and creates a `systemd` service on Linux when available.
-
-For a reviewable install, download the script first:
+Headless smoke checks for CI and packaging:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/r3e-network/neo-nexus/main/install.sh
-less install.sh
-bash install.sh
+cargo run -- --self-check
+target/release/neo-nexus --version
+cargo run -- --runtime-smoke neo-rs /path/to/neo-node
+cargo run -- --runtime-smoke-json neo-rs /path/to/neo-node
+cargo run -- --rpc-health 10332
+cargo run -- --rpc-health-json 10332
+cargo run -- --workspace-readiness /path/to/neonexus.db
+cargo run -- --workspace-readiness-json /path/to/neonexus.db
+cargo run -- --workspace-metrics /path/to/neonexus.db
+cargo run -- --workspace-metrics-json /path/to/neonexus.db
+cargo run -- --workspace-metrics-prometheus /path/to/neonexus.db
+cargo run -- --workspace-integrity /path/to/neonexus.db
+cargo run -- --workspace-integrity-json /path/to/neonexus.db
+cargo run -- --source-purity /path/to/neo-nexus
+cargo run -- --source-purity-json /path/to/neo-nexus
+cargo run -- --source-quality /path/to/neo-nexus/src
+cargo run -- --source-quality-json /path/to/neo-nexus/src
+cargo run -- --source-quality /path/to/neo-nexus/tests
+cargo run -- --source-quality-json /path/to/neo-nexus/tests
+cargo run -- --native-ui-audit /path/to/neo-nexus
+cargo run -- --native-ui-audit-json /path/to/neo-nexus
+cargo run -- --ci-policy /path/to/neo-nexus/.github/workflows/ci.yml
+cargo run -- --ci-policy-json /path/to/neo-nexus/.github/workflows/ci.yml
+cargo run -- --alert-preview datadog "https://event-management-intake.datadoghq.com/api/v2/events?api_key=<DD_API_KEY>" critical "RPC health unreachable"
+cargo run -- --alert-preview-json datadog "https://event-management-intake.datadoghq.com/api/v2/events?api_key=<DD_API_KEY>" critical "RPC health unreachable"
+cargo run -- --export-readiness-report /path/to/neonexus.db /path/to/reports
+cargo run -- --export-event-journal /path/to/neonexus.db /path/to/events
+cargo run -- --export-event-journal /path/to/neonexus.db /path/to/events 100 warning restart
+cargo run -- --export-node-configs /path/to/neonexus.db /path/to/configs
+cargo run -- --export-node-configs-json /path/to/neonexus.db /path/to/configs
+cargo run -- --generate-node-config neo-rs testnet rocksdb 10332 10333 /path/to/config.toml
+cargo run -- --generate-node-config-json neo-rs testnet rocksdb 10332 10333 /path/to/config.toml
+cargo run -- --validate-node-config neo-rs testnet rocksdb 10332 10333 /path/to/config.toml
+cargo run -- --validate-node-config-json neo-rs testnet rocksdb 10332 10333 /path/to/config.toml
+cargo run -- --export-backup /path/to/neonexus.db /path/to/backups
+cargo run -- --export-backup-json /path/to/neonexus.db /path/to/backups
+cargo run -- --import-backup /path/to/neonexus.db /path/to/neonexus-backup.json
+cargo run -- --import-backup-json /path/to/neonexus.db /path/to/neonexus-backup.json
+cargo run -- --validate-backup /path/to/neonexus-backup.json
+cargo run -- --validate-backup-json /path/to/neonexus-backup.json
+cargo run -- --validate-wallet /path/to/validator.wallet.json
+cargo run -- --validate-wallet-json /path/to/validator.wallet.json
+cargo run -- --validate-launch-pack /path/to/private-network/manifest.json
+cargo run -- --launch-pack-sidecars /path/to/private-network/manifest.json
+cargo run -- --launch-pack-sidecars-json /path/to/private-network/manifest.json
+target/release/neo-nexus --package-release dist
+target/release/neo-nexus --verify-release-package dist
+target/release/neo-nexus --verify-release-package-json dist
 ```
 
-Manual install:
+## Verify
 
 ```bash
-git clone https://github.com/r3e-network/neo-nexus.git
-cd neo-nexus
-
-npm ci
-npm --prefix web ci
-npm run build
-JWT_SECRET=$(openssl rand -hex 32) npm start
+cargo fmt --all --check
+cargo check
+cargo clippy --all-targets -- -D warnings
+cargo test
+cargo run -- --self-check
+cargo run -- --source-purity .
+cargo run -- --source-quality src
+cargo run -- --source-quality tests
+cargo run -- --native-ui-audit .
+cargo run -- --ci-policy .github/workflows/ci.yml
+cargo run -- --alert-preview datadog "https://event-management-intake.datadoghq.com/api/v2/events?api_key=<DD_API_KEY>" critical "RPC health unreachable"
+cargo run -- --workspace-metrics /path/to/neonexus.db
+cargo run -- --workspace-metrics-json /path/to/neonexus.db
+cargo run -- --workspace-metrics-prometheus /path/to/neonexus.db
+cargo build --release
+make verify
 ```
 
-Docker Compose:
+## Current Native Feature Surface
 
-```bash
-export JWT_SECRET=$(openssl rand -hex 32)
-docker compose up --build
-```
-
-Open http://localhost:8080 and create the first admin account in the setup screen.
-
-### Deploy Your First Node
-
-1. Click **Create Node**
-2. Select **Type** (neo-cli or neo-go), **Network** (mainnet/testnet/private), storage engine, and sync strategy
-3. Optionally choose a built-in role preset such as RPC/API, State, Oracle, Consensus, Indexer, or Secure Signer Client
-4. Click **Deploy** — the binary, plugin plan, config, storage context, and sync settings are prepared and ready to start
-5. Use the node detail view to preview and apply role changes or switch isolated data contexts later
-
-### Use Local neo-node Builds
-
-To use plugins built from a local [neo-node](https://github.com/neo-project/neo-node) checkout:
-
-```bash
-cd ~/git/neo-node && git checkout v3.9.2
-dotnet build neo-node.sln -c Release
-
-# Start NeoNexus with local plugin path
-NEO_PLUGIN_BUILD_DIR=~/git/neo-node/plugins npm start
-```
+- Fixed-panel desktop application layout.
+- Native Settings release packaging controls that package the current
+  executable, verify the ZIP/manifest/checksum trio, and record
+  `release-packaged` / `release-package-verified` audit events.
+- Headless `--version`, `--help`, `--self-check`, `--runtime-smoke`,
+  `--runtime-smoke-json`, `--rpc-health`, `--rpc-health-json`,
+  `--workspace-readiness`, `--workspace-readiness-json`,
+  `--workspace-metrics`, `--workspace-metrics-json`,
+  `--workspace-metrics-prometheus`,
+  `--workspace-integrity`, `--workspace-integrity-json`,
+  `--source-purity`, `--source-purity-json`, `--source-quality`,
+  `--source-quality-json`, `--native-ui-audit`, `--native-ui-audit-json`,
+  `--ci-policy`, `--ci-policy-json`, `--alert-preview`,
+  `--alert-preview-json`,
+  `--export-readiness-report`,
+  `--export-support-bundle`, `--export-support-bundle-json`,
+  `--export-event-journal`, `--export-node-configs`,
+  `--export-node-configs-json`, `--generate-node-config`,
+  `--generate-node-config-json`, `--validate-node-config`,
+  `--validate-node-config-json`, `--export-backup`, `--export-backup-json`,
+  `--import-backup`, `--import-backup-json`, `--validate-backup`,
+  `--validate-backup-json`, `--validate-wallet`, `--validate-wallet-json`,
+  `--import-wallet-profile`, `--validate-launch-pack`,
+  `--launch-pack-sidecars`, `--launch-pack-sidecars-json`,
+  `--package-release`, `--verify-release-package`, and
+  `--verify-release-package-json` commands for packaging, operations, workspace
+  readiness gates, machine-readable runtime, RPC, fleet, SQLite integrity,
+  source purity, source quality, native UI shell, schema, alert route dry-runs,
+  support bundles, event journal,
+  generated node config, backup, and release reports, archived readiness
+  evidence, integrity evidence, redacted diagnostics bundles, audit evidence,
+  bulk config handoff evidence, standalone generated config evidence, backup
+  export/import evidence, restore safety checks, encrypted Neo wallet validation
+  with contract public key and address/script-hash evidence, metadata-only
+  encrypted wallet profile import,
+  launch-pack report refreshes, manifest-to-supervisor signer sidecar spec
+  reports, native signer sidecar start/stop audit, release ZIP/checksum
+  generation, release package verification, and CI smoke verification without
+  opening a GUI window.
+- Local SQLite workspace database.
+- Node record creation, editing, deletion, searchable status-filtered Inventory
+  listing, and a paged Overview fleet table that reuses the same filters while
+  keeping row selection aligned with the active node.
+- Node Studio runtime arguments are parsed and displayed through a shared
+  no-shell argv formatter with quoted-value support, preserving paths with
+  spaces while rejecting unterminated quotes.
+- Runtime version metadata with `latest` or pinned version labels.
+- Runtime Manager workspace for installing SHA-256 verified local runtime
+  packages, downloading HTTPS runtime packages with HTTPS-only redirects,
+  size limits, and atomic local cache publishing, optionally enforcing detached
+  Ed25519 signatures, importing local and signed HTTPS runtime release
+  catalogs, selecting the latest host-compatible release, filtering release and
+  installed-runtime registries by runtime, host platform, trust state, and
+  query, persisting runtime catalog source profiles, trusted signer profiles,
+  and runtime inventory,
+  planning fleet catalog upgrades, running managed catalog upgrades for stopped
+  nodes, applying compatible runtimes to stopped nodes, and running selected
+  running-node catalog upgrades through restart readiness plus supervised
+  process replacement.
+- Wallet Profiles workspace for importing encrypted NEP-6 Neo wallet metadata,
+  usage/query-filtered saved profile registry, inspecting address, contract
+  public keys, account counts, wallet SHA-256, validation/last-used timestamps,
+  and applying the selected profile to Roles signer references, while recording
+  `neo-wallet-profile-*` audit events without storing private keys, passwords,
+  or copied wallet bytes.
+- Runtime upgrade policy controls in Settings for scheduled catalog checks,
+  signed-catalog enforcement, per-run stopped-node batch limits, UTC
+  maintenance windows, rollout wave delays, manual policy runs, persisted
+  last-check/apply metadata, and event-journal audit records.
+- Runtime binary preflight for configured node commands, including PATH
+  resolution, host executable checks, neo-cli direct or `dotnet Neo.CLI.dll`
+  wrapper recognition, neo-go binary recognition, and neo-rs `neo-node`
+  recognition.
+- Managed-config posture checks in fleet readiness and launch readiness,
+  warning when neo-go or neo-rs runtime arguments already contain a config flag
+  that will intentionally bypass NeoNexus generated managed config injection.
+- Runtime smoke probes for configured node commands, using bounded
+  `--version` / `--help` style checks with timeout handling and captured
+  stdout/stderr summaries for neo-cli, neo-go, and neo-rs. Probe command
+  evidence now includes the probed runtime path, bytes, and SHA-256 when
+  available; stdout/stderr summaries and operator messages redact sensitive
+  argv and output values before text or JSON export.
+- JSON-RPC health probes for running nodes or explicit endpoints, checking
+  `getversion` and `getblockcount`, classifying healthy/degraded/unreachable
+  states, persisting selected-node RPC health records in SQLite, showing the
+  latest health/height and recent H/D/U trend in native node panels, recording
+  RPC health events, and retaining a bounded per-node health history.
+- Automatic non-blocking RPC health monitoring for running nodes, with
+  background probes, persisted Settings policy, configurable interval, Monitor
+  visibility, status-change event recording, policy-change audit events, and
+  per-node history pruning.
+- Native process start/stop for configured node binaries, backed by a generic
+  Rust managed-process supervisor that can also supervise non-node sidecars,
+  with unified launch readiness rejecting critical binary, managed-config,
+  lifecycle, active-node port, and IPv4/IPv6 localhost TCP listener blockers
+  before launch, plus restart readiness that allows the node's own active
+  listeners while still blocking conflicting active nodes. Supervisor log
+  command evidence is redacted before it is written.
+- Native port planning in Node Studio, with draft auto-assignment and
+  selected-node repair that avoid existing node bindings and occupied localhost
+  TCP ports on IPv4 or IPv6 loopback, preserving Neo RPC/P2P/WS port blocks
+  and recording `node-ports-assigned` audit events for persisted repairs.
+- Managed process stops request graceful termination first on Unix, wait through
+  a bounded grace period, then force-kill only as a fallback; every stop writes
+  structured stop evidence into the per-node log.
+- Launch plan previews with runtime-specific effective arguments.
+- Per-node stdout/stderr log capture for launched processes.
+- Fixed-panel runtime log viewer with bounded tail reads and clear action.
+- Runtime log search, match counts, latest jump, and tail-follow mode.
+- Runtime log diagnosis for common startup failures such as occupied ports,
+  config parse errors, permission problems, missing files, database locks, and
+  runtime crashes, with actionable recommendations shown in the native Logs
+  workspace and included in abnormal-exit notices.
+- Native keyboard accelerators for workspace reload, node creation,
+  selected-node lifecycle toggling, selected-node restart, primary workspace
+  selection, and next/previous workspace cycling, plus filter-aware Alt/Option
+  inventory navigation for previous/next node, page jumps, first node, and last
+  node.
+- First-class selected-node restart from the native toolbar, Node menu, Summary,
+  and inspector surfaces, plus restart handling when a supervised child process
+  has already exited.
+- Runtime state reconciliation for exited children, stale previous sessions, and
+  operator-confirmed missing PID records from the native Monitor workspace.
+- Automatic watchdog restarts for abnormal exits with capped exponential backoff.
+- Persisted watchdog policy configuration for enablement, retry attempts, base
+  delay, and maximum delay from the native Settings workspace.
+- Cross-platform system and node process resource telemetry with a fixed-panel
+  Monitor workspace, including one-click refresh, missing-process repair, and
+  a paged managed-process table with state, high-CPU, high-RSS, and query
+  filters that keep node selection aligned with the visible process row.
+- Structured runtime event journal for lifecycle, restart, config, logs, backup,
+  plugin, and watchdog activity.
+- Event journal search, severity filtering, match counts, selectable full
+  event detail, and bounded retention pruning from the Operations workspace,
+  plus native filtered redacted text/JSON audit evidence export that records an
+  `event-journal-exported` event. The same export is available headlessly from
+  `--export-event-journal`, including optional limit, severity, and query
+  filters.
+- Native Operations and headless support bundle export with a redacted node
+  inventory, readiness evidence, read-only SQLite integrity evidence, bounded
+  event journal evidence, metrics text/JSON/Prometheus snapshots, redacted
+  runtime log diagnosis summaries, SHA-256 file manifest, and ZIP archive.
+  Support bundles are diagnostics evidence, not backups, intentionally exclude raw
+  workspace databases, raw runtime logs, private keys, wallet passwords,
+  passphrases, mnemonics, seeds, authorization bearer values, API keys,
+  tokens, webhook secrets, cached runtime packages, and snapshots, and record
+  `support-bundle-exported` audit events.
+- Native Alerts workspace with disabled-by-default provider routing,
+  Generic/Slack/Discord/Telegram/PagerDuty/Opsgenie/Datadog Events payload
+  adapters, minimum severity thresholds, HTTPS or localhost-only endpoint
+  validation, Telegram Bot API `chat_id` validation, PagerDuty Events API v2
+  `routing_key` validation, Opsgenie Alert API v2 `api_key` validation with
+  `GenieKey` delivery headers, Datadog Events intake v2 `api_key` validation
+  with `DD-API-KEY` delivery headers, native and headless redacted route
+  previews for operator and CI dry-runs, masked target entry, background delivery, local
+  status/query-filtered delivery history, pruning, and policy-change audit events.
+  Route secrets stay machine-local and are not included in JSON backups.
+- Native Federation workspace for saved remote NeoNexus public endpoint
+  profiles, URL normalization, status/query-filtered profile listing, manual
+  and automatic read-only public status probes, fixed endpoint inspection,
+  retained status/query-filtered paged probe history, enable/disable controls,
+  configurable Federation monitor policy, pruning, and audit events for
+  create/update/probe/delete/policy actions.
+- Workspace backup schema v7 with remote federation profiles, plugin
+  installation inventory, allowlisted
+  workspace settings, runtime catalog profiles, trusted runtime signer
+  profiles, metadata-only Neo wallet profiles, Fast Sync manifests, and recent
+  runtime events.
+- Node status and PID persistence.
+- neo-cli, neo-go, and neo-rs node types.
+- Mainnet, Testnet, and Private network selection.
+- LevelDB and RocksDB storage engine settings.
+- RPC, P2P, and WebSocket port settings with per-node non-zero and distinct
+  port validation.
+- Built-in plugin catalog with state/category/query-filtered native registry.
+- Per-node plugin enablement state.
+- neo-cli plugin ZIP package installation for stopped nodes, with SHA-256
+  verification, native ZIP extraction, unsafe path rejection, manifest writing,
+  SQLite installation inventory, and plugin-installed audit events.
+- Role Planner workspace with RPC/API, State, Indexer, Consensus, and Observer
+  presets for the selected node.
+- neo-cli role application that updates plugin state and records an audit
+  event, with neo-go and neo-rs role posture kept runtime/config managed.
+- Private network topology planner for one, four, and seven node layouts across
+  neo-cli, neo-go, and neo-rs runtimes.
+- Private network template materialization that creates local private node
+  definitions from an existing runtime template node, checks name/port
+  conflicts, and applies role plugin state for neo-cli plans.
+- Native signer handoff preview in the Roles workspace, parsing committee
+  keys and signer references into signer, wallet, endpoint, sidecar, no-shell
+  argv plan counts, and supervisor-ready sidecar process specs before export;
+  exported launch pack manifests can be reloaded to reconstruct the same
+  sidecar process specs for native supervision. The Roles workspace can load,
+  start, stop, audit, watchdog-restart, and HTTP endpoint-check those signer
+  sidecars through the Rust process supervisor. Sidecar execution is
+  bundled-only by default; PATH or pack-external signer binaries require the
+  persisted Roles `Allow External` policy and blocked starts plus policy
+  changes are audited. Selected Wallet Profiles can add their contract public
+  key and encrypted wallet path to the signer reference editor without copying
+  wallet bytes or secrets.
+- Private network launch pack export for stopped materialized plans, including
+  deterministic network magic, validator count, seed list, operator-supplied
+  committee public keys, signer wallet/HTTP(S) endpoint references, optional
+  signer sidecar command templates with `{wallet}`, `{endpoint}`, `{label}`,
+  and `{public_key}` expansion, no-shell argv execution plans for managed
+  sidecars, per-node managed configs with SHA-256 inventory, schema v10 launch
+  manifest, wallet provisioning checklist,
+  no-secret wallet directory instructions, generated artifact SHA-256
+  inventory, start order, handoff runbook, generated
+  Unix/macOS shell plus Windows PowerShell preflight/start/health/stop scripts,
+  startup guards for missing binaries, configs, config SHA-256 drift, work
+  directories, live PID files, occupied local ports, native-platform signer
+  wallet references, encrypted NEP-6/NEP-2 signer wallet validation with
+  account address/script-hash consistency and committee public key binding,
+  signer command validation, signer argv plan consistency, signer sidecar
+  binary availability, signer sidecar PID files, and signer
+  endpoint reachability, plus post-start signer, node PID, port, and
+  JSON-RPC health probes. Launch packs are
+  automatically validated after native app export, can be validated again from
+  the native Roles workspace after operator fixes, can be validated offline
+  from the native CLI before handoff, verify managed config and generated
+  artifact integrity, verify manifest sidecars can be recovered as native
+  supervisor process specs, start, stop, watchdog-restart, endpoint-check, and
+  persisted bundled-only execution-policy gate recovered signer sidecars from
+  the native Roles workspace, expose those specs as text or JSON through
+  `--launch-pack-sidecars`, refresh text and JSON validation reports inside the
+  launch pack directory, reject signer wallet files that are missing, unencrypted,
+  not NEP-6/NEP-2, have account addresses that do not match their contract
+  scripts, do not expose a matching contract public key, or carry plaintext
+  private key material, reject wallet provisioning JSON that carries password,
+  private-key, mnemonic, seed, token, or inline sensitive argv markers, and
+  explicitly exclude private keys and passwords.
+- Fast Sync workspace for registering local or HTTPS snapshot manifests,
+  importing local or signed HTTPS snapshot catalogs, selecting catalog
+  snapshots, filtering catalog and registry entries by runtime, network,
+  verification, cache state, and query, downloading HTTPS snapshots with
+  HTTPS-only redirects and size limits, validating SHA-256, caching verified
+  snapshot files into the native workspace, importing raw `.acc` files or
+  unpacking `.tar`, `.tar.gz`, and `.zip` snapshot packages into stopped nodes'
+  managed data directories, and rejecting unsafe archive paths or import target
+  conflicts before publish.
+- Operations readiness diagnostics for runtime binary preflight, generated
+  config validation, versions, lifecycle state, configured and live localhost
+  IPv4/IPv6 port conflicts, and plugin alignment, with Node Studio port repair
+  available for stopped definitions and the same fleet gate available from
+  `--workspace-readiness <neonexus.db>` and
+  `--workspace-readiness-json <neonexus.db>`. Operators can also export
+  timestamped text and JSON evidence from the native Operations workspace or
+  `--export-readiness-report <neonexus.db> <output-dir>`. The native action
+  queue flattens fleet findings into a paged, severity/query-filtered operator
+  list that prioritizes blocking nodes and keeps row selection aligned with
+  the active node. The port matrix is also paged and can be filtered by node
+  status, chain network, port health, or query while keeping the selected node
+  synchronized with the visible row. Selected-node readiness checks expose the
+  same native severity/query filtering and pagination for focused triage.
+- Headless workspace metrics from `--workspace-metrics <neonexus.db>` and
+  `--workspace-metrics-json <neonexus.db>` capture system CPU/memory pressure,
+  managed node process CPU/memory/uptime, and stale running-node PID
+  detection for CI jobs, operator scripts, and external monitoring collectors.
+  `--workspace-metrics-prometheus <neonexus.db>` emits the same snapshot in
+  Prometheus text exposition format for scrape pipelines and metrics agents.
+- Read-only workspace integrity checks from the native Operations workspace or
+  through `--workspace-integrity` and `--workspace-integrity-json`, covering
+  SQLite `integrity_check`, foreign-key violations, required tables, required
+  columns, required indexes, row counts, and database page metadata without
+  mutating the workspace. The desktop action records a dedicated
+  `workspace-integrity-checked` audit event.
+- Workspace backup export/import for node definitions, plugin state, plugin
+  installation inventory, remote federation profiles, allowlisted application
+  settings, runtime catalog profiles, trusted signer profiles, Fast Sync
+  manifests, and recent events, with restored nodes safely reset to stopped.
+  Operators can run the same
+  export path headlessly against an existing workspace database with
+  `--export-backup <neonexus.db> <output-dir>` or
+  `--export-backup-json <neonexus.db> <output-dir>` for scheduled jobs and CI
+  evidence. Disaster recovery and migration scripts can restore with
+  `--import-backup <neonexus.db> <backup.json>` or
+  `--import-backup-json <neonexus.db> <backup.json>` after the backup passes
+  validation, and the CLI refuses to import into workspaces with active
+  running/starting nodes. The same deep validation is available from
+  `--validate-backup <backup.json>` and
+  `--validate-backup-json <backup.json>`, including duplicate identifier,
+  duplicate plugin inventory, and duplicate node-port rejection. Runtime event
+  history messages are redacted during export and restored idempotently so
+  repeated imports do not duplicate identical audit records. Local runtime
+  installations and cached snapshot files and remote probe telemetry remain
+  machine-local and are not copied by JSON backup.
+- Dashboard summary projections.
+- neo-cli JSON, neo-go YAML, and neo-rs TOML configuration previews, local
+  exports, and generated-config validation with runtime-specific parse and
+  semantic checks before managed writes.
+- Headless bulk node config export that writes all neo-cli JSON, neo-go YAML,
+  and neo-rs TOML configs under collision-safe per-node directories and emits
+  timestamped text/JSON evidence for CI, handoff, and audits.
+- Headless standalone node config generation for neo-cli JSON, neo-go YAML,
+  and neo-rs TOML without a workspace database, writing the target file,
+  revalidating it immediately, and emitting text/JSON generation evidence.
+- Headless node config validation for neo-cli JSON, neo-go YAML, and neo-rs
+  TOML files, with text/JSON evidence and non-zero exit codes for semantic
+  drift such as network, storage, or port mismatches.
+- Runtime-specific managed configuration application with audit events:
+  neo-cli publishes `config.json` into the node workdir, while neo-go and
+  neo-rs use managed files under `nodes/<id>/config/`; running nodes can use
+  Apply + Restart for a controlled config rollout through the native
+  supervisor.
+- neo-go launch planning that injects the managed `node --config-file
+  <node.yml>` command when needed, and neo-rs launch planning that injects the
+  managed `--config <node.toml>` when needed; existing runtime config flags
+  are preserved for advanced operators and surfaced as readiness review
+  findings instead of being silently overridden.
+- Per-node working directories so relative runtime data paths stay inside the
+  native workspace.
 
 ## Architecture
 
-```
-                        Web Browser
-                            |
-                     HTTP / WebSocket
-                            |
-              +-------------+-------------+
-              |     NeoNexus Server        |
-              |  Express + SQLite + ws     |
-              +--+-------+-------+--------+
-                 |       |       |
-           +-----+  +---+---+  ++--------+
-           |     |  |       |  |         |
-        neo-cli  neo-go   neo-cli     neo-go
-        Node 1   Node 2   Node 3     Node N
-```
-
-**Backend:** TypeScript, Express, better-sqlite3, ws
-**Frontend:** React, TanStack Query, Tailwind CSS, Vite
-**Processes:** Managed via `child_process.spawn` with PTY support for neo-cli
-
-## Supported Software
-
-| Software | Versions | Networks |
-|----------|----------|----------|
-| neo-cli | v3.6.0 — v3.9.2 | Mainnet, Testnet, Private |
-| neo-go | v0.104.0+ | Mainnet, Testnet, Private |
-
-## Production Features
-
-### Crash Recovery
-
-Nodes that crash are automatically restarted with exponential backoff (2s, 4s, 8s... up to 30s). After 5 consecutive failures the watchdog gives up and alerts. Backoff resets after 5 minutes of stable running.
-
-### Sync Progress
-
-NeoNexus queries seed nodes to determine the network's current block height, then computes `syncProgress = localHeight / networkHeight` for each running node. Stalled nodes (no new blocks for 5 minutes) are flagged.
-
-### Config Audit
-
-`GET /api/nodes/:id/config-audit` compares the on-disk config against the expected generated config and reports:
-- Missing or mismatched critical fields (network magic, committee, hardforks)
-- Missing plugin DLLs and config files
-- Port conflicts
-- Binary availability
-
-### Process Management
-
-- **Graceful shutdown:** SIGTERM/SIGINT handlers stop all nodes before exit
-- **Zombie detection:** On startup, reconciles DB state with actual running processes
-- **PID tracking:** Writes `~/.neonexus/neonexus.pid` for process management
-- **Resource limits:** Set per-node memory limits via `settings.resourceLimits.maxMemoryMB`
-
-### Observability
-
-- **Disk monitoring:** Tracks growth rate, alerts at 90%/95% usage, predicts days until full
-- **Log retention:** Auto-prunes to 50K rows per node (configurable via `LOG_RETENTION_MAX_ROWS`)
-- **Audit log:** All state-changing operations logged to `audit_log` table, queryable via API
-- **WebSocket:** Real-time system metrics, node metrics, and log streaming
-
-### Third-Party Integrations
-
-NeoNexus integrations are optional and disabled until credentials are saved. Grafana Cloud metrics use the Prometheus `remote_write` protocol for `/api/prom/push`; Datadog uses the Metrics v2 series API. Better Stack Logs can use the default ingest endpoint or a source-specific ingest URL. Better Stack Uptime and UptimeRobot require an externally reachable health URL such as `https://nexus.example.com/api/health`; external uptime services cannot monitor `localhost`.
-
-User-supplied integration URLs are checked against private and local network targets before requests are sent. Fixed-provider endpoints such as Telegram Bot API, Better Stack Uptime, and UptimeRobot stay on their vendor hosts.
-
-## Role Orchestration, Fast Sync, and Private Networks
-
-NeoNexus can treat each node as a saved operational identity instead of a one-off collection of settings. Built-in roles cover common N3 responsibilities:
-
-| Role | Purpose | Typical automation |
-|------|---------|--------------------|
-| RPC / API Node | Serve wallet, dApp, and monitoring traffic | Enables RPC, peer limits, LevelDB, fast sync |
-| State Node | Track state roots and proof workflows | Enables StateService, RPC, RocksDB, fast sync |
-| Oracle Node | Process off-chain data requests | Enables OracleService, RPC, fast sync |
-| Consensus Node | Prepare validator nodes for dBFT participation | Enables DBFTPlugin, full sync, consensus warnings |
-| Indexer Node | Index application logs and token transfers | Enables ApplicationLogs, TokensTracker, RPC, RocksDB |
-| Secure Signer Client | Use external signing instead of local private keys | Enables SignClient and signer profile prerequisites |
-
-Custom roles can store the same kinds of decisions: plugin desired state, node settings, storage engine, data-context policy, sync strategy, warnings, and prerequisites. Applying a role first builds a plan so operators can review plugin/config/storage/data-context changes before mutating a node.
-
-Data contexts isolate blockchain data under the managed node directory. A context records its label, storage engine (`leveldb` or `rocksdb`), sync strategy (`full`, `light`, or `fast-sync`), optional checkpoint height/hash, and optional fast-sync snapshot id. Nodes must be stopped before activating a different context so on-disk data and generated config stay consistent.
-
-Fast sync snapshots are registered as manifests. Sources can be local files, HTTPS URLs, or a catalog entry; NeoNexus verifies SHA-256, records verification metadata, and can download HTTPS packages into the managed downloads directory. Snapshot manifests are user-provided in this release, so production operators should publish and sign their own trusted snapshot catalog.
-
-Private network planning supports Neo N3 single-node, 4-node, and 7-node templates. Plans generate network magic, per-node ports, seed lists, validator count, standby committee keys, addresses, storage engine choices, and neo-cli plugin presets. A plan can be previewed as a configuration snapshot and then applied to create or replace managed private-network nodes.
-
-## Plugin Support (neo-cli)
-
-Install and manage official neo-cli plugins through the UI:
-
-| Plugin | Category | Description |
-|--------|----------|-------------|
-| LevelDBStore | Storage | Default storage backend |
-| RocksDBStore | Storage | Alternative storage backend |
-| RpcServer | API | JSON-RPC endpoint |
-| RestServer | API | REST API endpoint |
-| ApplicationLogs | Core | Transaction and execution logs |
-| DBFTPlugin | Core | dBFT consensus |
-| TokensTracker | API | NEP-11/NEP-17 token tracking |
-| StateService | Core | State root service |
-| OracleService | Core | Oracle data integration |
-| SQLiteWallet | Tooling | Wallet storage |
-| SignClient | Tooling | Remote signing via secure signer |
-| StorageDumper | Tooling | Storage export |
-
-## Secure Signers / TEE Key Protection
-
-Neo-cli nodes can reference a secure signing endpoint instead of raw private-key material:
-
-- **Modes:** Software, Intel SGX, AWS Nitro Enclave, Custom
-- **Integration:** Auto-wires through the Neo `SignClient` plugin
-- **Orchestration:** Generate deploy/unlock/status commands for local signer instances
-- **Safety:** NeoNexus never stores WIF, plaintext private keys, or unlock passphrases
-
-## API Reference
-
-### Authentication
-
-```bash
-# Login
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"use-a-strong-admin-passphrase"}'
-
-# Use token for authenticated requests
-curl http://localhost:8080/api/nodes \
-  -H "Authorization: Bearer YOUR_TOKEN"
+```text
+src/
+  app.rs                  application state, actions, and eframe lifecycle
+  argv.rs                 argv text parsing and quote-safe command display
+  redaction.rs            shared diagnostics/event secret redaction
+  app/
+    draft.rs              node creation draft conversion
+    paging.rs             fixed-panel pagination helpers
+    text.rs               text clipping helpers
+    theme.rs              native UI color and status styling
+    view.rs               top-level workbench tab model
+    views.rs              workbench dispatcher and tab strip
+    views/
+      shell.rs            menu bar, toolbar, inventory, inspector, status bar
+      overview.rs         operations summary and fleet snapshot
+      operations.rs       readiness checks, action queue, port matrix
+      alerts.rs           provider alert routing and delivery history
+      monitor.rs          system and managed-process telemetry panels
+      settings.rs         native runtime policy and workspace path controls
+      runtimes.rs         runtime download, install, and apply workflow
+      federation.rs       remote public endpoint profile workspace
+      wallets.rs          encrypted Neo wallet profile workspace
+      nodes.rs            node definition studio
+      roles.rs            role presets and private network topology planner
+      snapshots.rs        fast sync manifest, catalog, import, and cache controls
+      plugins.rs          plugin catalog, package installation, and details
+      config.rs           paged native config preview and export controls
+      logs.rs             paged process log viewer
+    widgets.rs            reusable native UI primitives
+  backup.rs               workspace backup export/import
+  catalog.rs              plugin definitions
+  plugins.rs              neo-cli plugin ZIP installation and manifest writing
+  preflight.rs            runtime binary resolution, identity, and launch checks
+  rpc_health.rs           Neo JSON-RPC getversion/getblockcount health probes
+  runtime_smoke.rs        bounded runtime binary smoke probes
+  config.rs               neo-cli JSON, neo-go YAML, neo-rs TOML validation/export/reporting
+  dashboard.rs            summary projections
+  diagnostics.rs          fleet and node readiness checks
+  readiness_report.rs     timestamped text/JSON readiness evidence exports
+  support_bundle.rs       redacted diagnostics support bundle export
+  source_purity.rs        pure Rust source tree boundary gate
+  source_quality.rs       Rust source marker and 200-line professional module budget gate
+  workspace_integrity.rs  read-only SQLite/schema/foreign-key integrity checks
+  federation.rs           remote endpoint profile model and public status probe
+  alerts.rs               alert routing policy, provider payloads, delivery status
+  event_journal_report.rs timestamped text/JSON runtime event audit exports
+  events.rs               runtime event journal model
+  launch.rs               effective launch command planning
+  logs.rs                 bounded log tailing, search, and failure diagnosis
+  metrics.rs              system and managed-process resource snapshots
+  port_planner.rs         local TCP-aware node port block assignment
+  private_network.rs      private network launch pack export
+  wallet.rs               encrypted Neo wallet validation, profile import, address/script checks, secret-boundary checks
+  repository.rs           SQLite schema and persistence APIs
+  roles.rs                runtime role presets and private network plans
+  runtime.rs              release catalog import, HTTPS download, verification, install plans
+  app/runtime_upgrade.rs  native runtime install, catalog upgrade, and policy actions
+  app/health_events.rs    RPC/remote health event severity and dedupe helpers
+  app/sidecar_health.rs   signer sidecar execution policy and endpoint health helpers
+  app/managed_config_flow.rs managed config, log, and workspace path actions
+  app/private_network_flow.rs private-network role, launch-pack, and sidecar actions
+  app/workflow.rs         non-visual application workflow drafts and notices
+  app/tests.rs            app-level behavior tests kept out of the main application module
+  runtime_smoke.rs        bounded runtime binary smoke probes
+  snapshots.rs            fast sync snapshot hashing, archive import, and local cache workflow
+  supervisor.rs           child process lifecycle and log redirection
+  types.rs                shared domain model
+  watchdog.rs             bounded automatic restart policy
+tests/
+  domain.rs                         shared integration-test fixtures and module map
+  domain/
+    backup_diagnostics.rs           backup, readiness, and diagnostics behavior
+    config_launch_supervisor.rs     config generation, launch planning, and process supervision
+    plugins_snapshots.rs            plugin package and fast-sync snapshot workflows
+    roles_private_network.rs        runtime roles, metrics, and private-network launch packs
+    runtime_federation.rs           runtime catalog, package, upgrade, and federation workflows
+  repository.rs
 ```
 
-### Key Endpoints
+Runtime data is stored in the platform data directory by default, or in
+`NEONEXUS_DATA_DIR` when that environment variable is set.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/health` | Health check (public) |
-| GET | `/api/nodes` | List all nodes |
-| POST | `/api/nodes` | Create node |
-| POST | `/api/nodes/:id/start` | Start node |
-| POST | `/api/nodes/:id/stop` | Stop node |
-| GET | `/api/nodes/:id/logs` | Get node logs |
-| GET | `/api/nodes/:id/config-audit` | Audit config |
-| GET | `/api/nodes/:id/data-contexts` | List isolated data contexts |
-| POST | `/api/nodes/:id/data-contexts` | Create a data context |
-| POST | `/api/nodes/:id/data-contexts/:contextId/activate` | Activate a data context |
-| GET | `/api/nodes/:id/role-applications` | List role application history |
-| GET | `/api/nodes/:id/plugins/available` | List available plugins |
-| POST | `/api/nodes/:id/plugins` | Install plugin |
-| GET | `/api/node-roles` | List built-in and custom roles |
-| POST | `/api/node-roles` | Create custom role |
-| POST | `/api/node-roles/:roleId/plan` | Preview role application |
-| POST | `/api/node-roles/:roleId/apply` | Apply role to a node |
-| GET | `/api/fast-sync/snapshots` | List fast-sync snapshot manifests |
-| POST | `/api/fast-sync/snapshots` | Register snapshot manifest |
-| POST | `/api/fast-sync/snapshots/:id/verify` | Verify snapshot checksum |
-| POST | `/api/fast-sync/snapshots/:id/download` | Download HTTPS snapshot |
-| GET | `/api/private-networks/plans` | List private network plans |
-| POST | `/api/private-networks/plans` | Create private network plan |
-| GET | `/api/private-networks/plans/:id/configuration-snapshot` | Preview generated config |
-| POST | `/api/private-networks/plans/:id/apply` | Apply private network plan |
-| GET | `/api/metrics/system` | System metrics |
-| GET | `/api/metrics/network` | Network heights |
-| GET | `/api/system/export` | Export configuration |
-| POST | `/api/system/restore` | Restore configuration |
-| GET | `/api/system/audit-log` | Query audit log |
-| GET | `/api/servers` | List remote servers |
-| GET | `/api/secure-signers` | List signer profiles |
-| GET | `/api/agent/health` | Hermes feature-flag status |
-| PUT | `/api/agent/settings` | Save provider/model/API key |
-| POST | `/api/agent/conversations` | Start a new chat |
-| POST | `/api/agent/conversations/:id/messages` | Non-streaming send (WS preferred) |
+## Documentation
 
-### WebSocket
+- [Native Rust App](docs/native-rust.md)
+- [Operator Benchmarks](docs/operator-benchmarks.md)
+- [Validation Report](docs/native-validation.md)
+- [Runtime Catalog Example](docs/runtime-catalog.example.json) for
+  Linux/macOS/Windows runtime release metadata.
+- [Snapshot Catalog Example](docs/snapshot-catalog.example.json) for signed
+  Fast Sync snapshot catalogs.
 
-Connect to `ws://localhost:8080/ws` with the `neonexus.auth` subprotocol and JWT token as the second protocol value:
+## Remaining Work
 
-```js
-const ws = new WebSocket("ws://localhost:8080/ws", ["neonexus.auth", "YOUR_TOKEN"]);
-```
+NeoNexus is now structurally pure Rust, but the native implementation still has
+product gaps to fill before it can replace the old production feature surface:
 
-- `system` — CPU, memory, disk metrics (every 5s)
-- `metrics` — Per-node block height, peers, sync progress
-- `log` — Live node log entries
-- `status` — Node status changes
-- `agent.delta` / `agent.tool_use` / `agent.tool_result` / `agent.complete` — Hermes streaming events. Send `{"type":"agent.send","conversationId":"…","text":"…"}` and `{"type":"agent.cancel","conversationId":"…"}` over the same socket.
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `8080` | Server port |
-| `HOST` | `0.0.0.0` | Bind address |
-| `NEONEXUS_DATA_DIR` | `~/.neonexus` | Storage root for database, nodes, downloads, plugins, logs, and PID file |
-| `DATA_DIR` | — | Backward-compatible alias for `NEONEXUS_DATA_DIR`; ignored when `NEONEXUS_DATA_DIR` is set |
-| `JWT_SECRET` | random (dev) | JWT signing key (required in production) |
-| `JWT_EXPIRES_IN` | `24h` | Token expiration |
-| `CORS_ORIGIN` | — | Allowed CORS origins (comma-separated) |
-| `HTTPS_ENABLED` | `false` | Enable HTTPS |
-| `HTTPS_KEY_PATH` | — | TLS key file |
-| `HTTPS_CERT_PATH` | — | TLS cert file |
-| `LOG_RETENTION_MAX_ROWS` | `50000` | Max log rows per node |
-| `NEO_PLUGIN_BUILD_DIR` | — | Local neo-node plugins build directory |
-| `NEONEXUS_ALLOW_PRIVATE_REMOTE_SERVERS` | `false` | Allow remote NeoNexus server profiles to target private/local networks |
-| `NEONEXUS_ALLOW_PRIVATE_SIGNER_ENDPOINTS` | `false` | Allow HTTP secure-signer endpoints on private/local networks |
-| `NEONEXUS_ALLOW_PRIVATE_INTEGRATION_TARGETS` | `false` | Allow integration webhooks/metrics/logging endpoints on private/local networks |
-| `NEONEXUS_ENABLE_HERMES_AGENT` | `false` | Turn on the Hermes in-app AI agent. Each user supplies their own API key via Settings; tools inherit the user's role (admin/viewer). |
-| `NEONEXUS_ENABLE_NEOX` | `false` | Reveal Neo X (chain `x`, type `neox-go`, networks `neox-mainnet` / `neox-testnet`) alongside Neo N3 in the create-node UI and downloader. |
-
-## Development
-
-```bash
-# Development mode (hot reload)
-npm run dev
-
-# Run tests
-npm test
-
-# Type checking
-npm run typecheck
-
-# Production build
-npm run build
-```
-
-## License
-
-MIT
-
----
-
-<p align="center">
-  Built for the Neo community
-</p>
+- `--source-purity` and `--source-purity-json` now make the pure Rust boundary
+  executable by rejecting Node/Web manifests, frontend source files,
+  `node_modules`, web/frontend directories, Docker/compose artifacts, and
+  nginx web-server deployment files in the current source tree, plus
+  WebView/Tauri project files, Cargo dependencies, and lockfile packages.
+- `--source-quality` and `--source-quality-json` make the production
+  panic-oriented marker, document-style native layout container, and
+  oversized Rust source file rules executable for local and CI verification;
+  Rust modules must stay within the 200-line professional module budget, and
+  test sources may use assertion shortcuts while still staying under that same
+  source-size budget.
+- `--native-ui-audit` and `--native-ui-audit-json` make the positive native
+  application shell contract executable by requiring the eframe/egui desktop
+  entry point, fixed header/status/inventory/inspector/workspace panels,
+  minimum window sizing, and explicit fixed workspace tabs while rejecting
+  scroll/WebView/Tauri/Wry UI markers.
+- `--ci-policy` and `--ci-policy-json` make the cross-platform native release
+  policy executable by requiring Linux, macOS, and Windows CI coverage,
+  release packaging checks, neo-rs runtime/config gates, runtime-smoke
+  passed/hash evidence checks, source purity, source quality, native UI audit,
+  and no frontend/Node/WebView CI tooling.
+- Runtime-specific in-process live reload without restart where runtimes
+  support it.
+- Audited encrypted Neo wallet generation and richer wallet-authoring flows for
+  private networks; the native application now validates, imports, displays,
+  audits, backs up, and restores metadata-only wallet profiles, while launch
+  packs validate operator-provided encrypted NEP-6 signer wallets against
+  committee public keys and include first-class no-secret provisioning evidence.
+- Additional provider integrations beyond the current alert routes and
+  headless metrics exports, such as logging, uptime, and broader
+  incident-management services.
+- Linux and Windows smoke tests against real neo-cli / neo-go / neo-rs
+  binaries.

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "generated_at_unix": 1800000000,
+  "snapshots": [
+    {
+      "id": "neo-rs-testnet-rocksdb-2026-06",
+      "label": "neo-rs Testnet RocksDB 2026-06",
+      "network": "testnet",
+      "node_type": "neo-rs",
+      "url": "https://snapshots.example.com/neo-rs/testnet/rocksdb-2026-06.tar.gz",
+      "file_name": "neo-rs-testnet-rocksdb-2026-06.tar.gz",
+      "expected_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "max_bytes": 68719476736
+    },
+    {
+      "id": "neo-cli-mainnet-leveldb-2026-06",
+      "label": "neo-cli Mainnet LevelDB 2026-06",
+      "network": "mainnet",
+      "node_type": "neo-cli",
+      "url": "https://snapshots.example.com/neo-cli/mainnet/leveldb-2026-06.zip",
+      "file_name": "neo-cli-mainnet-leveldb-2026-06.zip",
+      "expected_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "max_bytes": 137438953472
+    },
+    {
+      "id": "neo-go-testnet-leveldb-2026-06",
+      "label": "neo-go Testnet LevelDB 2026-06",
+      "network": "testnet",
+      "node_type": "neo-go",
+      "url": "https://snapshots.example.com/neo-go/testnet/leveldb-2026-06.tar.gz",
+      "file_name": "neo-go-testnet-leveldb-2026-06.tar.gz",
+      "expected_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "max_bytes": 68719476736
+    }
+  ]
+}

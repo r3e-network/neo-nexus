@@ -1,1 +1,0 @@
-export { initializeDatabase } from './schema';

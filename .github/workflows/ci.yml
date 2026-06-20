@@ -1,4 +1,4 @@
-name: CI
+name: Rust CI
 
 on:
   push:
@@ -7,35 +7,512 @@ on:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    name: Verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
+      - name: Install Linux GUI dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libasound2-dev \
+            libfontconfig1-dev \
+            libx11-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libxkbcommon-dev \
+            libxrandr-dev \
+            libgl1-mesa-dev
 
-      - name: Install backend dependencies
-        run: npm ci
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Install frontend dependencies
-        run: npm --prefix web ci
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
 
-      - name: Lint
-        run: npm run lint
+      - name: Format
+        run: cargo fmt --all --check
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Check
+        run: cargo check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
 
       - name: Test
-        run: npm test
+        run: cargo test
 
-      - name: Coverage
-        run: npm run test:coverage
+      - name: Debug binary smoke
+        run: cargo run -- --self-check
 
-      - name: Build
-        run: npm run build
+      - name: Source purity gate
+        run: |
+          cargo run -- --source-purity .
+          cargo run -- --source-purity-json .
+
+      - name: Source quality gate
+        run: |
+          cargo run -- --source-quality src
+          cargo run -- --source-quality-json src
+          cargo run -- --source-quality tests
+          cargo run -- --source-quality-json tests
+
+      - name: Native UI audit gate
+        run: |
+          cargo run -- --native-ui-audit .
+          cargo run -- --native-ui-audit-json .
+
+      - name: CI policy gate
+        run: |
+          cargo run -- --ci-policy .github/workflows/ci.yml
+          cargo run -- --ci-policy-json .github/workflows/ci.yml
+
+      - name: Alert preview CLI (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          tmp_dir="$(mktemp -d)"
+          trap 'rm -rf "$tmp_dir"' EXIT
+          secret="dd123"
+          target="https://event-management-intake.datadoghq.com/api/v2/events?api_key=$secret"
+          cargo run -- --alert-preview datadog "$target" critical "RPC health unreachable" > "$tmp_dir/alert.txt"
+          grep 'alert-preview: ready' "$tmp_dir/alert.txt"
+          grep 'provider: datadog' "$tmp_dir/alert.txt"
+          grep 'DD-API-KEY=<redacted>' "$tmp_dir/alert.txt"
+          if grep -q "$secret" "$tmp_dir/alert.txt"; then
+            echo "alert preview leaked secret in text output" >&2
+            exit 1
+          fi
+          cargo run -- --alert-preview-json datadog "$target" critical "RPC health unreachable" > "$tmp_dir/alert.json"
+          grep '"status": "ready"' "$tmp_dir/alert.json"
+          grep '"provider": "datadog"' "$tmp_dir/alert.json"
+          grep '<redacted>' "$tmp_dir/alert.json"
+          if grep -q "$secret" "$tmp_dir/alert.json"; then
+            echo "alert preview leaked secret in JSON output" >&2
+            exit 1
+          fi
+
+      - name: Alert preview CLI (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $secret = "dd123"
+          $target = "https://event-management-intake.datadoghq.com/api/v2/events?api_key=$secret"
+          $text = cargo run -- --alert-preview datadog $target critical "RPC health unreachable"
+          if ($text -notmatch 'alert-preview: ready') { throw "alert preview text was not ready" }
+          if ($text -notmatch 'provider: datadog') { throw "alert preview text missing provider" }
+          if ($text -notmatch 'DD-API-KEY=<redacted>') { throw "alert preview text missing redacted header" }
+          if ($text -match $secret) { throw "alert preview leaked secret in text output" }
+          $json = cargo run -- --alert-preview-json datadog $target critical "RPC health unreachable"
+          if ($json -notmatch '"status": "ready"') { throw "alert preview JSON was not ready" }
+          if ($json -notmatch '"provider": "datadog"') { throw "alert preview JSON missing provider" }
+          if ($json -notmatch '<redacted>') { throw "alert preview JSON missing redaction" }
+          if ($json -match $secret) { throw "alert preview leaked secret in JSON output" }
+
+      - name: Runtime smoke CLI
+        if: runner.os != 'Windows'
+        run: |
+          tmp_dir="$(mktemp -d)"
+          trap 'rm -rf "$tmp_dir"' EXIT
+          runtime="$tmp_dir/neo-node"
+          printf '%s\n' '#!/bin/sh' 'echo "neo-rs neo-node version smoke"' 'exit 0' > "$runtime"
+          chmod +x "$runtime"
+          cargo run -- --runtime-smoke neo-rs "$runtime" > "$tmp_dir/runtime-smoke.txt"
+          grep 'runtime-smoke: passed' "$tmp_dir/runtime-smoke.txt"
+          grep 'runtime-binary-sha256:' "$tmp_dir/runtime-smoke.txt"
+
+      - name: Runtime smoke JSON CLI (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          tmp_dir="$(mktemp -d)"
+          trap 'rm -rf "$tmp_dir"' EXIT
+          runtime="$tmp_dir/neo-node"
+          printf '%s\n' '#!/bin/sh' 'echo "neo-rs neo-node version smoke"' 'exit 0' > "$runtime"
+          chmod +x "$runtime"
+          cargo run -- --runtime-smoke-json neo-rs "$runtime" > "$tmp_dir/runtime-smoke.json"
+          grep '"status": "passed"' "$tmp_dir/runtime-smoke.json"
+          grep '"binary_evidence"' "$tmp_dir/runtime-smoke.json"
+          grep '"status": "verified"' "$tmp_dir/runtime-smoke.json"
+          grep '"sha256":' "$tmp_dir/runtime-smoke.json"
+
+      - name: Runtime smoke JSON CLI (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $runtime = Join-Path $env:RUNNER_TEMP "neo-node.cmd"
+          Set-Content -Path $runtime -Value "@echo off`necho neo-rs neo-node version smoke`nexit /b 0" -NoNewline
+          $text = cargo run -- --runtime-smoke neo-rs $runtime
+          if ($text -notmatch 'runtime-smoke: passed') { throw "runtime smoke text did not pass" }
+          if ($text -notmatch 'runtime-binary-sha256:') { throw "runtime smoke text lacks binary hash" }
+          $json = cargo run -- --runtime-smoke-json neo-rs $runtime
+          if ($json -notmatch '"status": "passed"') { throw "runtime smoke json did not pass" }
+          if ($json -notmatch '"binary_evidence"') { throw "runtime smoke json lacks binary evidence" }
+          if ($json -notmatch '"status": "verified"') { throw "runtime smoke json lacks verified binary evidence" }
+          if ($json -notmatch '"sha256":') { throw "runtime smoke json lacks sha256" }
+          Remove-Item $runtime -ErrorAction SilentlyContinue
+
+      - name: RPC health CLI
+        run: cargo run -- --rpc-health 127.0.0.1:1
+
+      - name: RPC health JSON CLI (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          set +e
+          cargo run -- --rpc-health-json 127.0.0.1:1
+          exit_code=$?
+          set -e
+          if [ "$exit_code" -eq 0 ]; then
+            echo "expected rpc-health-json to fail for unreachable endpoint" >&2
+            exit 1
+          fi
+          if [ "$exit_code" -ne 1 ]; then
+            echo "unexpected rpc-health-json exit code: $exit_code" >&2
+            exit 1
+          fi
+
+      - name: RPC health JSON CLI (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cargo run -- --rpc-health-json 127.0.0.1:1
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -eq 0) { throw "expected rpc-health-json to fail for unreachable endpoint" }
+          if ($exitCode -ne 1) { throw "unexpected rpc-health-json exit code: $exitCode" }
+
+      - name: Workspace readiness CLI (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          tmp_dir="$(mktemp -d)"
+          trap 'rm -rf "$tmp_dir"' EXIT
+          cargo run -- --workspace-readiness "$tmp_dir/neonexus.db"
+          cargo run -- --workspace-readiness-json "$tmp_dir/neonexus.db"
+          cargo run -- --workspace-metrics "$tmp_dir/neonexus.db"
+          cargo run -- --workspace-metrics-json "$tmp_dir/neonexus.db"
+          cargo run -- --workspace-metrics-prometheus "$tmp_dir/neonexus.db"
+          cargo run -- --workspace-integrity "$tmp_dir/neonexus.db"
+          cargo run -- --workspace-integrity-json "$tmp_dir/neonexus.db"
+          cargo run -- --export-readiness-report "$tmp_dir/neonexus.db" "$tmp_dir/reports"
+          cargo run -- --export-support-bundle "$tmp_dir/neonexus.db" "$tmp_dir/support"
+          cargo run -- --export-support-bundle-json "$tmp_dir/neonexus.db" "$tmp_dir/support-json"
+          cargo run -- --export-event-journal "$tmp_dir/neonexus.db" "$tmp_dir/events"
+          cargo run -- --export-node-configs "$tmp_dir/neonexus.db" "$tmp_dir/configs"
+          cargo run -- --export-node-configs-json "$tmp_dir/neonexus.db" "$tmp_dir/configs-json"
+          test -f "$tmp_dir/reports"/workspace-readiness-*.txt
+          test -f "$tmp_dir/reports"/workspace-readiness-*.json
+          find "$tmp_dir/support" -maxdepth 1 -type d -name 'neo-nexus-support-bundle-*' | grep .
+          find "$tmp_dir/support" -maxdepth 1 -type f -name 'neo-nexus-support-bundle-*.zip' | grep .
+          find "$tmp_dir/support-json" -maxdepth 1 -type d -name 'neo-nexus-support-bundle-*' | grep .
+          find "$tmp_dir/support-json" -maxdepth 1 -type f -name 'neo-nexus-support-bundle-*.zip' | grep .
+          test -f "$tmp_dir/support"/neo-nexus-support-bundle-*/metrics.txt
+          test -f "$tmp_dir/support"/neo-nexus-support-bundle-*/metrics.json
+          test -f "$tmp_dir/support"/neo-nexus-support-bundle-*/metrics.prom
+          test -f "$tmp_dir/support-json"/neo-nexus-support-bundle-*/metrics.txt
+          test -f "$tmp_dir/support-json"/neo-nexus-support-bundle-*/metrics.json
+          test -f "$tmp_dir/support-json"/neo-nexus-support-bundle-*/metrics.prom
+          test -f "$tmp_dir/events"/event-journal-*.txt
+          test -f "$tmp_dir/events"/event-journal-*.json
+          test -f "$tmp_dir/configs"/node-config-export-*.txt
+          test -f "$tmp_dir/configs"/node-config-export-*.json
+          test -f "$tmp_dir/configs-json"/node-config-export-*.json
+
+      - name: Workspace readiness CLI (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $db = Join-Path $env:RUNNER_TEMP "neonexus-ci.db"
+          $reportDir = Join-Path $env:RUNNER_TEMP "neonexus-readiness-reports"
+          $supportDir = Join-Path $env:RUNNER_TEMP "neonexus-support"
+          $supportJsonDir = Join-Path $env:RUNNER_TEMP "neonexus-support-json"
+          $eventDir = Join-Path $env:RUNNER_TEMP "neonexus-event-journal"
+          $configDir = Join-Path $env:RUNNER_TEMP "neonexus-node-configs"
+          $configJsonDir = Join-Path $env:RUNNER_TEMP "neonexus-node-configs-json"
+          Remove-Item $db -ErrorAction SilentlyContinue
+          Remove-Item $reportDir -Recurse -ErrorAction SilentlyContinue
+          Remove-Item $supportDir -Recurse -ErrorAction SilentlyContinue
+          Remove-Item $supportJsonDir -Recurse -ErrorAction SilentlyContinue
+          Remove-Item $eventDir -Recurse -ErrorAction SilentlyContinue
+          Remove-Item $configDir -Recurse -ErrorAction SilentlyContinue
+          Remove-Item $configJsonDir -Recurse -ErrorAction SilentlyContinue
+          cargo run -- --workspace-readiness $db
+          cargo run -- --workspace-readiness-json $db
+          cargo run -- --workspace-metrics $db
+          cargo run -- --workspace-metrics-json $db
+          cargo run -- --workspace-metrics-prometheus $db
+          cargo run -- --workspace-integrity $db
+          cargo run -- --workspace-integrity-json $db
+          cargo run -- --export-readiness-report $db $reportDir
+          cargo run -- --export-support-bundle $db $supportDir
+          cargo run -- --export-support-bundle-json $db $supportJsonDir
+          cargo run -- --export-event-journal $db $eventDir
+          cargo run -- --export-node-configs $db $configDir
+          cargo run -- --export-node-configs-json $db $configJsonDir
+          if (-not (Get-ChildItem $reportDir -Filter "workspace-readiness-*.txt")) { throw "missing readiness text report" }
+          if (-not (Get-ChildItem $reportDir -Filter "workspace-readiness-*.json")) { throw "missing readiness JSON report" }
+          if (-not (Get-ChildItem $supportDir -Filter "neo-nexus-support-bundle-*.zip")) { throw "missing support bundle archive" }
+          if (-not (Get-ChildItem $supportJsonDir -Filter "neo-nexus-support-bundle-*.zip")) { throw "missing support bundle JSON archive" }
+          if (-not (Get-ChildItem $supportDir -Recurse -Filter "metrics.prom")) { throw "missing support bundle metrics prom" }
+          if (-not (Get-ChildItem $supportJsonDir -Recurse -Filter "metrics.prom")) { throw "missing support bundle JSON metrics prom" }
+          if (-not (Get-ChildItem $eventDir -Filter "event-journal-*.txt")) { throw "missing event journal text report" }
+          if (-not (Get-ChildItem $eventDir -Filter "event-journal-*.json")) { throw "missing event journal JSON report" }
+          if (-not (Get-ChildItem $configDir -Filter "node-config-export-*.txt")) { throw "missing node config text report" }
+          if (-not (Get-ChildItem $configDir -Filter "node-config-export-*.json")) { throw "missing node config JSON report" }
+          if (-not (Get-ChildItem $configJsonDir -Filter "node-config-export-*.json")) { throw "missing node config JSON stdout export report" }
+          Remove-Item $db -ErrorAction SilentlyContinue
+          Remove-Item $reportDir -Recurse -ErrorAction SilentlyContinue
+          Remove-Item $supportDir -Recurse -ErrorAction SilentlyContinue
+          Remove-Item $supportJsonDir -Recurse -ErrorAction SilentlyContinue
+          Remove-Item $eventDir -Recurse -ErrorAction SilentlyContinue
+          Remove-Item $configDir -Recurse -ErrorAction SilentlyContinue
+          Remove-Item $configJsonDir -Recurse -ErrorAction SilentlyContinue
+
+      - name: Neo-rs standalone config CLI (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          tmp_dir="$(mktemp -d)"
+          trap 'rm -rf "$tmp_dir"' EXIT
+          cargo run -- --generate-node-config neo-rs testnet rocksdb 20332 20333 "$tmp_dir/generated-neo-rs.toml"
+          cargo run -- --generate-node-config-json neo-rs testnet rocksdb 20342 20343 "$tmp_dir/generated-neo-rs-json.toml" > "$tmp_dir/generated-neo-rs.json"
+          test -f "$tmp_dir/generated-neo-rs.toml"
+          test -f "$tmp_dir/generated-neo-rs-json.toml"
+          grep '"status": "ready"' "$tmp_dir/generated-neo-rs.json"
+          grep '"node_type": "neo-rs"' "$tmp_dir/generated-neo-rs.json"
+          cargo run -- --validate-node-config neo-rs testnet rocksdb 20332 20333 "$tmp_dir/generated-neo-rs.toml"
+          cargo run -- --validate-node-config-json neo-rs testnet rocksdb 20342 20343 "$tmp_dir/generated-neo-rs-json.toml"
+
+      - name: Neo-rs standalone config CLI (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $configPath = Join-Path $env:RUNNER_TEMP "generated-neo-rs.toml"
+          $jsonConfigPath = Join-Path $env:RUNNER_TEMP "generated-neo-rs-json.toml"
+          $jsonReportPath = Join-Path $env:RUNNER_TEMP "generated-neo-rs.json"
+          Remove-Item $configPath -ErrorAction SilentlyContinue
+          Remove-Item $jsonConfigPath -ErrorAction SilentlyContinue
+          Remove-Item $jsonReportPath -ErrorAction SilentlyContinue
+          cargo run -- --generate-node-config neo-rs testnet rocksdb 20332 20333 $configPath
+          cargo run -- --generate-node-config-json neo-rs testnet rocksdb 20342 20343 $jsonConfigPath | Out-File -FilePath $jsonReportPath -Encoding utf8
+          if (-not (Test-Path $configPath)) { throw "missing generated neo-rs config" }
+          if (-not (Test-Path $jsonConfigPath)) { throw "missing generated neo-rs JSON config" }
+          if (-not (Select-String -Path $jsonReportPath -Pattern '"status": "ready"')) { throw "generated neo-rs JSON report was not ready" }
+          if (-not (Select-String -Path $jsonReportPath -Pattern '"node_type": "neo-rs"')) { throw "generated neo-rs JSON report missing node type" }
+          cargo run -- --validate-node-config neo-rs testnet rocksdb 20332 20333 $configPath
+          cargo run -- --validate-node-config-json neo-rs testnet rocksdb 20342 20343 $jsonConfigPath
+          Remove-Item $configPath -ErrorAction SilentlyContinue
+          Remove-Item $jsonConfigPath -ErrorAction SilentlyContinue
+          Remove-Item $jsonReportPath -ErrorAction SilentlyContinue
+
+      - name: Backup validation CLI (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          tmp_dir="$(mktemp -d)"
+          trap 'rm -rf "$tmp_dir"' EXIT
+          cargo run -- --workspace-readiness "$tmp_dir/neonexus.db"
+          cargo run -- --export-backup "$tmp_dir/neonexus.db" "$tmp_dir/backups"
+          test -f "$tmp_dir/backups"/neonexus-backup-*.json
+          cargo run -- --workspace-readiness "$tmp_dir/neonexus-json.db"
+          cargo run -- --export-backup-json "$tmp_dir/neonexus-json.db" "$tmp_dir/backups-json"
+          test -f "$tmp_dir/backups-json"/neonexus-backup-*.json
+          backup_file="$tmp_dir/neonexus-backup-1800000000.json"
+          printf '%s\n' \
+            '{' \
+            '  "schema_version": 5,' \
+            '  "application": "NeoNexus",' \
+            '  "application_version": "ci",' \
+            '  "exported_at_unix": 1800000000,' \
+            '  "workspace_settings": [],' \
+            '  "runtime_catalog_profiles": [],' \
+            '  "runtime_signer_profiles": [],' \
+            '  "fast_sync_snapshots": [],' \
+            '  "nodes": [],' \
+            '  "events": []' \
+            '}' > "$backup_file"
+          cargo run -- --validate-backup "$backup_file"
+          cargo run -- --validate-backup-json "$backup_file"
+          cargo run -- --import-backup "$tmp_dir/import.db" "$backup_file"
+          cargo run -- --import-backup-json "$tmp_dir/import-json.db" "$backup_file"
+
+      - name: Backup validation CLI (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $db = Join-Path $env:RUNNER_TEMP "neonexus-backup-export.db"
+          $jsonDb = Join-Path $env:RUNNER_TEMP "neonexus-backup-export-json.db"
+          $backupDir = Join-Path $env:RUNNER_TEMP "neonexus-backups"
+          $backupJsonDir = Join-Path $env:RUNNER_TEMP "neonexus-backups-json"
+          Remove-Item $db -ErrorAction SilentlyContinue
+          Remove-Item $jsonDb -ErrorAction SilentlyContinue
+          Remove-Item $backupDir -Recurse -ErrorAction SilentlyContinue
+          Remove-Item $backupJsonDir -Recurse -ErrorAction SilentlyContinue
+          cargo run -- --workspace-readiness $db
+          cargo run -- --export-backup $db $backupDir
+          cargo run -- --workspace-readiness $jsonDb
+          cargo run -- --export-backup-json $jsonDb $backupJsonDir
+          if (-not (Get-ChildItem $backupDir -Filter "neonexus-backup-*.json")) { throw "missing backup export" }
+          if (-not (Get-ChildItem $backupJsonDir -Filter "neonexus-backup-*.json")) { throw "missing JSON backup export" }
+          $backupFile = Join-Path $env:RUNNER_TEMP "neonexus-backup-1800000000.json"
+          $backupJson = @(
+            "{"
+            "  `"schema_version`": 5,"
+            "  `"application`": `"NeoNexus`","
+            "  `"application_version`": `"ci`","
+            "  `"exported_at_unix`": 1800000000,"
+            "  `"workspace_settings`": [],"
+            "  `"runtime_catalog_profiles`": [],"
+            "  `"runtime_signer_profiles`": [],"
+            "  `"fast_sync_snapshots`": [],"
+            "  `"nodes`": [],"
+            "  `"events`": []"
+            "}"
+          ) -join [Environment]::NewLine
+          Set-Content -Path $backupFile -Value $backupJson -NoNewline
+          cargo run -- --validate-backup $backupFile
+          cargo run -- --validate-backup-json $backupFile
+          $importDb = Join-Path $env:RUNNER_TEMP "neonexus-import.db"
+          $importJsonDb = Join-Path $env:RUNNER_TEMP "neonexus-import-json.db"
+          Remove-Item $importDb -ErrorAction SilentlyContinue
+          Remove-Item $importJsonDb -ErrorAction SilentlyContinue
+          cargo run -- --import-backup $importDb $backupFile
+          cargo run -- --import-backup-json $importJsonDb $backupFile
+          Remove-Item $db -ErrorAction SilentlyContinue
+          Remove-Item $jsonDb -ErrorAction SilentlyContinue
+          Remove-Item $importDb -ErrorAction SilentlyContinue
+          Remove-Item $importJsonDb -ErrorAction SilentlyContinue
+          Remove-Item $backupDir -Recurse -ErrorAction SilentlyContinue
+          Remove-Item $backupJsonDir -Recurse -ErrorAction SilentlyContinue
+          Remove-Item $backupFile -ErrorAction SilentlyContinue
+
+      - name: Wallet validation CLI (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          tmp_dir="$(mktemp -d)"
+          trap 'rm -rf "$tmp_dir"' EXIT
+          wallet="$tmp_dir/validator.wallet.json"
+          wallet_key="036dc4bf8f0405dcf5d12a38487b359cb4bd693357a387d74fc438ffc7757948b0"
+          printf '%s\n' \
+            '{' \
+            '  "name": "NeoNexus validator wallet",' \
+            '  "version": "3.0",' \
+            '  "scrypt": {' \
+            '    "n": 16384,' \
+            '    "r": 8,' \
+            '    "p": 8' \
+            '  },' \
+            '  "accounts": [' \
+            '    {' \
+            '      "address": "AQLASLtT6pWbThcSCYU1biVqhMnzhTgLFq",' \
+            '      "label": "validator-1",' \
+            '      "isDefault": true,' \
+            '      "lock": false,' \
+            '      "key": "6PYWB8m1bCnu5bQkRUKAwbZp2BHNvQ3BQRLbpLdTuizpyLkQPSZbtZfoxx",' \
+            '      "contract": {' \
+            '        "script": "21036dc4bf8f0405dcf5d12a38487b359cb4bd693357a387d74fc438ffc7757948b0ac",' \
+            '        "parameters": [],' \
+            '        "deployed": false' \
+            '      },' \
+            '      "extra": null' \
+            '    }' \
+            '  ],' \
+            '  "extra": null' \
+            '}' > "$wallet"
+          cargo run -- --validate-wallet "$wallet" > "$tmp_dir/wallet-validation.txt"
+          grep 'wallet-validation: ok' "$tmp_dir/wallet-validation.txt"
+          grep "$wallet_key" "$tmp_dir/wallet-validation.txt"
+          grep 'account address matches contract script hash' "$tmp_dir/wallet-validation.txt"
+          cargo run -- --validate-wallet-json "$wallet" > "$tmp_dir/wallet-validation.json"
+          grep '"contract_public_keys"' "$tmp_dir/wallet-validation.json"
+          grep "$wallet_key" "$tmp_dir/wallet-validation.json"
+          grep '"account-address-contract"' "$tmp_dir/wallet-validation.json"
+          cargo run -- --import-wallet-profile "$tmp_dir/neonexus.db" "$wallet" validator-wallet-1 "Validator wallet 1" > "$tmp_dir/wallet-profile-import.txt"
+          grep 'wallet-profile-import: ok' "$tmp_dir/wallet-profile-import.txt"
+          grep 'profile-id: validator-wallet-1' "$tmp_dir/wallet-profile-import.txt"
+          grep "$wallet_key" "$tmp_dir/wallet-profile-import.txt"
+          grep 'metadata-only-no-private-keys-passwords-or-wallet-bytes' "$tmp_dir/wallet-profile-import.txt"
+
+      - name: Wallet validation CLI (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $wallet = Join-Path $env:RUNNER_TEMP "validator.wallet.json"
+          $walletKey = "036dc4bf8f0405dcf5d12a38487b359cb4bd693357a387d74fc438ffc7757948b0"
+          $walletJson = @(
+            "{"
+            "  `"name`": `"NeoNexus validator wallet`","
+            "  `"version`": `"3.0`","
+            "  `"scrypt`": {"
+            "    `"n`": 16384,"
+            "    `"r`": 8,"
+            "    `"p`": 8"
+            "  },"
+            "  `"accounts`": ["
+            "    {"
+            "      `"address`": `"AQLASLtT6pWbThcSCYU1biVqhMnzhTgLFq`","
+            "      `"label`": `"validator-1`","
+            "      `"isDefault`": true,"
+            "      `"lock`": false,"
+            "      `"key`": `"6PYWB8m1bCnu5bQkRUKAwbZp2BHNvQ3BQRLbpLdTuizpyLkQPSZbtZfoxx`","
+            "      `"contract`": {"
+            "        `"script`": `"21036dc4bf8f0405dcf5d12a38487b359cb4bd693357a387d74fc438ffc7757948b0ac`","
+            "        `"parameters`": [],"
+            "        `"deployed`": false"
+            "      },"
+            "      `"extra`": null"
+            "    }"
+            "  ],"
+            "  `"extra`": null"
+            "}"
+          ) -join [Environment]::NewLine
+          Set-Content -Path $wallet -Value $walletJson -NoNewline
+          $walletText = cargo run -- --validate-wallet $wallet
+          $walletText
+          if ($walletText -notmatch $walletKey) { throw "wallet text report did not include contract public key" }
+          if ($walletText -notmatch "account address matches contract script hash") { throw "wallet text report did not include address/script match evidence" }
+          $walletReport = cargo run -- --validate-wallet-json $wallet | ConvertFrom-Json
+          if ($walletReport.report.contract_public_keys[0] -ne $walletKey) { throw "wallet JSON report did not include contract public key" }
+          if (-not ($walletReport.report.checks | Where-Object { $_.category -eq "account-address-contract" -and $_.status -eq "pass" })) { throw "wallet JSON report did not include address/script match check" }
+          $walletDb = Join-Path $env:RUNNER_TEMP "wallet-profile.db"
+          Remove-Item $walletDb -ErrorAction SilentlyContinue
+          $walletProfileImport = cargo run -- --import-wallet-profile $walletDb $wallet validator-wallet-1 "Validator wallet 1"
+          $walletProfileImport
+          if ($walletProfileImport -notmatch "wallet-profile-import: ok") { throw "wallet profile import did not succeed" }
+          if ($walletProfileImport -notmatch "profile-id: validator-wallet-1") { throw "wallet profile import did not report profile id" }
+          if ($walletProfileImport -notmatch $walletKey) { throw "wallet profile import did not include contract public key" }
+          if ($walletProfileImport -notmatch "metadata-only-no-private-keys-passwords-or-wallet-bytes") { throw "wallet profile import did not report privacy boundary" }
+          Remove-Item $walletDb -ErrorAction SilentlyContinue
+          Remove-Item $wallet -ErrorAction SilentlyContinue
+
+      - name: Release build
+        run: cargo build --release
+
+      - name: Release binary smoke (Unix)
+        if: runner.os != 'Windows'
+        run: ./target/release/neo-nexus --self-check
+
+      - name: Release binary smoke (Windows)
+        if: runner.os == 'Windows'
+        run: .\target\release\neo-nexus.exe --self-check
+
+      - name: Package release artifacts (Unix)
+        if: runner.os != 'Windows'
+        run: ./target/release/neo-nexus --package-release dist
+
+      - name: Package release artifacts (Windows)
+        if: runner.os == 'Windows'
+        run: .\target\release\neo-nexus.exe --package-release dist
+
+      - name: Verify release package (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          ./target/release/neo-nexus --verify-release-package dist
+          ./target/release/neo-nexus --verify-release-package-json dist
+
+      - name: Verify release package (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          .\target\release\neo-nexus.exe --verify-release-package dist
+          .\target\release\neo-nexus.exe --verify-release-package-json dist
+
+      - name: Upload release package
+        uses: actions/upload-artifact@v4
+        with:
+          name: neo-nexus-${{ runner.os }}-${{ runner.arch }}
+          path: dist/*
