@@ -68,6 +68,8 @@ jobs:
           cargo run -- --source-quality-json src
           cargo run -- --source-quality tests
           cargo run -- --source-quality-json tests
+          cargo run -- --source-quality .
+          cargo run -- --source-quality-json .
 
       - name: Native UI audit gate
         run: |

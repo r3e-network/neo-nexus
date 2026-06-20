@@ -4,13 +4,18 @@ use anyhow::{Context, Result};
 
 use super::{
     model::SourceQualityFinding,
-    rules::{blocked_markers, is_rust_source, is_test_source, should_skip_directory, snippet},
-    MAX_RUST_SOURCE_LINES,
+    rules::{
+        blocked_markers, is_maintenance_text, is_rust_source, is_test_source,
+        should_skip_directory, snippet,
+    },
+    MAX_MAINTENANCE_FILE_LINES, MAX_RUST_SOURCE_LINES,
 };
 
 pub(super) struct SourceQualityScan {
     root: PathBuf,
     pub(super) scanned_files: usize,
+    pub(super) rust_files: usize,
+    pub(super) maintenance_files: usize,
     pub(super) scanned_directories: usize,
     pub(super) skipped_directories: Vec<String>,
     pub(super) findings: Vec<SourceQualityFinding>,
@@ -21,6 +26,8 @@ impl SourceQualityScan {
         Self {
             root,
             scanned_files: 0,
+            rust_files: 0,
+            maintenance_files: 0,
             scanned_directories: 0,
             skipped_directories: Vec::new(),
             findings: Vec::new(),
@@ -54,8 +61,8 @@ impl SourceQualityScan {
                     continue;
                 }
                 self.visit_dir(&path)?;
-            } else if file_type.is_file() && is_rust_source(&path) {
-                self.scanned_files += 1;
+            } else if file_type.is_file() && should_scan_file(&path) {
+                self.record_scanned_file(&path);
                 self.scan_file(&path)?;
             }
         }
@@ -65,10 +72,10 @@ impl SourceQualityScan {
 
     fn scan_file(&mut self, path: &Path) -> Result<()> {
         let text = fs::read_to_string(path)
-            .with_context(|| format!("failed to read Rust source file {}", path.display()))?;
+            .with_context(|| format!("failed to read source quality file {}", path.display()))?;
         let relative_path = self.relative_path(path);
         let line_count = text.lines().count();
-        if line_count > MAX_RUST_SOURCE_LINES {
+        if is_rust_source(path) && line_count > MAX_RUST_SOURCE_LINES {
             self.findings.push(SourceQualityFinding {
                 path: relative_path.clone(),
                 line: MAX_RUST_SOURCE_LINES + 1,
@@ -77,6 +84,19 @@ impl SourceQualityScan {
                 category: "oversized-rust-file".to_string(),
                 snippet: "split this Rust source file into focused modules".to_string(),
             });
+        }
+        if is_maintenance_text(path) && line_count > MAX_MAINTENANCE_FILE_LINES {
+            self.findings.push(SourceQualityFinding {
+                path: relative_path.clone(),
+                line: MAX_MAINTENANCE_FILE_LINES + 1,
+                column: 1,
+                marker: format!("{line_count} lines > {MAX_MAINTENANCE_FILE_LINES}"),
+                category: "oversized-maintenance-file".to_string(),
+                snippet: "split this documentation or CI file into focused files".to_string(),
+            });
+        }
+        if !is_rust_source(path) {
+            return Ok(());
         }
         let is_test_source = is_test_source(path);
         for (line_index, line) in text.lines().enumerate() {
@@ -113,4 +133,18 @@ impl SourceQualityScan {
             .to_string_lossy()
             .replace(std::path::MAIN_SEPARATOR, "/")
     }
+
+    fn record_scanned_file(&mut self, path: &Path) {
+        self.scanned_files += 1;
+        if is_rust_source(path) {
+            self.rust_files += 1;
+        }
+        if is_maintenance_text(path) {
+            self.maintenance_files += 1;
+        }
+    }
+}
+
+fn should_scan_file(path: &Path) -> bool {
+    is_rust_source(path) || is_maintenance_text(path)
 }

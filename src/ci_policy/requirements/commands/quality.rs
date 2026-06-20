@@ -66,6 +66,14 @@ pub(super) const QUALITY_COMMANDS: &[RequiredCommand] = &[
         fragment: "cargo run -- --source-quality-json tests",
     },
     RequiredCommand {
+        label: "source-quality-root-text",
+        fragment: "cargo run -- --source-quality .",
+    },
+    RequiredCommand {
+        label: "source-quality-root-json",
+        fragment: "cargo run -- --source-quality-json .",
+    },
+    RequiredCommand {
         label: "native-ui-audit-text",
         fragment: "cargo run -- --native-ui-audit .",
     },

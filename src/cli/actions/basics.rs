@@ -17,6 +17,7 @@ pub(in crate::cli) fn help_text() -> String {
     text.push_str("\nWALLET PROFILES:\n  neo-nexus --import-wallet-profile <neonexus.db> <wallet.json> <profile-id> <label>\n");
     text.push_str("\nALERT ROUTING:\n  neo-nexus --alert-preview <generic|slack|discord|telegram|pagerduty|opsgenie|datadog> <target-url> <info|warning|critical> <message...>\n  neo-nexus --alert-preview-json <generic|slack|discord|telegram|pagerduty|opsgenie|datadog> <target-url> <info|warning|critical> <message...>\n");
     text.push_str("\nNATIVE BOUNDARY:\n  --source-purity also rejects WebView/Tauri Cargo dependencies, lockfile packages, and project files.\n");
+    text.push_str("\nSOURCE QUALITY:\n  --source-quality checks Rust module budgets and repository maintenance file budgets.\n");
     text.push_str("\nNATIVE UI AUDIT:\n  neo-nexus --native-ui-audit <repo-dir>\n  neo-nexus --native-ui-audit-json <repo-dir>\n");
     text
 }

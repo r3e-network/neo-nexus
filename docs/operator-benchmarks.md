@@ -79,8 +79,10 @@ NeoNexus workbench.
   panels with explicit workspaces and no WebView/Tauri/Wry or document-style
   scrolling markers.
 - Source-size discipline: CI source quality gates keep production and test
-  Rust files under the module line budget so operational domains continue to
-  move into focused native modules instead of accumulating in monolithic files.
+  Rust files under the module line budget and keep catalog JSON, documentation,
+  Cargo, named maintenance files, and CI maintenance files under a 1000-line
+  review budget so operational domains continue to move into focused native
+  modules instead of accumulating in monolithic files.
 - Runtime reconciliation: supervised process exits update persisted node state,
   and stale runtime records from previous application sessions are cleared on
   startup.

@@ -62,6 +62,8 @@ cargo run -- --source-quality /path/to/neo-nexus/src
 cargo run -- --source-quality-json /path/to/neo-nexus/src
 cargo run -- --source-quality /path/to/neo-nexus/tests
 cargo run -- --source-quality-json /path/to/neo-nexus/tests
+cargo run -- --source-quality /path/to/neo-nexus
+cargo run -- --source-quality-json /path/to/neo-nexus
 cargo run -- --native-ui-audit /path/to/neo-nexus
 cargo run -- --native-ui-audit-json /path/to/neo-nexus
 cargo run -- --ci-policy /path/to/neo-nexus/.github/workflows/ci.yml
@@ -107,6 +109,8 @@ cargo run -- --self-check
 cargo run -- --source-purity .
 cargo run -- --source-quality src
 cargo run -- --source-quality tests
+cargo run -- --source-quality .
+cargo run -- --source-quality-json .
 cargo run -- --native-ui-audit .
 cargo run -- --ci-policy .github/workflows/ci.yml
 cargo run -- --alert-preview datadog "https://event-management-intake.datadoghq.com/api/v2/events?api_key=<DD_API_KEY>" critical "RPC health unreachable"
@@ -517,7 +521,7 @@ src/
   readiness_report.rs     timestamped text/JSON readiness evidence and resolution exports
   support_bundle.rs       redacted diagnostics support bundle export
   source_purity.rs        pure Rust source tree boundary gate
-  source_quality.rs       Rust source marker and 200-line professional module budget gate
+  source_quality.rs       Rust marker, module, docs, and CI file budget gate
   workspace_integrity.rs  read-only SQLite/schema/foreign-key integrity checks
   federation.rs           remote endpoint profile model and public status probe
   alerts.rs               alert routing policy, provider payloads, delivery status
@@ -583,7 +587,11 @@ product gaps to fill before it can replace the old production feature surface:
   oversized Rust source file rules executable for local and CI verification;
   Rust modules must stay within the 200-line professional module budget, and
   test sources may use assertion shortcuts while still staying under that same
-  source-size budget.
+  source-size budget. Repository-root scans also reject JSON, Markdown, TOML,
+  YAML, and named maintenance files such as `Makefile`, `LICENSE`, and `NOTICE`
+  over 1000 lines with case-insensitive matching, so catalog examples, README,
+  docs, Cargo metadata, and CI workflow files stay reviewable. Text and JSON
+  evidence include Rust and maintenance-file scan counts for CI review.
 - `--native-ui-audit` and `--native-ui-audit-json` make the positive native
   application shell contract executable by requiring the eframe/egui desktop
   entry point, fixed header/status/inventory/inspector/workspace panels,

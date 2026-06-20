@@ -93,6 +93,30 @@ pub(super) fn is_rust_source(path: &Path) -> bool {
         .is_some_and(|extension| extension == "rs")
 }
 
+pub(super) fn is_maintenance_text(path: &Path) -> bool {
+    if path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            matches!(
+                extension.to_ascii_lowercase().as_str(),
+                "json" | "md" | "toml" | "yml" | "yaml"
+            )
+        })
+    {
+        return true;
+    }
+
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| {
+            matches!(
+                name.to_ascii_lowercase().as_str(),
+                "license" | "makefile" | "notice"
+            )
+        })
+}
+
 pub(super) fn is_test_source(path: &Path) -> bool {
     if path
         .components()
