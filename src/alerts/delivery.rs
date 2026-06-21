@@ -92,13 +92,6 @@ pub fn filter_alert_deliveries(
         .collect()
 }
 
-pub fn filter_alert_deliveries_by_status(
-    deliveries: &[AlertDelivery],
-    status: Option<AlertDeliveryStatus>,
-) -> Vec<AlertDelivery> {
-    filter_alert_deliveries(deliveries, &AlertDeliveryFilter::new(status, ""))
-}
-
 fn status_matches(delivery: &AlertDelivery, status: Option<AlertDeliveryStatus>) -> bool {
     status.is_none_or(|status| delivery.status == status)
 }

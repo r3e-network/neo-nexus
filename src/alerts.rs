@@ -9,8 +9,8 @@ mod text;
 
 pub use self::{
     delivery::{
-        filter_alert_deliveries, filter_alert_deliveries_by_status, AlertDelivery,
-        AlertDeliveryFilter, AlertDeliveryReport, AlertDeliveryStatus,
+        filter_alert_deliveries, AlertDelivery, AlertDeliveryFilter, AlertDeliveryReport,
+        AlertDeliveryStatus,
     },
     payloads::{alert_provider_payload, alert_webhook_payload},
     policy::AlertRoutingPolicy,
