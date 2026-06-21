@@ -56,25 +56,19 @@ impl NeoNexusApp {
                     return;
                 }
                 let message = summary.message(mode);
-                self.record_event(
-                    None,
-                    None,
+                self.record_event_notice(
                     EventKind::RuntimeUpgradePolicyRun,
                     EventSeverity::Info,
-                    message.clone(),
+                    message,
                 );
-                self.notice = Some(message);
             }
             Err(error) => {
                 let message = format!("Runtime upgrade policy {} failed: {error}", mode.label());
-                self.record_event(
-                    None,
-                    None,
+                self.record_event_notice(
                     EventKind::RuntimeUpgradePolicyRun,
                     EventSeverity::Warning,
-                    message.clone(),
+                    message,
                 );
-                self.notice = Some(message);
             }
         }
     }

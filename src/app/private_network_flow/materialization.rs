@@ -80,14 +80,11 @@ impl NeoNexusApp {
                     plan.node_type,
                     template_node.name
                 );
-                self.record_event(
-                    None,
-                    None,
+                self.record_event_notice(
                     EventKind::PrivateNetworkMaterialized,
                     EventSeverity::Info,
-                    message.clone(),
+                    message,
                 );
-                self.notice = Some(message);
                 self.node_page = 0;
                 self.reload_nodes();
             }

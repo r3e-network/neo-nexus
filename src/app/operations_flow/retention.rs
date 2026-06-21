@@ -13,14 +13,7 @@ impl NeoNexusApp {
                 let message = format!(
                     "Event journal pruned: {deleted} removed, retaining {EVENT_RETAIN_AFTER_PRUNE}"
                 );
-                self.record_event(
-                    None,
-                    None,
-                    EventKind::EventsPruned,
-                    EventSeverity::Warning,
-                    message.clone(),
-                );
-                self.notice = Some(message);
+                self.record_event_notice(EventKind::EventsPruned, EventSeverity::Warning, message);
             }
             Err(error) => self.notice = Some(error.to_string()),
         }
@@ -35,14 +28,7 @@ impl NeoNexusApp {
                 let message = format!(
                     "RPC health history pruned: {deleted} removed, retaining {RPC_HEALTH_RETAIN_PER_NODE} per node"
                 );
-                self.record_event(
-                    None,
-                    None,
-                    EventKind::EventsPruned,
-                    EventSeverity::Info,
-                    message.clone(),
-                );
-                self.notice = Some(message);
+                self.record_event_notice(EventKind::EventsPruned, EventSeverity::Info, message);
             }
             Err(error) => self.notice = Some(error.to_string()),
         }
@@ -57,14 +43,7 @@ impl NeoNexusApp {
                 let message = format!(
                     "Remote Federation history pruned: {deleted} removed, retaining {REMOTE_PROBE_RETAIN_PER_PROFILE} per profile"
                 );
-                self.record_event(
-                    None,
-                    None,
-                    EventKind::EventsPruned,
-                    EventSeverity::Info,
-                    message.clone(),
-                );
-                self.notice = Some(message);
+                self.record_event_notice(EventKind::EventsPruned, EventSeverity::Info, message);
             }
             Err(error) => self.notice = Some(error.to_string()),
         }

@@ -83,14 +83,11 @@ impl NeoNexusApp {
                     "Alert routing policy saved: {}",
                     self.alert_routing_policy.describe()
                 );
-                self.record_event(
-                    None,
-                    None,
+                self.record_event_notice(
                     EventKind::AlertRoutingPolicyUpdated,
                     EventSeverity::Info,
-                    message.clone(),
+                    message,
                 );
-                self.notice = Some(message);
             }
             Err(error) => self.notice = Some(error.to_string()),
         }
@@ -111,14 +108,7 @@ impl NeoNexusApp {
                 let message = format!(
                     "Alert delivery history pruned: {deleted} removed, retaining {ALERT_DELIVERY_RETAIN}"
                 );
-                self.record_event(
-                    None,
-                    None,
-                    EventKind::EventsPruned,
-                    EventSeverity::Info,
-                    message.clone(),
-                );
-                self.notice = Some(message);
+                self.record_event_notice(EventKind::EventsPruned, EventSeverity::Info, message);
             }
             Err(error) => self.notice = Some(error.to_string()),
         }

@@ -11,14 +11,11 @@ impl NeoNexusApp {
                 let label =
                     sidecar_execution_policy_label(self.private_network_allow_external_sidecars);
                 let message = format!("Sidecar execution policy saved: {label}");
-                self.record_event(
-                    None,
-                    None,
+                self.record_event_notice(
                     EventKind::PrivateNetworkSignerSidecarPolicyUpdated,
                     EventSeverity::Info,
-                    message.clone(),
+                    message,
                 );
-                self.notice = Some(message);
             }
             Err(error) => self.notice = Some(error.to_string()),
         }

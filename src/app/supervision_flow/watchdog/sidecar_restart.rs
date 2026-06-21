@@ -18,14 +18,7 @@ impl NeoNexusApp {
         else {
             self.watchdog.clear(process_id);
             let message = format!("signer-sidecar:{process_id} watchdog skipped; spec not loaded");
-            self.record_event(
-                None,
-                None,
-                EventKind::WatchdogSkipped,
-                EventSeverity::Warning,
-                message.clone(),
-            );
-            self.notice = Some(message);
+            self.record_event_notice(EventKind::WatchdogSkipped, EventSeverity::Warning, message);
             return;
         };
 
@@ -42,14 +35,11 @@ impl NeoNexusApp {
                 "signer-sidecar:{process_id} watchdog restart blocked by sidecar execution policy: {}",
                 finding.summary()
             );
-            self.record_event(
-                None,
-                None,
+            self.record_event_notice(
                 EventKind::PrivateNetworkSignerSidecarExecutionBlocked,
                 EventSeverity::Warning,
-                message.clone(),
+                message,
             );
-            self.notice = Some(message);
             return;
         }
 
@@ -67,28 +57,22 @@ impl NeoNexusApp {
                     start.pid,
                     short_path(&start.log_path, 42)
                 );
-                self.record_event(
-                    None,
-                    None,
+                self.record_event_notice(
                     EventKind::WatchdogRestarted,
                     EventSeverity::Warning,
-                    message.clone(),
+                    message,
                 );
-                self.notice = Some(message);
             }
             Err(error) => {
                 let message = format!(
                     "signer-sidecar:{} watchdog restart failed: {error}",
                     sidecar.signer_label
                 );
-                self.record_event(
-                    None,
-                    None,
+                self.record_event_notice(
                     EventKind::PrivateNetworkSignerSidecarStartFailed,
                     EventSeverity::Critical,
-                    message.clone(),
+                    message,
                 );
-                self.notice = Some(message);
             }
         }
     }

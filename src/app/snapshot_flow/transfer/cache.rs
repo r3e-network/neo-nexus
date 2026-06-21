@@ -23,14 +23,7 @@ impl NeoNexusApp {
                     cache.bytes,
                     short_path(&cache.path, 54)
                 );
-                self.record_event(
-                    None,
-                    None,
-                    EventKind::SnapshotCached,
-                    EventSeverity::Info,
-                    message.clone(),
-                );
-                self.notice = Some(message);
+                self.record_event_notice(EventKind::SnapshotCached, EventSeverity::Info, message);
             }
             Err(error) => self.notice = Some(error.to_string()),
         }

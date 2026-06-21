@@ -18,14 +18,11 @@ impl NeoNexusApp {
                     "RPC health monitor policy saved: {}",
                     self.rpc_health_monitor_policy.describe()
                 );
-                self.record_event(
-                    None,
-                    None,
+                self.record_event_notice(
                     EventKind::RpcHealthMonitorPolicyUpdated,
                     EventSeverity::Info,
-                    message.clone(),
+                    message,
                 );
-                self.notice = Some(message);
             }
             Err(error) => self.notice = Some(error.to_string()),
         }
@@ -62,14 +59,11 @@ impl NeoNexusApp {
                     "Remote Federation monitor policy saved: {}",
                     self.remote_federation_monitor_policy.describe()
                 );
-                self.record_event(
-                    None,
-                    None,
+                self.record_event_notice(
                     EventKind::RemoteFederationMonitorPolicyUpdated,
                     EventSeverity::Info,
-                    message.clone(),
+                    message,
                 );
-                self.notice = Some(message);
             }
             Err(error) => self.notice = Some(error.to_string()),
         }

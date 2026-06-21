@@ -32,14 +32,7 @@ impl NeoNexusApp {
                     short_path(&installation.binary_path, 54),
                     signer_suffix
                 );
-                self.record_event(
-                    None,
-                    None,
-                    EventKind::RuntimeInstalled,
-                    EventSeverity::Info,
-                    message.clone(),
-                );
-                self.notice = Some(message);
+                self.record_event_notice(EventKind::RuntimeInstalled, EventSeverity::Info, message);
             }
             Err(error) => self.notice = Some(error.to_string()),
         }

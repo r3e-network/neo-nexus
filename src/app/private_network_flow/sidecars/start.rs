@@ -20,14 +20,11 @@ impl NeoNexusApp {
                 policy_findings.len(),
                 first_finding.summary()
             );
-            self.record_event(
-                None,
-                None,
+            self.record_event_notice(
                 EventKind::PrivateNetworkSignerSidecarExecutionBlocked,
                 EventSeverity::Warning,
-                message.clone(),
+                message,
             );
-            self.notice = Some(message);
             return;
         }
 
@@ -71,14 +68,11 @@ impl NeoNexusApp {
                         "signer-sidecar:{} start failed: {error}",
                         sidecar.signer_label
                     );
-                    self.record_event(
-                        None,
-                        None,
+                    self.record_event_notice(
                         EventKind::PrivateNetworkSignerSidecarStartFailed,
                         EventSeverity::Critical,
-                        message.clone(),
+                        message,
                     );
-                    self.notice = Some(message);
                     return;
                 }
             }
