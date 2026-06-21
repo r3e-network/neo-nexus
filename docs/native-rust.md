@@ -104,6 +104,14 @@ findings, supports runtime catalog upgrades and Fast Sync snapshot catalog
 entries, and carries neo-rs readiness findings through the same native
 resolution handoff used by neo-cli and neo-go.
 
+## Documentation And Handoff
+
+The README gives the operator entry point, this document describes the native
+Rust architecture and feature surface, the validation report records the gates
+that must pass before release, and the benchmark notes explain the node-manager
+product patterns behind the workbench. The catalog JSON examples remain valid
+machine-readable import samples rather than prose documents.
+
 ## Release Packaging
 
 After `cargo build --release`, run `target/release/neo-nexus --package-release
@@ -140,6 +148,9 @@ including failed-verification messages with a non-zero exit code.
   menu labels, toolbar labels, and command lists to existing workspace, node
   lifecycle, selected-node restart, filter-aware node inventory navigation, and
   view-selection actions.
+- `src/app/shortcuts/labels/` keeps platform display text out of command
+  definitions by formatting Command/Ctrl and Option/Alt labels through one
+  tested native shortcut-label layer.
 - `src/backup.rs` exports and imports workspace snapshots for node
   definitions, plugin state, plugin installation inventory, remote federation
   profiles, allowlisted workspace settings, runtime catalog profiles, trusted
@@ -169,12 +180,14 @@ including failed-verification messages with a non-zero exit code.
 - `src/source_quality.rs` enforces the Rust source quality boundary by
   rejecting panic-oriented development markers and document-style native layout
   containers such as scroll areas or virtual table builders in production
-  source, allowing assertion shortcuts in tests, and rejecting all Rust files
-  over the 200-line professional module budget. Repository-root scans also
-  reject JSON, Markdown, TOML, YAML, and named maintenance files such as
-  `Makefile`, `LICENSE`, and `NOTICE` over 1000 lines with case-insensitive
-  matching, then emit text/JSON evidence with Rust and maintenance-file scan
-  counts without relying on external search tools.
+  source, rejecting hardcoded platform shortcut labels in production source,
+  allowing assertion shortcuts and exact shortcut-label expectations in tests,
+  and rejecting all Rust files over the 200-line professional module budget.
+  Repository-root scans also reject JSON, Markdown, TOML, YAML, and named
+  maintenance files such as `Makefile`, `LICENSE`, and `NOTICE` over 1000
+  lines with case-insensitive matching, then emit text/JSON evidence with Rust
+  and maintenance-file scan counts, source snippets, and remediation hints
+  without relying on external search tools.
 - `src/native_ui.rs` enforces the native application shell by requiring
   eframe/egui dependencies, eframe startup, minimum window sizing, fixed
   top/bottom/left/right/central panels, explicit workspace tabs, and by

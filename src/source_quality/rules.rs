@@ -12,12 +12,15 @@ impl BlockedMarker {
         marker_token(self.name, self.suffix)
     }
 
-    pub(super) fn is_test_assertion_shortcut(self) -> bool {
-        self.category == "fallible-result-shortcut"
+    pub(super) fn is_allowed_in_test_source(self) -> bool {
+        matches!(
+            self.category,
+            "fallible-result-shortcut" | "hardcoded-platform-shortcut-label"
+        )
     }
 }
 
-pub(super) fn blocked_markers() -> [BlockedMarker; 11] {
+pub(super) fn blocked_markers() -> [BlockedMarker; 15] {
     [
         BlockedMarker {
             name: "unwrap",
@@ -74,6 +77,26 @@ pub(super) fn blocked_markers() -> [BlockedMarker; 11] {
             suffix: '(',
             category: "document-style-native-layout",
         },
+        BlockedMarker {
+            name: "Cmd",
+            suffix: '+',
+            category: "hardcoded-platform-shortcut-label",
+        },
+        BlockedMarker {
+            name: "Ctrl",
+            suffix: '+',
+            category: "hardcoded-platform-shortcut-label",
+        },
+        BlockedMarker {
+            name: "Option",
+            suffix: '+',
+            category: "hardcoded-platform-shortcut-label",
+        },
+        BlockedMarker {
+            name: "Alt",
+            suffix: '+',
+            category: "hardcoded-platform-shortcut-label",
+        },
     ]
 }
 
@@ -81,6 +104,22 @@ pub(super) fn marker_token(name: &str, suffix: char) -> String {
     let mut token = name.to_string();
     token.push(suffix);
     token
+}
+
+pub(super) fn remediation_hint(category: &str) -> &'static str {
+    match category {
+        "fallible-result-shortcut" => "handle or propagate the fallible result",
+        "explicit-process-panic" => "return a recoverable error instead of panicking",
+        "unfinished-implementation" => "replace unfinished code with complete behavior",
+        "debug-instrumentation" => "remove debug instrumentation from production source",
+        "document-style-native-layout" => "use fixed panels and pagination for native views",
+        "hardcoded-platform-shortcut-label" => {
+            "generate shortcut labels through the platform formatter"
+        }
+        "oversized-rust-file" => "split this Rust source file into focused modules",
+        "oversized-maintenance-file" => "split this documentation or CI file into focused files",
+        _ => "remove or refactor the source-quality finding",
+    }
 }
 
 pub(super) fn should_skip_directory(name: &str) -> bool {

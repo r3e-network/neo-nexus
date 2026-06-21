@@ -25,6 +25,7 @@ pub struct SourceQualityFinding {
     pub marker: String,
     pub category: String,
     pub snippet: String,
+    pub hint: String,
 }
 
 impl SourceQualityReport {
@@ -65,8 +66,14 @@ impl SourceQualityReport {
         } else {
             for finding in &self.findings {
                 lines.push(format!(
-                    "finding: {}:{}:{} | {} | {}",
-                    finding.path, finding.line, finding.column, finding.category, finding.marker
+                    "finding: {}:{}:{} | {} | {} | snippet: {} | hint: {}",
+                    finding.path,
+                    finding.line,
+                    finding.column,
+                    finding.category,
+                    finding.marker,
+                    finding.snippet,
+                    finding.hint
                 ));
             }
         }
