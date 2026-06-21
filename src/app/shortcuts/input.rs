@@ -36,6 +36,9 @@ pub(super) fn consume_application_shortcut(context: &egui::Context) -> Option<Ap
         if input.consume_key(egui::Modifiers::COMMAND, egui::Key::N) {
             return Some(AppShortcut::NewNode);
         }
+        if input.consume_key(egui::Modifiers::COMMAND, egui::Key::D) {
+            return Some(AppShortcut::ToggleTheme);
+        }
         if input.consume_key(
             egui::Modifiers::COMMAND | egui::Modifiers::SHIFT,
             egui::Key::Enter,

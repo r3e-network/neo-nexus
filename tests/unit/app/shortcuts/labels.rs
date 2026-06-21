@@ -170,6 +170,7 @@ fn workspace_menu_shortcuts_cover_workspace_level_commands() {
             AppShortcut::ReloadWorkspace,
             AppShortcut::SelectView(View::Summary),
             AppShortcut::SelectView(View::Settings),
+            AppShortcut::ToggleTheme,
         ]
     );
     assert_eq!(
@@ -179,5 +180,9 @@ fn workspace_menu_shortcuts_cover_workspace_level_commands() {
     assert_eq!(
         shortcut_command_label(AppShortcut::SelectView(View::Settings)),
         "Settings"
+    );
+    assert_eq!(
+        shortcut_command_label(AppShortcut::ToggleTheme),
+        "Toggle theme"
     );
 }

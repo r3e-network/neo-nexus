@@ -101,6 +101,7 @@ fn node_shortcut_enabled(
         | AppShortcut::ToggleSelectedNode
         | AppShortcut::NextView
         | AppShortcut::PreviousView
+        | AppShortcut::ToggleTheme
         | AppShortcut::SelectView(_) => false,
     }
 }

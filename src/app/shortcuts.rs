@@ -28,6 +28,7 @@ pub(in crate::app) enum AppShortcut {
     LastNode,
     NextView,
     PreviousView,
+    ToggleTheme,
     SelectView(View),
 }
 

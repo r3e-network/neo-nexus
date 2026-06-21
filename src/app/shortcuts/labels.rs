@@ -87,6 +87,9 @@ pub(in crate::app) fn shortcut_menu_label_for_modifiers(
         AppShortcut::PreviousView => {
             menu_label("Previous view", &command_shortcut(command_modifier, "["))
         }
+        AppShortcut::ToggleTheme => {
+            menu_label("Toggle theme", &command_shortcut(command_modifier, "D"))
+        }
         AppShortcut::SelectView(view) => view_menu_label_for_modifier(view, command_modifier),
     }
 }
@@ -143,6 +146,7 @@ pub(in crate::app) fn shortcut_hint_for_modifiers(
         AppShortcut::LastNode => Some(alternate_shortcut(alternate_modifier, "End")),
         AppShortcut::NextView => Some(command_shortcut(command_modifier, "]")),
         AppShortcut::PreviousView => Some(command_shortcut(command_modifier, "[")),
+        AppShortcut::ToggleTheme => Some(command_shortcut(command_modifier, "D")),
         AppShortcut::SelectView(view) => view_shortcut_hint_for_modifier(view, command_modifier),
     }
 }
