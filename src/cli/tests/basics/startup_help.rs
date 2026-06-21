@@ -96,5 +96,9 @@ fn cargo_does_not_run_native_gui_binary_as_test_target() -> Result<()> {
         main_source.contains("#[cfg(test)]\nfn main() {}"),
         "binary test builds need an empty entrypoint so all-target test listing exits"
     );
+    assert!(
+        main_source.contains("neo_nexus::manager::action_from_args"),
+        "native binary entrypoint should route through the manager mode planner"
+    );
     Ok(())
 }

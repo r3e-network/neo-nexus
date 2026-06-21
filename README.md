@@ -490,6 +490,9 @@ listing do not accidentally launch the desktop application.
 src/
   app.rs                  application state, actions, and eframe lifecycle
   argv.rs                 argv text parsing and quote-safe command display
+  cli.rs                  headless command dispatcher and text/JSON output actions
+  core.rs                 UI-free domain facade shared by GUI and CLI surfaces
+  manager.rs              startup mode planner for GUI launch vs CLI output
   redaction.rs            shared diagnostics/event secret redaction
   app/
     draft.rs              node creation draft conversion

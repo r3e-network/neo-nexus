@@ -1,25 +1,19 @@
 #[cfg(not(test))]
-use neo_nexus::{cli::CliAction, NeoNexusApp};
+use neo_nexus::{manager::ManagerAction, NeoNexusApp};
 
 #[cfg(test)]
 fn main() {}
 
 #[cfg(not(test))]
 fn main() {
-    match neo_nexus::cli::action_from_args(std::env::args()) {
-        Ok(CliAction::RunGui) => {
+    match neo_nexus::manager::action_from_args(std::env::args()) {
+        Ok(ManagerAction::LaunchGui) => {
             if let Err(error) = run_native_app() {
                 eprintln!("NeoNexus failed to start: {error}");
                 std::process::exit(1);
             }
         }
-        Ok(CliAction::Print(text)) => {
-            print!("{text}");
-            if !text.ends_with('\n') {
-                println!();
-            }
-        }
-        Ok(CliAction::PrintWithExitCode { text, exit_code }) => {
+        Ok(ManagerAction::WriteCli { text, exit_code }) => {
             print!("{text}");
             if !text.ends_with('\n') {
                 println!();

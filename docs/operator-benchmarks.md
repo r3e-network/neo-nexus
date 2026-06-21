@@ -86,6 +86,10 @@ NeoNexus workbench.
 - Native test harness safety: the desktop binary stays out of Cargo's default
   test harness, and binary test builds use an empty entrypoint so all-target
   listing and filtered tests cannot open the native application.
+- Dual-mode application boundary: startup arguments are classified by a
+  manager layer before entering either the native GUI or headless CLI path, so
+  operational core services stay reusable instead of being owned by one
+  surface.
 - Source-size discipline: CI source quality gates keep production and test
   Rust files under the module line budget and keep catalog JSON, documentation,
   Cargo, named maintenance files, and CI maintenance files under a 1000-line
