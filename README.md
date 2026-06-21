@@ -495,12 +495,14 @@ src/
     distribution.rs       release package verification and handoff facade
     node.rs               node model, inventory, and port-validation facade
     operations.rs         diagnostics, metrics, alerts, events, and RPC health facade
+    quality.rs            source purity, source quality, native UI, and CI policy facade
     runtime.rs            runtime, launch, preflight, snapshot, plugin, and supervisor facade
     security.rs           wallet validation and redaction facade
     workspace.rs          repository, config, backup, role, readiness, and integrity facade
   manager/                GUI/CLI mode planner and CLI output contract
   redaction.rs            shared diagnostics/event secret redaction
   app/
+    domain.rs             GUI application binding to grouped core services for native views
     draft.rs              node creation draft conversion
     paging.rs             fixed-panel pagination helpers
     text.rs               text clipping helpers
@@ -586,8 +588,15 @@ what the desktop app does today, what the validation gates prove, and which
 sample catalogs operators can import without changing the Rust-only boundary.
 The README and Markdown docs also describe the executable architecture
 constraints: `src/manager/` selects native GUI versus headless CLI mode, while
-CLI actions use the grouped `src/core/` facade for shared node, runtime,
-operations, workspace, security, and distribution services.
+both the native GUI application entrypoint and CLI actions use the grouped
+`src/core/` facade for shared node, runtime, operations, workspace, security,
+distribution, and native quality services. The GUI entrypoint keeps those
+bindings in `src/app/domain.rs` so `src/app.rs` stays focused on the native
+application shell. Operations workspace views consume diagnostics, readiness,
+metrics, safety, and node state through that same binding, and Runtime Manager
+views consume runtime catalog, package, node, status, and formatting services
+through it as well. Architecture tests enforce this boundary so native views
+do not reach around the core facade into lower-level modules.
 
 - [Native Rust App](docs/native-rust.md)
 - [Operator Benchmarks](docs/operator-benchmarks.md)

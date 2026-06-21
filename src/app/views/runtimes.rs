@@ -6,7 +6,7 @@ mod inventory;
 
 use eframe::egui;
 
-use crate::runtime::{RuntimeInstallation, RuntimePlatform};
+use crate::app::domain::{RuntimeInstallation, RuntimePlatform};
 
 use super::super::{
     widgets::{metric_tile, panel},

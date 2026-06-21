@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::{app::widgets::metric_tile, diagnostics::FleetDiagnostics};
+use crate::app::{domain::FleetDiagnostics, widgets::metric_tile};
 
 pub(super) fn render_operations_metrics(
     ui: &mut egui::Ui,

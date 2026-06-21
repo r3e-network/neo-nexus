@@ -1,8 +1,10 @@
 use eframe::egui;
 
-use crate::{
-    app::{text::short_path, widgets::fact, NeoNexusApp},
-    runtime::{RuntimePackageManager, RuntimePlatform},
+use crate::app::{
+    domain::{RuntimePackageManager, RuntimePlatform},
+    text::short_path,
+    widgets::fact,
+    NeoNexusApp,
 };
 
 pub(super) fn render_install_summary(app: &NeoNexusApp, ui: &mut egui::Ui) {

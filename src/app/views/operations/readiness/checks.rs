@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::diagnostics::{DiagnosticCheck, NodeDiagnostics};
+use crate::app::domain::{DiagnosticCheck, NodeDiagnostics};
 
 use super::super::super::super::widgets::empty_state;
 use super::super::{

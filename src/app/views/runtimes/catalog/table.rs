@@ -1,9 +1,6 @@
 use eframe::egui;
 
-use crate::{
-    metrics::format_bytes,
-    runtime::{RuntimePlatform, RuntimeRelease},
-};
+use crate::app::domain::{format_bytes, RuntimePlatform, RuntimeRelease};
 
 use super::super::super::super::{
     paging::page_count,

@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::types::NodeType;
+use crate::app::domain::NodeType;
 
 use super::super::super::{theme::muted_text, NeoNexusApp};
 

@@ -10,6 +10,7 @@ use anyhow::Context;
 use uuid::Uuid;
 
 mod constants;
+mod domain;
 mod draft;
 mod event_recording_flow;
 mod frame;
@@ -43,77 +44,8 @@ mod views;
 mod widgets;
 mod workflow;
 
-use crate::{
-    alerts::{
-        alert_target_label, deliver_webhook_alert, preview_alert_route, should_route_alert,
-        AlertDeliveryReport, AlertDeliveryStatus, AlertPreviewReport, AlertRoutingPolicy,
-    },
-    backup::{WorkspaceBackupExporter, WorkspaceBackupImporter, WorkspaceBackupValidation},
-    catalog::{
-        filter_plugin_definitions, PluginCatalog, PluginCategory, PluginDefinition,
-        PluginDefinitionFilter, PluginId, PluginState,
-    },
-    config::ConfigExporter,
-    diagnostics::{
-        evaluate_launch_readiness, evaluate_restart_readiness, filter_diagnostic_checks,
-        filter_port_matrix_rows, filter_readiness_actions, CheckSeverity, DiagnosticCheck,
-        DiagnosticCheckFilter, DiagnosticCheckKey, DiagnosticResolution, FleetDiagnostics,
-        NodeDiagnostics, PortMatrixFilter, PortMatrixRow, ReadinessAction, ReadinessActionFilter,
-        ReadinessActionKey,
-    },
-    event_journal_report::{EventJournalReporter, DEFAULT_EVENT_EXPORT_LIMIT},
-    events::{EventKind, EventSeverity, NewRuntimeEvent, RuntimeEvent, RuntimeEventFilter},
-    federation::{
-        filter_remote_probe_history, filter_remote_server_profiles, NewRemoteServerProfile,
-        RemoteFederationClient, RemoteFederationMonitorPolicy, RemoteProbeHistoryFilter,
-        RemoteProbeStatus, RemoteServerProbeRecord, RemoteServerProbeReport, RemoteServerProfile,
-        RemoteServerProfileFilter,
-    },
-    launch::{LaunchPlan, LaunchPlanner},
-    logs::{LogDiagnosisStatus, LogReader},
-    metrics::{
-        filter_process_rows, format_bytes, MetricsCollector, MetricsSnapshot, ProcessFilter,
-        ProcessRow, ProcessStateFilter,
-    },
-    plugins::{PluginPackageManager, PluginPackageManifest},
-    port_planner::{plan_available_node_ports, PortAssignment, DEFAULT_RPC_PORT},
-    preflight::inspect_node_binary,
-    private_network::{
-        CommitteeRoster, PrivateNetworkDeploymentExporter, PrivateNetworkDeploymentRequest,
-        PrivateNetworkLaunchPackSidecarReport, PrivateNetworkLaunchPackValidation,
-        PrivateNetworkLaunchPackVerifier,
-    },
-    readiness_report::WorkspaceReadinessReporter,
-    release_pack::{
-        ReleasePackage, ReleasePackageVerification, ReleasePackageVerifier, ReleasePackager,
-    },
-    repository::Repository,
-    roles::{NodeRole, PrivateNetworkPlanner, PrivateNetworkTemplate, RolePlanner},
-    rpc_health::{probe_node_rpc, RpcHealthMonitorPolicy},
-    runtime::{
-        RuntimeCatalogLoadRequest, RuntimeCatalogProfile, RuntimeInstallation,
-        RuntimePackageManager, RuntimePlatform, RuntimeReleaseCatalog, RuntimeSignerProfile,
-        RuntimeUpgradePolicy,
-    },
-    runtime_smoke::smoke_node_binary,
-    snapshots::{
-        filter_snapshot_catalog_entries, filter_snapshots, sha256_file, FastSyncSnapshot,
-        FastSyncSnapshotCatalog, FastSyncSnapshotCatalogEntry, FastSyncSnapshotManager,
-        SnapshotCatalogEntryFilter, SnapshotCatalogLoadRequest, SnapshotFilter,
-    },
-    supervisor::{log_path_for, ProcessExit, ProcessSupervisor},
-    support_bundle::WorkspaceSupportBundleExporter,
-    types::{
-        filter_nodes, Network, NewNode, NodeConfig, NodeInventoryFilter, NodeStatus, NodeType,
-    },
-    wallet::{
-        filter_neo_wallet_profiles, NeoWalletProfile, NeoWalletProfileFilter, NeoWalletValidator,
-    },
-    watchdog::{default_restart_policy, RestartOutcome, Watchdog, WatchdogStatus},
-    workspace_integrity::{WorkspaceIntegrityChecker, WorkspaceIntegrityReport},
-};
-
 use constants::*;
+use domain::*;
 use draft::NodeDraft;
 use health_events::{
     remote_probe_event_severity, remote_probe_failure_report, rpc_health_event_severity,

@@ -1,9 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use crate::{
-    backup::{WorkspaceBackupImporter, WorkspaceBackupValidation},
-    types::NodeConfig,
-    workspace_integrity::WorkspaceIntegrityReport,
+use crate::app::domain::{
+    NodeConfig, WorkspaceBackupImporter, WorkspaceBackupValidation, WorkspaceIntegrityReport,
 };
 
 mod backup_validation;

@@ -1,8 +1,8 @@
 use eframe::egui;
 
-use crate::{
-    app::theme::muted_text, events::EventSeverity, metrics::format_bytes,
-    workspace_integrity::WorkspaceIntegrityReport,
+use crate::app::{
+    domain::{format_bytes, EventSeverity, WorkspaceIntegrityReport},
+    theme::muted_text,
 };
 
 use super::super::super::helpers::{event_color, score_color};

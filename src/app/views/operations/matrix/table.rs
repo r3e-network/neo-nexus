@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::diagnostics::PortMatrixRow;
+use crate::app::domain::PortMatrixRow;
 
 use super::super::{
     super::super::{

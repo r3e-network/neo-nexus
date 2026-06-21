@@ -1,4 +1,4 @@
-use crate::{runtime::RuntimePlatform, types::NodeType};
+use crate::app::domain::{NodeType, RuntimePlatform};
 
 use super::super::super::super::NeoNexusApp;
 

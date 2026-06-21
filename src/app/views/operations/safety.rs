@@ -2,7 +2,7 @@ use eframe::egui;
 
 mod summary;
 
-use crate::diagnostics::FleetDiagnostics;
+use crate::app::domain::FleetDiagnostics;
 
 use super::super::super::{text::short_path, theme::muted_text, widgets::fact, NeoNexusApp};
 

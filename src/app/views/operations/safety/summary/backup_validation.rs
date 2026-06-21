@@ -2,7 +2,10 @@ use std::path::Path;
 
 use eframe::egui;
 
-use crate::{app::theme::muted_text, backup::WorkspaceBackupValidation, events::EventSeverity};
+use crate::app::{
+    domain::{EventSeverity, WorkspaceBackupValidation},
+    theme::muted_text,
+};
 
 use super::super::super::helpers::{event_color, score_color};
 

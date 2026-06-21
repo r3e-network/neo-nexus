@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::diagnostics::{CheckSeverity, FleetDiagnostics};
+use crate::app::domain::{CheckSeverity, FleetDiagnostics};
 
 use super::super::super::super::{theme::muted_text, NeoNexusApp};
 use super::super::helpers::{resolution_filter_combo, severity_filter_label};

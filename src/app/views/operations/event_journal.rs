@@ -4,7 +4,7 @@ mod list;
 
 use eframe::egui;
 
-use crate::events::RuntimeEventFilter;
+use crate::app::domain::RuntimeEventFilter;
 
 use super::super::super::{widgets::empty_state, NeoNexusApp, EVENT_JOURNAL_LIMIT};
 

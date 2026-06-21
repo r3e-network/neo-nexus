@@ -1,10 +1,11 @@
 use super::*;
+use crate::app::domain::RuntimeCatalogProfile;
 
 impl NeoNexusApp {
     pub(in crate::app::views::runtimes::catalog::form::profiles) fn render_runtime_catalog_profile_fields(
         &mut self,
         ui: &mut egui::Ui,
-        profiles: Vec<crate::runtime::RuntimeCatalogProfile>,
+        profiles: Vec<RuntimeCatalogProfile>,
         selected_profile: String,
     ) {
         labeled_text(

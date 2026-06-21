@@ -1,8 +1,8 @@
 use eframe::egui;
 
-use crate::{
-    app::theme::{accent, muted_text},
-    types::NodeStatus,
+use crate::app::{
+    domain::NodeStatus,
+    theme::{accent, muted_text},
 };
 
 pub(super) fn catalog_upgrade_state(

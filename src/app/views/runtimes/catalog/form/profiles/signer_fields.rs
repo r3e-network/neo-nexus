@@ -1,10 +1,11 @@
 use super::*;
+use crate::app::domain::RuntimeSignerProfile;
 
 impl NeoNexusApp {
     pub(in crate::app::views::runtimes::catalog::form::profiles) fn render_runtime_signer_profile_fields(
         &mut self,
         ui: &mut egui::Ui,
-        signer_profiles: Vec<crate::runtime::RuntimeSignerProfile>,
+        signer_profiles: Vec<RuntimeSignerProfile>,
         selected_signer: String,
     ) {
         labeled_text(ui, "Signer", &mut self.runtime_signer_profile_label);

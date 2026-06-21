@@ -111,40 +111,62 @@ fn cargo_does_not_run_native_gui_binary_as_test_target() -> Result<()> {
 fn cli_actions_use_core_facade_for_shared_domain_services() -> Result<()> {
     let actions_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/cli/actions.rs");
     let actions_source = std::fs::read_to_string(actions_path)?;
-    let crate_import_start = actions_source
-        .find("use crate::{")
-        .ok_or_else(|| anyhow::anyhow!("missing crate import block in CLI actions"))?;
-    let crate_import = actions_source[crate_import_start..]
-        .split_once("\n};")
-        .map(|(block, _)| block)
-        .ok_or_else(|| anyhow::anyhow!("unterminated crate import block in CLI actions"))?;
 
     assert!(
-        crate_import.contains("core::{"),
+        actions_source.contains("use crate::core::{"),
         "CLI actions should use the grouped core facade for shared domain services"
+    );
+    assert!(
+        actions_source.contains("quality::{"),
+        "CLI actions should use core::quality for native validation services"
     );
     for module in [
         "alerts",
         "backup",
+        "ci_policy",
         "config",
         "diagnostics",
         "event_journal_report",
         "events",
         "metrics",
+        "native_ui",
         "private_network",
         "readiness_report",
         "release_pack",
         "repository",
         "rpc_health",
         "runtime_smoke",
+        "source_purity",
+        "source_quality",
         "support_bundle",
         "types",
         "wallet",
         "workspace_integrity",
     ] {
         assert!(
-            !crate_import.contains(&format!("\n    {module}::")),
+            !actions_source.contains(&format!("use crate::{module}::")),
             "CLI actions should import {module} through src/core/, not directly from crate root"
+        );
+        assert!(
+            !actions_source.contains(&format!("use crate::{{\n    {module}::")),
+            "CLI actions should import {module} through src/core/, not directly from crate root"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn cli_quality_output_uses_core_facade_report_types() -> Result<()> {
+    let output_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/cli/output/quality.rs");
+    let output_source = std::fs::read_to_string(output_path)?;
+    assert!(
+        output_source.contains("use crate::core::quality::{"),
+        "CLI quality output should use core::quality report types"
+    );
+    for module in ["ci_policy", "native_ui", "source_purity", "source_quality"] {
+        assert!(
+            !output_source.contains(&format!("{module}::")),
+            "CLI quality output should import {module} reports through core::quality"
         );
     }
     Ok(())

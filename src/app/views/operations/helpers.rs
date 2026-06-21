@@ -1,9 +1,6 @@
 use eframe::egui;
 
-use crate::{
-    diagnostics::{CheckSeverity, DiagnosticResolution},
-    events::EventSeverity,
-};
+use crate::app::domain::{CheckSeverity, DiagnosticResolution, EventSeverity};
 
 use super::super::super::theme::muted_text;
 
