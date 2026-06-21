@@ -1,5 +1,49 @@
 use super::super::*;
 use super::neo_rs_app_node;
+use crate::{app::RpcHealthProbeResult, rpc_health::RpcHealthReport};
+
+#[test]
+fn rpc_health_drain_clears_pending_for_a_node_deleted_mid_probe() -> anyhow::Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let repository = Repository::open(temp_dir.path().join("neonexus.db"))?;
+    let mut app = NeoNexusApp::new(repository);
+
+    let node = app
+        .repository
+        .create_node(neo_rs_app_node("probe target", 35_332, 35_333, None))?;
+    app.repository
+        .update_node_status(&node.id, NodeStatus::Running, Some(4321))?;
+    app.reload_nodes();
+
+    // A probe is in flight: the node is pending and a result is queued.
+    app.rpc_health_pending.insert(node.id.clone());
+    app.rpc_health_sender
+        .send(RpcHealthProbeResult {
+            report: RpcHealthReport {
+                endpoint: format!("127.0.0.1:{}", node.rpc_port),
+                status: RpcHealthStatus::Unreachable,
+                version: None,
+                block_count: None,
+                methods: Vec::new(),
+            },
+            node: node.clone(),
+        })
+        .expect("probe result channel should accept the queued result");
+
+    // The node is deleted before its in-flight result is drained.
+    app.repository.delete_node(&node.id)?;
+    app.reload_nodes();
+
+    // Draining a result for a now-deleted node must not panic, must clear the
+    // pending marker (no stuck in-flight entry), and must not resurrect health
+    // records for the deleted node.
+    app.drain_rpc_health_results();
+
+    assert!(!app.rpc_health_pending.contains(&node.id));
+    assert!(app.repository.latest_rpc_health(&node.id)?.is_none());
+
+    Ok(())
+}
 
 #[test]
 fn missing_process_reconciliation_marks_stale_running_nodes_stopped() -> anyhow::Result<()> {
