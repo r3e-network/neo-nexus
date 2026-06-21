@@ -19,34 +19,13 @@ impl NeoNexusApp {
         );
         if let Some(blocker) = readiness.blocking_summary() {
             let message = format!("Start readiness blocked: {blocker}");
-            match mode {
-                StartMode::Manual => {
-                    self.record_node_event(
-                        &node,
-                        EventKind::NodeStartFailed,
-                        EventSeverity::Critical,
-                        message.clone(),
-                    );
-                    self.notice = Some(message);
-                }
-                StartMode::Watchdog { .. } => self.schedule_watchdog_restart(&node, &message),
-            }
+            self.fail_node_start(&node, mode, message);
             return;
         }
 
         if let Some(path) = plan.managed_config_path.as_ref() {
             if let Err(error) = ConfigExporter::write_node_config_to_path(path, &node, &plugins) {
-                self.notice = Some(error.to_string());
-                if let StartMode::Watchdog { .. } = mode {
-                    self.schedule_watchdog_restart(&node, &error.to_string());
-                } else {
-                    self.record_node_event(
-                        &node,
-                        EventKind::NodeStartFailed,
-                        EventSeverity::Critical,
-                        error.to_string(),
-                    );
-                }
+                self.fail_node_start(&node, mode, error.to_string());
                 return;
             }
         }
@@ -94,20 +73,7 @@ impl NeoNexusApp {
                 }
                 self.reload_nodes();
             }
-            Err(error) => match mode {
-                StartMode::Manual => {
-                    self.record_node_event(
-                        &node,
-                        EventKind::NodeStartFailed,
-                        EventSeverity::Critical,
-                        error.to_string(),
-                    );
-                    self.notice = Some(error.to_string());
-                }
-                StartMode::Watchdog { .. } => {
-                    self.schedule_watchdog_restart(&node, &error.to_string())
-                }
-            },
+            Err(error) => self.fail_node_start(&node, mode, error.to_string()),
         }
     }
 }

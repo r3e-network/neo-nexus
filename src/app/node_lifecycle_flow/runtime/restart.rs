@@ -24,25 +24,13 @@ impl NeoNexusApp {
         );
         if let Some(blocker) = readiness.blocking_summary() {
             let message = format!("Restart readiness blocked: {blocker}");
-            self.record_node_event(
-                &node,
-                EventKind::NodeStartFailed,
-                EventSeverity::Critical,
-                message.clone(),
-            );
-            self.notice = Some(message);
+            self.record_node_start_failure(&node, message);
             return;
         }
 
         if let Some(path) = plan.managed_config_path.as_ref() {
             if let Err(error) = ConfigExporter::write_node_config_to_path(path, &node, &plugins) {
-                self.record_node_event(
-                    &node,
-                    EventKind::NodeStartFailed,
-                    EventSeverity::Critical,
-                    error.to_string(),
-                );
-                self.notice = Some(error.to_string());
+                self.record_node_start_failure(&node, error.to_string());
                 return;
             }
         }
@@ -79,13 +67,7 @@ impl NeoNexusApp {
                     .repository
                     .update_node_status(&node.id, NodeStatus::Error, None);
                 let message = format!("{} restart failed: {error}", node.name);
-                self.record_node_event(
-                    &node,
-                    EventKind::NodeStartFailed,
-                    EventSeverity::Critical,
-                    message.clone(),
-                );
-                self.notice = Some(message);
+                self.record_node_start_failure(&node, message);
                 self.reload_nodes();
             }
         }
