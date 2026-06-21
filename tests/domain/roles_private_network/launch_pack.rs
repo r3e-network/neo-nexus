@@ -6,6 +6,8 @@ mod configs;
 mod documents;
 #[path = "launch_pack/manifest_assertions.rs"]
 mod manifest_assertions;
+#[path = "launch_pack/render_source.rs"]
+mod render_source;
 #[path = "launch_pack/scripts.rs"]
 mod scripts;
 

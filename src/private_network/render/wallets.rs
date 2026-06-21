@@ -80,12 +80,8 @@ pub(in crate::private_network) fn render_wallet_instructions(
         "# NeoNexus Wallet Provisioning\n\nRuntime: `{}`\nTemplate: `{}`\nNetwork magic: `{}`\n\n",
         manifest.runtime, manifest.template, manifest.network_magic
     );
-    text.push_str(
-        "This directory is intentionally empty except for this README. NeoNexus does not write private keys, wallet passwords, or genesis key material into launch packs.\n\n",
-    );
-    text.push_str(
-        "Use `../wallet-provisioning.json` as the checklist for committee public keys and target wallet paths. Create or import encrypted Neo wallets on the operator host, then re-run `neo-nexus --validate-launch-pack .` from the launch pack root before startup.\n\n",
-    );
+    push_wallet_paragraph(&mut text, WALLET_DIRECTORY_BOUNDARY);
+    push_wallet_paragraph(&mut text, WALLET_PROVISIONING_FLOW);
     text.push_str("Recommended handling:\n\n");
     text.push_str("- Keep wallet files encrypted and owned by the runtime user.\n");
     text.push_str("- Use relative paths under `wallets/` only for disposable local labs.\n");
@@ -109,4 +105,20 @@ pub(in crate::private_network) fn render_wallet_instructions(
         }
     }
     text
+}
+
+const WALLET_DIRECTORY_BOUNDARY: &[&str] = &[
+    "This directory is intentionally empty except for this README.",
+    "NeoNexus does not write private keys, wallet passwords, or genesis key material into launch packs.",
+];
+
+const WALLET_PROVISIONING_FLOW: &[&str] = &[
+    "Use `../wallet-provisioning.json` as the checklist for committee public keys and target wallet paths.",
+    "Create or import encrypted Neo wallets on the operator host.",
+    "Re-run `neo-nexus --validate-launch-pack .` from the launch pack root before startup.",
+];
+
+fn push_wallet_paragraph(text: &mut String, sentences: &[&str]) {
+    text.push_str(&sentences.join(" "));
+    text.push_str("\n\n");
 }
