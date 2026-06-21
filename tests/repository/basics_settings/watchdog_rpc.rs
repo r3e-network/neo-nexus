@@ -62,3 +62,18 @@ fn loads_and_persists_rpc_health_monitor_policy_settings() {
         RpcHealthMonitorPolicy::MIN_INTERVAL_SECONDS
     );
 }
+
+#[test]
+fn loads_and_persists_app_dark_mode_preference() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let repository = Repository::open(temp_dir.path().join("neonexus.db")).unwrap();
+
+    // A fresh workspace defaults to the light theme.
+    assert!(!repository.load_app_dark_mode().unwrap());
+
+    repository.save_app_dark_mode(true).unwrap();
+    assert!(repository.load_app_dark_mode().unwrap());
+
+    repository.save_app_dark_mode(false).unwrap();
+    assert!(!repository.load_app_dark_mode().unwrap());
+}

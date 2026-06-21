@@ -49,6 +49,8 @@ pub(in crate::repository) const SETTING_ALERT_ROUTING_WEBHOOK_URL: &str =
 pub(in crate::repository) const SETTING_ALERT_ROUTING_TIMEOUT_SECONDS: &str =
     "alert_routing.timeout_seconds";
 
+pub(in crate::repository) const SETTING_APPEARANCE_DARK_MODE: &str = "appearance.dark_mode";
+
 pub(in crate::repository) const WORKSPACE_BACKUP_SETTING_KEYS: &[&str] = &[
     SETTING_WATCHDOG_ENABLED,
     SETTING_WATCHDOG_MAX_ATTEMPTS,

@@ -6,7 +6,7 @@ use super::{theme::configure_style, NeoNexusApp};
 
 impl eframe::App for NeoNexusApp {
     fn update(&mut self, context: &egui::Context, _frame: &mut eframe::Frame) {
-        configure_style(context);
+        configure_style(context, self.theme);
         self.handle_application_shortcuts(context);
         self.drain_alert_delivery_results();
         self.drain_rpc_health_results();
