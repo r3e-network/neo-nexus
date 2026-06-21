@@ -15,10 +15,13 @@ fn alert_delivery_history_filters_by_status() {
         delivery(4, AlertDeliveryStatus::Failed, "opsgenie", None, "failed"),
     ];
 
-    let all = filter_alert_deliveries_by_status(&deliveries, None);
+    let all = filter_alert_deliveries(&deliveries, &AlertDeliveryFilter::new(None, ""));
     assert_eq!(all.len(), 4);
 
-    let failed = filter_alert_deliveries_by_status(&deliveries, Some(AlertDeliveryStatus::Failed));
+    let failed = filter_alert_deliveries(
+        &deliveries,
+        &AlertDeliveryFilter::new(Some(AlertDeliveryStatus::Failed), ""),
+    );
     assert_eq!(
         failed
             .iter()
@@ -27,8 +30,10 @@ fn alert_delivery_history_filters_by_status() {
         vec![2, 4]
     );
 
-    let skipped =
-        filter_alert_deliveries_by_status(&deliveries, Some(AlertDeliveryStatus::Skipped));
+    let skipped = filter_alert_deliveries(
+        &deliveries,
+        &AlertDeliveryFilter::new(Some(AlertDeliveryStatus::Skipped), ""),
+    );
     assert_eq!(skipped.len(), 1);
     assert_eq!(skipped[0].id, 3);
 }
