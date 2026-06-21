@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 
-use crate::runtime::{RuntimePackageManifest, RuntimePlatform};
+use crate::app::domain::{RuntimePackageManifest, RuntimePlatform};
 
 use super::{optional_string, RuntimePackageDraft};
 

@@ -1,8 +1,9 @@
-use crate::{
-    app::{short_path, NeoNexusApp},
-    events::{EventKind, EventSeverity},
-    metrics::format_bytes,
-    runtime::{RuntimeInstallation, RuntimePackageManager, RuntimePlatform, RuntimeRelease},
+use crate::app::{
+    domain::{
+        format_bytes, EventKind, EventSeverity, RuntimeInstallation, RuntimePackageManager,
+        RuntimePlatform, RuntimeRelease,
+    },
+    short_path, NeoNexusApp,
 };
 
 impl NeoNexusApp {

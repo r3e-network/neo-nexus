@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::types::NodeStatus;
+use crate::app::domain::NodeStatus;
 
 pub(super) fn configure_style(context: &egui::Context) {
     let mut style = (*context.style()).clone();

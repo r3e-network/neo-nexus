@@ -1,13 +1,11 @@
 use eframe::egui;
 
-use crate::{
-    app::{
-        paging::page_count,
-        text::truncate_end,
-        widgets::{pagination_bar, panel},
-        CONFIG_LINES_PER_PAGE,
-    },
-    config::RenderedConfig,
+use crate::app::{
+    domain::RenderedConfig,
+    paging::page_count,
+    text::truncate_end,
+    widgets::{pagination_bar, panel},
+    CONFIG_LINES_PER_PAGE,
 };
 
 pub(super) fn render_config_preview(

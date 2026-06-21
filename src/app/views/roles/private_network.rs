@@ -4,10 +4,9 @@ mod status;
 
 use eframe::egui;
 
-use crate::{
-    private_network::CommitteeRoster,
-    roles::{PrivateNetworkPlanner, PrivateNetworkTemplate},
-    types::{NodeConfig, NodeType},
+use crate::app::domain::{
+    CommitteeRoster, NodeConfig, NodeType, PrivateNetworkPlan, PrivateNetworkPlanner,
+    PrivateNetworkTemplate,
 };
 
 use super::super::super::{theme::muted_text, NeoNexusApp};
@@ -78,7 +77,7 @@ impl NeoNexusApp {
         });
     }
 
-    fn private_network_materialized_count(&self, plan: &crate::roles::PrivateNetworkPlan) -> usize {
+    fn private_network_materialized_count(&self, plan: &PrivateNetworkPlan) -> usize {
         plan.nodes
             .iter()
             .filter(|planned| {
@@ -93,7 +92,7 @@ impl NeoNexusApp {
 
     fn private_network_launch_pack_ready(
         &self,
-        plan: &crate::roles::PrivateNetworkPlan,
+        plan: &PrivateNetworkPlan,
         materialized_count: usize,
     ) -> bool {
         materialized_count == plan.nodes.len()

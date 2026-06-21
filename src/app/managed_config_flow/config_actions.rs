@@ -2,7 +2,7 @@ mod apply;
 mod export;
 mod restart;
 
-use crate::{catalog::PluginState, config::ConfigExport};
+use crate::app::domain::{ConfigExport, PluginState};
 
 use super::*;
 

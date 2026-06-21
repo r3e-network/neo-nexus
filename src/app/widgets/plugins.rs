@@ -1,4 +1,4 @@
-use crate::catalog::{PluginId, PluginState};
+use crate::app::domain::{PluginId, PluginState};
 
 pub(in crate::app) fn plugin_enabled(states: &[PluginState], plugin_id: PluginId) -> bool {
     states

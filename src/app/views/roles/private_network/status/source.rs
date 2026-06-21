@@ -1,12 +1,10 @@
 use eframe::egui;
 
-use crate::{
-    app::{
-        text::{short_path, truncate_middle},
-        widgets::fact,
-        NeoNexusApp,
-    },
-    roles::PrivateNetworkConflict,
+use crate::app::{
+    domain::PrivateNetworkConflict,
+    text::{short_path, truncate_middle},
+    widgets::fact,
+    NeoNexusApp,
 };
 
 use super::super::SourceNode;

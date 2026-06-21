@@ -1,6 +1,9 @@
 use eframe::egui;
 
-use crate::{app::NeoNexusApp, snapshots::FastSyncSnapshot, types::NodeConfig};
+use crate::app::{
+    domain::{FastSyncSnapshot, NodeConfig},
+    NeoNexusApp,
+};
 
 use super::super::status::snapshot_is_verified;
 

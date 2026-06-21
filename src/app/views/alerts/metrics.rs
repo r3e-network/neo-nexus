@@ -1,6 +1,8 @@
 use eframe::egui;
 
-use crate::alerts::{alert_target_label, AlertDelivery, AlertDeliveryStatus, AlertRoutingPolicy};
+use crate::app::domain::{
+    alert_target_label, AlertDelivery, AlertDeliveryStatus, AlertRoutingPolicy,
+};
 
 use super::super::super::{text::truncate_middle, widgets::metric_tile};
 

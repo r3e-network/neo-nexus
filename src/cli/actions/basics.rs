@@ -2,7 +2,7 @@ use std::{env, fs, path::PathBuf, process, time::SystemTime};
 
 use anyhow::{Context, Result};
 
-use crate::repository::Repository;
+use crate::core::workspace::Repository;
 
 pub(in crate::cli) fn version_text() -> String {
     format!("NeoNexus {}", env!("CARGO_PKG_VERSION"))

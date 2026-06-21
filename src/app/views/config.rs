@@ -4,7 +4,7 @@ mod validation;
 
 use eframe::egui;
 
-use crate::config::{ConfigGenerator, ConfigValidator};
+use crate::app::domain::{ConfigGenerator, ConfigValidator};
 
 use super::super::{
     theme::muted_text,

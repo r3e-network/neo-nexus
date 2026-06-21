@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::metrics::{format_bytes, ResourcePressure};
+use crate::app::domain::{format_bytes, ResourcePressure};
 
 use super::super::super::{theme::muted_text, widgets::fact, NeoNexusApp};
 

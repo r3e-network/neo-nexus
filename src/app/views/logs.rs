@@ -5,7 +5,7 @@ mod output;
 
 use eframe::egui;
 
-use crate::logs::LogReader;
+use crate::app::domain::LogReader;
 
 use super::super::{
     widgets::{empty_state, panel},

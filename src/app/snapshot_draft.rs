@@ -2,10 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 
-use crate::{
-    snapshots::{FastSyncSnapshotManager, NewFastSyncSnapshot},
-    types::{Network, NodeType},
-};
+use crate::app::domain::{FastSyncSnapshotManager, Network, NewFastSyncSnapshot, NodeType};
 
 #[derive(Debug, Clone)]
 pub(super) struct SnapshotDraft {

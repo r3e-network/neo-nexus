@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::diagnostics::FleetDiagnostics;
+use crate::core::operations::FleetDiagnostics;
 
 use super::{findings::workspace_readiness_findings, status::workspace_readiness_status};
 

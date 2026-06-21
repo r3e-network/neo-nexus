@@ -4,7 +4,7 @@ mod manifest;
 mod model;
 mod release;
 
-use crate::types::NodeType;
+use crate::app::domain::NodeType;
 
 pub(super) use model::RuntimePackageDraft;
 

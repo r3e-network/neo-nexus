@@ -3,7 +3,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use crate::wallet::NeoWalletProfile;
+use crate::app::domain::NeoWalletProfile;
 
 pub(in crate::app) fn format_duration(duration: Duration) -> String {
     let seconds = duration.as_secs();

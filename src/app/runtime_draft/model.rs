@@ -1,4 +1,4 @@
-use crate::types::NodeType;
+use crate::app::domain::NodeType;
 
 pub(in crate::app) struct RuntimePackageDraft {
     pub(in crate::app) id: String,

@@ -1,9 +1,10 @@
 use eframe::egui;
 
-use crate::{
-    app::{text::truncate_middle, widgets::fact, NeoNexusApp},
-    diagnostics::{evaluate_launch_readiness, evaluate_restart_readiness, CheckSeverity},
-    types::NodeConfig,
+use crate::app::{
+    domain::{evaluate_launch_readiness, evaluate_restart_readiness, CheckSeverity, NodeConfig},
+    text::truncate_middle,
+    widgets::fact,
+    NeoNexusApp,
 };
 
 pub(super) fn render_readiness(app: &NeoNexusApp, ui: &mut egui::Ui, node: &NodeConfig) {

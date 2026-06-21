@@ -1,9 +1,6 @@
 use eframe::egui;
 
-use crate::{
-    app::{theme::status_color, NeoNexusApp},
-    types::NodeStatus,
-};
+use crate::app::{domain::NodeStatus, theme::status_color, NeoNexusApp};
 
 pub(super) fn render_action_bar(app: &mut NeoNexusApp, ui: &mut egui::Ui, status: NodeStatus) {
     ui.add_space(10.0);

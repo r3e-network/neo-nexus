@@ -1,6 +1,9 @@
 use eframe::egui;
 
-use crate::{argv::format_argv, metrics::format_bytes, types::NodeConfig};
+use crate::{
+    app::domain::{format_bytes, NodeConfig},
+    argv::format_argv,
+};
 
 use super::{
     super::super::super::{

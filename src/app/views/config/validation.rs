@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::config::{ConfigValidationReport, ConfigValidationSeverity};
+use crate::app::domain::{ConfigValidationReport, ConfigValidationSeverity};
 
 pub(super) fn render_config_validation(ui: &mut egui::Ui, report: &ConfigValidationReport) {
     ui.separator();

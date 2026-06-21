@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+mod module_boundaries;
+
 fn manifest_path(relative: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join(relative)
 }
@@ -20,12 +22,29 @@ fn rust_sources(root_file: &str, root_dir: &str) -> anyhow::Result<Vec<PathBuf>>
     Ok(paths)
 }
 
+fn rust_sources_under(root_dir: &str) -> anyhow::Result<Vec<PathBuf>> {
+    let mut paths = Vec::new();
+    let mut pending_dirs = vec![manifest_path(root_dir)];
+    while let Some(dir) = pending_dirs.pop() {
+        for entry in std::fs::read_dir(dir)? {
+            let path = entry?.path();
+            if path.is_dir() {
+                pending_dirs.push(path);
+            } else if path.extension().and_then(std::ffi::OsStr::to_str) == Some("rs") {
+                paths.push(path);
+            }
+        }
+    }
+    Ok(paths)
+}
+
 fn assert_no_root_imports(source: &str, path: &Path, modules: &[&str]) {
     for module in modules {
         for pattern in [
             format!("use crate::{module}::"),
             format!("use crate::{{{module}::"),
             format!("use crate::{{\n    {module}::"),
+            format!("crate::{module}::"),
         ] {
             assert!(
                 !source.contains(&pattern),

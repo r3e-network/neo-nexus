@@ -1,9 +1,9 @@
 use eframe::egui;
 
-use crate::{
-    alerts::{AlertProvider, AlertRoutingPolicy},
-    app::{widgets::labeled_combo, NeoNexusApp},
-    events::EventSeverity,
+use crate::app::{
+    domain::{AlertProvider, AlertRoutingPolicy, EventSeverity},
+    widgets::labeled_combo,
+    NeoNexusApp,
 };
 
 pub(super) fn render_policy_form(app: &mut NeoNexusApp, ui: &mut egui::Ui) {

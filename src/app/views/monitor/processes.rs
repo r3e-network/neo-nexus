@@ -1,9 +1,6 @@
 use eframe::egui;
 
-use crate::{
-    metrics::{format_bytes, ProcessRow},
-    types::NodeStatus,
-};
+use crate::app::domain::{format_bytes, NodeStatus, ProcessRow};
 
 use super::super::super::{
     format_duration,

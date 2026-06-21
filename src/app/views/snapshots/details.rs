@@ -5,7 +5,7 @@ mod target;
 
 use eframe::egui;
 
-use crate::{app::NeoNexusApp, snapshots::FastSyncSnapshot};
+use crate::app::{domain::FastSyncSnapshot, NeoNexusApp};
 
 use super::super::super::widgets::empty_state;
 

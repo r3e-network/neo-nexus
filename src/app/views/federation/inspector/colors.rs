@@ -1,6 +1,9 @@
 use eframe::egui;
 
-use crate::{app::theme::status_color, federation::RemoteProbeStatus, types::NodeStatus};
+use crate::app::{
+    domain::{NodeStatus, RemoteProbeStatus},
+    theme::status_color,
+};
 
 pub(super) fn remote_enabled_color(enabled: bool) -> egui::Color32 {
     if enabled {

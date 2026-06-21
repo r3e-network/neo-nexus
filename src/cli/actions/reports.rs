@@ -60,7 +60,7 @@ pub(in crate::cli::actions) fn workspace_readiness_report_action(
     })
 }
 
-fn parse_event_export_filter(args: &[String]) -> Result<crate::events::RuntimeEventFilter> {
+fn parse_event_export_filter(args: &[String]) -> Result<RuntimeEventFilter> {
     let requested_limit = match args.get(4) {
         Some(value) => parse_event_export_limit(value)?,
         None => DEFAULT_EVENT_EXPORT_LIMIT,

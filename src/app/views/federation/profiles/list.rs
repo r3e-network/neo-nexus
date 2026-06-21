@@ -1,13 +1,11 @@
 use eframe::egui;
 
-use crate::{
-    app::{
-        paging::page_count,
-        text::truncate_middle,
-        widgets::{empty_state, pagination_bar},
-        NeoNexusApp, REMOTE_SERVER_PAGE_SIZE,
-    },
-    federation::RemoteServerProfile,
+use crate::app::{
+    domain::RemoteServerProfile,
+    paging::page_count,
+    text::truncate_middle,
+    widgets::{empty_state, pagination_bar},
+    NeoNexusApp, REMOTE_SERVER_PAGE_SIZE,
 };
 
 use super::filter::render_remote_profile_filter;

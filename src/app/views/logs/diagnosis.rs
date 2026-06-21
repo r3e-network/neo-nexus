@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::logs::{LogDiagnosis, LogDiagnosisStatus, LogSnapshot};
+use crate::app::domain::{LogDiagnosis, LogDiagnosisStatus, LogSnapshot};
 
 use super::super::super::{text::truncate_middle, theme::muted_text};
 

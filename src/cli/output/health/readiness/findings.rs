@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::diagnostics::{CheckSeverity, FleetDiagnostics};
+use crate::core::operations::{CheckSeverity, FleetDiagnostics};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub(super) struct WorkspaceReadinessCliFinding {

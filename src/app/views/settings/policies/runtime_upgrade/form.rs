@@ -1,8 +1,7 @@
 use eframe::egui;
 
-use crate::{
-    app::{theme::accent, widgets::labeled_combo, NeoNexusApp},
-    runtime::RuntimeUpgradePolicy,
+use crate::app::{
+    domain::RuntimeUpgradePolicy, theme::accent, widgets::labeled_combo, NeoNexusApp,
 };
 
 pub(super) fn render_policy_form(app: &mut NeoNexusApp, ui: &mut egui::Ui) {

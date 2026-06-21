@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::runtime::RuntimeDownloadRequest;
+use crate::app::domain::RuntimeDownloadRequest;
 
 use super::{RuntimePackageDraft, BYTES_PER_MIB};
 

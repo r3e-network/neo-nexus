@@ -1,6 +1,6 @@
 use std::sync::mpsc::{self, Receiver, Sender};
 
-use crate::{alerts::AlertDeliveryReport, app::workflow::*};
+use crate::{app::domain::AlertDeliveryReport, app::workflow::*};
 
 pub(super) struct StartupChannels {
     pub(super) rpc_health_results: Receiver<RpcHealthProbeResult>,

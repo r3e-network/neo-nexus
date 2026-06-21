@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::snapshots::FastSyncSnapshot;
+use crate::app::domain::FastSyncSnapshot;
 
 use super::super::super::{
     paging::page_count,

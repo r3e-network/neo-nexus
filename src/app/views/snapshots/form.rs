@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::types::{Network, NodeType};
+use crate::app::domain::{Network, NodeType};
 
 use super::super::super::{
     theme::muted_text,

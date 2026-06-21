@@ -1,9 +1,6 @@
 use eframe::egui;
 
-use crate::{
-    app::{theme::muted_text, widgets::fact},
-    runtime::RuntimeUpgradePolicy,
-};
+use crate::app::{domain::RuntimeUpgradePolicy, theme::muted_text, widgets::fact};
 
 use super::super::time::time_fact;
 

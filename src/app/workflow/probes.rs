@@ -1,7 +1,5 @@
-use crate::{
-    federation::{RemoteServerProbeReport, RemoteServerProfile},
-    rpc_health::RpcHealthReport,
-    types::NodeConfig,
+use crate::app::domain::{
+    NodeConfig, RemoteServerProbeReport, RemoteServerProfile, RpcHealthReport,
 };
 
 #[derive(Debug)]

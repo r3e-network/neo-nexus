@@ -1,14 +1,12 @@
 use eframe::egui;
 
-use crate::{
-    app::{
-        paging::page_count,
-        text::truncate_middle,
-        theme::muted_text,
-        widgets::{fact, pagination_bar},
-        NeoNexusApp, EVENT_PAGE_SIZE,
-    },
-    events::RuntimeEvent,
+use crate::app::{
+    domain::RuntimeEvent,
+    paging::page_count,
+    text::truncate_middle,
+    theme::muted_text,
+    widgets::{fact, pagination_bar},
+    NeoNexusApp, EVENT_PAGE_SIZE,
 };
 
 use super::super::helpers::event_color;

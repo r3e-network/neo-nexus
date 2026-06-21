@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::roles::{PrivateNetworkNodePlan, PrivateNetworkPlan};
+use crate::app::domain::{PrivateNetworkNodePlan, PrivateNetworkPlan};
 
 use super::super::super::super::text::truncate_middle;
 

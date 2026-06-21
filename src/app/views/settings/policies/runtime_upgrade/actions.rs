@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::{app::NeoNexusApp, runtime::RuntimeUpgradePolicy};
+use crate::app::{domain::RuntimeUpgradePolicy, NeoNexusApp};
 
 pub(super) fn render_policy_actions(
     app: &mut NeoNexusApp,

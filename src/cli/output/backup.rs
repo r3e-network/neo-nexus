@@ -3,7 +3,9 @@ use std::path::Path;
 use anyhow::Result;
 use serde::Serialize;
 
-use crate::backup::{WorkspaceBackupExport, WorkspaceBackupImport, WorkspaceBackupValidation};
+use crate::core::workspace::{
+    WorkspaceBackupExport, WorkspaceBackupImport, WorkspaceBackupValidation,
+};
 
 use super::json_text;
 

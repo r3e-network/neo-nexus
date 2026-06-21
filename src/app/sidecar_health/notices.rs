@@ -1,4 +1,4 @@
-use crate::{events::EventSeverity, private_network::PrivateNetworkLaunchPackValidation};
+use crate::app::domain::{EventSeverity, PrivateNetworkLaunchPackValidation};
 
 use super::{SidecarEndpointHealthReport, SidecarEndpointHealthStatus};
 

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::Serialize;
 
-use crate::wallet::{NeoWalletProfile, NeoWalletValidationReport};
+use crate::core::security::{NeoWalletProfile, NeoWalletValidationReport};
 
 use super::json_text;
 

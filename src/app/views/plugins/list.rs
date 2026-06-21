@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::types::NodeConfig;
+use crate::app::domain::NodeConfig;
 
 use super::{
     super::super::{

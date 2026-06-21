@@ -1,13 +1,10 @@
 use eframe::egui;
 
-use crate::{
-    app::{
-        text::{short_path, truncate_middle},
-        widgets::fact,
-        NeoNexusApp,
-    },
-    private_network::{CommitteeRoster, LaunchPackValidationStatus},
-    roles::PrivateNetworkPlan,
+use crate::app::{
+    domain::{CommitteeRoster, LaunchPackValidationStatus, PrivateNetworkPlan},
+    text::{short_path, truncate_middle},
+    widgets::fact,
+    NeoNexusApp,
 };
 
 pub(in crate::app::views::roles::private_network) fn render_plan_status(

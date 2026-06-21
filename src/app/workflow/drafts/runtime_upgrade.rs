@@ -1,4 +1,4 @@
-use crate::runtime::RuntimeUpgradePolicy;
+use crate::app::domain::RuntimeUpgradePolicy;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::app) struct RuntimeUpgradePolicyDraft {

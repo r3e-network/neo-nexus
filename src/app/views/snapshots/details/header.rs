@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::{app::text::truncate_middle, snapshots::FastSyncSnapshot};
+use crate::app::{domain::FastSyncSnapshot, text::truncate_middle};
 
 use super::super::status::{snapshot_status_color, status_label};
 

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::Serialize;
 
-use crate::metrics::MetricsSnapshot;
+use crate::core::operations::MetricsSnapshot;
 
 use super::super::json_text;
 

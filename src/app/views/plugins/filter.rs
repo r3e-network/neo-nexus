@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::catalog::PluginCategory;
+use crate::app::domain::PluginCategory;
 
 use super::super::super::{theme::muted_text, NeoNexusApp};
 

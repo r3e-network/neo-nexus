@@ -1,6 +1,4 @@
-use crate::{
-    diagnostics::evaluate_restart_readiness, runtime::RuntimeCatalogUpgradePlan, types::NodeConfig,
-};
+use crate::app::domain::{evaluate_restart_readiness, NodeConfig, RuntimeCatalogUpgradePlan};
 
 use super::super::super::NeoNexusApp;
 

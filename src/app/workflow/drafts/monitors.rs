@@ -1,4 +1,4 @@
-use crate::{federation::RemoteFederationMonitorPolicy, rpc_health::RpcHealthMonitorPolicy};
+use crate::app::domain::{RemoteFederationMonitorPolicy, RpcHealthMonitorPolicy};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::app) struct RpcHealthMonitorPolicyDraft {

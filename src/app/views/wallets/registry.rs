@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::wallet::NeoWalletProfile;
+use crate::app::domain::NeoWalletProfile;
 
 use super::super::super::{
     paging::page_count,

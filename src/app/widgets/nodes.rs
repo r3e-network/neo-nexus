@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::{app::theme::muted_text, types::NodeConfig};
+use crate::app::{domain::NodeConfig, theme::muted_text};
 
 pub(in crate::app) fn render_node_fact_sheet(ui: &mut egui::Ui, node: &NodeConfig) {
     fact(ui, "Name", &node.name);

@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::private_network::{CommitteeSidecarProcess, PrivateNetworkLaunchPackSidecarReport};
+use crate::app::domain::{CommitteeSidecarProcess, PrivateNetworkLaunchPackSidecarReport};
 
 use super::SidecarExecutionPolicyFinding;
 
