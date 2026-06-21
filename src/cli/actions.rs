@@ -61,9 +61,13 @@ fn current_unix_time() -> Result<u64> {
 }
 
 fn require_arg_count(args: &[String], expected: usize, option: &str) -> Result<()> {
-    if args.len() == expected {
-        Ok(())
-    } else {
-        anyhow::bail!("{option} does not accept extra arguments")
+    match args.len().cmp(&expected) {
+        std::cmp::Ordering::Equal => Ok(()),
+        std::cmp::Ordering::Less => {
+            anyhow::bail!("{option} is missing required arguments; run neo-nexus --help for usage")
+        }
+        std::cmp::Ordering::Greater => {
+            anyhow::bail!("{option} does not accept extra arguments")
+        }
     }
 }
