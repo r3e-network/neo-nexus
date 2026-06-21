@@ -88,6 +88,14 @@ NeoNexus workbench.
   Cargo, named maintenance files, and CI maintenance files under a 1000-line
   review budget so operational domains continue to move into focused native
   modules instead of accumulating in monolithic files.
+- Platform-native shortcut labels: production code cannot hardcode `Cmd+`,
+  `Ctrl+`, `Option+`, or `Alt+` menu strings; labels are generated through the
+  native command formatter so macOS and Linux/Windows operators see familiar
+  shortcut names while tests can still assert exact expected text.
+- Actionable quality evidence: source-quality failures include the source
+  location, blocked marker, snippet, and remediation hint, matching the
+  operator-product principle that a warning should lead directly to the next
+  concrete maintenance action instead of leaving maintainers to infer intent.
 - Runtime reconciliation: supervised process exits update persisted node state,
   and stale runtime records from previous application sessions are cleared on
   startup.

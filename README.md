@@ -571,6 +571,10 @@ Runtime data is stored in the platform data directory by default, or in
 
 ## Documentation
 
+The documentation set is part of the native application contract. It records
+what the desktop app does today, what the validation gates prove, and which
+sample catalogs operators can import without changing the Rust-only boundary.
+
 - [Native Rust App](docs/native-rust.md)
 - [Operator Benchmarks](docs/operator-benchmarks.md)
 - [Validation Report](docs/native-validation.md)
@@ -591,14 +595,18 @@ product gaps to fill before it can replace the old production feature surface:
   WebView/Tauri project files, Cargo dependencies, and lockfile packages.
 - `--source-quality` and `--source-quality-json` make the production
   panic-oriented marker, document-style native layout container, and
-  oversized Rust source file rules executable for local and CI verification;
+  hardcoded platform shortcut label, and oversized Rust source file rules
+  executable for local and CI verification;
   Rust modules must stay within the 200-line professional module budget, and
-  test sources may use assertion shortcuts while still staying under that same
-  source-size budget. Repository-root scans also reject JSON, Markdown, TOML,
-  YAML, and named maintenance files such as `Makefile`, `LICENSE`, and `NOTICE`
-  over 1000 lines with case-insensitive matching, so catalog examples, README,
-  docs, Cargo metadata, and CI workflow files stay reviewable. Text and JSON
-  evidence include Rust and maintenance-file scan counts for CI review.
+  test sources may use assertion shortcuts and exact shortcut-label
+  expectations while still staying under that same source-size budget.
+  Repository-root scans also reject JSON, Markdown, TOML, YAML, and named
+  maintenance files such as `Makefile`, `LICENSE`, and `NOTICE` over 1000
+  lines with case-insensitive matching, so catalog examples, README, docs,
+  Cargo metadata, and CI workflow files stay reviewable. Text and JSON
+  evidence include Rust and maintenance-file scan counts, source snippets, and
+  remediation hints for CI review, making each failure actionable without
+  opening the source tree by hand.
 - `--native-ui-audit` and `--native-ui-audit-json` make the positive native
   application shell contract executable by requiring the eframe/egui desktop
   entry point, fixed header/status/inventory/inspector/workspace panels,

@@ -48,6 +48,31 @@ fn source_quality_cli_reports_rust_and_maintenance_file_coverage() -> Result<()>
 }
 
 #[test]
+fn source_quality_cli_finding_text_includes_source_snippet() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    std::fs::create_dir_all(temp_dir.path().join("src").join("app"))?;
+    let token = format!("{}{}", "Option", '+');
+    let source_line = format!("fn label() -> &'static str {{ \"Next {token}Down\" }}");
+    std::fs::write(
+        temp_dir.path().join("src").join("app").join("menu.rs"),
+        format!("{source_line}\n"),
+    )?;
+
+    let root_arg = temp_dir.path().display().to_string();
+    let action = action_from_args(["neo-nexus", "--source-quality", &root_arg])?;
+    let CliAction::PrintWithExitCode { text, exit_code } = action else {
+        anyhow::bail!("expected source quality action");
+    };
+
+    assert_eq!(exit_code, 1);
+    assert!(text.contains("hardcoded-platform-shortcut-label"));
+    assert!(text.contains(&token));
+    assert!(text.contains(&format!("snippet: {source_line}")));
+    assert!(text.contains("hint: generate shortcut labels through the platform formatter"));
+    Ok(())
+}
+
+#[test]
 fn source_quality_json_cli_rejects_panic_oriented_markers() -> Result<()> {
     let temp_dir = tempfile::tempdir()?;
     std::fs::create_dir_all(temp_dir.path().join("src"))?;
@@ -75,5 +100,37 @@ fn source_quality_json_cli_rejects_panic_oriented_markers() -> Result<()> {
     assert_eq!(value["report"]["finding_count"], 1);
     assert_eq!(value["report"]["findings"][0]["path"], "src/lib.rs");
     assert_eq!(value["report"]["findings"][0]["marker"], token);
+    Ok(())
+}
+
+#[test]
+fn source_quality_json_cli_rejects_hardcoded_platform_shortcut_labels() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    std::fs::create_dir_all(temp_dir.path().join("src").join("app"))?;
+    let token = format!("{}{}", "Ctrl", '+');
+    std::fs::write(
+        temp_dir.path().join("src").join("app").join("menu.rs"),
+        format!("fn label() -> &'static str {{ \"Reload {token}R\" }}\n"),
+    )?;
+
+    let root_arg = temp_dir.path().display().to_string();
+    let action = action_from_args(["neo-nexus", "--source-quality-json", &root_arg])?;
+    let CliAction::PrintWithExitCode { text, exit_code } = action else {
+        anyhow::bail!("expected source quality JSON action");
+    };
+
+    assert_eq!(exit_code, 1);
+    let value: serde_json::Value = serde_json::from_str(&text)?;
+    assert_eq!(value["report"]["finding_count"], 1);
+    assert_eq!(value["report"]["findings"][0]["path"], "src/app/menu.rs");
+    assert_eq!(
+        value["report"]["findings"][0]["category"],
+        "hardcoded-platform-shortcut-label"
+    );
+    assert_eq!(value["report"]["findings"][0]["marker"], token);
+    assert_eq!(
+        value["report"]["findings"][0]["hint"],
+        "generate shortcut labels through the platform formatter"
+    );
     Ok(())
 }

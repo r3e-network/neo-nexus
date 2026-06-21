@@ -29,6 +29,7 @@ fn cli_prints_version_and_help_without_gui() -> Result<()> {
         "--source-quality",
         "--source-quality-json",
         "maintenance file budgets",
+        "hardcoded platform shortcut labels",
         "--native-ui-audit",
         "--native-ui-audit-json",
         "--ci-policy",

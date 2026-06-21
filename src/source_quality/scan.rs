@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use super::{
     model::SourceQualityFinding,
     rules::{
-        blocked_markers, is_maintenance_text, is_rust_source, is_test_source,
+        blocked_markers, is_maintenance_text, is_rust_source, is_test_source, remediation_hint,
         should_skip_directory, snippet,
     },
     MAX_MAINTENANCE_FILE_LINES, MAX_RUST_SOURCE_LINES,
@@ -83,6 +83,7 @@ impl SourceQualityScan {
                 marker: format!("{line_count} lines > {MAX_RUST_SOURCE_LINES}"),
                 category: "oversized-rust-file".to_string(),
                 snippet: "split this Rust source file into focused modules".to_string(),
+                hint: remediation_hint("oversized-rust-file").to_string(),
             });
         }
         if is_maintenance_text(path) && line_count > MAX_MAINTENANCE_FILE_LINES {
@@ -93,6 +94,7 @@ impl SourceQualityScan {
                 marker: format!("{line_count} lines > {MAX_MAINTENANCE_FILE_LINES}"),
                 category: "oversized-maintenance-file".to_string(),
                 snippet: "split this documentation or CI file into focused files".to_string(),
+                hint: remediation_hint("oversized-maintenance-file").to_string(),
             });
         }
         if !is_rust_source(path) {
@@ -107,7 +109,7 @@ impl SourceQualityScan {
 
     fn scan_line(&mut self, path: &str, line_number: usize, line: &str, is_test_source: bool) {
         for marker in blocked_markers() {
-            if is_test_source && marker.is_test_assertion_shortcut() {
+            if is_test_source && marker.is_allowed_in_test_source() {
                 continue;
             }
             let token = marker.token();
@@ -121,6 +123,7 @@ impl SourceQualityScan {
                     marker: token.clone(),
                     category: marker.category.to_string(),
                     snippet: snippet(line),
+                    hint: remediation_hint(marker.category).to_string(),
                 });
                 start += offset + token.len();
             }
