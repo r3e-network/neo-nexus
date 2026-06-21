@@ -61,11 +61,8 @@ fn manifest_path(relative: &str) -> PathBuf {
 }
 
 fn is_cli_test_source(path: &Path) -> anyhow::Result<bool> {
-    Ok(path
-        .strip_prefix(manifest_path(""))?
-        .display()
-        .to_string()
-        .starts_with("src/cli/tests/"))
+    let relative = path.strip_prefix(manifest_path(""))?.display().to_string();
+    Ok(relative == "src/cli/tests.rs" || relative.starts_with("src/cli/tests/"))
 }
 
 fn assert_no_root_imports(source: &str, path: &Path) {
