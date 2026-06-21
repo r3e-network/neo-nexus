@@ -85,10 +85,26 @@ pub(super) fn sensitive_value_extends_to_next(value: &str) -> bool {
 }
 
 pub(super) fn is_sensitive_arg(value: &str) -> bool {
-    let value = normalized_sensitive_key(value);
-    SENSITIVE_KEY_FRAGMENTS
-        .iter()
-        .any(|fragment| value.contains(fragment))
+    let normalized = normalized_sensitive_key(value);
+    let key_segments: Vec<&str> = normalized.split('-').filter(|s| !s.is_empty()).collect();
+    SENSITIVE_KEY_FRAGMENTS.iter().any(|fragment| {
+        let fragment_segments: Vec<&str> = fragment.split('-').collect();
+        contains_segment_run(&key_segments, &fragment_segments)
+    })
+}
+
+/// Reports whether `fragment_segments` appears as a contiguous run of whole
+/// `-`-delimited segments within `key_segments`. Matching on segment
+/// boundaries (rather than raw substrings) keys like `auth-token` or
+/// `x-api-key` while leaving ordinary words such as `author`, `secretary`, or
+/// `oauth` untouched.
+fn contains_segment_run(key_segments: &[&str], fragment_segments: &[&str]) -> bool {
+    if fragment_segments.is_empty() || fragment_segments.len() > key_segments.len() {
+        return false;
+    }
+    key_segments
+        .windows(fragment_segments.len())
+        .any(|window| window == fragment_segments)
 }
 
 fn sensitive_assignment(value: &str) -> Option<(&str, char, &str)> {
