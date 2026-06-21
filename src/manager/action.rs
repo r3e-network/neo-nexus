@@ -20,10 +20,6 @@ impl ManagerAction {
         }
     }
 
-    pub fn is_gui(&self) -> bool {
-        self.mode() == ManagerMode::Gui
-    }
-
     pub fn into_cli_output(self) -> Option<ManagerCliOutput> {
         match self {
             Self::LaunchGui => None,
