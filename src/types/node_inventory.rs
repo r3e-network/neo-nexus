@@ -34,7 +34,7 @@ fn node_matches(node: &NodeConfig, query: &str) -> bool {
         || text_matches(node.name.as_str(), query)
         || text_matches(&node.node_type.to_string(), query)
         || text_matches(&node.network.to_string(), query)
-        || text_matches(&node.status.to_string(), query)
+        || text_matches(node.status.label(), query)
         || text_matches(&node.storage_engine.to_string(), query)
         || text_matches(&node.runtime_version, query)
         || text_matches(&node.binary_path.display().to_string(), query)

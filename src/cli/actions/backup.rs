@@ -67,7 +67,7 @@ fn ensure_no_active_nodes_for_backup_import(repository: &Repository, db_path: &P
         .list_nodes()
         .with_context(|| format!("failed to inspect target workspace {}", db_path.display()))?
         .into_iter()
-        .find(|node| matches!(node.status, NodeStatus::Running | NodeStatus::Starting))
+        .find(|node| node.status.is_active())
     {
         anyhow::bail!(
             "refusing to import backup into {} while node {} is {}; stop active nodes before importing",

@@ -94,7 +94,8 @@ Expected result:
 - Rust tests pass.
 - Rust tests run through the library plus named `ci_policy`, `domain`, and
   `repository` integration targets; the native GUI binary is not a Cargo test
-  target, so filtered test runs cannot accidentally launch the desktop app.
+  target by default, and its test-build entrypoint is empty so target listing
+  cannot accidentally launch the desktop app.
 - Headless binary self-check passes without opening a GUI window.
 - Headless runtime smoke CLI reports a bounded blocked result without opening a
   GUI window, and its JSON mode emits structured preflight/attempt evidence

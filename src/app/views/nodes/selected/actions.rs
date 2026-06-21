@@ -21,16 +21,13 @@ pub(super) fn render_action_bar(app: &mut NeoNexusApp, ui: &mut egui::Ui, status
             app.check_selected_rpc_health();
         }
         if ui
-            .add_enabled(
-                !matches!(status, NodeStatus::Running | NodeStatus::Starting),
-                egui::Button::new("Fix Ports"),
-            )
+            .add_enabled(!status.is_active(), egui::Button::new("Fix Ports"))
             .clicked()
         {
             app.assign_available_ports_to_selected_node();
         }
         if ui
-            .add_enabled(status != NodeStatus::Running, egui::Button::new("Delete"))
+            .add_enabled(!status.is_running(), egui::Button::new("Delete"))
             .clicked()
         {
             app.request_delete_selected_node();

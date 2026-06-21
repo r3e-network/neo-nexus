@@ -7,7 +7,7 @@ use eframe::egui;
 use crate::{
     private_network::CommitteeRoster,
     roles::{PrivateNetworkPlanner, PrivateNetworkTemplate},
-    types::{NodeConfig, NodeStatus, NodeType},
+    types::{NodeConfig, NodeType},
 };
 
 use super::super::super::{theme::muted_text, NeoNexusApp};
@@ -98,10 +98,9 @@ impl NeoNexusApp {
     ) -> bool {
         materialized_count == plan.nodes.len()
             && plan.nodes.iter().all(|planned| {
-                self.nodes.iter().any(|node| {
-                    node.name == planned.name
-                        && !matches!(node.status, NodeStatus::Running | NodeStatus::Starting)
-                })
+                self.nodes
+                    .iter()
+                    .any(|node| node.name == planned.name && !node.status.is_active())
             })
     }
 }

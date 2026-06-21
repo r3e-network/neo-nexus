@@ -18,7 +18,7 @@ impl NeoNexusApp {
                 continue;
             };
 
-            if self.nodes[index].status == NodeStatus::Running {
+            if self.nodes[index].status.is_running() {
                 continue;
             }
 

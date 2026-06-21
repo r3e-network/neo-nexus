@@ -10,7 +10,7 @@ impl NeoNexusApp {
             ui.label(egui::RichText::new("Status").color(muted_text()));
             status_button(self, ui, "All", None);
             for status in NodeStatus::ALL {
-                status_button(self, ui, status_label(status), Some(status));
+                status_button(self, ui, status.label(), Some(status));
             }
         });
 
@@ -42,14 +42,5 @@ fn status_button(
         app.node_status_filter = status;
         app.node_page = 0;
         app.overview_fleet_page = 0;
-    }
-}
-
-fn status_label(status: NodeStatus) -> &'static str {
-    match status {
-        NodeStatus::Running => "Running",
-        NodeStatus::Starting => "Starting",
-        NodeStatus::Stopped => "Stopped",
-        NodeStatus::Error => "Error",
     }
 }

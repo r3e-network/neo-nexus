@@ -1,5 +1,3 @@
-use crate::types::NodeStatus;
-
 use super::{nodes::NODE_SHORTCUT_PAGE_SIZE, views, AppShortcut, NeoNexusApp, View};
 
 impl NeoNexusApp {
@@ -47,7 +45,7 @@ impl NeoNexusApp {
             return;
         };
 
-        if status == NodeStatus::Running {
+        if status.is_running() {
             self.stop_selected_node();
         } else {
             self.start_selected_node();

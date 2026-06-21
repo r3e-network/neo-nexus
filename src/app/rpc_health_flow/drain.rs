@@ -12,7 +12,7 @@ impl NeoNexusApp {
             else {
                 continue;
             };
-            if node.status != NodeStatus::Running {
+            if !node.status.is_running() {
                 continue;
             }
 

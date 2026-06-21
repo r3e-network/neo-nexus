@@ -10,7 +10,7 @@ impl NeoNexusApp {
         let now = Instant::now();
         let interval = self.rpc_health_monitor_policy.interval_duration();
         let Some(node) = self.nodes.iter().find_map(|node| {
-            if node.status != NodeStatus::Running || self.rpc_health_pending.contains(&node.id) {
+            if !node.status.is_running() || self.rpc_health_pending.contains(&node.id) {
                 return None;
             }
             let due = self

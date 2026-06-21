@@ -1,10 +1,6 @@
 use eframe::egui;
 
-use crate::{
-    catalog::PluginDefinition,
-    metrics::format_bytes,
-    types::{NodeConfig, NodeStatus},
-};
+use crate::{catalog::PluginDefinition, metrics::format_bytes, types::NodeConfig};
 
 use super::super::super::{
     text::truncate_middle,
@@ -55,7 +51,7 @@ pub(super) fn render_plugin_package_installer(
     let can_hash = !app.plugin_package_source.trim().is_empty();
     let can_install = can_hash
         && !app.plugin_package_expected_sha256.trim().is_empty()
-        && !matches!(node.status, NodeStatus::Running | NodeStatus::Starting);
+        && !node.status.is_active();
 
     ui.horizontal(|ui| {
         if ui
@@ -72,7 +68,7 @@ pub(super) fn render_plugin_package_installer(
         }
     });
 
-    if matches!(node.status, NodeStatus::Running | NodeStatus::Starting) {
+    if node.status.is_active() {
         ui.label(
             egui::RichText::new("Stop this node before replacing plugin files.")
                 .color(muted_text()),

@@ -83,6 +83,9 @@ NeoNexus workbench.
 - Native shell audit: CI can prove the desktop surface uses eframe/egui fixed
   panels with explicit workspaces and no WebView/Tauri/Wry or document-style
   scrolling markers.
+- Native test harness safety: the desktop binary stays out of Cargo's default
+  test harness, and binary test builds use an empty entrypoint so all-target
+  listing and filtered tests cannot open the native application.
 - Source-size discipline: CI source quality gates keep production and test
   Rust files under the module line budget and keep catalog JSON, documentation,
   Cargo, named maintenance files, and CI maintenance files under a 1000-line

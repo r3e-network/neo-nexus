@@ -16,7 +16,7 @@ pub(super) fn render_port_filters(
         ui.label(egui::RichText::new("Status").color(muted_text()));
         status_button(app, ui, "All", None);
         for status in NodeStatus::ALL {
-            status_button(app, ui, &status.to_string(), Some(status));
+            status_button(app, ui, status.label(), Some(status));
         }
     });
     ui.horizontal_wrapped(|ui| {

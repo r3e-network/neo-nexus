@@ -3,7 +3,7 @@ use eframe::egui;
 use crate::{
     app::{text::truncate_middle, widgets::fact, NeoNexusApp},
     diagnostics::{evaluate_launch_readiness, evaluate_restart_readiness, CheckSeverity},
-    types::{NodeConfig, NodeStatus},
+    types::NodeConfig,
 };
 
 pub(super) fn render_readiness(app: &NeoNexusApp, ui: &mut egui::Ui, node: &NodeConfig) {
@@ -11,7 +11,7 @@ pub(super) fn render_readiness(app: &NeoNexusApp, ui: &mut egui::Ui, node: &Node
         .repository
         .list_plugin_states(&node.id)
         .unwrap_or_default();
-    let readiness = if node.status == NodeStatus::Running {
+    let readiness = if node.status.is_running() {
         evaluate_restart_readiness(
             node,
             &app.nodes,
@@ -28,7 +28,7 @@ pub(super) fn render_readiness(app: &NeoNexusApp, ui: &mut egui::Ui, node: &Node
             app.node_work_dir(node),
         )
     };
-    let readiness_label = if node.status == NodeStatus::Running {
+    let readiness_label = if node.status.is_running() {
         "Restart Ready"
     } else {
         "Launch Ready"

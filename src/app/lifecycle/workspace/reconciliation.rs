@@ -19,7 +19,7 @@ impl NeoNexusApp {
             else {
                 continue;
             };
-            if node.status != NodeStatus::Running || node.pid != Some(missing.pid) {
+            if !node.status.is_running() || node.pid != Some(missing.pid) {
                 continue;
             }
             match self

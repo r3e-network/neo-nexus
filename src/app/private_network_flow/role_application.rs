@@ -7,7 +7,7 @@ impl NeoNexusApp {
             return;
         };
 
-        if matches!(node.status, NodeStatus::Running | NodeStatus::Starting) {
+        if node.status.is_active() {
             self.notice = Some("Stop the selected node before applying a role".to_string());
             return;
         }

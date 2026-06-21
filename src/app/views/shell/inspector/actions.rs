@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::types::{NodeConfig, NodeStatus};
+use crate::types::NodeConfig;
 
 use super::super::super::super::{view::View, NeoNexusApp};
 
@@ -13,7 +13,7 @@ impl NeoNexusApp {
 
     fn render_node_lifecycle_actions(&mut self, ui: &mut egui::Ui, node: &NodeConfig) {
         ui.horizontal(|ui| {
-            let running = node.status == NodeStatus::Running;
+            let running = node.status.is_running();
             if ui
                 .add_enabled(!running, egui::Button::new("Start"))
                 .clicked()

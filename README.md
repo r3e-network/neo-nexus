@@ -126,9 +126,10 @@ cargo build --release
 make verify
 ```
 
-The native GUI binary is excluded from Cargo's test harness; tests run through
-the library and named integration targets so filtered test commands do not
-accidentally launch the desktop application.
+The native GUI binary is excluded from Cargo's default test harness and
+`src/main.rs` uses an empty test-build entrypoint; tests run through the
+library and named integration targets so filtered test commands and target
+listing do not accidentally launch the desktop application.
 
 ## Current Native Feature Surface
 

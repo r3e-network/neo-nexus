@@ -7,7 +7,7 @@ impl NeoNexusApp {
             return;
         };
 
-        if node.status == NodeStatus::Running {
+        if node.status.is_running() {
             self.notice = Some("Stop the selected node before deleting it".to_string());
             return;
         }

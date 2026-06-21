@@ -85,6 +85,6 @@ impl NeoNexusApp {
 fn launch_pack_running_node_notice(nodes: &[NodeConfig]) -> Option<String> {
     nodes
         .iter()
-        .find(|node| matches!(node.status, NodeStatus::Running | NodeStatus::Starting))
+        .find(|node| node.status.is_active())
         .map(|node| format!("Stop {} before exporting a launch pack", node.name))
 }

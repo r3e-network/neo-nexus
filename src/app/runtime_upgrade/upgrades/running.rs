@@ -1,7 +1,5 @@
 use crate::{
-    diagnostics::evaluate_restart_readiness,
-    runtime::RuntimeCatalogUpgradePlan,
-    types::{NodeConfig, NodeStatus},
+    diagnostics::evaluate_restart_readiness, runtime::RuntimeCatalogUpgradePlan, types::NodeConfig,
 };
 
 use super::super::super::NeoNexusApp;
@@ -51,7 +49,7 @@ impl NeoNexusApp {
             .iter()
             .find(|candidate| candidate.id == node.id)
             .ok_or_else(|| anyhow::anyhow!("restarted node {} was not found", node.name))?;
-        if upgraded.status == NodeStatus::Running
+        if upgraded.status.is_running()
             && upgraded.runtime_version == installation.version
             && upgraded.binary_path == installation.binary_path
         {

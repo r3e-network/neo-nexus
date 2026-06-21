@@ -1,10 +1,6 @@
 use eframe::egui;
 
-use crate::{
-    app::NeoNexusApp,
-    snapshots::FastSyncSnapshot,
-    types::{NodeConfig, NodeStatus},
-};
+use crate::{app::NeoNexusApp, snapshots::FastSyncSnapshot, types::NodeConfig};
 
 use super::super::status::snapshot_is_verified;
 
@@ -52,7 +48,7 @@ fn can_apply_snapshot(app: &NeoNexusApp, snapshot: &FastSyncSnapshot) -> bool {
 }
 
 fn target_accepts_snapshot(node: &NodeConfig, snapshot: &FastSyncSnapshot) -> bool {
-    node.status == NodeStatus::Stopped
+    node.status.is_stopped()
         && node.network == snapshot.network
         && node.node_type == snapshot.node_type
         && snapshot.cached_path.is_some()

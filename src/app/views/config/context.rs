@@ -9,7 +9,7 @@ use crate::{
         NeoNexusApp,
     },
     config::{ConfigValidationReport, RenderedConfig},
-    types::{NodeConfig, NodeStatus},
+    types::NodeConfig,
 };
 
 use super::validation::render_config_validation;
@@ -81,7 +81,7 @@ fn render_config_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui, node: &NodeCo
         if ui.button("Apply Managed").clicked() {
             app.apply_selected_managed_config();
         }
-        let restart_ready = matches!(node.status, NodeStatus::Running | NodeStatus::Starting);
+        let restart_ready = node.status.is_active();
         if ui
             .add_enabled(restart_ready, egui::Button::new("Apply + Restart"))
             .clicked()

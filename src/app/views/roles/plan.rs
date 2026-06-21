@@ -1,9 +1,6 @@
 use eframe::egui;
 
-use crate::{
-    roles::{NodeRole, RolePlanner},
-    types::NodeStatus,
-};
+use crate::roles::{NodeRole, RolePlanner};
 
 use super::super::super::{
     text::truncate_middle,

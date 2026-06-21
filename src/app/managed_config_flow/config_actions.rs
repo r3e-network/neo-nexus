@@ -21,7 +21,7 @@ fn plugin_states_for(app: &NeoNexusApp, node: &NodeConfig) -> Vec<PluginState> {
 }
 
 fn node_requires_restart(node: &NodeConfig) -> bool {
-    matches!(node.status, NodeStatus::Running | NodeStatus::Starting)
+    node.status.is_active()
 }
 
 fn record_managed_config_applied(

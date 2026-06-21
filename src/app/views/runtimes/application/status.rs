@@ -10,7 +10,7 @@ pub(super) fn catalog_upgrade_state(
     has_catalog: bool,
     has_plan: bool,
 ) -> &'static str {
-    if status != NodeStatus::Stopped {
+    if !status.is_stopped() {
         "stop node first"
     } else if !has_catalog {
         "load catalog"
@@ -26,7 +26,7 @@ pub(super) fn catalog_upgrade_color(
     has_catalog: bool,
     has_plan: bool,
 ) -> egui::Color32 {
-    if status == NodeStatus::Stopped && has_catalog && has_plan {
+    if status.is_stopped() && has_catalog && has_plan {
         accent()
     } else {
         muted_text()

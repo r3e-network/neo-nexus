@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::{argv::format_argv, metrics::format_bytes, types::NodeConfig, types::NodeStatus};
+use crate::{argv::format_argv, metrics::format_bytes, types::NodeConfig};
 
 use super::{
     super::super::super::{
@@ -58,7 +58,7 @@ impl NeoNexusApp {
                 "Uptime",
                 &format_duration(std::time::Duration::from_secs(process.run_time_seconds)),
             );
-        } else if node.status == NodeStatus::Running {
+        } else if node.status.is_running() {
             fact(ui, "Process", "not observed");
         }
     }
@@ -71,7 +71,7 @@ fn render_node_heading(ui: &mut egui::Ui, node: &NodeConfig) {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.add_space(8.0);
             ui.label(
-                egui::RichText::new(node.status.to_string())
+                egui::RichText::new(node.status.label())
                     .color(status_color(node.status))
                     .strong(),
             );

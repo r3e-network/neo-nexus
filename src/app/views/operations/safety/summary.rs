@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use crate::{
     backup::{WorkspaceBackupImporter, WorkspaceBackupValidation},
-    types::{NodeConfig, NodeStatus},
+    types::NodeConfig,
     workspace_integrity::WorkspaceIntegrityReport,
 };
 
@@ -32,7 +32,7 @@ impl WorkspaceSafetySummary {
             .flatten();
         Self {
             node_count: nodes.len(),
-            has_running_nodes: nodes.iter().any(|node| node.status == NodeStatus::Running),
+            has_running_nodes: nodes.iter().any(|node| node.status.is_running()),
             backup_validation: BackupValidationSummary::from_validation(
                 latest_backup.as_deref(),
                 backup_validation,

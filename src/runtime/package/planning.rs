@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, path::PathBuf};
 
-use crate::types::{NodeConfig, NodeStatus};
+use crate::types::NodeConfig;
 
 use super::super::{compare_versions, RuntimeInstallation, RuntimePlatform, RuntimeReleaseCatalog};
 use super::RuntimePackageManager;
@@ -122,8 +122,8 @@ impl RuntimePackageManager {
 
         for node in nodes {
             match Self::plan_catalog_upgrade(node, catalog, platform) {
-                Some(plan) if node.status == NodeStatus::Stopped => stopped_candidates.push(plan),
-                Some(plan) if node.status == NodeStatus::Running => running_candidates.push(plan),
+                Some(plan) if node.status.is_stopped() => stopped_candidates.push(plan),
+                Some(plan) if node.status.is_running() => running_candidates.push(plan),
                 Some(_) => blocked_active += 1,
                 None => current_or_unavailable += 1,
             }

@@ -1,7 +1,5 @@
 use eframe::egui;
 
-use crate::types::NodeStatus;
-
 use super::super::super::{
     format_duration, text::truncate_middle, theme::muted_text, widgets::fact, NeoNexusApp,
     METRICS_REFRESH_INTERVAL,
@@ -13,7 +11,7 @@ pub(super) fn render_telemetry_health(app: &mut NeoNexusApp, ui: &mut egui::Ui) 
     let running_nodes = app
         .nodes
         .iter()
-        .filter(|node| node.status == NodeStatus::Running)
+        .filter(|node| node.status.is_running())
         .count();
     fact(ui, "Running nodes", &running_nodes.to_string());
     fact(
