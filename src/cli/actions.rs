@@ -42,6 +42,7 @@ mod launch_pack;
 mod quality;
 mod release;
 mod reports;
+mod suggest;
 mod wallet;
 mod workspace;
 

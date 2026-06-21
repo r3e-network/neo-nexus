@@ -34,3 +34,14 @@ fn cli_distinguishes_missing_from_extra_arguments() {
         "extra-argument error should say so, got: {extra}"
     );
 }
+
+#[test]
+fn cli_suggests_the_closest_option_for_a_typo() {
+    let error = action_from_args(["neo-nexus", "--rpc-helth", "8080"])
+        .expect_err("a mistyped option must be rejected")
+        .to_string();
+    assert!(
+        error.contains("did you mean --rpc-health"),
+        "expected a suggestion for the typo, got: {error}"
+    );
+}
