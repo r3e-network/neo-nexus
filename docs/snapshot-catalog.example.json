@@ -4,7 +4,7 @@
   "snapshots": [
     {
       "id": "neo-rs-testnet-rocksdb-2026-06",
-      "label": "neo-rs Testnet RocksDB 2026-06",
+      "label": "neo-rs sample Testnet RocksDB 2026-06",
       "network": "testnet",
       "node_type": "neo-rs",
       "url": "https://snapshots.example.com/neo-rs/testnet/rocksdb-2026-06.tar.gz",
@@ -14,7 +14,7 @@
     },
     {
       "id": "neo-cli-mainnet-leveldb-2026-06",
-      "label": "neo-cli Mainnet LevelDB 2026-06",
+      "label": "neo-cli sample Mainnet LevelDB 2026-06",
       "network": "mainnet",
       "node_type": "neo-cli",
       "url": "https://snapshots.example.com/neo-cli/mainnet/leveldb-2026-06.zip",
@@ -24,7 +24,7 @@
     },
     {
       "id": "neo-go-testnet-leveldb-2026-06",
-      "label": "neo-go Testnet LevelDB 2026-06",
+      "label": "neo-go sample Testnet LevelDB 2026-06",
       "network": "testnet",
       "node_type": "neo-go",
       "url": "https://snapshots.example.com/neo-go/testnet/leveldb-2026-06.tar.gz",
