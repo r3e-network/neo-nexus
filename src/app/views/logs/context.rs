@@ -39,7 +39,7 @@ fn render_log_heading(ui: &mut egui::Ui, node: &NodeConfig) {
         ui.heading(truncate_middle(&node.name, 24));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.label(
-                egui::RichText::new(node.status.to_string())
+                egui::RichText::new(node.status.label())
                     .color(status_color(node.status))
                     .strong(),
             );

@@ -1,5 +1,10 @@
+#[cfg(not(test))]
 use neo_nexus::{cli::CliAction, NeoNexusApp};
 
+#[cfg(test)]
+fn main() {}
+
+#[cfg(not(test))]
 fn main() {
     match neo_nexus::cli::action_from_args(std::env::args()) {
         Ok(CliAction::RunGui) => {
@@ -30,6 +35,7 @@ fn main() {
     }
 }
 
+#[cfg(not(test))]
 fn run_native_app() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()

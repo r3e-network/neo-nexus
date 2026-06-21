@@ -77,7 +77,7 @@ fn render_port_row(app: &mut NeoNexusApp, ui: &mut egui::Ui, row: &PortMatrixRow
     ui.label(row.p2p_port.to_string());
     ui.label(optional_port(row.ws_port));
     ui.label(
-        egui::RichText::new(row.status.to_string())
+        egui::RichText::new(row.status.label())
             .color(status_color(row.status))
             .strong(),
     );

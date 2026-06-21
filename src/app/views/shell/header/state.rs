@@ -1,4 +1,4 @@
-use crate::{app::NeoNexusApp, types::NodeStatus};
+use crate::app::NeoNexusApp;
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct NodeActionState {
@@ -10,7 +10,7 @@ pub(super) struct NodeActionState {
 impl NodeActionState {
     pub fn from_app(app: &NeoNexusApp) -> Self {
         let status = app.selected_node().map(|node| node.status);
-        let can_stop = status == Some(NodeStatus::Running);
+        let can_stop = status.is_some_and(|status| status.is_running());
         let can_start = status.is_some() && !can_stop;
 
         Self {

@@ -42,7 +42,7 @@ fn render_fleet_filter(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         ui.label(egui::RichText::new("Status").color(muted_text()));
         status_button(app, ui, "All", None);
         for status in NodeStatus::ALL {
-            status_button(app, ui, status_label(status), Some(status));
+            status_button(app, ui, status.label(), Some(status));
         }
     });
     let response = ui.add_sized(
@@ -100,20 +100,11 @@ fn render_fleet_table(app: &mut NeoNexusApp, ui: &mut egui::Ui, rows: &[&NodeCon
                 ui.label(node.network.to_string());
                 ui.label(node.rpc_port.to_string());
                 ui.label(
-                    egui::RichText::new(node.status.to_string())
+                    egui::RichText::new(node.status.label())
                         .color(status_color(node.status))
                         .strong(),
                 );
                 ui.end_row();
             }
         });
-}
-
-fn status_label(status: NodeStatus) -> &'static str {
-    match status {
-        NodeStatus::Running => "Running",
-        NodeStatus::Starting => "Starting",
-        NodeStatus::Stopped => "Stopped",
-        NodeStatus::Error => "Error",
-    }
 }

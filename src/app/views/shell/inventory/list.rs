@@ -58,7 +58,7 @@ impl NeoNexusApp {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.add_space(6.0);
                         ui.label(
-                            egui::RichText::new(node.status.to_string())
+                            egui::RichText::new(node.status.label())
                                 .color(status_color(node.status))
                                 .strong(),
                         );

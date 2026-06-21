@@ -1,7 +1,5 @@
 use eframe::egui;
 
-use crate::types::NodeStatus;
-
 use super::super::super::{
     text::{short_path, truncate_middle},
     view::View,
@@ -43,7 +41,7 @@ pub(super) fn render_summary_selection(app: &mut NeoNexusApp, ui: &mut egui::Ui)
 
     ui.add_space(10.0);
     ui.horizontal(|ui| {
-        let running = node.status == NodeStatus::Running;
+        let running = node.status.is_running();
         if ui
             .add_enabled(!running, egui::Button::new("Start"))
             .clicked()

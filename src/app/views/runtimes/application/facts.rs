@@ -15,7 +15,7 @@ pub(super) fn render_node_runtime_facts(
     selected_installation: Option<&RuntimeInstallation>,
 ) {
     fact(ui, "Node", &truncate_middle(&node.name, 34));
-    fact(ui, "Status", &node.status.to_string());
+    fact(ui, "Status", node.status.label());
     fact(ui, "Runtime", &node.node_type.to_string());
     fact(ui, "Current", &node.runtime_version);
     if let Some(installation) = selected_installation {

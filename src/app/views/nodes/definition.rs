@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::types::{Network, NodeStatus, NodeType, StorageEngine};
+use crate::types::{Network, NodeType, StorageEngine};
 
 use super::super::super::{
     theme::muted_text,
@@ -103,7 +103,7 @@ fn action_bar(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
 
         let selected_can_edit = app
             .selected_node()
-            .is_some_and(|node| node.status != NodeStatus::Running);
+            .is_some_and(|node| !node.status.is_running());
         if ui
             .add_enabled(selected_can_edit, egui::Button::new("Update Selected"))
             .clicked()

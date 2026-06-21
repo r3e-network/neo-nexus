@@ -5,7 +5,7 @@ impl NeoNexusApp {
         let Some(node) = self.nodes.get(index).cloned() else {
             return;
         };
-        if node.status != NodeStatus::Running {
+        if !node.status.is_running() {
             self.notice = Some(format!("{} must be running before restart", node.name));
             return;
         }

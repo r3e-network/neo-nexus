@@ -1,5 +1,3 @@
-use crate::types::NodeStatus;
-
 use super::super::super::NeoNexusApp;
 
 impl NeoNexusApp {
@@ -8,7 +6,7 @@ impl NeoNexusApp {
             self.notice = Some("Select a node before running a catalog upgrade".to_string());
             return;
         };
-        if node.status == NodeStatus::Starting {
+        if node.status.is_starting() {
             self.notice = Some(
                 "Wait for the selected node to finish starting before running a catalog upgrade"
                     .to_string(),
@@ -22,7 +20,7 @@ impl NeoNexusApp {
             return;
         };
 
-        let result = if node.status == NodeStatus::Running {
+        let result = if node.status.is_running() {
             self.upgrade_running_node_from_catalog(&node, &plan)
         } else {
             self.ensure_catalog_release_installed(&plan.release)

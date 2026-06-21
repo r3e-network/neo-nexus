@@ -79,9 +79,10 @@ cargo test --test domain
 cargo test --test repository
 ```
 
-The `neo-nexus` desktop binary is marked `test = false` in Cargo metadata.
-Native behavior is tested through the library plus named integration targets,
-which keeps filtered test runs from invoking the GUI entrypoint.
+The `neo-nexus` desktop binary is marked `test = false` in Cargo metadata and
+`src/main.rs` exposes an empty entrypoint for test builds. Native behavior is
+tested through the library plus named integration targets, which keeps
+filtered test runs and target listing from invoking the GUI entrypoint.
 
 ## Native Operator Flow
 

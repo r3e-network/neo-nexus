@@ -114,7 +114,7 @@ fn row_matches(row: &PortMatrixRow, query: &str) -> bool {
         || row
             .ws_port
             .is_some_and(|port| text_matches(&port.to_string(), query))
-        || text_matches(&row.status.to_string(), query)
+        || text_matches(row.status.label(), query)
         || text_matches(row.health.label(), query)
 }
 

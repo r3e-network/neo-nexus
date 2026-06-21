@@ -1,10 +1,6 @@
 use eframe::egui;
 
-use crate::{
-    app::NeoNexusApp,
-    runtime::RuntimeCatalogUpgradePlan,
-    types::{NodeConfig, NodeStatus},
-};
+use crate::{app::NeoNexusApp, runtime::RuntimeCatalogUpgradePlan, types::NodeConfig};
 
 use super::status::{catalog_upgrade_color, catalog_upgrade_state};
 
@@ -16,7 +12,7 @@ pub(super) fn render_runtime_actions(
     selected_compatible: bool,
     catalog_plan: Option<&RuntimeCatalogUpgradePlan>,
 ) {
-    let stopped = node.status == NodeStatus::Stopped;
+    let stopped = node.status.is_stopped();
     ui.add_space(8.0);
     ui.horizontal(|ui| {
         if ui

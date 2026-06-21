@@ -88,7 +88,7 @@ impl NeoNexusApp {
             self.notice = Some("Plugin packages are supported for neo-cli nodes only".to_string());
             return;
         }
-        if matches!(node.status, NodeStatus::Running | NodeStatus::Starting) {
+        if node.status.is_active() {
             self.notice =
                 Some("Stop the selected node before installing a plugin package".to_string());
             return;

@@ -8,12 +8,12 @@ impl NeoNexusApp {
         let running = self
             .nodes
             .iter()
-            .filter(|node| node.status == NodeStatus::Running)
+            .filter(|node| node.status.is_running())
             .count();
         let stopped = self
             .nodes
             .iter()
-            .filter(|node| node.status == NodeStatus::Stopped)
+            .filter(|node| node.status.is_stopped())
             .count();
         let filter = self.node_inventory_filter();
         let visible = if filter.is_empty() {

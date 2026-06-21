@@ -36,7 +36,7 @@ impl NeoNexusApp {
                 ui.label(egui::RichText::new("Status").color(muted_text()));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label(
-                        egui::RichText::new(node.status.to_string())
+                        egui::RichText::new(node.status.label())
                             .strong()
                             .color(status_color(node.status)),
                     );
@@ -52,7 +52,7 @@ impl NeoNexusApp {
     fn render_apply_role_button(&mut self, ui: &mut egui::Ui) {
         let can_apply = self
             .selected_node()
-            .is_some_and(|node| !matches!(node.status, NodeStatus::Running | NodeStatus::Starting));
+            .is_some_and(|node| !node.status.is_active());
         ui.add_space(8.0);
         if ui
             .add_enabled(can_apply, egui::Button::new("Apply Role"))

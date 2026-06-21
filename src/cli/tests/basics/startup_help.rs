@@ -85,5 +85,16 @@ fn cargo_does_not_run_native_gui_binary_as_test_target() -> Result<()> {
         neo_nexus_bin.get("test").and_then(toml::Value::as_bool),
         Some(false)
     );
+
+    let main_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/main.rs");
+    let main_source = std::fs::read_to_string(main_path)?;
+    assert!(
+        main_source.contains("#[cfg(not(test))]\nfn main()"),
+        "native GUI entrypoint must be disabled in binary test builds"
+    );
+    assert!(
+        main_source.contains("#[cfg(test)]\nfn main() {}"),
+        "binary test builds need an empty entrypoint so all-target test listing exits"
+    );
     Ok(())
 }

@@ -33,7 +33,7 @@ fn render_node_header(ui: &mut egui::Ui, name: &str, status: NodeStatus) {
         ui.heading(truncate_middle(name, 24));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.label(
-                egui::RichText::new(status.to_string())
+                egui::RichText::new(status.label())
                     .color(status_color(status))
                     .strong(),
             );

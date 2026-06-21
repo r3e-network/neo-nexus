@@ -6,7 +6,7 @@ impl NeoNexusApp {
             self.notice = Some("Select a node before applying a runtime".to_string());
             return;
         };
-        if matches!(node.status, NodeStatus::Running | NodeStatus::Starting) {
+        if node.status.is_active() {
             self.notice = Some("Stop the selected node before applying a runtime".to_string());
             return;
         }

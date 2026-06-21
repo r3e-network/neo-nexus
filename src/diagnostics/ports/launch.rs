@@ -1,9 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::{
-    diagnostics::DiagnosticCheck,
-    types::{NodeConfig, NodeStatus},
-};
+use crate::{diagnostics::DiagnosticCheck, types::NodeConfig};
 
 use super::{
     checks::{critical_checks, pass_check},
@@ -92,5 +89,5 @@ where
 }
 
 fn is_active_node(node: &NodeConfig) -> bool {
-    matches!(node.status, NodeStatus::Running | NodeStatus::Starting)
+    node.status.is_active()
 }

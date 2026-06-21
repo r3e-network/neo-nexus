@@ -1,7 +1,7 @@
 use crate::{
     events::{EventKind, EventSeverity},
     runtime::{RuntimeCatalogUpgradePlan, RuntimeInstallation},
-    types::{NodeConfig, NodeStatus},
+    types::NodeConfig,
 };
 
 use super::{super::super::NeoNexusApp, input::runtime_installation_node_input};
@@ -13,7 +13,7 @@ impl NeoNexusApp {
         node: &NodeConfig,
         plan: &RuntimeCatalogUpgradePlan,
     ) -> anyhow::Result<String> {
-        if node.status == NodeStatus::Running {
+        if node.status.is_running() {
             return self.upgrade_running_node_from_catalog(node, plan);
         }
 

@@ -84,11 +84,7 @@ impl NeoNexusApp {
     }
 
     pub(in crate::app) fn import_latest_workspace_backup(&mut self) {
-        if self
-            .nodes
-            .iter()
-            .any(|node| node.status == NodeStatus::Running)
-        {
+        if self.nodes.iter().any(|node| node.status.is_running()) {
             self.notice =
                 Some("Stop running nodes before importing a workspace backup".to_string());
             return;
