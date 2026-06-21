@@ -68,9 +68,7 @@ impl Repository {
              WHERE id = ?2",
             params![used_at_unix, id],
         )?;
-        if changed == 0 {
-            anyhow::bail!("Neo wallet profile {id} was not found");
-        }
+        ensure_affected_rows(changed, "Neo wallet profile", id)?;
         Ok(())
     }
 
@@ -78,9 +76,7 @@ impl Repository {
         let connection = self.connection()?;
         let deleted =
             connection.execute("DELETE FROM neo_wallet_profiles WHERE id = ?1", params![id])?;
-        if deleted == 0 {
-            anyhow::bail!("Neo wallet profile {id} was not found");
-        }
+        ensure_affected_rows(deleted, "Neo wallet profile", id)?;
         Ok(())
     }
 }

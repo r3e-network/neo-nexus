@@ -14,9 +14,7 @@ impl Repository {
         )?;
         transaction.execute("DELETE FROM plugin_states WHERE node_id = ?1", params![id])?;
         let deleted = transaction.execute("DELETE FROM nodes WHERE id = ?1", params![id])?;
-        if deleted == 0 {
-            anyhow::bail!("node {id} was not found");
-        }
+        ensure_affected_rows(deleted, "node", id)?;
         transaction.commit()?;
         Ok(())
     }
