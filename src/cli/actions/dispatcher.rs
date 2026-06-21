@@ -66,6 +66,11 @@ pub(in crate::cli) fn action_from_args_vec(args: &[String]) -> Result<CliAction>
         "--package-release" => Ok(CliAction::Print(package_release_text(args)?)),
         "--verify-release-package" => verify_release_package_action(args),
         "--verify-release-package-json" => verify_release_package_json_action(args),
-        option => anyhow::bail!("unsupported NeoNexus option: {option}"),
+        option => match suggest::suggest_option(option) {
+            Some(suggestion) => {
+                anyhow::bail!("unsupported NeoNexus option: {option}; did you mean {suggestion}?")
+            }
+            None => anyhow::bail!("unsupported NeoNexus option: {option}"),
+        },
     }
 }
