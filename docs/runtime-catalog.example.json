@@ -4,7 +4,7 @@
   "releases": [
     {
       "id": "neo-rs-v0.1.0-macos-aarch64",
-      "label": "neo-rs v0.1.0 macOS Apple Silicon",
+      "label": "neo-rs sample v0.1.0 macOS Apple Silicon",
       "node_type": "neo-rs",
       "version": "v0.1.0",
       "platform": {
@@ -19,7 +19,7 @@
     },
     {
       "id": "neo-rs-v0.1.0-linux-x86_64",
-      "label": "neo-rs v0.1.0 Linux x86_64",
+      "label": "neo-rs sample v0.1.0 Linux x86_64",
       "node_type": "neo-rs",
       "version": "v0.1.0",
       "platform": {
@@ -34,7 +34,7 @@
     },
     {
       "id": "neo-rs-v0.1.0-windows-x86_64",
-      "label": "neo-rs v0.1.0 Windows x86_64",
+      "label": "neo-rs sample v0.1.0 Windows x86_64",
       "node_type": "neo-rs",
       "version": "v0.1.0",
       "platform": {
@@ -49,7 +49,7 @@
     },
     {
       "id": "neo-cli-v3.8.0-windows-x86_64",
-      "label": "neo-cli v3.8.0 Windows x86_64",
+      "label": "neo-cli sample v3.8.0 Windows x86_64",
       "node_type": "neo-cli",
       "version": "v3.8.0",
       "platform": {
