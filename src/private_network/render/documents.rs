@@ -1,4 +1,10 @@
-use super::*;
+use super::{
+    runbook_sections::{
+        push_generated_files, push_operator_flow, push_paragraph, push_platform_commands,
+        ARTIFACT_INTEGRITY, SECRET_MATERIAL_BOUNDARY,
+    },
+    *,
+};
 
 pub(in crate::private_network) fn render_start_order(manifest: &DeploymentManifest) -> String {
     let mut text = format!(
@@ -25,38 +31,14 @@ pub(in crate::private_network) fn render_runbook(manifest: &DeploymentManifest) 
         "# NeoNexus Private Network Runbook\n\nRuntime: `{}`\nTemplate: `{}`\nNetwork magic: `{}`\nValidators: `{}`\n\n",
         manifest.runtime, manifest.template, manifest.network_magic, manifest.validators_count
     );
-    text.push_str(
-        "## Operator Flow\n\n1. Place required node binaries, config files, work directories, and signer wallet references on this host.\n2. Run `neo-nexus --validate-launch-pack .` from this directory and inspect `validation-report.txt` / `validation-report.json`.\n3. Run the platform preflight script.\n4. Run the platform start script.\n5. Run the platform health script until all nodes are ready.\n6. Run the platform stop script when shutting down the lab.\n\n",
-    );
-    text.push_str("## Platform Commands\n\n");
-    text.push_str(&format!(
-        "- Unix/macOS preflight: `./{}`\n- Unix/macOS start: `./{}`\n- Unix/macOS health: `./{}`\n- Unix/macOS stop: `./{}`\n",
-        manifest.scripts.preflight_unix,
-        manifest.scripts.start_unix,
-        manifest.scripts.health_unix,
-        manifest.scripts.stop_unix
-    ));
-    text.push_str(&format!(
-        "- Windows preflight: `powershell -ExecutionPolicy Bypass -File .\\{}`\n- Windows start: `powershell -ExecutionPolicy Bypass -File .\\{}`\n- Windows health: `powershell -ExecutionPolicy Bypass -File .\\{}`\n- Windows stop: `powershell -ExecutionPolicy Bypass -File .\\{}`\n\n",
-        manifest.scripts.preflight_windows,
-        manifest.scripts.start_windows,
-        manifest.scripts.health_windows,
-        manifest.scripts.stop_windows
-    ));
-    text.push_str("## Generated Files\n\n");
-    text.push_str("- `manifest.json`: launch pack inventory, runtime configuration summary, and SHA-256 artifact inventory.\n");
-    text.push_str("- `start-order.txt`: deterministic node startup order.\n");
-    text.push_str("- `wallet-provisioning.json`: structured wallet provisioning checklist with public keys and target paths only.\n");
-    text.push_str("- `wallets/README.md`: local wallet directory instructions; place encrypted wallets here only when paths are relative to the pack.\n");
-    text.push_str("- `validation-report.txt`: latest human-readable validation report.\n");
-    text.push_str("- `validation-report.json`: latest structured validation report.\n\n");
-    text.push_str("## Artifact Integrity\n\n");
-    text.push_str(
-        "`manifest.json` records SHA-256 values for generated configs, runbook, start-order, and platform scripts. Run `neo-nexus --validate-launch-pack .` after any operator edits to refresh validation evidence before handoff.\n\n",
-    );
-    text.push_str("## Secret Material Boundary\n\n");
-    text.push_str(
-        "This pack records public committee keys plus optional wallet, signer endpoint, and sidecar command template references only. It never includes private keys, wallet passwords, or generated genesis key material. `wallet-provisioning.json` is an operator checklist, not a wallet file and not a secret store.\n\n",
+    push_operator_flow(&mut text);
+    push_platform_commands(&mut text, &manifest.scripts);
+    push_generated_files(&mut text);
+    push_paragraph(&mut text, "## Artifact Integrity", ARTIFACT_INTEGRITY);
+    push_paragraph(
+        &mut text,
+        "## Secret Material Boundary",
+        SECRET_MATERIAL_BOUNDARY,
     );
     text.push_str(&format!(
         "Wallet provisioning policy: `{}`. Required wallets: `{}`. Existing wallet references: `{}`. Missing wallet references: `{}`. Generated secrets: `{}`.\n\n",

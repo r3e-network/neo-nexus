@@ -3,6 +3,7 @@ use super::*;
 mod artifacts;
 mod documents;
 mod io;
+mod runbook_sections;
 mod wallets;
 
 pub(super) use artifacts::{launch_pack_artifact_manifests, LaunchPackArtifactTexts};
