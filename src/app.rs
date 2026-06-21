@@ -74,4 +74,5 @@ use workflow::{
 pub use state::NeoNexusApp;
 
 #[cfg(test)]
+#[path = "../tests/unit/app/tests.rs"]
 mod tests;

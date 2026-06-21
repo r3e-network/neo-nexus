@@ -7,6 +7,7 @@ mod model;
 mod render;
 
 #[cfg(test)]
+#[path = "../tests/unit/support_bundle/tests.rs"]
 mod tests;
 
 pub use exporter::WorkspaceSupportBundleExporter;

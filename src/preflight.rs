@@ -5,6 +5,7 @@ mod model;
 mod permissions;
 
 #[cfg(test)]
+#[path = "../tests/unit/preflight/tests.rs"]
 mod tests;
 
 pub use command_path::resolve_command_path;

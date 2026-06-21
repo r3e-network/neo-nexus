@@ -4,6 +4,7 @@ mod model;
 mod packager;
 mod platform;
 #[cfg(test)]
+#[path = "../tests/unit/release_pack/tests.rs"]
 mod tests;
 mod validation;
 mod verifier;

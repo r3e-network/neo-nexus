@@ -6,4 +6,5 @@ pub(in crate::private_network) use status::check_signer_sidecar_binary;
 pub(super) use status::signer_sidecar_process_binary_path;
 
 #[cfg(test)]
+#[path = "../../../../tests/unit/private_network/validation_support/sidecars/binaries/tests.rs"]
 mod tests;

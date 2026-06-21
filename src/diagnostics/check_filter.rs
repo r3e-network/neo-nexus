@@ -104,4 +104,5 @@ fn text_matches(value: &str, query: &str) -> bool {
 }
 
 #[cfg(test)]
+#[path = "../../tests/unit/diagnostics/check_filter/tests.rs"]
 mod tests;

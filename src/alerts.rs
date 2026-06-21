@@ -41,4 +41,5 @@ const MESSAGE_LIMIT: usize = 1_600;
 const OPSGENIE_MESSAGE_LIMIT: usize = 130;
 
 #[cfg(test)]
+#[path = "../tests/unit/alerts/tests.rs"]
 mod tests;

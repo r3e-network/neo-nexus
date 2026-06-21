@@ -8,6 +8,7 @@ mod probes;
 mod text;
 
 #[cfg(test)]
+#[path = "../tests/unit/runtime_smoke/tests.rs"]
 mod tests;
 
 use std::{path::Path, time::Duration};

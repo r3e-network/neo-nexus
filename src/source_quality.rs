@@ -4,6 +4,7 @@ mod rules;
 mod scan;
 
 #[cfg(test)]
+#[path = "../tests/unit/source_quality/tests.rs"]
 mod tests;
 
 pub use checker::SourceQualityChecker;
