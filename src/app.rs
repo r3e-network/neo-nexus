@@ -9,6 +9,7 @@ use std::{
 use anyhow::Context;
 use uuid::Uuid;
 
+mod appearance_flow;
 mod constants;
 mod domain;
 mod draft;
@@ -61,6 +62,7 @@ use sidecar_health::{
 };
 use snapshot_draft::SnapshotDraft;
 use text::short_path;
+use theme::Theme;
 use view::View;
 use workflow::{
     committee_keys_with_wallet_profile, current_unix_time, data_dir, exit_notice, format_duration,

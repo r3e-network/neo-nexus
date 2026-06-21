@@ -9,6 +9,7 @@ pub(super) struct StartupPolicies {
     pub(super) remote_federation_monitor: RemoteFederationMonitorPolicy,
     pub(super) alert_routing: AlertRoutingPolicy,
     pub(super) allow_external_sidecars: bool,
+    pub(super) theme: Theme,
     pub(super) notice: Option<String>,
 }
 
@@ -23,6 +24,7 @@ impl StartupPolicies {
         let (alert_routing, alert_routing_notice) = load_alert_routing_policy(repository);
         let (allow_external_sidecars, sidecar_policy_notice) =
             load_sidecar_execution_policy(repository);
+        let (theme, theme_notice) = load_theme(repository);
 
         Self {
             watchdog,
@@ -31,6 +33,7 @@ impl StartupPolicies {
             remote_federation_monitor,
             alert_routing,
             allow_external_sidecars,
+            theme,
             notice: first_notice([
                 watchdog_notice,
                 runtime_upgrade_notice,
@@ -38,8 +41,19 @@ impl StartupPolicies {
                 remote_federation_monitor_notice,
                 alert_routing_notice,
                 sidecar_policy_notice,
+                theme_notice,
             ]),
         }
+    }
+}
+
+fn load_theme(repository: &Repository) -> (Theme, Option<String>) {
+    match repository.load_app_dark_mode() {
+        Ok(dark) => (Theme::from_dark_mode(dark), None),
+        Err(error) => (
+            Theme::default(),
+            Some(format!("Using default theme: {error}")),
+        ),
     }
 }
 
@@ -109,6 +123,6 @@ fn load_sidecar_execution_policy(repository: &Repository) -> (bool, Option<Strin
     }
 }
 
-fn first_notice(notices: [Option<String>; 6]) -> Option<String> {
+fn first_notice(notices: [Option<String>; 7]) -> Option<String> {
     notices.into_iter().flatten().next()
 }

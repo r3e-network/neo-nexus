@@ -2,6 +2,7 @@ use super::*;
 
 pub struct NeoNexusApp {
     pub(in crate::app) repository: Repository,
+    pub(in crate::app) theme: Theme,
     pub(in crate::app) supervisor: ProcessSupervisor,
     pub(in crate::app) watchdog: Watchdog,
     pub(in crate::app) watchdog_policy_draft: WatchdogPolicyDraft,

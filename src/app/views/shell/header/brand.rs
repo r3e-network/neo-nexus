@@ -20,6 +20,15 @@ impl NeoNexusApp {
                         .color(muted_text()),
                 );
                 ui.separator();
+                let theme_label = self.theme.toggle_label();
+                if ui
+                    .button(theme_label)
+                    .on_hover_text("Switch the workbench colour theme")
+                    .clicked()
+                {
+                    self.toggle_theme();
+                }
+                ui.separator();
                 ui.label("Linux  macOS  Windows");
             });
         });
