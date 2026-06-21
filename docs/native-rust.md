@@ -132,13 +132,16 @@ including failed-verification messages with a non-zero exit code.
 
 ## Architecture
 
-- `src/core.rs` is the UI-free domain facade. It groups the reusable node,
-  runtime, repository, diagnostics, backup, release, wallet, monitoring,
-  launch, snapshot, plugin, and private-network services that both GUI and CLI
-  surfaces can depend on without pulling in application-shell code.
-- `src/manager.rs` is the startup mode planner. It classifies process
-  arguments into `Gui` or `Cli` actions, preserves CLI output exit codes, and
-  keeps `src/main.rs` as a thin native binary entrypoint.
+- `src/core/` is the grouped UI-free domain facade. Its `node`, `runtime`,
+  `operations`, `workspace`, `security`, and `distribution` submodules expose
+  reusable services that both GUI and CLI surfaces can depend on without
+  pulling in application-shell code. CLI actions are tested to import shared
+  node-management behavior through this facade instead of reaching directly
+  into lower-level domain modules.
+- `src/manager/` is the dual-mode application planner. Its action, output,
+  and planner modules classify process arguments into `Gui` or `Cli` actions,
+  own CLI output newline and exit-code semantics, and keep `src/main.rs` as a
+  thin native binary entrypoint.
 - `src/types.rs` defines Neo node models, enums, and reusable Inventory
   filtering.
 - `src/repository.rs` stores node configuration, plugin state, runtime events,

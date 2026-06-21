@@ -100,5 +100,52 @@ fn cargo_does_not_run_native_gui_binary_as_test_target() -> Result<()> {
         main_source.contains("neo_nexus::manager::action_from_args"),
         "native binary entrypoint should route through the manager mode planner"
     );
+    assert!(
+        main_source.contains("into_cli_output"),
+        "native binary entrypoint should delegate CLI output rendering to manager actions"
+    );
+    Ok(())
+}
+
+#[test]
+fn cli_actions_use_core_facade_for_shared_domain_services() -> Result<()> {
+    let actions_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/cli/actions.rs");
+    let actions_source = std::fs::read_to_string(actions_path)?;
+    let crate_import_start = actions_source
+        .find("use crate::{")
+        .ok_or_else(|| anyhow::anyhow!("missing crate import block in CLI actions"))?;
+    let crate_import = actions_source[crate_import_start..]
+        .split_once("\n};")
+        .map(|(block, _)| block)
+        .ok_or_else(|| anyhow::anyhow!("unterminated crate import block in CLI actions"))?;
+
+    assert!(
+        crate_import.contains("core::{"),
+        "CLI actions should use the grouped core facade for shared domain services"
+    );
+    for module in [
+        "alerts",
+        "backup",
+        "config",
+        "diagnostics",
+        "event_journal_report",
+        "events",
+        "metrics",
+        "private_network",
+        "readiness_report",
+        "release_pack",
+        "repository",
+        "rpc_health",
+        "runtime_smoke",
+        "support_bundle",
+        "types",
+        "wallet",
+        "workspace_integrity",
+    ] {
+        assert!(
+            !crate_import.contains(&format!("\n    {module}::")),
+            "CLI actions should import {module} through src/core/, not directly from crate root"
+        );
+    }
     Ok(())
 }

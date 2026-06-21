@@ -491,8 +491,14 @@ src/
   app.rs                  application state, actions, and eframe lifecycle
   argv.rs                 argv text parsing and quote-safe command display
   cli.rs                  headless command dispatcher and text/JSON output actions
-  core.rs                 UI-free domain facade shared by GUI and CLI surfaces
-  manager.rs              startup mode planner for GUI launch vs CLI output
+  core/                   grouped UI-free domain facade for GUI and CLI surfaces
+    distribution.rs       release package verification and handoff facade
+    node.rs               node model, inventory, and port-validation facade
+    operations.rs         diagnostics, metrics, alerts, events, and RPC health facade
+    runtime.rs            runtime, launch, preflight, snapshot, plugin, and supervisor facade
+    security.rs           wallet validation and redaction facade
+    workspace.rs          repository, config, backup, role, readiness, and integrity facade
+  manager/                GUI/CLI mode planner and CLI output contract
   redaction.rs            shared diagnostics/event secret redaction
   app/
     draft.rs              node creation draft conversion
@@ -578,6 +584,10 @@ Runtime data is stored in the platform data directory by default, or in
 The documentation set is part of the native application contract. It records
 what the desktop app does today, what the validation gates prove, and which
 sample catalogs operators can import without changing the Rust-only boundary.
+The README and Markdown docs also describe the executable architecture
+constraints: `src/manager/` selects native GUI versus headless CLI mode, while
+CLI actions use the grouped `src/core/` facade for shared node, runtime,
+operations, workspace, security, and distribution services.
 
 - [Native Rust App](docs/native-rust.md)
 - [Operator Benchmarks](docs/operator-benchmarks.md)

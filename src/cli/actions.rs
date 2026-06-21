@@ -9,36 +9,30 @@ use std::{
 use anyhow::{Context, Result};
 
 use crate::{
-    alerts::{preview_alert_route, AlertPreviewReport, AlertProvider},
-    backup::{
-        WorkspaceBackupExport, WorkspaceBackupExporter, WorkspaceBackupImport,
-        WorkspaceBackupImporter,
-    },
     ci_policy::CiPolicyChecker,
-    config::{
-        ConfigExporter, ConfigFormat, ConfigValidationReport, ConfigValidationSeverity,
-        ConfigValidator, WorkspaceConfigExport, WorkspaceConfigExporter,
+    core::{
+        distribution::{ReleasePackageVerifier, ReleasePackager},
+        node::{validate_node_ports, Network, NodeConfig, NodeStatus, NodeType, StorageEngine},
+        operations::{
+            evaluate_fleet, event_export_filter, preview_alert_route, probe_rpc_endpoint,
+            AlertPreviewReport, AlertProvider, EventJournalReporter, EventKind, EventSeverity,
+            FleetDiagnostics, MetricsCollector, MetricsSnapshot, RpcHealthReport, RpcHealthStatus,
+            RuntimeEvent, DEFAULT_EVENT_EXPORT_LIMIT, MAX_EVENT_EXPORT_LIMIT,
+        },
+        runtime::{smoke_runtime_command, RuntimeSmokeReport},
+        security::NeoWalletValidator,
+        workspace::{
+            ConfigExporter, ConfigFormat, ConfigValidationReport, ConfigValidationSeverity,
+            ConfigValidator, PrivateNetworkLaunchPackVerifier, Repository, WorkspaceBackupExport,
+            WorkspaceBackupExporter, WorkspaceBackupImport, WorkspaceBackupImporter,
+            WorkspaceConfigExport, WorkspaceConfigExporter, WorkspaceIntegrityChecker,
+            WorkspaceIntegrityReport, WorkspaceReadinessReporter, WorkspaceSupportBundleExport,
+            WorkspaceSupportBundleExporter,
+        },
     },
-    diagnostics::{evaluate_fleet, FleetDiagnostics},
-    event_journal_report::{
-        event_export_filter, EventJournalReporter, DEFAULT_EVENT_EXPORT_LIMIT,
-        MAX_EVENT_EXPORT_LIMIT,
-    },
-    events::{EventKind, EventSeverity, RuntimeEvent},
-    metrics::{MetricsCollector, MetricsSnapshot},
     native_ui::NativeUiAuditor,
-    private_network::PrivateNetworkLaunchPackVerifier,
-    readiness_report::WorkspaceReadinessReporter,
-    release_pack::{ReleasePackageVerifier, ReleasePackager},
-    repository::Repository,
-    rpc_health::{probe_rpc_endpoint, RpcHealthReport, RpcHealthStatus},
-    runtime_smoke::{smoke_runtime_command, RuntimeSmokeReport},
     source_purity::SourcePurityChecker,
     source_quality::SourceQualityChecker,
-    support_bundle::{WorkspaceSupportBundleExport, WorkspaceSupportBundleExporter},
-    types::{validate_node_ports, Network, NodeConfig, NodeStatus, NodeType, StorageEngine},
-    wallet::NeoWalletValidator,
-    workspace_integrity::{WorkspaceIntegrityChecker, WorkspaceIntegrityReport},
 };
 
 use super::{output::*, CliAction};

@@ -13,13 +13,12 @@ fn main() {
                 std::process::exit(1);
             }
         }
-        Ok(ManagerAction::WriteCli { text, exit_code }) => {
-            print!("{text}");
-            if !text.ends_with('\n') {
-                println!();
-            }
-            if exit_code != 0 {
-                std::process::exit(exit_code);
+        Ok(action) => {
+            if let Some(output) = action.into_cli_output() {
+                print!("{}", output.text_with_trailing_newline());
+                if output.should_exit_process() {
+                    std::process::exit(output.exit_code());
+                }
             }
         }
         Err(error) => {

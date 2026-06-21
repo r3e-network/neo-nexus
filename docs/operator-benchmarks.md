@@ -87,9 +87,12 @@ NeoNexus workbench.
   test harness, and binary test builds use an empty entrypoint so all-target
   listing and filtered tests cannot open the native application.
 - Dual-mode application boundary: startup arguments are classified by a
-  manager layer before entering either the native GUI or headless CLI path, so
-  operational core services stay reusable instead of being owned by one
-  surface.
+  manager layer before entering either the native GUI or headless CLI path;
+  CLI output text and exit-code semantics stay in that layer, so grouped
+  operational core services remain reusable instead of being owned by one
+  surface. The headless CLI action layer is also tested to import shared
+  node, runtime, operations, workspace, security, and release-distribution
+  behavior through the same core facade.
 - Source-size discipline: CI source quality gates keep production and test
   Rust files under the module line budget and keep catalog JSON, documentation,
   Cargo, named maintenance files, and CI maintenance files under a 1000-line
