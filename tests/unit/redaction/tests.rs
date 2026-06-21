@@ -97,3 +97,54 @@ fn redacts_alert_provider_secret_keys() {
     assert!(!redacted.contains("pager-key"));
     assert!(!redacted.contains("-100123"));
 }
+
+#[test]
+fn redacts_secret_nested_in_single_line_json_object() {
+    let redacted = redact_sensitive_text(r#"loaded {"database":{"password":"pg-secret"}} done"#);
+
+    assert!(
+        !redacted.contains("pg-secret"),
+        "nested secret leaked: {redacted}"
+    );
+    assert!(redacted.contains("password"));
+    assert!(redacted.contains(REDACTED_VALUE));
+    assert!(
+        redacted.contains("done"),
+        "trailing non-secret token was dropped: {redacted}"
+    );
+}
+
+#[test]
+fn redacts_every_element_of_an_array_valued_secret() {
+    let redacted = redact_sensitive_text(r#"{"token":["abc","def"]}"#);
+
+    assert!(!redacted.contains("abc"), "array secret leaked: {redacted}");
+    assert!(!redacted.contains("def"), "array secret leaked: {redacted}");
+    assert!(redacted.contains(REDACTED_VALUE));
+}
+
+#[test]
+fn redacts_secret_in_array_of_objects() {
+    let redacted = redact_sensitive_text(r#"{"items":[{"token":"t1"},{"token":"t2"}]}"#);
+
+    assert!(!redacted.contains("t1"), "first secret leaked: {redacted}");
+    assert!(!redacted.contains("t2"), "second secret leaked: {redacted}");
+}
+
+#[test]
+fn keeps_words_that_merely_contain_a_sensitive_fragment() {
+    for phrase in [
+        "author wrote the report",
+        "oauth flow completed",
+        "secretary filed notes",
+        "cookies were baked",
+        "tokenizer initialized",
+        "credentials directory missing",
+    ] {
+        assert_eq!(
+            redact_sensitive_text(phrase),
+            phrase,
+            "ordinary diagnostic text was over-redacted"
+        );
+    }
+}
