@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use super::widgets::{interval_drag, validation_error};
-use crate::{app::NeoNexusApp, federation::RemoteFederationMonitorPolicy};
+use crate::app::{domain::RemoteFederationMonitorPolicy, NeoNexusApp};
 
 pub(super) fn render_federation_monitor_policy(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.checkbox(

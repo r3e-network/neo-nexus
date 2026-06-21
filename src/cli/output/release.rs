@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::Serialize;
 
-use crate::release_pack::ReleasePackageVerification;
+use crate::core::distribution::ReleasePackageVerification;
 
 use super::json_text;
 

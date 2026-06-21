@@ -3,7 +3,7 @@ mod execution;
 mod model;
 mod persistence;
 
-use crate::events::{EventKind, EventSeverity};
+use crate::app::domain::{EventKind, EventSeverity};
 
 use super::{current_unix_time, NeoNexusApp};
 

@@ -9,7 +9,7 @@ mod status;
 
 use eframe::egui;
 
-use crate::snapshots::FastSyncSnapshot;
+use crate::app::domain::FastSyncSnapshot;
 
 use super::super::{
     text::short_path,

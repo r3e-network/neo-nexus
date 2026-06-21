@@ -2,10 +2,7 @@ use std::path::Path;
 
 use eframe::egui;
 
-use crate::{
-    logs::{LogReader, LogSnapshot},
-    types::{NodeConfig, NodeStatus},
-};
+use crate::app::domain::{LogReader, LogSnapshot, NodeConfig, NodeStatus};
 
 use super::{
     super::super::{

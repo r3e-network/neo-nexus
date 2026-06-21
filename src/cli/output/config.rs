@@ -3,9 +3,9 @@ use std::path::Path;
 use anyhow::Result;
 use serde::Serialize;
 
-use crate::{
-    config::{ConfigFormat, ConfigValidationReport},
-    types::NodeType,
+use crate::core::{
+    node::NodeType,
+    workspace::{ConfigFormat, ConfigValidationReport},
 };
 
 use super::{super::actions::GeneratedNodeConfigReport, json_text};

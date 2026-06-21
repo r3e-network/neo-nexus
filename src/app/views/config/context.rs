@@ -2,14 +2,11 @@ use std::path::Path;
 
 use eframe::egui;
 
-use crate::{
-    app::{
-        text::{short_path, truncate_middle},
-        widgets::{fact, render_node_fact_sheet},
-        NeoNexusApp,
-    },
-    config::{ConfigValidationReport, RenderedConfig},
-    types::NodeConfig,
+use crate::app::{
+    domain::{ConfigValidationReport, NodeConfig, RenderedConfig},
+    text::{short_path, truncate_middle},
+    widgets::{fact, render_node_fact_sheet},
+    NeoNexusApp,
 };
 
 use super::validation::render_config_validation;

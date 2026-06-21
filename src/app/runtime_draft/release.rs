@@ -1,4 +1,4 @@
-use crate::runtime::RuntimeRelease;
+use crate::app::domain::RuntimeRelease;
 
 use super::{bytes_to_mib_ceil, RuntimePackageDraft};
 

@@ -1,4 +1,4 @@
-use crate::runtime::{
+use crate::app::domain::{
     filter_runtime_installations, filter_runtime_releases, RuntimeCatalogFleetPlan,
     RuntimeCatalogUpgradePlan, RuntimeInstallation, RuntimeInstallationFilter,
     RuntimePackageManager, RuntimePlatform, RuntimeRelease, RuntimeReleaseFilter,
@@ -50,7 +50,7 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn catalog_upgrade_plan_for_node(
         &self,
-        node: &crate::types::NodeConfig,
+        node: &crate::app::domain::NodeConfig,
     ) -> Option<RuntimeCatalogUpgradePlan> {
         RuntimePackageManager::plan_catalog_upgrade(
             node,

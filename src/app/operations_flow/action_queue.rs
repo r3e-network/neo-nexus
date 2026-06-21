@@ -1,6 +1,6 @@
 use super::resolution::view_for_resolution;
 use super::*;
-use crate::diagnostics::{readiness_action_resolution_counts, readiness_action_severity_counts};
+use crate::app::domain::{readiness_action_resolution_counts, readiness_action_severity_counts};
 
 impl NeoNexusApp {
     pub(in crate::app) fn action_queue_filter(&self) -> ReadinessActionFilter {

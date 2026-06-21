@@ -1,9 +1,6 @@
 use eframe::egui;
 
-use crate::{
-    alerts::alert_target_label,
-    app::{theme::muted_text, NeoNexusApp},
-};
+use crate::app::{domain::alert_target_label, theme::muted_text, NeoNexusApp};
 
 pub(super) fn render_target_editor(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.label(

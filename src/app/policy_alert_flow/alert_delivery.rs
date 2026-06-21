@@ -1,10 +1,11 @@
 use super::*;
+use crate::app::domain::AlertDeliveryStatus;
 
 impl NeoNexusApp {
     pub(in crate::app) fn drain_alert_delivery_results(&mut self) {
         while let Ok(report) = self.alert_delivery_results.try_recv() {
             self.alert_delivery_pending = self.alert_delivery_pending.saturating_sub(1);
-            let failed = report.status != crate::alerts::AlertDeliveryStatus::Delivered;
+            let failed = report.status != AlertDeliveryStatus::Delivered;
             let message = report.message.clone();
             if let Err(error) = self.repository.record_alert_delivery(&report) {
                 self.notice = Some(error.to_string());
@@ -51,7 +52,7 @@ impl NeoNexusApp {
                 event_id: event.id,
                 route_label: policy.provider.to_string(),
                 target,
-                status: crate::alerts::AlertDeliveryStatus::Failed,
+                status: AlertDeliveryStatus::Failed,
                 http_status: None,
                 message: format!("Unable to start alert delivery: {error}"),
             };

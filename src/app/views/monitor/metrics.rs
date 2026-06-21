@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::metrics::format_bytes;
+use crate::app::domain::format_bytes;
 
 use super::super::super::{widgets::metric_tile, NeoNexusApp};
 

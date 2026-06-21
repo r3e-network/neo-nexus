@@ -1,14 +1,12 @@
 use eframe::egui;
 
-use crate::{
-    app::{
-        paging::page_count,
-        text::truncate_middle,
-        theme::muted_text,
-        widgets::{empty_state, pagination_bar},
-        NeoNexusApp, REMOTE_PROBE_HISTORY_PAGE_SIZE,
-    },
-    federation::{RemoteProbeStatus, RemoteServerProbeRecord},
+use crate::app::{
+    domain::{RemoteProbeStatus, RemoteServerProbeRecord},
+    paging::page_count,
+    text::truncate_middle,
+    theme::muted_text,
+    widgets::{empty_state, pagination_bar},
+    NeoNexusApp, REMOTE_PROBE_HISTORY_PAGE_SIZE,
 };
 
 use super::colors::remote_probe_color;

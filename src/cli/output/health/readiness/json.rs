@@ -3,7 +3,7 @@ use std::path::Path;
 use anyhow::Result;
 use serde::Serialize;
 
-use crate::diagnostics::FleetDiagnostics;
+use crate::core::operations::FleetDiagnostics;
 
 use super::{
     findings::{workspace_readiness_findings, WorkspaceReadinessCliFinding},

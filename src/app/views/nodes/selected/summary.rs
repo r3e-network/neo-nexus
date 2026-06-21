@@ -2,13 +2,13 @@ use eframe::egui;
 
 use crate::{
     app::{
+        domain::{NodeConfig, NodeStatus},
         text::{non_empty, short_path, truncate_middle},
         theme::status_color,
         widgets::{fact, render_node_fact_sheet},
         NeoNexusApp,
     },
     argv::format_argv,
-    types::{NodeConfig, NodeStatus},
 };
 
 pub(super) fn render_node_summary(app: &NeoNexusApp, ui: &mut egui::Ui, node: &NodeConfig) {

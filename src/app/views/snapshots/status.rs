@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::{snapshots::FastSyncSnapshot, types::NodeStatus};
+use crate::app::domain::{FastSyncSnapshot, NodeStatus};
 
 use super::super::super::theme::{accent, muted_text, status_color};
 

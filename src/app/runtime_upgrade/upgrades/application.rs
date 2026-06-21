@@ -1,7 +1,5 @@
-use crate::{
-    events::{EventKind, EventSeverity},
-    runtime::{RuntimeCatalogUpgradePlan, RuntimeInstallation},
-    types::NodeConfig,
+use crate::app::domain::{
+    EventKind, EventSeverity, NodeConfig, RuntimeCatalogUpgradePlan, RuntimeInstallation,
 };
 
 use super::{super::super::NeoNexusApp, input::runtime_installation_node_input};

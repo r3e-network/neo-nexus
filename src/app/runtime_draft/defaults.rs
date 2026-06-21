@@ -1,4 +1,4 @@
-use crate::runtime::{RuntimePackageManager, RuntimePlatform};
+use crate::app::domain::{RuntimePackageManager, RuntimePlatform};
 
 use super::{bytes_to_mib_ceil, default_runtime_node_type, RuntimePackageDraft};
 

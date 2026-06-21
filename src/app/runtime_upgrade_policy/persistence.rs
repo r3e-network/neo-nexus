@@ -1,4 +1,4 @@
-use crate::runtime::RuntimeUpgradePolicy;
+use crate::app::domain::RuntimeUpgradePolicy;
 
 use super::super::{NeoNexusApp, RuntimeUpgradePolicyDraft};
 

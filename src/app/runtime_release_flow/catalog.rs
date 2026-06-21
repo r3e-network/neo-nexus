@@ -1,5 +1,5 @@
 use super::*;
-use crate::runtime::RuntimeCatalogLoad;
+use crate::app::domain::RuntimeCatalogLoad;
 
 impl NeoNexusApp {
     pub(in crate::app) fn load_runtime_release_catalog(&mut self) {

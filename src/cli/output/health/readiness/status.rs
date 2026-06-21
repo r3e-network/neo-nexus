@@ -1,4 +1,4 @@
-use crate::{diagnostics::FleetDiagnostics, readiness_report::readiness_status};
+use crate::core::{operations::FleetDiagnostics, workspace::readiness_status};
 
 pub(super) fn workspace_readiness_status(diagnostics: &FleetDiagnostics) -> &'static str {
     readiness_status(diagnostics)

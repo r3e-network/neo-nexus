@@ -3,7 +3,7 @@ mod private_network;
 
 use eframe::egui;
 
-use crate::roles::{PrivateNetworkPlanner, RolePlanner};
+use crate::app::domain::{PrivateNetworkPlanner, RolePlanner};
 
 use super::super::{
     widgets::{metric_tile, panel},

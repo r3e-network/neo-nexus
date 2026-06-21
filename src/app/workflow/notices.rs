@@ -1,9 +1,6 @@
-use crate::{
-    events::EventSeverity,
-    preflight::RuntimeBinaryPreflight,
-    rpc_health::RpcHealthReport,
-    runtime_smoke::{RuntimeSmokeReport, RuntimeSmokeStatus},
-    supervisor::ProcessExit,
+use crate::app::domain::{
+    EventSeverity, ProcessExit, RpcHealthReport, RuntimeBinaryPreflight, RuntimeSmokeReport,
+    RuntimeSmokeStatus,
 };
 
 pub(in crate::app) fn exit_notice(node_name: &str, exit: &ProcessExit) -> String {

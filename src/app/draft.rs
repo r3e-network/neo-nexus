@@ -3,11 +3,11 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 
 use crate::{
-    argv::{format_argv, parse_argv_text},
-    types::{
+    app::domain::{
         validate_node_port, validate_node_ports, Network, NewNode, NodeConfig, NodeType,
         StorageEngine,
     },
+    argv::{format_argv, parse_argv_text},
 };
 
 #[derive(Debug, Clone)]

@@ -1,8 +1,10 @@
 use eframe::egui;
 
-use crate::{
-    alerts::{AlertPreviewHeader, AlertPreviewReport},
-    app::{text::truncate_middle, theme::muted_text, NeoNexusApp},
+use crate::app::{
+    domain::{AlertPreviewHeader, AlertPreviewReport},
+    text::truncate_middle,
+    theme::muted_text,
+    NeoNexusApp,
 };
 
 pub(super) fn render_alert_preview(app: &NeoNexusApp, ui: &mut egui::Ui) {

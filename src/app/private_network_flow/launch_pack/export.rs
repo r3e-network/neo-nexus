@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::private_network::PrivateNetworkDeploymentExport;
+use crate::app::domain::PrivateNetworkDeploymentExport;
 
 impl NeoNexusApp {
     pub(in crate::app) fn export_private_network_launch_pack(&mut self) {

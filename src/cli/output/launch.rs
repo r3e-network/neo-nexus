@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::Serialize;
 
-use crate::private_network::PrivateNetworkLaunchPackSidecarReport;
+use crate::core::workspace::PrivateNetworkLaunchPackSidecarReport;
 
 use super::json_text;
 

@@ -15,7 +15,7 @@ use crate::core::{
         evaluate_fleet, event_export_filter, preview_alert_route, probe_rpc_endpoint,
         AlertPreviewReport, AlertProvider, EventJournalReporter, EventKind, EventSeverity,
         FleetDiagnostics, MetricsCollector, MetricsSnapshot, RpcHealthReport, RpcHealthStatus,
-        RuntimeEvent, DEFAULT_EVENT_EXPORT_LIMIT, MAX_EVENT_EXPORT_LIMIT,
+        RuntimeEvent, RuntimeEventFilter, DEFAULT_EVENT_EXPORT_LIMIT, MAX_EVENT_EXPORT_LIMIT,
     },
     quality::{CiPolicyChecker, NativeUiAuditor, SourcePurityChecker, SourceQualityChecker},
     runtime::{smoke_runtime_command, RuntimeSmokeReport},

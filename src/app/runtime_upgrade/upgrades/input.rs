@@ -1,7 +1,4 @@
-use crate::{
-    runtime::RuntimeInstallation,
-    types::{NewNode, NodeConfig},
-};
+use crate::app::domain::{NewNode, NodeConfig, RuntimeInstallation};
 
 pub(super) fn runtime_installation_node_input(
     node: &NodeConfig,

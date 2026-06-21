@@ -1,8 +1,7 @@
 use eframe::egui;
 
-use crate::{
-    alerts::{filter_alert_deliveries, AlertDelivery, AlertDeliveryFilter, AlertDeliveryStatus},
-    types::NodeStatus,
+use crate::app::domain::{
+    filter_alert_deliveries, AlertDelivery, AlertDeliveryFilter, AlertDeliveryStatus, NodeStatus,
 };
 
 use super::super::super::{

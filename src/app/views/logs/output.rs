@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::logs::{LogReader, LogSnapshot};
+use crate::app::domain::{LogReader, LogSnapshot};
 
 use super::{
     super::super::{

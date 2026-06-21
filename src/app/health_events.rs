@@ -1,7 +1,5 @@
-use crate::{
-    events::EventSeverity,
-    federation::{RemoteProbeStatus, RemoteServerProbeReport, RemoteServerProfile},
-    rpc_health::RpcHealthStatus,
+use crate::app::domain::{
+    EventSeverity, RemoteProbeStatus, RemoteServerProbeReport, RemoteServerProfile, RpcHealthStatus,
 };
 
 use super::current_unix_time;

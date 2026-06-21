@@ -1,8 +1,7 @@
 use eframe::egui;
 
-use crate::{
-    app::{text::truncate_middle, theme::muted_text, widgets::fact},
-    federation::RemoteServerProbeRecord,
+use crate::app::{
+    domain::RemoteServerProbeRecord, text::truncate_middle, theme::muted_text, widgets::fact,
 };
 
 use super::colors::remote_probe_color;

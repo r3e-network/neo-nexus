@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::Serialize;
 
-use crate::alerts::AlertPreviewReport;
+use crate::core::operations::AlertPreviewReport;
 
 use super::json_text;
 

@@ -1,12 +1,10 @@
 use eframe::egui;
 
-use crate::{
-    app::{
-        text::{short_path, truncate_middle},
-        widgets::fact,
-        NeoNexusApp,
-    },
-    types::NodeConfig,
+use crate::app::{
+    domain::NodeConfig,
+    text::{short_path, truncate_middle},
+    widgets::fact,
+    NeoNexusApp,
 };
 
 pub(super) fn render_target_node(app: &NeoNexusApp, ui: &mut egui::Ui) {

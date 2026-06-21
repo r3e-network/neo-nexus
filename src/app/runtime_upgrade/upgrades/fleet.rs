@@ -1,7 +1,4 @@
-use crate::{
-    events::{EventKind, EventSeverity},
-    types::NodeStatus,
-};
+use crate::app::domain::{EventKind, EventSeverity, NodeStatus};
 
 use super::super::super::NeoNexusApp;
 

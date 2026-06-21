@@ -1,4 +1,4 @@
-use crate::runtime::{
+use crate::app::domain::{
     RuntimeCatalogProfile, RuntimePackageManager, RuntimePlatform, RuntimeReleaseCatalog,
     RuntimeUpgradePolicy,
 };

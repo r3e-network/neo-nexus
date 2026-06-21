@@ -1,12 +1,9 @@
 use eframe::egui;
 
-use crate::{
-    app::{
-        text::{short_path, truncate_middle},
-        widgets::fact,
-    },
-    metrics::format_bytes,
-    snapshots::FastSyncSnapshot,
+use crate::app::{
+    domain::{format_bytes, FastSyncSnapshot},
+    text::{short_path, truncate_middle},
+    widgets::fact,
 };
 
 pub(super) fn render_snapshot_facts(ui: &mut egui::Ui, snapshot: &FastSyncSnapshot) {

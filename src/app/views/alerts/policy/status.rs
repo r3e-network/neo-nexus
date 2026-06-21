@@ -1,8 +1,8 @@
 use eframe::egui;
 
-use crate::{
-    alerts::{alert_target_label, AlertRoutingPolicy},
-    app::widgets::fact,
+use crate::app::{
+    domain::{alert_target_label, AlertRoutingPolicy},
+    widgets::fact,
 };
 
 pub(super) fn render_policy_status(ui: &mut egui::Ui, policy: &AlertRoutingPolicy) {

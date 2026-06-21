@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::types::{NodeConfig, NodeStatus};
+use crate::app::domain::{NodeConfig, NodeStatus};
 
 use super::super::super::{
     paging::page_count,

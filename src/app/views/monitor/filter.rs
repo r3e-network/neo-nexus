@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::metrics::ProcessStateFilter;
+use crate::app::domain::ProcessStateFilter;
 
 use super::super::super::{theme::muted_text, NeoNexusApp};
 

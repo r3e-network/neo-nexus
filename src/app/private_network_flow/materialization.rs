@@ -97,7 +97,7 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn private_network_materialized_nodes(
         &self,
-        plan: &crate::roles::PrivateNetworkPlan,
+        plan: &PrivateNetworkPlan,
     ) -> anyhow::Result<Vec<NodeConfig>> {
         let mut nodes = Vec::with_capacity(plan.nodes.len());
         for planned in &plan.nodes {

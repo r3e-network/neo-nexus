@@ -1,4 +1,4 @@
-use crate::types::NodeConfig;
+use crate::app::domain::NodeConfig;
 
 use super::{NeoNexusApp, NODE_PAGE_SIZE};
 

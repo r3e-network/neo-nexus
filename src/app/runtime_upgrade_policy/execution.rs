@@ -1,6 +1,6 @@
 use anyhow::Context;
 
-use crate::runtime::{RuntimeCatalogUpgradePlan, RuntimePackageManager, RuntimePlatform};
+use crate::app::domain::{RuntimeCatalogUpgradePlan, RuntimePackageManager, RuntimePlatform};
 
 use super::super::NeoNexusApp;
 use super::model::{RuntimeUpgradePolicyBreakdown, RuntimeUpgradePolicySummary};

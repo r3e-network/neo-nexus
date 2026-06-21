@@ -136,24 +136,28 @@ including failed-verification messages with a non-zero exit code.
   `operations`, `workspace`, `security`, `distribution`, and `quality`
   submodules expose reusable services that both GUI and CLI surfaces can
   depend on without pulling in application-shell code. The native GUI
-  application domain binding, CLI actions, and CLI quality report output are
-  tested to import shared node-management and validation behavior through this
+  application domain binding, CLI actions, and CLI output renderers are tested
+  to import shared node-management, validation, readiness, backup, release,
+  alert, wallet, launch-pack, metrics, and runtime-smoke behavior through this
   facade instead of reaching directly into lower-level domain modules.
 - `src/app/domain.rs` is the GUI application binding to `src/core/`. It keeps
   the native shell entrypoint small while still making the GUI surface depend
   on the same reusable node, runtime, operations, workspace, security,
-  distribution, and quality services as the CLI. Operations workspace views
-  use this binding for diagnostics, readiness actions, port-matrix rows,
-  safety state, and plugin state; Runtime Manager views use it for runtime
-  installations, release catalogs, package validation, upgrade plans,
-  runtime-specific node types, node status, and display formatting. App
-  architecture tests enforce these imports so fixed native workspaces stay
+  distribution, and quality services as the CLI. Fixed native views and
+  application workflow modules use this binding for diagnostics, readiness
+  actions, port-matrix rows, safety state, plugin state, runtime
+  installations, release catalogs, package validation, upgrade plans, alerts,
+  federation profiles, config rendering, logs, snapshots, wallet profiles,
+  private-network plans, node models, and display formatting. App architecture
+  tests enforce these imports so native workspaces and application flows stay
   bound to the shared domain facade instead of reaching into lower-level
   modules directly.
 - `src/manager/` is the dual-mode application planner. Its action, output,
   and planner modules classify process arguments into `Gui` or `Cli` actions,
   own CLI output newline and exit-code semantics, and keep `src/main.rs` as a
-  thin native binary entrypoint.
+  thin native binary entrypoint. The CLI production tree is separately guarded
+  so command actions and text/JSON renderers consume shared services through
+  `src/core/` instead of lower-level modules.
 - `src/types.rs` defines Neo node models, enums, and reusable Inventory
   filtering.
 - `src/repository.rs` stores node configuration, plugin state, runtime events,
@@ -266,7 +270,11 @@ including failed-verification messages with a non-zero exit code.
   module without letting `src/app.rs` absorb another large inline test block.
 - `src/app/tests/architecture.rs` keeps native application architecture
   assertions focused, including the `src/app/domain.rs` binding, core facade
-  imports, Operations view imports, and Runtime Manager view imports.
+  imports, validation imports, full `src/app/views` domain imports, and
+  non-view app production module imports.
+- `src/cli/tests/basics/architecture.rs` keeps headless application-manager
+  modules honest by scanning the CLI production tree for root-domain imports
+  that should flow through `src/core/`.
 - `src/preflight.rs` resolves runtime commands on disk or through PATH,
   checks host executability, recognizes neo-cli direct or `dotnet Neo.CLI.dll`
   commands, neo-go binaries, and neo-rs `neo-node` binaries, and produces

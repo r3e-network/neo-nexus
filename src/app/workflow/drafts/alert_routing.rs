@@ -1,7 +1,4 @@
-use crate::{
-    alerts::{AlertProvider, AlertRoutingPolicy},
-    events::EventSeverity,
-};
+use crate::app::domain::{AlertProvider, AlertRoutingPolicy, EventSeverity};
 
 use super::super::text::optional_text;
 

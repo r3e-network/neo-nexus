@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::{catalog::PluginDefinition, metrics::format_bytes, types::NodeConfig};
+use crate::app::domain::{format_bytes, NodeConfig, PluginDefinition};
 
 use super::super::super::{
     text::truncate_middle,

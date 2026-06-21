@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::Serialize;
 
-use crate::runtime_smoke::RuntimeSmokeReport;
+use crate::core::runtime::RuntimeSmokeReport;
 
 use super::super::json_text;
 

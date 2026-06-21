@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::private_network::CommitteeSidecarProcess;
+use crate::app::domain::CommitteeSidecarProcess;
 
 use super::{SidecarEndpointHealthResult, SidecarEndpointHealthStatus};
 
