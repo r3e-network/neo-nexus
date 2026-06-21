@@ -87,11 +87,12 @@ NeoNexus workbench.
   test harness, and binary test builds use an empty entrypoint so all-target
   listing and filtered tests cannot open the native application.
 - Dual-mode application boundary: startup arguments are classified by a
-  manager layer before entering either the native GUI or headless CLI path;
-  CLI output text and exit-code semantics stay in that layer, so grouped
+  manager layer before entering either the native GUI or explicit headless CLI
+  path; CLI output text and exit-code semantics stay in that layer, so grouped
   operational core services remain reusable instead of being owned by one
-  surface. The native GUI application has a dedicated domain binding and the
-  headless CLI action/output tree is also tested to import shared node,
+  surface. The native GUI default is no longer represented as a CLI action.
+  The native GUI application has a dedicated domain binding and the headless
+  CLI action/output tree is also tested to import shared node,
   runtime, operations, workspace, security, release-distribution, and native
   validation behavior through the same core facade. Native view modules and
   application workflow modules use the GUI domain binding for diagnostics,

@@ -8,7 +8,6 @@ mod tests;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CliAction {
-    RunGui,
     Print(String),
     PrintWithExitCode { text: String, exit_code: i32 },
 }

@@ -11,6 +11,8 @@ use crate::{
 
 use super::WorkspaceSupportBundleExporter;
 
+mod render_sources;
+
 #[test]
 fn support_bundle_redacts_sensitive_argv_shapes() {
     let redacted = redact_sensitive_args(&[

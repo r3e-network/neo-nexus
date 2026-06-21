@@ -1,9 +1,13 @@
 use super::super::*;
 
 #[test]
-fn cli_defaults_to_native_gui() -> Result<()> {
-    assert_eq!(action_from_args(["neo-nexus"])?, CliAction::RunGui);
-    Ok(())
+fn cli_rejects_default_invocation_because_manager_owns_gui_mode() {
+    assert!(action_from_args(["neo-nexus"]).is_err());
+}
+
+#[test]
+fn cli_rejects_explicit_gui_because_manager_owns_gui_mode() {
+    assert!(action_from_args(["neo-nexus", "--gui"]).is_err());
 }
 
 #[test]
@@ -16,6 +20,9 @@ fn cli_prints_version_and_help_without_gui() -> Result<()> {
         anyhow::bail!("expected help text");
     };
     for expected in [
+        "--gui",
+        "APPLICATION MODE",
+        "Start the native desktop application",
         "--runtime-smoke-json",
         "--rpc-health-json",
         "--workspace-readiness-json",
