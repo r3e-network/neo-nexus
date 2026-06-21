@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::diagnostics::ReadinessAction;
+use crate::app::domain::ReadinessAction;
 
 use super::super::{
     super::super::{text::truncate_middle, theme::muted_text, NeoNexusApp, ACTION_QUEUE_PAGE_SIZE},

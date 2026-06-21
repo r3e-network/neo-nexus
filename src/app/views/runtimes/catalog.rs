@@ -5,7 +5,7 @@ mod table;
 
 use eframe::egui;
 
-use crate::runtime::RuntimePlatform;
+use crate::app::domain::RuntimePlatform;
 
 use super::super::super::{widgets::empty_state, NeoNexusApp};
 

@@ -1,6 +1,9 @@
 use eframe::egui;
 
-use crate::{app::NeoNexusApp, runtime::RuntimeCatalogUpgradePlan, types::NodeConfig};
+use crate::app::{
+    domain::{NodeConfig, RuntimeCatalogUpgradePlan},
+    NeoNexusApp,
+};
 
 use super::status::{catalog_upgrade_color, catalog_upgrade_state};
 

@@ -29,6 +29,7 @@ use sidecar_fixtures::{
 };
 use wallet_fixtures::{valid_nep6_wallet_json, VALID_NEP6_CONTRACT_PUBLIC_KEY};
 
+mod architecture;
 mod monitor_filters;
 mod nodes_runtime;
 mod operations;

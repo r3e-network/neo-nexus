@@ -3,7 +3,7 @@ mod table;
 
 use eframe::egui;
 
-use crate::diagnostics::FleetDiagnostics;
+use crate::app::domain::FleetDiagnostics;
 
 use super::super::super::{
     paging::page_count,

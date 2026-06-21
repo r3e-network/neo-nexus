@@ -133,11 +133,23 @@ including failed-verification messages with a non-zero exit code.
 ## Architecture
 
 - `src/core/` is the grouped UI-free domain facade. Its `node`, `runtime`,
-  `operations`, `workspace`, `security`, and `distribution` submodules expose
-  reusable services that both GUI and CLI surfaces can depend on without
-  pulling in application-shell code. CLI actions are tested to import shared
-  node-management behavior through this facade instead of reaching directly
-  into lower-level domain modules.
+  `operations`, `workspace`, `security`, `distribution`, and `quality`
+  submodules expose reusable services that both GUI and CLI surfaces can
+  depend on without pulling in application-shell code. The native GUI
+  application domain binding, CLI actions, and CLI quality report output are
+  tested to import shared node-management and validation behavior through this
+  facade instead of reaching directly into lower-level domain modules.
+- `src/app/domain.rs` is the GUI application binding to `src/core/`. It keeps
+  the native shell entrypoint small while still making the GUI surface depend
+  on the same reusable node, runtime, operations, workspace, security,
+  distribution, and quality services as the CLI. Operations workspace views
+  use this binding for diagnostics, readiness actions, port-matrix rows,
+  safety state, and plugin state; Runtime Manager views use it for runtime
+  installations, release catalogs, package validation, upgrade plans,
+  runtime-specific node types, node status, and display formatting. App
+  architecture tests enforce these imports so fixed native workspaces stay
+  bound to the shared domain facade instead of reaching into lower-level
+  modules directly.
 - `src/manager/` is the dual-mode application planner. Its action, output,
   and planner modules classify process arguments into `Gui` or `Cli` actions,
   own CLI output newline and exit-code semantics, and keep `src/main.rs` as a
@@ -252,6 +264,9 @@ including failed-verification messages with a non-zero exit code.
   endpoint health summaries, and launch-pack validation severity helpers.
 - `src/app/tests.rs` keeps app-level behavior coverage beside the application
   module without letting `src/app.rs` absorb another large inline test block.
+- `src/app/tests/architecture.rs` keeps native application architecture
+  assertions focused, including the `src/app/domain.rs` binding, core facade
+  imports, Operations view imports, and Runtime Manager view imports.
 - `src/preflight.rs` resolves runtime commands on disk or through PATH,
   checks host executability, recognizes neo-cli direct or `dotnet Neo.CLI.dll`
   commands, neo-go binaries, and neo-rs `neo-node` binaries, and produces

@@ -1,8 +1,9 @@
 use eframe::egui;
 
-use crate::{
-    app::{widgets::empty_state, NeoNexusApp},
-    runtime::{RuntimeInstallation, RuntimePackageManager, RuntimePlatform},
+use crate::app::{
+    domain::{RuntimeInstallation, RuntimePackageManager, RuntimePlatform},
+    widgets::empty_state,
+    NeoNexusApp,
 };
 
 use super::{

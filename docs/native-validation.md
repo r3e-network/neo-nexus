@@ -296,10 +296,13 @@ Current Rust tests cover:
   newline normalization, CLI exit-code preservation, and the binary
   entrypoint's use of the manager layer instead of direct CLI action matching.
 - Core facade coverage proving reusable domain services are available through
-  grouped node, runtime, operations, workspace, security, and distribution
-  boundaries without depending on GUI application-shell modules, plus a CLI
-  architecture test requiring shared domain imports to flow through
-  `src/core/`.
+  grouped node, runtime, operations, workspace, security, distribution, and
+  quality boundaries without depending on GUI application-shell modules, plus
+  architecture tests requiring the native GUI domain binding, shared CLI domain
+  imports, native validation imports, Operations workspace view imports, and
+  Runtime Manager view imports to flow through `src/core/`/`src/app/domain.rs`
+  while keeping the GUI shell entrypoint free of a full inline core import
+  list.
 - Source quality detection for production panic-oriented Rust markers,
   document-style native layout markers that would reintroduce scroll/table
   work surfaces, production hardcoded platform shortcut labels, test-aware

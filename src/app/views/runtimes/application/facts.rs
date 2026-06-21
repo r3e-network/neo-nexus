@@ -1,12 +1,9 @@
 use eframe::egui;
 
-use crate::{
-    app::{
-        text::{short_path, truncate_middle},
-        widgets::fact,
-    },
-    runtime::{RuntimeCatalogUpgradePlan, RuntimeInstallation, RuntimeUpgradePlan},
-    types::NodeConfig,
+use crate::app::{
+    domain::{NodeConfig, RuntimeCatalogUpgradePlan, RuntimeInstallation, RuntimeUpgradePlan},
+    text::{short_path, truncate_middle},
+    widgets::fact,
 };
 
 pub(super) fn render_node_runtime_facts(

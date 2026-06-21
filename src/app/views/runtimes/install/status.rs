@@ -1,11 +1,9 @@
 use eframe::egui;
 
-use crate::{
-    app::{
-        theme::{accent, muted_text},
-        NeoNexusApp,
-    },
-    runtime::validate_runtime_manifest,
+use crate::app::{
+    domain::validate_runtime_manifest,
+    theme::{accent, muted_text},
+    NeoNexusApp,
 };
 
 pub(super) fn render_manifest_status(app: &NeoNexusApp, ui: &mut egui::Ui) {

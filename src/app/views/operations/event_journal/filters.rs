@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::{app::NeoNexusApp, events::EventSeverity};
+use crate::app::{domain::EventSeverity, NeoNexusApp};
 
 use super::EventJournalCounts;
 

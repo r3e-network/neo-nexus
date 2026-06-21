@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 
 use eframe::egui;
 
-use crate::{catalog::PluginState, diagnostics::evaluate_fleet};
+use crate::app::domain::{evaluate_fleet, PluginState};
 
 use super::super::{widgets::panel, NeoNexusApp};
 

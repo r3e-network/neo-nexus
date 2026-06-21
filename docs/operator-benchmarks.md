@@ -90,9 +90,16 @@ NeoNexus workbench.
   manager layer before entering either the native GUI or headless CLI path;
   CLI output text and exit-code semantics stay in that layer, so grouped
   operational core services remain reusable instead of being owned by one
-  surface. The headless CLI action layer is also tested to import shared
-  node, runtime, operations, workspace, security, and release-distribution
-  behavior through the same core facade.
+  surface. The native GUI application has a dedicated domain binding and the
+  headless CLI action layer is also tested to import shared node, runtime,
+  operations, workspace, security, release-distribution, and native validation
+  behavior through the same core facade. Operations workspace panels use the
+  GUI domain binding for diagnostics, readiness, metrics, and node-state types
+  while Runtime Manager panels use it for runtime catalogs, package
+  validation, upgrade plans, installed runtime inventory, node types, and
+  formatting. That keeps the primary operator surfaces on the same tested
+  boundary instead of letting view modules depend directly on lower-level
+  runtime or model modules.
 - Source-size discipline: CI source quality gates keep production and test
   Rust files under the module line budget and keep catalog JSON, documentation,
   Cargo, named maintenance files, and CI maintenance files under a 1000-line

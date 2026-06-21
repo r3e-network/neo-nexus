@@ -1,9 +1,6 @@
 use eframe::egui;
 
-use crate::{
-    diagnostics::{CheckSeverity, FleetDiagnostics},
-    types::{Network, NodeStatus},
-};
+use crate::app::domain::{CheckSeverity, FleetDiagnostics, Network, NodeStatus};
 
 use super::super::super::super::{theme::muted_text, NeoNexusApp};
 

@@ -1,9 +1,8 @@
 use anyhow::Result;
 use serde::Serialize;
 
-use crate::{
-    ci_policy::CiPolicyReport, native_ui::NativeUiAuditReport, source_purity::SourcePurityReport,
-    source_quality::SourceQualityReport,
+use crate::core::quality::{
+    CiPolicyReport, NativeUiAuditReport, SourcePurityReport, SourceQualityReport,
 };
 
 use super::json_text;

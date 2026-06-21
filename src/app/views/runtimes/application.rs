@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::{app::NeoNexusApp, runtime::RuntimeInstallation};
+use crate::app::{domain::RuntimeInstallation, NeoNexusApp};
 
 mod actions;
 mod facts;

@@ -1,9 +1,9 @@
 use eframe::egui;
 
 use crate::{
+    app::domain::NodeType,
     app::widgets::{labeled_combo, labeled_text},
     app::NeoNexusApp,
-    types::NodeType,
 };
 
 pub(super) fn render_package_fields(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
