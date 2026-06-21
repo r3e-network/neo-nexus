@@ -80,9 +80,7 @@ impl Repository {
                 id,
             ],
         )?;
-        if changed == 0 {
-            anyhow::bail!("fast sync snapshot {id} was not found");
-        }
+        ensure_affected_rows(changed, "fast sync snapshot", id)?;
         Ok(())
     }
 
@@ -103,9 +101,7 @@ impl Repository {
                 id,
             ],
         )?;
-        if changed == 0 {
-            anyhow::bail!("fast sync snapshot {id} was not found");
-        }
+        ensure_affected_rows(changed, "fast sync snapshot", id)?;
         Ok(())
     }
 }

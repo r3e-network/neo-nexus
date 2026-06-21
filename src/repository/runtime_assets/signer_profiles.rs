@@ -48,9 +48,7 @@ impl Repository {
              WHERE id = ?2",
             params![used_at_unix, id],
         )?;
-        if changed == 0 {
-            anyhow::bail!("runtime signer profile {id} was not found");
-        }
+        ensure_affected_rows(changed, "runtime signer profile", id)?;
         Ok(())
     }
 
@@ -60,9 +58,7 @@ impl Repository {
             "DELETE FROM runtime_signer_profiles WHERE id = ?1",
             params![id],
         )?;
-        if deleted == 0 {
-            anyhow::bail!("runtime signer profile {id} was not found");
-        }
+        ensure_affected_rows(deleted, "runtime signer profile", id)?;
         Ok(())
     }
 }

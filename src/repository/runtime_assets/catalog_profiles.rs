@@ -64,9 +64,7 @@ impl Repository {
              WHERE id = ?4",
             params![load.loaded_at_unix, load.signature_verified, load.bytes, id],
         )?;
-        if changed == 0 {
-            anyhow::bail!("runtime catalog profile {id} was not found");
-        }
+        ensure_affected_rows(changed, "runtime catalog profile", id)?;
         Ok(())
     }
 
@@ -76,9 +74,7 @@ impl Repository {
             "DELETE FROM runtime_catalog_profiles WHERE id = ?1",
             params![id],
         )?;
-        if deleted == 0 {
-            anyhow::bail!("runtime catalog profile {id} was not found");
-        }
+        ensure_affected_rows(deleted, "runtime catalog profile", id)?;
         Ok(())
     }
 }

@@ -49,9 +49,7 @@ impl Repository {
              WHERE id = ?3",
             params![enabled, updated_at_unix, id],
         )?;
-        if changed == 0 {
-            anyhow::bail!("remote server {id} was not found");
-        }
+        ensure_affected_rows(changed, "remote server", id)?;
         self.get_remote_server(&connection, id)
     }
 }

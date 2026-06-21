@@ -10,9 +10,7 @@ impl Repository {
         )?;
         let deleted =
             transaction.execute("DELETE FROM remote_servers WHERE id = ?1", params![id])?;
-        if deleted == 0 {
-            anyhow::bail!("remote server {id} was not found");
-        }
+        ensure_affected_rows(deleted, "remote server", id)?;
         transaction.commit()?;
         Ok(())
     }
