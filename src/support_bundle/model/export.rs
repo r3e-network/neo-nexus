@@ -19,22 +19,33 @@ pub struct WorkspaceSupportBundleExport {
 
 impl WorkspaceSupportBundleExport {
     pub fn to_cli_text(&self) -> String {
-        format!(
-            "support-bundle: {status}\nbundle: {bundle}\narchive: {archive}\narchive-sha256: {archive_sha256}\narchive-bytes: {archive_bytes}\nmanifest: {manifest}\nprivacy: {privacy}\nreadiness: {readiness}\nintegrity: {integrity}\nnodes: {nodes}\nmatched-events: {matched_events}\nexported-events: {exported_events}\nfiles: {files}\n",
-            status = self.status,
-            bundle = self.bundle_dir.display(),
-            archive = self.archive_path.display(),
-            archive_sha256 = self.archive_sha256,
-            archive_bytes = self.archive_bytes,
-            manifest = self.manifest_path.display(),
-            privacy = self.manifest.privacy_policy,
-            readiness = self.manifest.readiness_status,
-            integrity = self.manifest.integrity_status,
-            nodes = self.manifest.node_count,
-            matched_events = self.manifest.matched_event_count,
-            exported_events = self.manifest.exported_event_count,
-            files = self.manifest.files.len(),
-        )
+        let fields = [
+            ("support-bundle", self.status.clone()),
+            ("bundle", self.bundle_dir.display().to_string()),
+            ("archive", self.archive_path.display().to_string()),
+            ("archive-sha256", self.archive_sha256.clone()),
+            ("archive-bytes", self.archive_bytes.to_string()),
+            ("manifest", self.manifest_path.display().to_string()),
+            ("privacy", self.manifest.privacy_policy.to_string()),
+            ("readiness", self.manifest.readiness_status.to_string()),
+            ("integrity", self.manifest.integrity_status.to_string()),
+            ("nodes", self.manifest.node_count.to_string()),
+            (
+                "matched-events",
+                self.manifest.matched_event_count.to_string(),
+            ),
+            (
+                "exported-events",
+                self.manifest.exported_event_count.to_string(),
+            ),
+            ("files", self.manifest.files.len().to_string()),
+        ];
+
+        let mut lines = fields
+            .map(|(label, value)| format!("{label}: {value}"))
+            .to_vec();
+        lines.push(String::new());
+        lines.join("\n")
     }
 
     pub fn to_json_text(&self) -> Result<String> {

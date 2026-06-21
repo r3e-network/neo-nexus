@@ -292,9 +292,10 @@ Current Rust tests cover:
   JSON, headless encrypted wallet validation, headless encrypted wallet
   validation JSON, headless encrypted wallet profile import, and invalid option
   rejection.
-- Manager mode planning for default GUI launch, explicit CLI output, CLI
-  newline normalization, CLI exit-code preservation, and the binary
-  entrypoint's use of the manager layer instead of direct CLI action matching.
+- Manager mode planning for default GUI launch before CLI dispatch, explicit
+  CLI output, CLI newline normalization, CLI exit-code preservation, and the
+  binary entrypoint's use of the manager layer instead of direct CLI action
+  matching.
 - Core facade coverage proving reusable domain services are available through
   grouped node, runtime, operations, workspace, security, distribution, and
   quality boundaries without depending on GUI application-shell modules, plus

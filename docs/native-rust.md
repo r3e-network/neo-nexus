@@ -12,7 +12,12 @@ work in place without scrolling through a document page.
 
 ```bash
 cargo run
+cargo run -- --gui
 ```
+
+The manager owns this application-mode split: no option and `--gui` start the
+native GUI, while every other option is dispatched as a headless manager
+command.
 
 For packaging and CI smoke checks without opening the GUI:
 
@@ -153,11 +158,11 @@ including failed-verification messages with a non-zero exit code.
   bound to the shared domain facade instead of reaching into lower-level
   modules directly.
 - `src/manager/` is the dual-mode application planner. Its action, output,
-  and planner modules classify process arguments into `Gui` or `Cli` actions,
-  own CLI output newline and exit-code semantics, and keep `src/main.rs` as a
-  thin native binary entrypoint. The CLI production tree is separately guarded
-  so command actions and text/JSON renderers consume shared services through
-  `src/core/` instead of lower-level modules.
+  and planner modules own the no-option native GUI default before dispatching
+  explicit CLI commands, own CLI output newline and exit-code semantics, and
+  keep `src/main.rs` as a thin native binary entrypoint. The CLI production
+  tree is separately guarded so command actions and text/JSON renderers
+  consume shared services through `src/core/` instead of lower-level modules.
 - `src/types.rs` defines Neo node models, enums, and reusable Inventory
   filtering.
 - `src/repository.rs` stores node configuration, plugin state, runtime events,

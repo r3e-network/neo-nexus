@@ -14,23 +14,42 @@ pub(in crate::support_bundle) fn render_readme(
     log_diagnosis: &SupportBundleLogDiagnosisReport,
     metrics: &MetricsSnapshot,
 ) -> String {
-    format!(
-        "NeoNexus support bundle\n\nstatus: {status}\nreadiness: {readiness}\nscore: {score}\nintegrity: {integrity}\nmetrics: {metrics_status}\nnode-processes: {node_processes}\nmissing-processes: {missing_processes}\nnodes: {nodes}\ncritical: {critical}\nwarnings: {warnings}\nlog-diagnoses: {log_diagnoses}\nlog-critical: {log_critical}\nlog-warnings: {log_warnings}\nmatched-events: {matched}\nexported-events: {exported}\nprivacy: {privacy}\n\nThis bundle is diagnostics evidence, not a workspace backup. It intentionally excludes private keys, wallet passwords, passphrases, mnemonics, seeds, bearer tokens, API keys, webhook secrets, raw logs, and raw database contents.\n",
-        status = bundle_status(diagnostics, integrity, log_diagnosis, metrics),
-        readiness = readiness_status(diagnostics),
-        score = diagnostics.score,
-        integrity = integrity.status_label(),
-        metrics_status = metrics.status_label(),
-        node_processes = metrics.node_processes.len(),
-        missing_processes = metrics.missing_processes.len(),
-        nodes = diagnostics.nodes.len(),
-        critical = diagnostics.critical_count,
-        warnings = diagnostics.warning_count,
-        log_diagnoses = log_diagnosis.entries.len(),
-        log_critical = log_diagnosis.critical_count,
-        log_warnings = log_diagnosis.warning_count,
-        matched = events.matched_event_count,
-        exported = events.exported_event_count,
-        privacy = PRIVACY_POLICY,
-    )
+    let fields = [
+        (
+            "status",
+            bundle_status(diagnostics, integrity, log_diagnosis, metrics).to_string(),
+        ),
+        ("readiness", readiness_status(diagnostics).to_string()),
+        ("score", diagnostics.score.to_string()),
+        ("integrity", integrity.status_label().to_string()),
+        ("metrics", metrics.status_label().to_string()),
+        ("node-processes", metrics.node_processes.len().to_string()),
+        (
+            "missing-processes",
+            metrics.missing_processes.len().to_string(),
+        ),
+        ("nodes", diagnostics.nodes.len().to_string()),
+        ("critical", diagnostics.critical_count.to_string()),
+        ("warnings", diagnostics.warning_count.to_string()),
+        ("log-diagnoses", log_diagnosis.entries.len().to_string()),
+        ("log-critical", log_diagnosis.critical_count.to_string()),
+        ("log-warnings", log_diagnosis.warning_count.to_string()),
+        ("matched-events", events.matched_event_count.to_string()),
+        ("exported-events", events.exported_event_count.to_string()),
+        ("privacy", PRIVACY_POLICY.to_string()),
+    ];
+
+    let mut lines = vec!["NeoNexus support bundle".to_string(), String::new()];
+    lines.extend(fields.map(|(label, value)| format!("{label}: {value}")));
+    lines.push(String::new());
+    lines.push(SUPPORT_BUNDLE_NOTICE.to_string());
+    lines.push(String::new());
+    lines.join("\n")
 }
+
+const SUPPORT_BUNDLE_NOTICE: &str = concat!(
+    "This bundle is diagnostics evidence, not a workspace backup. ",
+    "It intentionally excludes private keys, wallet passwords, passphrases, ",
+    "mnemonics, seeds, bearer tokens, API keys, webhook secrets, raw logs, ",
+    "and raw database contents."
+);

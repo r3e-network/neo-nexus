@@ -2,7 +2,7 @@ use super::*;
 
 pub(in crate::cli) fn action_from_args_vec(args: &[String]) -> Result<CliAction> {
     let Some(first) = args.get(1) else {
-        return Ok(CliAction::RunGui);
+        anyhow::bail!("missing NeoNexus CLI option; run without CLI dispatch to start the GUI");
     };
 
     match first.as_str() {

@@ -43,7 +43,11 @@ for neo-cli and neo-go.
 
 ```bash
 cargo run
+cargo run -- --gui
 ```
+
+Both commands enter the native desktop workbench through the manager layer.
+Any other option is treated as an explicit headless manager command.
 
 Headless smoke checks for CI and packaging:
 
@@ -587,18 +591,19 @@ The documentation set is part of the native application contract. It records
 what the desktop app does today, what the validation gates prove, and which
 sample catalogs operators can import without changing the Rust-only boundary.
 The README and Markdown docs also describe the executable architecture
-constraints: `src/manager/` selects native GUI versus headless CLI mode, while
-the native GUI application entrypoint, CLI actions, and CLI output renderers
-use the grouped `src/core/` facade for shared node, runtime, operations,
-workspace, security, distribution, and native quality services. The GUI
-entrypoint keeps those bindings in `src/app/domain.rs` so `src/app.rs` stays
-focused on the native application shell. Native application production modules
-consume diagnostics, readiness, metrics, safety, runtime catalog, package,
-alerting, federation, config, log, wallet, snapshot, private-network, node
-state, and formatting services through that same binding. Architecture tests
-now cover both native app production modules and the full `src/cli` production
-tree, so fixed-panel views, application workflow modules, and headless manager
-commands do not reach around the core facade into lower-level modules.
+constraints: `src/manager/` owns the default native GUI versus explicit
+headless CLI split before any CLI command is dispatched, while the native GUI
+application entrypoint, CLI actions, and CLI output renderers use the grouped
+`src/core/` facade for shared node, runtime, operations, workspace, security,
+distribution, and native quality services. The GUI entrypoint keeps those
+bindings in `src/app/domain.rs` so `src/app.rs` stays focused on the native
+application shell. Native application production modules consume diagnostics,
+readiness, metrics, safety, runtime catalog, package, alerting, federation,
+config, log, wallet, snapshot, private-network, node state, and formatting
+services through that same binding. Architecture tests now cover both native
+app production modules and the full `src/cli` production tree, so fixed-panel
+views, application workflow modules, and explicit headless commands do not
+reach around the core facade into lower-level modules.
 
 - [Native Rust App](docs/native-rust.md)
 - [Operator Benchmarks](docs/operator-benchmarks.md)

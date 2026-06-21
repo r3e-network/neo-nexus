@@ -8,6 +8,10 @@ fn manager_classifies_default_gui_and_explicit_cli_modes() -> anyhow::Result<()>
     assert_eq!(gui, ManagerAction::LaunchGui);
     assert_eq!(gui.mode(), ManagerMode::Gui);
 
+    let explicit_gui = action_from_args(["neo-nexus", "--gui"])?;
+    assert_eq!(explicit_gui, ManagerAction::LaunchGui);
+    assert_eq!(explicit_gui.mode(), ManagerMode::Gui);
+
     let help = action_from_args(["neo-nexus", "--help"])?;
     assert_eq!(help.mode(), ManagerMode::Cli);
     assert!(matches!(
@@ -49,6 +53,22 @@ fn manager_preserves_cli_exit_code_without_gui_dependencies() -> anyhow::Result<
             exit_code: 1,
         } if text.contains("source-purity: failed")
     ));
+    Ok(())
+}
+
+#[test]
+fn manager_rejects_extra_arguments_for_explicit_gui_mode() {
+    assert!(action_from_args(["neo-nexus", "--gui", "--help"]).is_err());
+}
+
+#[test]
+fn manager_planner_keeps_mode_classification_separate() -> anyhow::Result<()> {
+    let planner_path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/manager/planner.rs");
+    let planner_source = std::fs::read_to_string(planner_path)?;
+
+    assert!(planner_source.contains("fn classify_manager_mode"));
+    assert!(planner_source.contains("match classify_manager_mode(&args)?"));
     Ok(())
 }
 
