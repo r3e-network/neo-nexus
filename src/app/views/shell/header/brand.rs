@@ -1,7 +1,10 @@
 use eframe::egui;
 
 use super::{menu::render_application_menu, NeoNexusApp};
-use crate::app::theme::muted_text;
+use crate::app::{
+    shortcuts::{labels::shortcut_hint, AppShortcut},
+    theme::muted_text,
+};
 
 impl NeoNexusApp {
     pub(super) fn render_application_brand_row(&mut self, ui: &mut egui::Ui) {
@@ -21,11 +24,11 @@ impl NeoNexusApp {
                 );
                 ui.separator();
                 let theme_label = self.theme.toggle_label();
-                if ui
-                    .button(theme_label)
-                    .on_hover_text("Switch the workbench colour theme")
-                    .clicked()
-                {
+                let theme_hint = shortcut_hint(AppShortcut::ToggleTheme).map_or_else(
+                    || "Switch the workbench colour theme".to_string(),
+                    |keys| format!("Switch the workbench colour theme ({keys})"),
+                );
+                if ui.button(theme_label).on_hover_text(theme_hint).clicked() {
                     self.toggle_theme();
                 }
                 ui.separator();
