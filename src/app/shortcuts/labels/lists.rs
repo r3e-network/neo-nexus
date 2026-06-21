@@ -16,6 +16,7 @@ pub(in crate::app) fn shortcut_command_label(shortcut: AppShortcut) -> &'static 
         AppShortcut::LastNode => "Last node",
         AppShortcut::NextView => "Next view",
         AppShortcut::PreviousView => "Previous view",
+        AppShortcut::ToggleTheme => "Toggle theme",
         AppShortcut::SelectView(view) => view.label(),
     }
 }
@@ -41,11 +42,12 @@ pub(in crate::app) fn primary_action_shortcuts() -> [AppShortcut; 5] {
     ]
 }
 
-pub(in crate::app) fn workspace_menu_shortcuts() -> [AppShortcut; 3] {
+pub(in crate::app) fn workspace_menu_shortcuts() -> [AppShortcut; 4] {
     [
         AppShortcut::ReloadWorkspace,
         AppShortcut::SelectView(View::Summary),
         AppShortcut::SelectView(View::Settings),
+        AppShortcut::ToggleTheme,
     ]
 }
 

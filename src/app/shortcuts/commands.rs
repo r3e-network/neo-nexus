@@ -35,6 +35,7 @@ impl NeoNexusApp {
             AppShortcut::PreviousView => {
                 self.selected_view = views::previous_view(self.selected_view);
             }
+            AppShortcut::ToggleTheme => self.toggle_theme(),
             AppShortcut::SelectView(view) => self.selected_view = view,
         }
     }

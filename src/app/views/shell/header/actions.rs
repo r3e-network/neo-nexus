@@ -50,6 +50,7 @@ fn primary_action_enabled(shortcut: AppShortcut, action_state: &NodeActionState)
         | AppShortcut::LastNode
         | AppShortcut::NextView
         | AppShortcut::PreviousView
+        | AppShortcut::ToggleTheme
         | AppShortcut::SelectView(_) => false,
     }
 }
