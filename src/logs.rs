@@ -3,6 +3,7 @@ mod model;
 mod reader;
 
 #[cfg(test)]
+#[path = "../tests/unit/logs/tests.rs"]
 mod tests;
 
 pub use self::{

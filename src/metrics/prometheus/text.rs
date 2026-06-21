@@ -73,4 +73,5 @@ fn escape_label_value(value: &str) -> String {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/metrics/prometheus/text/tests.rs"]
 mod tests;

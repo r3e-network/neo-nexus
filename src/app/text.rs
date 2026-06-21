@@ -75,4 +75,5 @@ fn compact_duration(seconds: u64) -> String {
 }
 
 #[cfg(test)]
+#[path = "../../tests/unit/app/text/tests.rs"]
 mod tests;

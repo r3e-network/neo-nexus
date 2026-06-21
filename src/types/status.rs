@@ -65,4 +65,5 @@ impl FromStr for NodeStatus {
 }
 
 #[cfg(test)]
+#[path = "../../tests/unit/types/status/tests.rs"]
 mod tests;

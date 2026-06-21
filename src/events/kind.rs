@@ -107,4 +107,5 @@ impl fmt::Display for EventKind {
 }
 
 #[cfg(test)]
+#[path = "../../tests/unit/events/kind/tests.rs"]
 mod tests;

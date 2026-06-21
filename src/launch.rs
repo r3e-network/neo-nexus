@@ -7,4 +7,5 @@ pub use model::LaunchPlan;
 pub use planner::LaunchPlanner;
 
 #[cfg(test)]
+#[path = "../tests/unit/launch/tests.rs"]
 mod tests;

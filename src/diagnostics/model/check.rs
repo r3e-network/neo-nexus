@@ -141,4 +141,5 @@ impl DiagnosticCheckKey {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/diagnostics/model/check/tests.rs"]
 mod tests;

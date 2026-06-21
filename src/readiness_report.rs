@@ -5,6 +5,7 @@ mod status;
 mod writer;
 
 #[cfg(test)]
+#[path = "../tests/unit/readiness_report/tests.rs"]
 mod tests;
 
 pub use model::{

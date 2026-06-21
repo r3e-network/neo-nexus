@@ -4,6 +4,7 @@ mod actions;
 mod output;
 
 #[cfg(test)]
+#[path = "../tests/unit/cli/tests.rs"]
 mod tests;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

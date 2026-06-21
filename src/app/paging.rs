@@ -7,4 +7,5 @@ pub(super) fn page_count(item_count: usize, page_size: usize) -> usize {
 }
 
 #[cfg(test)]
+#[path = "../../tests/unit/app/paging/tests.rs"]
 mod tests;

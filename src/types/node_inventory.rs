@@ -50,4 +50,5 @@ fn text_matches(value: &str, query: &str) -> bool {
 }
 
 #[cfg(test)]
+#[path = "../../tests/unit/types/node_inventory/tests.rs"]
 mod tests;

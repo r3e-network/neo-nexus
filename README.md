@@ -145,7 +145,14 @@ The source tree is intentionally Rust-only:
   `source_purity`, `source_quality`, `native_ui`, and `ci_policy` hold
   reusable behavior outside the application shell.
 
-The application boundary is executable:
+Tests are kept out of `src/` so the source tree reads as production only:
+
+- `tests/unit/` mirrors the `src/` module layout and holds the in-crate unit
+  tests. Each production module keeps a one-line `#[cfg(test)] #[path = ...]
+  mod tests;` stub that points at its `tests/unit/` file, so the tests retain
+  private access while their code lives outside `src/`.
+- `tests/domain`, `tests/ci_policy`, and `tests/repository` hold the public-API
+  integration tests compiled as separate test crates.
 
 - `--source-purity` rejects Node/Web manifests, frontend source files,
   `node_modules`, web/frontend directories, Docker/compose and nginx deployment

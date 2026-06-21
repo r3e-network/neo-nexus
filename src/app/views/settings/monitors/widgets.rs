@@ -35,4 +35,5 @@ pub(super) fn validation_error(ui: &mut egui::Ui, message: Option<&str>) {
 }
 
 #[cfg(test)]
+#[path = "../../../../../tests/unit/app/views/settings/monitors/widgets/tests.rs"]
 mod tests;

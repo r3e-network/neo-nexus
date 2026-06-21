@@ -116,4 +116,5 @@ fn parse_optional_port(raw: &str) -> Result<Option<u16>> {
 }
 
 #[cfg(test)]
+#[path = "../../tests/unit/app/draft/tests.rs"]
 mod tests;

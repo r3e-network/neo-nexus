@@ -46,4 +46,5 @@ fn view_button_width(available_width: f32) -> f32 {
 }
 
 #[cfg(test)]
+#[path = "../../../../../tests/unit/app/views/shell/header/navigation/tests.rs"]
 mod tests;

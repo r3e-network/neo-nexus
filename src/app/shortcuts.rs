@@ -9,6 +9,7 @@ mod nodes;
 mod views;
 
 #[cfg(test)]
+#[path = "../../tests/unit/app/shortcuts/tests.rs"]
 mod tests;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

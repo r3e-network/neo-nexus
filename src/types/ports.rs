@@ -27,4 +27,5 @@ pub fn validate_node_port(port: u16, label: &str) -> Result<()> {
 }
 
 #[cfg(test)]
+#[path = "../../tests/unit/types/ports/tests.rs"]
 mod tests;

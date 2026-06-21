@@ -112,4 +112,5 @@ impl View {
 }
 
 #[cfg(test)]
+#[path = "../../tests/unit/app/view/tests.rs"]
 mod tests;

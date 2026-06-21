@@ -7,4 +7,5 @@ pub use planner::{plan_available_node_ports, plan_available_node_ports_with, DEF
 pub use probe::is_localhost_tcp_port_available;
 
 #[cfg(test)]
+#[path = "../tests/unit/port_planner/tests.rs"]
 mod tests;

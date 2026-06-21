@@ -140,4 +140,5 @@ fn text_matches(value: &str, query: &str) -> bool {
 }
 
 #[cfg(test)]
+#[path = "../../tests/unit/runtime/filter/tests.rs"]
 mod tests;

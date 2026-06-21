@@ -78,4 +78,5 @@ impl RuntimeUpgradePolicySummary {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/app/runtime_upgrade_policy/model/tests.rs"]
 mod tests;

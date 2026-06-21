@@ -11,4 +11,5 @@ pub use model::{
 pub struct EventJournalReporter;
 
 #[cfg(test)]
+#[path = "../tests/unit/event_journal_report/tests.rs"]
 mod tests;
