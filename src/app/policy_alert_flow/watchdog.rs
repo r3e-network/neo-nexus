@@ -13,14 +13,11 @@ impl NeoNexusApp {
                 self.watchdog.update_policy(policy);
                 self.watchdog_policy_draft = WatchdogPolicyDraft::from_policy(policy);
                 let message = format!("Watchdog policy saved: {}", policy.describe());
-                self.record_event(
-                    None,
-                    None,
+                self.record_event_notice(
                     EventKind::WatchdogPolicyUpdated,
                     EventSeverity::Info,
-                    message.clone(),
+                    message,
                 );
-                self.notice = Some(message);
             }
             Err(error) => self.notice = Some(error.to_string()),
         }

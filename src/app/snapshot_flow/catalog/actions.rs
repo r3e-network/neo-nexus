@@ -25,14 +25,7 @@ impl NeoNexusApp {
                 self.selected_snapshot = Some(snapshot.id.clone());
                 self.load_snapshot_catalog_entry_into_draft(&entry);
                 let message = format!("Fast sync catalog snapshot saved: {}", snapshot.label);
-                self.record_event(
-                    None,
-                    None,
-                    EventKind::SnapshotSaved,
-                    EventSeverity::Info,
-                    message.clone(),
-                );
-                self.notice = Some(message);
+                self.record_event_notice(EventKind::SnapshotSaved, EventSeverity::Info, message);
             }
             Err(error) => self.notice = Some(error.to_string()),
         }

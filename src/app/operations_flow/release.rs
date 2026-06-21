@@ -60,14 +60,11 @@ impl NeoNexusApp {
             }
             Err(error) => {
                 let message = format!("Release verification failed: {error}");
-                self.record_event(
-                    None,
-                    None,
+                self.record_event_notice(
                     EventKind::ReleasePackageVerified,
                     EventSeverity::Critical,
-                    message.clone(),
+                    message,
                 );
-                self.notice = Some(message);
             }
         }
     }

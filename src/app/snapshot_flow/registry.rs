@@ -31,14 +31,7 @@ impl NeoNexusApp {
             Ok(snapshot) => {
                 self.selected_snapshot = Some(snapshot.id.clone());
                 let message = format!("Fast sync snapshot saved: {}", snapshot.label);
-                self.record_event(
-                    None,
-                    None,
-                    EventKind::SnapshotSaved,
-                    EventSeverity::Info,
-                    message.clone(),
-                );
-                self.notice = Some(message);
+                self.record_event_notice(EventKind::SnapshotSaved, EventSeverity::Info, message);
             }
             Err(error) => self.notice = Some(error.to_string()),
         }

@@ -21,14 +21,11 @@ impl NeoNexusApp {
                     short_path(&download.path, 54),
                     format_bytes(download.bytes)
                 );
-                self.record_event(
-                    None,
-                    None,
+                self.record_event_notice(
                     EventKind::RuntimeDownloaded,
                     EventSeverity::Info,
-                    message.clone(),
+                    message,
                 );
-                self.notice = Some(message);
             }
             Err(error) => self.notice = Some(error.to_string()),
         }
