@@ -16,17 +16,11 @@ mod wallets;
 
 use eframe::egui;
 
-use super::{view::View, widgets::workspace_header, NeoNexusApp};
+use super::{view::View, NeoNexusApp};
 
 impl NeoNexusApp {
     pub(super) fn render_workspace(&mut self, ui: &mut egui::Ui) {
         ui.add_space(2.0);
-        workspace_header(
-            ui,
-            self.selected_view.title(),
-            self.selected_view.subtitle(),
-        );
-        ui.add_space(14.0);
 
         match self.selected_view {
             View::Summary => self.render_overview(ui),

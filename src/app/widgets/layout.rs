@@ -2,15 +2,6 @@ use eframe::egui;
 
 use crate::app::theme::{muted_text, panel_fill};
 
-pub(in crate::app) fn workspace_header(ui: &mut egui::Ui, title: &str, subtitle: &str) {
-    ui.horizontal(|ui| {
-        ui.vertical(|ui| {
-            ui.heading(title);
-            ui.label(egui::RichText::new(subtitle).color(muted_text()));
-        });
-    });
-}
-
 pub(in crate::app) fn metric_tile(ui: &mut egui::Ui, title: &str, value: &str, caption: &str) {
     let width = ((ui.available_width() - 24.0) / 4.0).max(150.0);
     ui.group(|ui| {
