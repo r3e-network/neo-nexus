@@ -1,3 +1,4 @@
+use crate::app::theme;
 use eframe::egui;
 
 use crate::app::{
@@ -16,9 +17,7 @@ pub(super) fn remote_enabled_color(enabled: bool) -> egui::Color32 {
 pub(super) fn remote_probe_color(status: RemoteProbeStatus) -> egui::Color32 {
     match status {
         RemoteProbeStatus::Healthy => status_color(NodeStatus::Running),
-        RemoteProbeStatus::Degraded | RemoteProbeStatus::Disabled => {
-            egui::Color32::from_rgb(202, 138, 4)
-        }
+        RemoteProbeStatus::Degraded | RemoteProbeStatus::Disabled => theme::warning(),
         RemoteProbeStatus::Unreachable => status_color(NodeStatus::Error),
     }
 }

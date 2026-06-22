@@ -2,6 +2,8 @@ use std::ops::RangeInclusive;
 
 use eframe::egui;
 
+use crate::app::theme;
+
 pub(super) fn status_label(enabled: bool) -> &'static str {
     if enabled {
         "enabled"
@@ -30,7 +32,7 @@ pub(super) fn interval_drag(
 
 pub(super) fn validation_error(ui: &mut egui::Ui, message: Option<&str>) {
     if let Some(message) = message {
-        ui.label(egui::RichText::new(message).color(egui::Color32::from_rgb(185, 28, 28)));
+        ui.label(egui::RichText::new(message).color(theme::danger()));
     }
 }
 

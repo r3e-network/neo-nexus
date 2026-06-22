@@ -1,25 +1,26 @@
 use eframe::egui;
 
 use crate::app::domain::{CheckSeverity, DiagnosticResolution, EventSeverity};
+use crate::app::theme;
 
 use super::super::super::theme::muted_text;
 
 pub(super) fn score_color(score: usize) -> egui::Color32 {
     if score >= 90 {
-        egui::Color32::from_rgb(21, 128, 61)
+        theme::success()
     } else if score >= 70 {
-        egui::Color32::from_rgb(202, 138, 4)
+        theme::warning()
     } else {
-        egui::Color32::from_rgb(185, 28, 28)
+        theme::danger()
     }
 }
 
 pub(super) fn severity_color(severity: CheckSeverity) -> egui::Color32 {
     match severity {
-        CheckSeverity::Pass => egui::Color32::from_rgb(21, 128, 61),
+        CheckSeverity::Pass => theme::success(),
         CheckSeverity::Info => muted_text(),
-        CheckSeverity::Warning => egui::Color32::from_rgb(202, 138, 4),
-        CheckSeverity::Critical => egui::Color32::from_rgb(185, 28, 28),
+        CheckSeverity::Warning => theme::warning(),
+        CheckSeverity::Critical => theme::danger(),
     }
 }
 
@@ -37,8 +38,8 @@ pub(super) fn severity_filter_label(
 pub(super) fn event_color(severity: EventSeverity) -> egui::Color32 {
     match severity {
         EventSeverity::Info => muted_text(),
-        EventSeverity::Warning => egui::Color32::from_rgb(202, 138, 4),
-        EventSeverity::Critical => egui::Color32::from_rgb(185, 28, 28),
+        EventSeverity::Warning => theme::warning(),
+        EventSeverity::Critical => theme::danger(),
     }
 }
 

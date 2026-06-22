@@ -1,3 +1,4 @@
+use crate::app::theme;
 use eframe::egui;
 
 use crate::app::{
@@ -40,9 +41,9 @@ fn render_preview_summary(ui: &mut egui::Ui, preview: &AlertPreviewReport, curre
 fn preview_status_row(ui: &mut egui::Ui, current: bool) {
     ui.label(egui::RichText::new("Status").color(muted_text()));
     let text = if current {
-        egui::RichText::new("Current draft").color(egui::Color32::from_rgb(22, 101, 52))
+        egui::RichText::new("Current draft").color(theme::success())
     } else {
-        egui::RichText::new("Draft changed").color(egui::Color32::from_rgb(185, 28, 28))
+        egui::RichText::new("Draft changed").color(theme::danger())
     };
     ui.label(text);
     ui.end_row();

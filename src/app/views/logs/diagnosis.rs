@@ -1,6 +1,7 @@
 use eframe::egui;
 
 use crate::app::domain::{LogDiagnosis, LogDiagnosisStatus, LogSnapshot};
+use crate::app::theme;
 
 use super::super::super::{text::truncate_middle, theme::muted_text};
 
@@ -40,9 +41,9 @@ pub(super) fn render_log_diagnosis(ui: &mut egui::Ui, diagnosis: &LogDiagnosis) 
 pub(super) fn diagnosis_color(status: LogDiagnosisStatus) -> egui::Color32 {
     match status {
         LogDiagnosisStatus::NoLog | LogDiagnosisStatus::Quiet => muted_text(),
-        LogDiagnosisStatus::Informational => egui::Color32::from_rgb(14, 116, 144),
-        LogDiagnosisStatus::Warning => egui::Color32::from_rgb(202, 138, 4),
-        LogDiagnosisStatus::Critical => egui::Color32::from_rgb(185, 28, 28),
+        LogDiagnosisStatus::Informational => theme::info(),
+        LogDiagnosisStatus::Warning => theme::warning(),
+        LogDiagnosisStatus::Critical => theme::danger(),
     }
 }
 
