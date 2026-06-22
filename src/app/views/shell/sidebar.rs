@@ -1,0 +1,60 @@
+use eframe::egui;
+
+use super::super::super::{theme::muted_text, view::View, NeoNexusApp};
+
+// Pages grouped for a calm, scannable navigation hierarchy.
+const NAV_GROUPS: &[(&str, &[View])] = &[
+    (
+        "Workspace",
+        &[View::Summary, View::Operations, View::Monitor, View::Logs],
+    ),
+    (
+        "Nodes",
+        &[
+            View::Nodes,
+            View::Runtimes,
+            View::Snapshots,
+            View::Plugins,
+            View::Config,
+        ],
+    ),
+    (
+        "Network",
+        &[View::Federation, View::Roles, View::Wallets, View::Alerts],
+    ),
+    ("System", &[View::Settings]),
+];
+
+impl NeoNexusApp {
+    pub(in crate::app) fn render_navigation_sidebar(&mut self, ui: &mut egui::Ui) {
+        ui.add_space(2.0);
+        for (index, (group, views)) in NAV_GROUPS.iter().enumerate() {
+            if index > 0 {
+                ui.add_space(14.0);
+            }
+            ui.label(
+                egui::RichText::new(group.to_uppercase())
+                    .color(muted_text())
+                    .size(11.0),
+            );
+            ui.add_space(4.0);
+            for &view in *views {
+                self.render_nav_item(ui, view);
+            }
+        }
+    }
+
+    fn render_nav_item(&mut self, ui: &mut egui::Ui, view: View) {
+        let selected = self.selected_view == view;
+        let width = ui.available_width();
+        let response = ui
+            .add_sized(
+                [width, 32.0],
+                egui::Button::selectable(selected, view.label()),
+            )
+            .on_hover_text(view.subtitle());
+        if response.clicked() {
+            self.selected_view = view;
+        }
+    }
+}

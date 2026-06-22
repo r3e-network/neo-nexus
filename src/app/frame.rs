@@ -40,14 +40,25 @@ impl eframe::App for NeoNexusApp {
 
         let style = context.style();
 
-        egui::SidePanel::left("inventory_panel")
-            .resizable(true)
-            .default_width(260.0)
-            .width_range(220.0..=360.0)
+        egui::SidePanel::left("navigation_panel")
+            .resizable(false)
+            .exact_width(212.0)
             .frame(
-                egui::Frame::side_top_panel(&style).inner_margin(egui::Margin::symmetric(16, 14)),
+                egui::Frame::side_top_panel(&style).inner_margin(egui::Margin::symmetric(12, 12)),
             )
-            .show(context, |ui| self.render_inventory_panel(ui));
+            .show(context, |ui| self.render_navigation_sidebar(ui));
+
+        if self.selected_view.shows_inventory() {
+            egui::SidePanel::left("inventory_panel")
+                .resizable(true)
+                .default_width(248.0)
+                .width_range(200.0..=340.0)
+                .frame(
+                    egui::Frame::side_top_panel(&style)
+                        .inner_margin(egui::Margin::symmetric(14, 14)),
+                )
+                .show(context, |ui| self.render_inventory_panel(ui));
+        }
 
         if self.inspector_visible {
             egui::SidePanel::right("inspector_panel")
