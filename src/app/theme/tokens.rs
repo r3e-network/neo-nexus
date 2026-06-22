@@ -13,6 +13,7 @@ pub(in crate::app) const MD: f32 = 12.0;
 // the live theme inside each constructor so typography stays theme-correct.
 const SIZE_PAGE_TITLE: f32 = 17.0;
 const SIZE_SECTION_TITLE: f32 = 14.0;
+const SIZE_COLUMN_HEADER: f32 = 12.0;
 const SIZE_CAPTION: f32 = 11.0;
 const SIZE_METRIC_VALUE: f32 = 24.0;
 const SIZE_BODY: f32 = 13.0;
@@ -37,6 +38,14 @@ pub(in crate::app) fn label_caption(text: impl Into<String>) -> RichText {
 /// Large, strong figure for metric tiles.
 pub(in crate::app) fn metric_value(text: impl Into<String>) -> RichText {
     RichText::new(text).size(SIZE_METRIC_VALUE).strong()
+}
+
+/// Column header for data tables: small, muted, semibold (macOS list style).
+pub(in crate::app) fn column_header(text: impl Into<String>) -> RichText {
+    RichText::new(text)
+        .size(SIZE_COLUMN_HEADER)
+        .color(muted_text())
+        .strong()
 }
 
 /// Secondary/explanatory body text (subtitles, captions, empty-state messages).

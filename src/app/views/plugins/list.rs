@@ -7,7 +7,7 @@ use super::{
         paging::page_count,
         text::truncate_middle,
         theme::muted_text,
-        widgets::{empty_state, fact, pagination_bar, plugin_enabled},
+        widgets::{empty_state, fact, grid_header, pagination_bar, plugin_enabled},
         NeoNexusApp, PLUGIN_PAGE_SIZE,
     },
     filter::render_plugin_filter,
@@ -57,10 +57,7 @@ pub(super) fn render_plugin_list(app: &mut NeoNexusApp, ui: &mut egui::Ui, node:
         .striped(true)
         .min_col_width(72.0)
         .show(ui, |ui| {
-            ui.strong("Plugin");
-            ui.strong("Category");
-            ui.strong("Enabled");
-            ui.end_row();
+            grid_header(ui, &["Plugin", "Category", "Enabled"]);
 
             for plugin in visible {
                 let selected = app.selected_plugin == Some(plugin.id);

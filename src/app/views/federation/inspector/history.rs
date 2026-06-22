@@ -5,7 +5,7 @@ use crate::app::{
     paging::page_count,
     text::truncate_middle,
     theme::muted_text,
-    widgets::{empty_state, pagination_bar},
+    widgets::{empty_state, grid_header, pagination_bar},
     NeoNexusApp, REMOTE_PROBE_HISTORY_PAGE_SIZE,
 };
 
@@ -87,13 +87,10 @@ fn render_history_table(ui: &mut egui::Ui, history: &[RemoteServerProbeRecord], 
         .striped(true)
         .min_col_width(58.0)
         .show(ui, |ui| {
-            ui.label(egui::RichText::new("Time").color(muted_text()));
-            ui.label(egui::RichText::new("Status").color(muted_text()));
-            ui.label(egui::RichText::new("Nodes").color(muted_text()));
-            ui.label(egui::RichText::new("Blocks").color(muted_text()));
-            ui.label(egui::RichText::new("Peers").color(muted_text()));
-            ui.label(egui::RichText::new("Message").color(muted_text()));
-            ui.end_row();
+            grid_header(
+                ui,
+                &["Time", "Status", "Nodes", "Blocks", "Peers", "Message"],
+            );
             for record in history
                 .iter()
                 .skip(start)

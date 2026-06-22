@@ -31,11 +31,7 @@ impl NeoNexusApp {
             .striped(true)
             .min_col_width(72.0)
             .show(ui, |ui| {
-                ui.strong("Plugin");
-                ui.strong("Current");
-                ui.strong("Target");
-                ui.strong("Reason");
-                ui.end_row();
+                grid_header(ui, &["Plugin", "Current", "Target", "Reason"]);
 
                 for row in 0..PLAN_ROWS {
                     if let Some(change) = plan.plugin_changes.get(row) {

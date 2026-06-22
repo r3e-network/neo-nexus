@@ -7,7 +7,7 @@ use super::super::super::{
     paging::page_count,
     text::truncate_middle,
     theme::{muted_text, status_color},
-    widgets::{empty_state, pagination_bar},
+    widgets::{empty_state, grid_header, pagination_bar},
     NeoNexusApp, MONITOR_PROCESS_PAGE_SIZE,
 };
 use super::filter::render_process_filter;
@@ -42,13 +42,7 @@ pub(super) fn render_process_metrics(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         .striped(true)
         .min_col_width(66.0)
         .show(ui, |ui| {
-            ui.strong("Node");
-            ui.strong("PID");
-            ui.strong("CPU");
-            ui.strong("RSS");
-            ui.strong("Uptime");
-            ui.strong("State");
-            ui.end_row();
+            grid_header(ui, &["Node", "PID", "CPU", "RSS", "Uptime", "State"]);
 
             for row in rows.iter().skip(start).take(MONITOR_PROCESS_PAGE_SIZE) {
                 render_process_row(app, ui, row);

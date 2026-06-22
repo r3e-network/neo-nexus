@@ -5,7 +5,7 @@ use crate::app::domain::FastSyncSnapshot;
 use super::super::super::{
     paging::page_count,
     text::truncate_middle,
-    widgets::{empty_state, pagination_bar},
+    widgets::{empty_state, grid_header, pagination_bar},
     NeoNexusApp, SNAPSHOT_PAGE_SIZE,
 };
 
@@ -47,11 +47,7 @@ impl NeoNexusApp {
             .striped(true)
             .min_col_width(72.0)
             .show(ui, |ui| {
-                ui.strong("Label");
-                ui.strong("Runtime");
-                ui.strong("Network");
-                ui.strong("Status");
-                ui.end_row();
+                grid_header(ui, &["Label", "Runtime", "Network", "Status"]);
 
                 for snapshot in visible {
                     let selected = self.selected_snapshot.as_deref() == Some(snapshot.id.as_str());

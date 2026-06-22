@@ -6,7 +6,7 @@ use super::super::super::super::{
     paging::page_count,
     text::truncate_middle,
     theme::{accent, muted_text},
-    widgets::{empty_state, pagination_bar},
+    widgets::{empty_state, grid_header, pagination_bar},
     NeoNexusApp, RUNTIME_CATALOG_PAGE_SIZE,
 };
 use super::super::filter::render_runtime_release_filter;
@@ -46,12 +46,7 @@ impl NeoNexusApp {
             .striped(true)
             .min_col_width(72.0)
             .show(ui, |ui| {
-                ui.strong("Release");
-                ui.strong("Runtime");
-                ui.strong("Version");
-                ui.strong("Platform");
-                ui.strong("Limit");
-                ui.end_row();
+                grid_header(ui, &["Release", "Runtime", "Version", "Platform", "Limit"]);
 
                 for release in filtered.iter().skip(start).take(RUNTIME_CATALOG_PAGE_SIZE) {
                     let selected =

@@ -9,7 +9,7 @@ mod tokens;
 
 pub(super) use style::configure_style;
 pub(in crate::app) use tokens::{
-    label_caption, metric_value, muted_body, page_title, section_title, MD, SM, XS,
+    column_header, label_caption, metric_value, muted_body, page_title, section_title, MD, SM, XS,
 };
 
 /// Visual theme for the native workbench. The palettes follow a calm,

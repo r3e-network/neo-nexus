@@ -5,7 +5,7 @@ use crate::app::domain::{format_bytes, RuntimeInstallation};
 use super::super::super::{
     paging::page_count,
     text::truncate_middle,
-    widgets::{empty_state, pagination_bar},
+    widgets::{empty_state, grid_header, pagination_bar},
     NeoNexusApp, RUNTIME_PAGE_SIZE,
 };
 use super::filter::render_runtime_inventory_filter;
@@ -43,13 +43,10 @@ impl NeoNexusApp {
             .striped(true)
             .min_col_width(74.0)
             .show(ui, |ui| {
-                ui.strong("Package");
-                ui.strong("Runtime");
-                ui.strong("Version");
-                ui.strong("Platform");
-                ui.strong("Trust");
-                ui.strong("Size");
-                ui.end_row();
+                grid_header(
+                    ui,
+                    &["Package", "Runtime", "Version", "Platform", "Trust", "Size"],
+                );
 
                 for installation in filtered.iter().skip(start).take(RUNTIME_PAGE_SIZE) {
                     let selected = self.selected_runtime_installation.as_deref()
