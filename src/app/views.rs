@@ -16,19 +16,17 @@ mod wallets;
 
 use eframe::egui;
 
-use super::{theme::muted_text, view::View, widgets::workspace_header, NeoNexusApp};
+use super::{view::View, widgets::workspace_header, NeoNexusApp};
 
 impl NeoNexusApp {
     pub(super) fn render_workspace(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(10.0);
+        ui.add_space(2.0);
         workspace_header(
             ui,
             self.selected_view.title(),
             self.selected_view.subtitle(),
         );
-        ui.add_space(6.0);
-        self.render_workspace_tabs(ui);
-        ui.add_space(8.0);
+        ui.add_space(14.0);
 
         match self.selected_view {
             View::Summary => self.render_overview(ui),
@@ -46,29 +44,5 @@ impl NeoNexusApp {
             View::Config => self.render_config(ui),
             View::Logs => self.render_logs(ui),
         }
-    }
-
-    fn render_workspace_tabs(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            ui.label(egui::RichText::new("View").color(muted_text()));
-            ui.separator();
-            let tab_gap = 4.0;
-            let reserved = 56.0;
-            let tab_width =
-                ((ui.available_width() - reserved) / View::ALL.len() as f32).clamp(42.0, 74.0);
-            for view in View::ALL {
-                if ui
-                    .add_sized(
-                        [tab_width, 24.0],
-                        egui::Button::new(view.short_label()).selected(self.selected_view == view),
-                    )
-                    .on_hover_text(format!("{} - {}", view.title(), view.subtitle()))
-                    .clicked()
-                {
-                    self.selected_view = view;
-                }
-                ui.add_space(tab_gap);
-            }
-        });
     }
 }

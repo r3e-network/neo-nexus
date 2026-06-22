@@ -53,23 +53,20 @@ impl View {
         }
     }
 
-    pub(super) fn short_label(self) -> &'static str {
-        match self {
-            Self::Summary => "Sum",
-            Self::Operations => "Ops",
-            Self::Monitor => "Mon",
-            Self::Alerts => "Alert",
-            Self::Federation => "Fed",
-            Self::Settings => "Set",
-            Self::Runtimes => "Run",
-            Self::Wallets => "Keys",
-            Self::Nodes => "Nodes",
-            Self::Roles => "Role",
-            Self::Snapshots => "Sync",
-            Self::Plugins => "Plug",
-            Self::Config => "Cfg",
-            Self::Logs => "Logs",
-        }
+    /// Whether the node inventory column is relevant to this page. Workspace-
+    /// level pages (wallets, settings, alerts, …) hide it so they get the full
+    /// width instead of an irrelevant node list.
+    pub(super) fn shows_inventory(self) -> bool {
+        matches!(
+            self,
+            Self::Summary
+                | Self::Operations
+                | Self::Monitor
+                | Self::Nodes
+                | Self::Plugins
+                | Self::Config
+                | Self::Logs
+        )
     }
 
     pub(super) fn title(self) -> &'static str {
