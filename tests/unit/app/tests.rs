@@ -36,6 +36,7 @@ mod operations;
 mod plugin_filters;
 mod policies;
 mod process_fixtures;
+mod remote_federation_drain;
 mod remote_profiles;
 mod runtime_filters;
 mod settings_wallet;
