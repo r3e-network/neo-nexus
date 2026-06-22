@@ -30,7 +30,7 @@ impl eframe::App for NeoNexusApp {
 
         egui::TopBottomPanel::top("application_header")
             .resizable(false)
-            .exact_height(78.0)
+            .exact_height(60.0)
             .show(context, |ui| self.render_application_header(ui));
 
         egui::TopBottomPanel::bottom("status_bar")
