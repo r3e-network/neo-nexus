@@ -38,18 +38,28 @@ impl eframe::App for NeoNexusApp {
             .exact_height(28.0)
             .show(context, |ui| self.render_status_bar(ui));
 
+        let style = context.style();
+
         egui::SidePanel::left("inventory_panel")
             .resizable(false)
             .exact_width(286.0)
+            .frame(
+                egui::Frame::side_top_panel(&style).inner_margin(egui::Margin::symmetric(16, 14)),
+            )
             .show(context, |ui| self.render_inventory_panel(ui));
 
         egui::SidePanel::right("inspector_panel")
             .resizable(false)
             .exact_width(336.0)
+            .frame(
+                egui::Frame::side_top_panel(&style).inner_margin(egui::Margin::symmetric(16, 14)),
+            )
             .show(context, |ui| self.render_inspector_panel(ui));
 
-        egui::CentralPanel::default().show(context, |ui| {
-            self.render_workspace(ui);
-        });
+        egui::CentralPanel::default()
+            .frame(egui::Frame::central_panel(&style).inner_margin(egui::Margin::symmetric(22, 18)))
+            .show(context, |ui| {
+                self.render_workspace(ui);
+            });
     }
 }

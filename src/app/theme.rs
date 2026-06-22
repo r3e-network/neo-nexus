@@ -4,9 +4,13 @@ use eframe::egui::{self, Color32};
 
 use crate::app::domain::NodeStatus;
 
-/// Visual theme for the native workbench. `Light` preserves the original
-/// slate/cyan workbench palette; `Dark` is a slate-900 counterpart with the
-/// same accent family.
+mod style;
+
+pub(super) use style::configure_style;
+
+/// Visual theme for the native workbench. The palettes follow a calm,
+/// macOS-style design language: near-neutral surfaces, hairline separators,
+/// generous spacing, soft corners, and a single restrained indigo accent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(in crate::app) enum Theme {
     #[default]
@@ -59,44 +63,60 @@ fn active_theme() -> Theme {
 #[derive(Clone, Copy)]
 struct Palette {
     accent: Color32,
+    accent_hover: Color32,
+    on_accent: Color32,
+    text: Color32,
     muted_text: Color32,
     card_fill: Color32,
     panel_fill: Color32,
     window_fill: Color32,
-    extreme_bg: Color32,
-    selection_text: Color32,
+    field_fill: Color32,
+    faint_fill: Color32,
+    border: Color32,
     status_running: Color32,
     status_starting: Color32,
     status_stopped: Color32,
     status_error: Color32,
 }
 
+// Light: airy near-white surfaces with a soft grey workspace, hairline borders,
+// and macOS system status colours.
 const LIGHT_PALETTE: Palette = Palette {
-    accent: Color32::from_rgb(14, 116, 144),
-    muted_text: Color32::from_rgb(71, 85, 105),
+    accent: Color32::from_rgb(88, 86, 214),
+    accent_hover: Color32::from_rgb(73, 71, 196),
+    on_accent: Color32::from_rgb(255, 255, 255),
+    text: Color32::from_rgb(29, 29, 31),
+    muted_text: Color32::from_rgb(124, 124, 130),
     card_fill: Color32::from_rgb(255, 255, 255),
-    panel_fill: Color32::from_rgb(238, 242, 247),
-    window_fill: Color32::from_rgb(248, 250, 252),
-    extreme_bg: Color32::from_rgb(226, 232, 240),
-    selection_text: Color32::WHITE,
-    status_running: Color32::from_rgb(21, 128, 61),
-    status_starting: Color32::from_rgb(202, 138, 4),
-    status_stopped: Color32::from_rgb(75, 85, 99),
-    status_error: Color32::from_rgb(185, 28, 28),
+    panel_fill: Color32::from_rgb(246, 246, 248),
+    window_fill: Color32::from_rgb(251, 251, 253),
+    field_fill: Color32::from_rgb(255, 255, 255),
+    faint_fill: Color32::from_rgb(243, 243, 246),
+    border: Color32::from_rgb(226, 226, 230),
+    status_running: Color32::from_rgb(40, 167, 90),
+    status_starting: Color32::from_rgb(214, 138, 10),
+    status_stopped: Color32::from_rgb(142, 142, 147),
+    status_error: Color32::from_rgb(213, 60, 55),
 };
 
+// Dark: layered greys (window < sidebar/card) with a brighter indigo accent and
+// lifted status colours for contrast on dark surfaces.
 const DARK_PALETTE: Palette = Palette {
-    accent: Color32::from_rgb(34, 211, 238),
-    muted_text: Color32::from_rgb(148, 163, 184),
-    card_fill: Color32::from_rgb(30, 41, 59),
-    panel_fill: Color32::from_rgb(15, 23, 42),
-    window_fill: Color32::from_rgb(2, 6, 23),
-    extreme_bg: Color32::from_rgb(2, 6, 23),
-    selection_text: Color32::from_rgb(15, 23, 42),
-    status_running: Color32::from_rgb(34, 197, 94),
-    status_starting: Color32::from_rgb(250, 204, 21),
-    status_stopped: Color32::from_rgb(148, 163, 184),
-    status_error: Color32::from_rgb(248, 113, 113),
+    accent: Color32::from_rgb(125, 122, 255),
+    accent_hover: Color32::from_rgb(149, 146, 255),
+    on_accent: Color32::from_rgb(255, 255, 255),
+    text: Color32::from_rgb(243, 243, 245),
+    muted_text: Color32::from_rgb(152, 152, 157),
+    card_fill: Color32::from_rgb(38, 38, 42),
+    panel_fill: Color32::from_rgb(26, 26, 29),
+    window_fill: Color32::from_rgb(22, 22, 25),
+    field_fill: Color32::from_rgb(32, 32, 36),
+    faint_fill: Color32::from_rgb(34, 34, 38),
+    border: Color32::from_rgb(54, 54, 60),
+    status_running: Color32::from_rgb(48, 209, 88),
+    status_starting: Color32::from_rgb(255, 214, 70),
+    status_stopped: Color32::from_rgb(152, 152, 157),
+    status_error: Color32::from_rgb(255, 105, 97),
 };
 
 fn palette(theme: Theme) -> Palette {
@@ -104,25 +124,6 @@ fn palette(theme: Theme) -> Palette {
         Theme::Light => LIGHT_PALETTE,
         Theme::Dark => DARK_PALETTE,
     }
-}
-
-pub(super) fn configure_style(context: &egui::Context, theme: Theme) {
-    set_active_theme(theme);
-    let palette = palette(theme);
-    let mut style = (*context.style()).clone();
-    style.visuals = if theme.is_dark() {
-        egui::Visuals::dark()
-    } else {
-        egui::Visuals::light()
-    };
-    style.visuals.panel_fill = palette.panel_fill;
-    style.visuals.window_fill = palette.window_fill;
-    style.visuals.extreme_bg_color = palette.extreme_bg;
-    style.visuals.selection.bg_fill = palette.accent;
-    style.visuals.selection.stroke.color = palette.selection_text;
-    style.spacing.item_spacing = egui::vec2(8.0, 6.0);
-    style.spacing.button_padding = egui::vec2(10.0, 5.0);
-    context.set_style(style);
 }
 
 pub(super) fn accent() -> Color32 {
