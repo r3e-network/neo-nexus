@@ -2,7 +2,7 @@ use eframe::egui;
 
 use super::super::super::{
     shortcuts::{labels::shortcut_hint, AppShortcut},
-    theme::muted_text,
+    theme::{self, muted_text},
     view::View,
     NeoNexusApp,
 };
@@ -33,7 +33,7 @@ const NAV_GROUPS: &[(&str, &[View])] = &[
 impl NeoNexusApp {
     pub(in crate::app) fn render_navigation_sidebar(&mut self, ui: &mut egui::Ui) {
         ui.add_space(2.0);
-        ui.label(egui::RichText::new("NeoNexus").strong().size(17.0));
+        ui.label(theme::page_title("NeoNexus"));
         ui.label(
             egui::RichText::new("Neo node operations")
                 .color(muted_text())
@@ -60,11 +60,7 @@ impl NeoNexusApp {
             if index > 0 {
                 ui.add_space(14.0);
             }
-            ui.label(
-                egui::RichText::new(group.to_uppercase())
-                    .color(muted_text())
-                    .size(11.0),
-            );
+            ui.label(theme::label_caption(*group));
             ui.add_space(4.0);
             for &view in *views {
                 self.render_nav_item(ui, view);

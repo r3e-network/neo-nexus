@@ -64,6 +64,10 @@ use snapshot_draft::SnapshotDraft;
 use text::short_path;
 use theme::Theme;
 use view::View;
+use views::{
+    FederationSection, MonitorSection, OperationsSection, RolesSection, RuntimesSection,
+    SettingsSection, SnapshotsSection,
+};
 use workflow::{
     committee_keys_with_wallet_profile, current_unix_time, data_dir, exit_notice, format_duration,
     non_empty_text, optional_text, preflight_notice, rpc_health_notice,

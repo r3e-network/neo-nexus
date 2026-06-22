@@ -4,7 +4,7 @@ use crate::app::domain::{
     alert_target_label, AlertDelivery, AlertDeliveryStatus, AlertRoutingPolicy,
 };
 
-use super::super::super::{text::truncate_middle, widgets::metric_tile};
+use super::super::super::{text::truncate_middle, widgets::metric_row};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct AlertDeliverySummary {
@@ -37,29 +37,25 @@ pub(super) fn render_alert_metrics(
         .map(alert_target_label)
         .unwrap_or_else(|| "not configured".to_string());
 
-    ui.horizontal(|ui| {
-        metric_tile(
-            ui,
-            "Routing",
-            if policy.enabled {
-                "Enabled"
-            } else {
-                "Disabled"
-            },
-            &format!("{}+ events", policy.min_severity),
-        );
-        metric_tile(
-            ui,
-            "Target",
-            &truncate_middle(&target, 18),
-            "webhook endpoint",
-        );
-        metric_tile(ui, "Pending", &pending.to_string(), "background sends");
-        metric_tile(
-            ui,
-            "Recent",
-            &format!("{}/{}", summary.delivered, summary.failed),
-            "delivered/failed",
-        );
-    });
+    let routing_caption = format!("{}+ events", policy.min_severity);
+    let target_short = truncate_middle(&target, 18);
+    let pending_label = pending.to_string();
+    let recent = format!("{}/{}", summary.delivered, summary.failed);
+    metric_row(
+        ui,
+        &[
+            (
+                "Routing",
+                if policy.enabled {
+                    "Enabled"
+                } else {
+                    "Disabled"
+                },
+                &routing_caption,
+            ),
+            ("Target", &target_short, "webhook endpoint"),
+            ("Pending", &pending_label, "background sends"),
+            ("Recent", &recent, "delivered/failed"),
+        ],
+    );
 }

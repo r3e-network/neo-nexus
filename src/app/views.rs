@@ -18,6 +18,14 @@ use eframe::egui;
 
 use super::{view::View, NeoNexusApp};
 
+pub(in crate::app) use federation::FederationSection;
+pub(in crate::app) use monitor::MonitorSection;
+pub(in crate::app) use operations::OperationsSection;
+pub(in crate::app) use roles::RolesSection;
+pub(in crate::app) use runtimes::RuntimesSection;
+pub(in crate::app) use settings::SettingsSection;
+pub(in crate::app) use snapshots::SnapshotsSection;
+
 impl NeoNexusApp {
     pub(super) fn render_workspace(&mut self, ui: &mut egui::Ui) {
         ui.add_space(2.0);

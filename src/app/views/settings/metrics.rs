@@ -1,37 +1,27 @@
 use eframe::egui;
 
-use crate::app::{format_duration, widgets::metric_tile, NeoNexusApp};
+use crate::app::{format_duration, widgets::metric_row, NeoNexusApp};
 
 pub(super) fn render_settings_metrics(app: &NeoNexusApp, ui: &mut egui::Ui) {
     let policy = app.watchdog.policy();
-    ui.horizontal(|ui| {
-        metric_tile(
-            ui,
-            "Watchdog",
-            if policy.enabled {
-                "Enabled"
-            } else {
-                "Disabled"
-            },
-            "automatic restart",
-        );
-        metric_tile(
-            ui,
-            "Attempts",
-            &policy.max_restart_attempts.to_string(),
-            "per failure run",
-        );
-        metric_tile(
-            ui,
-            "Base Delay",
-            &format_duration(policy.base_delay),
-            "first retry",
-        );
-        metric_tile(
-            ui,
-            "Max Delay",
-            &format_duration(policy.max_delay),
-            "retry cap",
-        );
-    });
+    let attempts = policy.max_restart_attempts.to_string();
+    let base_delay = format_duration(policy.base_delay);
+    let max_delay = format_duration(policy.max_delay);
+    metric_row(
+        ui,
+        &[
+            (
+                "Watchdog",
+                if policy.enabled {
+                    "Enabled"
+                } else {
+                    "Disabled"
+                },
+                "automatic restart",
+            ),
+            ("Attempts", &attempts, "per failure run"),
+            ("Base Delay", &base_delay, "first retry"),
+            ("Max Delay", &max_delay, "retry cap"),
+        ],
+    );
 }

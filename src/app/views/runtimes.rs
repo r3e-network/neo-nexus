@@ -3,17 +3,19 @@ mod catalog;
 mod filter;
 mod install;
 mod inventory;
+mod section;
 
 use eframe::egui;
 
 use crate::app::domain::{RuntimeInstallation, RuntimePlatform};
 
 use super::super::{
-    widgets::{metric_tile, panel},
+    theme,
+    widgets::{metric_row, panel, segmented_control},
     NeoNexusApp,
 };
 
-const PANEL_GAP: f32 = 8.0;
+pub(in crate::app) use section::RuntimesSection;
 
 impl NeoNexusApp {
     pub(super) fn render_runtimes(&mut self, ui: &mut egui::Ui) {
@@ -25,63 +27,28 @@ impl NeoNexusApp {
 
         render_runtime_metrics(ui, &installations);
 
-        ui.add_space(10.0);
-        let available = ui.available_size();
-        let left_width = (available.x * 0.38).clamp(340.0, 470.0);
-        ui.horizontal(|ui| {
-            ui.allocate_ui_with_layout(
-                egui::vec2(left_width, available.y),
-                egui::Layout::top_down(egui::Align::Min),
-                |ui| {
-                    panel(ui, "Install package", |ui| {
-                        self.render_runtime_install_form(ui);
-                    });
-                },
-            );
+        ui.add_space(theme::MD);
+        let mut index = self.runtimes_section as usize;
+        let labels = RuntimesSection::ALL.map(RuntimesSection::label);
+        if segmented_control(ui, &labels, &mut index) {
+            self.runtimes_section = RuntimesSection::ALL[index];
+        }
+        ui.add_space(theme::MD);
 
-            ui.add_space(PANEL_GAP);
-
-            ui.allocate_ui_with_layout(
-                egui::vec2(
-                    (available.x - left_width - PANEL_GAP).max(420.0),
-                    available.y,
-                ),
-                egui::Layout::top_down(egui::Align::Min),
-                |ui| {
-                    let catalog_height = (ui.available_height() * 0.58).clamp(420.0, 540.0);
-                    ui.allocate_ui_with_layout(
-                        egui::vec2(ui.available_width(), catalog_height),
-                        egui::Layout::top_down(egui::Align::Min),
-                        |ui| {
-                            panel(ui, "Release catalog", |ui| {
-                                self.render_runtime_release_catalog(ui);
-                            });
-                        },
-                    );
-                    ui.add_space(PANEL_GAP);
-                    let inventory_height = (ui.available_height() * 0.52).max(170.0);
-                    ui.allocate_ui_with_layout(
-                        egui::vec2(ui.available_width(), inventory_height),
-                        egui::Layout::top_down(egui::Align::Min),
-                        |ui| {
-                            panel(ui, "Installed runtimes", |ui| {
-                                self.render_runtime_inventory(ui, &installations);
-                            });
-                        },
-                    );
-                    ui.add_space(PANEL_GAP);
-                    ui.allocate_ui_with_layout(
-                        egui::vec2(ui.available_width(), ui.available_height()),
-                        egui::Layout::top_down(egui::Align::Min),
-                        |ui| {
-                            panel(ui, "Selected node runtime", |ui| {
-                                self.render_runtime_application(ui, &installations);
-                            });
-                        },
-                    );
-                },
-            );
-        });
+        match self.runtimes_section {
+            RuntimesSection::Install => panel(ui, "Install package", |ui| {
+                self.render_runtime_install_form(ui);
+            }),
+            RuntimesSection::Catalog => panel(ui, "Release catalog", |ui| {
+                self.render_runtime_release_catalog(ui);
+            }),
+            RuntimesSection::Installed => panel(ui, "Installed runtimes", |ui| {
+                self.render_runtime_inventory(ui, &installations);
+            }),
+            RuntimesSection::Applied => panel(ui, "Selected node runtime", |ui| {
+                self.render_runtime_application(ui, &installations);
+            }),
+        }
     }
 }
 
@@ -96,25 +63,17 @@ fn render_runtime_metrics(ui: &mut egui::Ui, installations: &[RuntimeInstallatio
         .filter(|installation| installation.signature_verified)
         .count();
 
-    ui.horizontal(|ui| {
-        metric_tile(
-            ui,
-            "Installed",
-            &installations.len().to_string(),
-            "runtime packages",
-        );
-        metric_tile(ui, "Platform", &platform.to_string(), "current host");
-        metric_tile(
-            ui,
-            "Compatible",
-            &platform_installs.to_string(),
-            "for this host",
-        );
-        metric_tile(
-            ui,
-            "Signed",
-            &signed_installs.to_string(),
-            "verified packages",
-        );
-    });
+    let installed = installations.len().to_string();
+    let platform_label = platform.to_string();
+    let compatible = platform_installs.to_string();
+    let signed = signed_installs.to_string();
+    metric_row(
+        ui,
+        &[
+            ("Installed", &installed, "runtime packages"),
+            ("Platform", &platform_label, "current host"),
+            ("Compatible", &compatible, "for this host"),
+            ("Signed", &signed, "verified packages"),
+        ],
+    );
 }
