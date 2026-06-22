@@ -9,6 +9,7 @@ pub(super) fn build_initial_app(
     NeoNexusApp {
         repository,
         theme: policies.theme,
+        inspector_visible: false,
         supervisor: ProcessSupervisor::default(),
         watchdog: Watchdog::new(policies.watchdog),
         watchdog_policy_draft: WatchdogPolicyDraft::from_policy(policies.watchdog),

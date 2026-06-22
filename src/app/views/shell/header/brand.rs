@@ -32,6 +32,14 @@ impl NeoNexusApp {
                     self.toggle_theme();
                 }
                 ui.separator();
+                if ui
+                    .selectable_label(self.inspector_visible, "Inspector")
+                    .on_hover_text("Show or hide the node inspector panel")
+                    .clicked()
+                {
+                    self.toggle_inspector();
+                }
+                ui.separator();
                 ui.label("Linux  macOS  Windows");
             });
         });
