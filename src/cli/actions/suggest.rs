@@ -7,6 +7,7 @@ pub(super) const KNOWN_OPTIONS: &[&str] = &[
     "-h",
     "--help",
     "--self-check",
+    "--completions",
     "--runtime-smoke",
     "--runtime-smoke-json",
     "--rpc-health",
