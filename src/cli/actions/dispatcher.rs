@@ -18,6 +18,7 @@ pub(in crate::cli) fn action_from_args_vec(args: &[String]) -> Result<CliAction>
             require_arg_count(args, 2, "--self-check")?;
             Ok(CliAction::Print(self_check_text()?))
         }
+        "--completions" => completions_action(args),
         "--runtime-smoke" => Ok(CliAction::Print(runtime_smoke_text(args)?)),
         "--runtime-smoke-json" => runtime_smoke_json_action(args),
         "--rpc-health" => Ok(CliAction::Print(rpc_health_text(args)?)),

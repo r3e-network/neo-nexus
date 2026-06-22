@@ -23,6 +23,7 @@ fn help_section(lines: &[&str]) -> String {
 const USAGE_LINES: &[&str] = &[
     "USAGE:",
     "  neo-nexus [--gui|--version|--self-check|--help]",
+    "  neo-nexus --completions <bash|zsh|fish>",
     "  neo-nexus --runtime-smoke <neo-cli|neo-go|neo-rs> <binary> [runtime-args...]",
     "  neo-nexus --runtime-smoke-json <neo-cli|neo-go|neo-rs> <binary> [runtime-args...]",
     "  neo-nexus --rpc-health <port|url>",
@@ -77,6 +78,7 @@ const OPTION_LINES: &[&str] = &[
     "  --gui                        Start the native desktop application",
     "  --version                    Print version and exit",
     "  --self-check                 Verify native runtime prerequisites and exit",
+    "  --completions                Print a shell completion script (bash, zsh, or fish)",
     "  --runtime-smoke              Run a bounded runtime binary probe without opening the GUI",
     "  --runtime-smoke-json         Print runtime smoke probe evidence as JSON",
     "  --rpc-health                 Check a Neo JSON-RPC endpoint without opening the GUI",
