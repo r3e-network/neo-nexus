@@ -52,6 +52,15 @@ pub(in crate::app) fn panel(
     });
 }
 
+/// Header row for an `egui::Grid` data table: renders each column label with the
+/// shared macOS-style column-header treatment and closes the row.
+pub(in crate::app) fn grid_header(ui: &mut egui::Ui, headers: &[&str]) {
+    for header in headers {
+        ui.label(theme::column_header(*header));
+    }
+    ui.end_row();
+}
+
 pub(in crate::app) fn empty_state(ui: &mut egui::Ui, title: &str, message: &str) {
     ui.vertical_centered(|ui| {
         ui.add_space(ui.available_height() * 0.35);

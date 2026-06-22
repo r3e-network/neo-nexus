@@ -6,6 +6,7 @@ use super::super::{
     super::super::{
         text::truncate_middle,
         theme::{muted_text, status_color},
+        widgets::grid_header,
         NeoNexusApp, PORT_MATRIX_PAGE_SIZE,
     },
     helpers::severity_color,
@@ -21,14 +22,10 @@ pub(super) fn render_port_table(
         .striped(true)
         .min_col_width(70.0)
         .show(ui, |ui| {
-            ui.strong("Node");
-            ui.strong("Chain");
-            ui.strong("RPC");
-            ui.strong("P2P");
-            ui.strong("WS");
-            ui.strong("Status");
-            ui.strong("Health");
-            ui.end_row();
+            grid_header(
+                ui,
+                &["Node", "Chain", "RPC", "P2P", "WS", "Status", "Health"],
+            );
 
             for row in rows.iter().skip(start).take(PORT_MATRIX_PAGE_SIZE) {
                 render_port_row(app, ui, row);

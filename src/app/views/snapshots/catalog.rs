@@ -5,7 +5,7 @@ use crate::app::domain::format_bytes;
 use super::super::super::{
     paging::page_count,
     text::truncate_middle,
-    widgets::{empty_state, fact, labeled_text, pagination_bar},
+    widgets::{empty_state, fact, grid_header, labeled_text, pagination_bar},
     NeoNexusApp, SNAPSHOT_CATALOG_PAGE_SIZE,
 };
 use super::filter::render_snapshot_catalog_filter;
@@ -95,11 +95,7 @@ impl NeoNexusApp {
             .striped(true)
             .min_col_width(66.0)
             .show(ui, |ui| {
-                ui.strong("Snapshot");
-                ui.strong("Runtime");
-                ui.strong("Network");
-                ui.strong("Limit");
-                ui.end_row();
+                grid_header(ui, &["Snapshot", "Runtime", "Network", "Limit"]);
 
                 for entry in filtered.iter().skip(start).take(SNAPSHOT_CATALOG_PAGE_SIZE) {
                     let selected =

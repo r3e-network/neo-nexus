@@ -3,7 +3,10 @@ use eframe::egui;
 use crate::app::domain::ReadinessAction;
 
 use super::super::{
-    super::super::{text::truncate_middle, theme::muted_text, NeoNexusApp, ACTION_QUEUE_PAGE_SIZE},
+    super::super::{
+        text::truncate_middle, theme::muted_text, widgets::grid_header, NeoNexusApp,
+        ACTION_QUEUE_PAGE_SIZE,
+    },
     helpers::{score_color, severity_color},
 };
 
@@ -17,12 +20,7 @@ pub(super) fn render_action_table(
         .striped(true)
         .min_col_width(62.0)
         .show(ui, |ui| {
-            ui.strong("Severity");
-            ui.strong("Node");
-            ui.strong("Score");
-            ui.strong("Check");
-            ui.strong("Detail");
-            ui.end_row();
+            grid_header(ui, &["Severity", "Node", "Score", "Check", "Detail"]);
 
             for action in actions.iter().skip(start).take(ACTION_QUEUE_PAGE_SIZE) {
                 render_action_row(app, ui, action);

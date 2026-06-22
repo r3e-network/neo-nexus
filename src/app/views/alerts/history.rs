@@ -8,7 +8,7 @@ use super::super::super::{
     paging::page_count,
     text::truncate_middle,
     theme::{muted_text, status_color},
-    widgets::{empty_state, pagination_bar},
+    widgets::{empty_state, grid_header, pagination_bar},
     NeoNexusApp, ALERT_DELIVERY_PAGE_SIZE,
 };
 
@@ -47,13 +47,10 @@ pub(super) fn render_alert_delivery_history(
         .num_columns(6)
         .spacing([10.0, 6.0])
         .show(ui, |ui| {
-            ui.strong("Time");
-            ui.strong("Status");
-            ui.strong("HTTP");
-            ui.strong("Provider");
-            ui.strong("Target");
-            ui.strong("Message");
-            ui.end_row();
+            grid_header(
+                ui,
+                &["Time", "Status", "HTTP", "Provider", "Target", "Message"],
+            );
 
             for delivery in deliveries.iter().take(end).skip(start) {
                 ui.label(delivery.attempted_at_unix.to_string());

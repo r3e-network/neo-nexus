@@ -6,7 +6,7 @@ use super::super::super::{
     paging::page_count,
     text::truncate_middle,
     theme::{muted_text, status_color},
-    widgets::{empty_state, pagination_bar},
+    widgets::{empty_state, grid_header, pagination_bar},
     NeoNexusApp, OVERVIEW_FLEET_PAGE_SIZE,
 };
 
@@ -77,12 +77,7 @@ fn render_fleet_table(app: &mut NeoNexusApp, ui: &mut egui::Ui, rows: &[&NodeCon
         .striped(true)
         .min_col_width(74.0)
         .show(ui, |ui| {
-            ui.strong("Name");
-            ui.strong("Type");
-            ui.strong("Network");
-            ui.strong("RPC");
-            ui.strong("Status");
-            ui.end_row();
+            grid_header(ui, &["Name", "Type", "Network", "RPC", "Status"]);
 
             for node in rows {
                 let selected = app.selected_node.as_deref() == Some(node.id.as_str());

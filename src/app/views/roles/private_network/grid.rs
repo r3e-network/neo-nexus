@@ -3,6 +3,7 @@ use eframe::egui;
 use crate::app::domain::{PrivateNetworkNodePlan, PrivateNetworkPlan};
 
 use super::super::super::super::text::truncate_middle;
+use super::super::super::super::widgets::grid_header;
 
 const PRIVATE_PLAN_ROWS: usize = 7;
 const PRIVATE_PLAN_COLUMNS: usize = 7;
@@ -21,14 +22,10 @@ pub(super) fn render_plan_grid(ui: &mut egui::Ui, plan: &PrivateNetworkPlan) {
 }
 
 fn render_header(ui: &mut egui::Ui) {
-    ui.strong("Name");
-    ui.strong("Runtime");
-    ui.strong("Role");
-    ui.strong("RPC");
-    ui.strong("P2P");
-    ui.strong("WS");
-    ui.strong("Storage");
-    ui.end_row();
+    grid_header(
+        ui,
+        &["Name", "Runtime", "Role", "RPC", "P2P", "WS", "Storage"],
+    );
 }
 
 fn render_row(ui: &mut egui::Ui, node: Option<&PrivateNetworkNodePlan>) {
