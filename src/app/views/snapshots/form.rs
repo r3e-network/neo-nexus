@@ -4,7 +4,7 @@ use crate::app::domain::{Network, NodeType};
 
 use super::super::super::{
     theme::muted_text,
-    widgets::{labeled_combo, labeled_text},
+    widgets::{labeled_combo, labeled_text, primary_button},
     NeoNexusApp,
 };
 
@@ -61,7 +61,7 @@ impl NeoNexusApp {
 
         ui.add_space(8.0);
         ui.horizontal(|ui| {
-            if ui.button("Save Manifest").clicked() {
+            if primary_button(ui, "Save Manifest").clicked() {
                 self.save_snapshot_manifest();
             }
             if ui.button("Download HTTPS").clicked() {

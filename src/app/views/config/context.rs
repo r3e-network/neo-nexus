@@ -5,7 +5,7 @@ use eframe::egui;
 use crate::app::{
     domain::{ConfigValidationReport, NodeConfig, RenderedConfig},
     text::{short_path, truncate_middle},
-    widgets::{fact, render_node_fact_sheet},
+    widgets::{fact, primary_button, render_node_fact_sheet},
     NeoNexusApp,
 };
 
@@ -75,7 +75,7 @@ fn render_validation_summary(
 
 fn render_config_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui, node: &NodeConfig) {
     ui.horizontal(|ui| {
-        if ui.button("Apply Managed").clicked() {
+        if primary_button(ui, "Apply Managed").clicked() {
             app.apply_selected_managed_config();
         }
         let restart_ready = node.status.is_active();
