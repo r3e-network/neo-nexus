@@ -41,20 +41,25 @@ impl eframe::App for NeoNexusApp {
         let style = context.style();
 
         egui::SidePanel::left("inventory_panel")
-            .resizable(false)
-            .exact_width(286.0)
+            .resizable(true)
+            .default_width(260.0)
+            .width_range(220.0..=360.0)
             .frame(
                 egui::Frame::side_top_panel(&style).inner_margin(egui::Margin::symmetric(16, 14)),
             )
             .show(context, |ui| self.render_inventory_panel(ui));
 
-        egui::SidePanel::right("inspector_panel")
-            .resizable(false)
-            .exact_width(336.0)
-            .frame(
-                egui::Frame::side_top_panel(&style).inner_margin(egui::Margin::symmetric(16, 14)),
-            )
-            .show(context, |ui| self.render_inspector_panel(ui));
+        if self.inspector_visible {
+            egui::SidePanel::right("inspector_panel")
+                .resizable(true)
+                .default_width(320.0)
+                .width_range(280.0..=420.0)
+                .frame(
+                    egui::Frame::side_top_panel(&style)
+                        .inner_margin(egui::Margin::symmetric(16, 14)),
+                )
+                .show(context, |ui| self.render_inspector_panel(ui));
+        }
 
         egui::CentralPanel::default()
             .frame(egui::Frame::central_panel(&style).inner_margin(egui::Margin::symmetric(22, 18)))

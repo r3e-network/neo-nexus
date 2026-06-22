@@ -10,4 +10,10 @@ impl NeoNexusApp {
             self.notice = Some(format!("Theme preference not saved: {error}"));
         }
     }
+
+    /// Shows or hides the right-hand inspector panel so the workspace can use
+    /// the full width when node detail is not needed.
+    pub(in crate::app) fn toggle_inspector(&mut self) {
+        self.inspector_visible = !self.inspector_visible;
+    }
 }
