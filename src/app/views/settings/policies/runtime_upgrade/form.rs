@@ -1,5 +1,7 @@
 use eframe::egui;
 
+use crate::app::theme;
+
 use crate::app::{
     domain::RuntimeUpgradePolicy, theme::accent, widgets::labeled_combo, NeoNexusApp,
 };
@@ -113,7 +115,7 @@ fn render_timing_controls(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
 fn render_validation_state(app: &NeoNexusApp, ui: &mut egui::Ui) {
     ui.add_space(6.0);
     if let Some(message) = app.runtime_upgrade_policy_draft.validation_message() {
-        ui.label(egui::RichText::new(message).color(egui::Color32::from_rgb(185, 28, 28)));
+        ui.label(egui::RichText::new(message).color(theme::danger()));
     } else {
         ui.label(egui::RichText::new("Policy draft is valid.").color(accent()));
     }

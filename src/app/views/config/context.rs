@@ -2,6 +2,7 @@ use std::path::Path;
 
 use eframe::egui;
 
+use crate::app::theme;
 use crate::app::{
     domain::{ConfigValidationReport, NodeConfig, RenderedConfig},
     text::{short_path, truncate_middle},
@@ -66,9 +67,7 @@ fn render_validation_summary(
     match validation_report {
         Ok(report) => render_config_validation(ui, report),
         Err(error) => {
-            ui.label(
-                egui::RichText::new(error.to_string()).color(egui::Color32::from_rgb(185, 28, 28)),
-            );
+            ui.label(egui::RichText::new(error.to_string()).color(theme::danger()));
         }
     }
 }

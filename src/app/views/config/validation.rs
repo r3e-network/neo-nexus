@@ -1,6 +1,7 @@
 use eframe::egui;
 
 use crate::app::domain::{ConfigValidationReport, ConfigValidationSeverity};
+use crate::app::theme;
 
 pub(super) fn render_config_validation(ui: &mut egui::Ui, report: &ConfigValidationReport) {
     ui.separator();
@@ -39,8 +40,8 @@ pub(super) fn render_config_validation(ui: &mut egui::Ui, report: &ConfigValidat
 
 fn validation_color(severity: ConfigValidationSeverity) -> egui::Color32 {
     match severity {
-        ConfigValidationSeverity::Pass => egui::Color32::from_rgb(21, 128, 61),
-        ConfigValidationSeverity::Warning => egui::Color32::from_rgb(202, 138, 4),
-        ConfigValidationSeverity::Critical => egui::Color32::from_rgb(185, 28, 28),
+        ConfigValidationSeverity::Pass => theme::success(),
+        ConfigValidationSeverity::Warning => theme::warning(),
+        ConfigValidationSeverity::Critical => theme::danger(),
     }
 }

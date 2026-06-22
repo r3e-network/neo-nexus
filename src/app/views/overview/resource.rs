@@ -1,6 +1,7 @@
 use eframe::egui;
 
 use crate::app::domain::{format_bytes, ResourcePressure};
+use crate::app::theme;
 
 use super::super::super::{theme::muted_text, widgets::fact, NeoNexusApp};
 
@@ -53,8 +54,8 @@ fn resource_bar(ui: &mut egui::Ui, label: &str, percent: f32, pressure: Resource
 
 fn pressure_color(pressure: ResourcePressure) -> egui::Color32 {
     match pressure {
-        ResourcePressure::Nominal => egui::Color32::from_rgb(21, 128, 61),
-        ResourcePressure::Elevated => egui::Color32::from_rgb(202, 138, 4),
-        ResourcePressure::Critical => egui::Color32::from_rgb(185, 28, 28),
+        ResourcePressure::Nominal => theme::success(),
+        ResourcePressure::Elevated => theme::warning(),
+        ResourcePressure::Critical => theme::danger(),
     }
 }

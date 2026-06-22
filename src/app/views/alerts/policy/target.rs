@@ -1,3 +1,4 @@
+use crate::app::theme;
 use eframe::egui;
 
 use crate::app::{domain::alert_target_label, theme::muted_text, NeoNexusApp};
@@ -18,7 +19,7 @@ pub(super) fn render_target_editor(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
 
 fn render_target_state(app: &NeoNexusApp, ui: &mut egui::Ui) {
     if let Some(message) = app.alert_routing_policy_draft.validation_message() {
-        ui.label(egui::RichText::new(message).color(egui::Color32::from_rgb(185, 28, 28)));
+        ui.label(egui::RichText::new(message).color(theme::danger()));
     } else if !app.alert_routing_policy_draft.webhook_url.trim().is_empty() {
         ui.label(
             egui::RichText::new(format!(

@@ -81,6 +81,7 @@ struct Palette {
     status_starting: Color32,
     status_stopped: Color32,
     status_error: Color32,
+    info: Color32,
 }
 
 // Light: airy near-white surfaces with a soft grey workspace, hairline borders,
@@ -101,6 +102,7 @@ const LIGHT_PALETTE: Palette = Palette {
     status_starting: Color32::from_rgb(214, 138, 10),
     status_stopped: Color32::from_rgb(142, 142, 147),
     status_error: Color32::from_rgb(213, 60, 55),
+    info: Color32::from_rgb(10, 122, 158),
 };
 
 // Dark: layered greys (window < sidebar/card) with a brighter indigo accent and
@@ -121,6 +123,7 @@ const DARK_PALETTE: Palette = Palette {
     status_starting: Color32::from_rgb(255, 214, 70),
     status_stopped: Color32::from_rgb(152, 152, 157),
     status_error: Color32::from_rgb(255, 105, 97),
+    info: Color32::from_rgb(90, 200, 250),
 };
 
 fn palette(theme: Theme) -> Palette {
@@ -144,6 +147,25 @@ pub(super) fn muted_text() -> Color32 {
 
 pub(super) fn panel_fill() -> Color32 {
     palette(active_theme()).card_fill
+}
+
+/// Semantic colours for inline status text (validation, severity, pressure,
+/// diagnosis). They reuse the palette's status hues so the whole app shares one
+/// set of success/warning/danger/info colours that adapt to light and dark.
+pub(super) fn success() -> Color32 {
+    palette(active_theme()).status_running
+}
+
+pub(super) fn warning() -> Color32 {
+    palette(active_theme()).status_starting
+}
+
+pub(super) fn danger() -> Color32 {
+    palette(active_theme()).status_error
+}
+
+pub(super) fn info() -> Color32 {
+    palette(active_theme()).info
 }
 
 pub(super) fn status_color(status: NodeStatus) -> Color32 {

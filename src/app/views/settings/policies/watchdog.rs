@@ -1,5 +1,7 @@
 use eframe::egui;
 
+use crate::app::theme;
+
 use super::super::super::super::{
     theme::{accent, muted_text},
     widgets::fact,
@@ -48,7 +50,7 @@ impl NeoNexusApp {
 
         ui.add_space(6.0);
         if let Some(message) = self.watchdog_policy_draft.validation_message() {
-            ui.label(egui::RichText::new(message).color(egui::Color32::from_rgb(185, 28, 28)));
+            ui.label(egui::RichText::new(message).color(theme::danger()));
         } else {
             ui.label(egui::RichText::new("Policy draft is valid.").color(accent()));
         }
