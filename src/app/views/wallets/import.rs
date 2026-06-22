@@ -2,7 +2,7 @@ use eframe::egui;
 
 use super::super::super::{
     theme::accent,
-    widgets::{fact, labeled_text},
+    widgets::{fact, labeled_text, primary_button},
     NeoNexusApp,
 };
 
@@ -12,7 +12,7 @@ pub(super) fn render_wallet_profile_import_form(app: &mut NeoNexusApp, ui: &mut 
     labeled_text(ui, "Label", &mut app.wallet_profile_label);
     ui.add_space(6.0);
     ui.horizontal(|ui| {
-        if ui.button("Import").clicked() {
+        if primary_button(ui, "Import").clicked() {
             app.import_neo_wallet_profile_from_form();
         }
         if ui.button("Reset").clicked() {

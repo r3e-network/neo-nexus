@@ -5,7 +5,7 @@ use crate::app::domain::NodeStatus;
 use super::super::super::{
     paging::page_count,
     text::truncate_middle,
-    theme::{muted_text, status_color},
+    theme::{self, muted_text, status_color},
     widgets::{empty_state, fact, pagination_bar},
     NeoNexusApp, NODE_PAGE_SIZE,
 };

@@ -1,13 +1,13 @@
 use eframe::egui;
 
-use crate::app::NeoNexusApp;
+use crate::app::{widgets::primary_button, NeoNexusApp};
 
 pub(super) fn render_install_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
         if ui.button("Download HTTPS").clicked() {
             app.download_runtime_package();
         }
-        if ui.button("Install").clicked() {
+        if primary_button(ui, "Install").clicked() {
             app.install_runtime_package();
         }
         if ui.button("Current Platform").clicked() {

@@ -5,8 +5,12 @@ use eframe::egui::{self, Color32};
 use crate::app::domain::NodeStatus;
 
 mod style;
+mod tokens;
 
 pub(super) use style::configure_style;
+pub(in crate::app) use tokens::{
+    label_caption, metric_value, muted_body, page_title, section_title, MD, SM, XS,
+};
 
 /// Visual theme for the native workbench. The palettes follow a calm,
 /// macOS-style design language: near-neutral surfaces, hairline separators,
@@ -128,6 +132,10 @@ fn palette(theme: Theme) -> Palette {
 
 pub(super) fn accent() -> Color32 {
     palette(active_theme()).accent
+}
+
+pub(super) fn on_accent() -> Color32 {
+    palette(active_theme()).on_accent
 }
 
 pub(super) fn muted_text() -> Color32 {

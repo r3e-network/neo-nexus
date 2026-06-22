@@ -4,7 +4,7 @@ use crate::app::domain::{Network, NodeType, StorageEngine};
 
 use super::super::super::{
     theme::muted_text,
-    widgets::{labeled_combo, labeled_text},
+    widgets::{labeled_combo, labeled_text, primary_button},
     NeoNexusApp,
 };
 
@@ -85,10 +85,7 @@ fn render_executable_column(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
 
 fn action_bar(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
-        if ui
-            .add_sized([112.0, 30.0], egui::Button::new("Save New"))
-            .clicked()
-        {
+        if primary_button(ui, "Save New").clicked() {
             app.create_node();
         }
         if ui.button("Probe Draft").clicked() {

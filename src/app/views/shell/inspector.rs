@@ -4,9 +4,7 @@ mod runtime;
 
 use eframe::egui;
 
-use super::super::super::{
-    text::truncate_middle, theme::muted_text, widgets::empty_state, NeoNexusApp,
-};
+use super::super::super::{text::truncate_middle, theme, widgets::empty_state, NeoNexusApp};
 
 impl NeoNexusApp {
     pub(in crate::app) fn render_inspector_panel(&mut self, ui: &mut egui::Ui) {
@@ -30,8 +28,8 @@ fn render_inspector_header(ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
         ui.add_space(10.0);
         ui.vertical(|ui| {
-            ui.heading("Inspector");
-            ui.label(egui::RichText::new("Selection and runtime details").color(muted_text()));
+            ui.label(theme::section_title("Inspector"));
+            ui.label(theme::muted_body("Selection and runtime details"));
         });
     });
     ui.separator();

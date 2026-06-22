@@ -5,7 +5,7 @@ mod state;
 use eframe::egui;
 
 use self::{actions::render_node_action_buttons, menu::render_application_menu};
-use super::super::super::{theme::muted_text, NeoNexusApp};
+use super::super::super::{theme, NeoNexusApp};
 
 // Re-exported for the menu submodule's `use super::View`.
 pub(super) use super::super::super::view::View;
@@ -17,16 +17,8 @@ impl NeoNexusApp {
             ui.add_space(2.0);
             ui.vertical(|ui| {
                 ui.add_space(1.0);
-                ui.label(
-                    egui::RichText::new(self.selected_view.title())
-                        .strong()
-                        .size(17.0),
-                );
-                ui.label(
-                    egui::RichText::new(self.selected_view.subtitle())
-                        .color(muted_text())
-                        .size(12.0),
-                );
+                ui.label(theme::page_title(self.selected_view.title()));
+                ui.label(theme::muted_body(self.selected_view.subtitle()));
             });
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {

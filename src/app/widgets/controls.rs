@@ -1,5 +1,18 @@
 use eframe::egui;
 
+use crate::app::theme;
+
+/// macOS-style "default button": the primary, accent-filled confirm action of a
+/// form. Use for the single dominant action (Save / Create / Import); leave
+/// secondary actions as plain bordered buttons.
+pub(in crate::app) fn primary_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
+    ui.add(
+        egui::Button::new(egui::RichText::new(text).color(theme::on_accent()))
+            .fill(theme::accent())
+            .min_size(egui::vec2(96.0, 28.0)),
+    )
+}
+
 pub(in crate::app) fn pagination_bar(
     ui: &mut egui::Ui,
     page: &mut usize,

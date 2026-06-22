@@ -1,16 +1,18 @@
 mod plan;
 mod private_network;
+mod section;
 
 use eframe::egui;
 
 use crate::app::domain::{PrivateNetworkPlanner, RolePlanner};
 
 use super::super::{
-    widgets::{metric_tile, panel},
+    theme,
+    widgets::{metric_row, panel, segmented_control},
     NeoNexusApp,
 };
 
-const PANEL_GAP: f32 = 8.0;
+pub(in crate::app) use section::RolesSection;
 
 impl NeoNexusApp {
     pub(super) fn render_roles(&mut self, ui: &mut egui::Ui) {
@@ -23,75 +25,42 @@ impl NeoNexusApp {
             self.private_network_runtime,
         );
 
-        ui.horizontal(|ui| {
-            metric_tile(ui, "Role", self.selected_role.label(), "selected preset");
-            metric_tile(
-                ui,
-                "Changes",
-                &role_plan
-                    .as_ref()
-                    .map_or_else(|| "-".to_string(), |plan| plan.change_count().to_string()),
-                "plugin states",
-            );
-            metric_tile(
-                ui,
-                "Private Plan",
-                &private_plan.nodes.len().to_string(),
-                "planned nodes",
-            );
-            metric_tile(
-                ui,
-                "Runtime",
-                &selected_node
-                    .as_ref()
-                    .map_or(self.private_network_runtime, |node| node.node_type)
-                    .to_string(),
-                "selected",
-            );
-        });
-
-        ui.add_space(10.0);
-        let available = ui.available_size();
-        let top_height = (available.y * 0.52).clamp(260.0, 340.0);
-        let left_width = (available.x * 0.38).clamp(320.0, 460.0);
-
-        ui.horizontal(|ui| {
-            ui.allocate_ui_with_layout(
-                egui::vec2(left_width, top_height),
-                egui::Layout::top_down(egui::Align::Min),
-                |ui| {
-                    panel(ui, "Role presets", |ui| {
-                        self.render_role_presets(ui);
-                    });
-                },
-            );
-
-            ui.add_space(PANEL_GAP);
-
-            ui.allocate_ui_with_layout(
-                egui::vec2(
-                    (available.x - left_width - PANEL_GAP).max(400.0),
-                    top_height,
-                ),
-                egui::Layout::top_down(egui::Align::Min),
-                |ui| {
-                    panel(ui, "Selected role plan", |ui| {
-                        self.render_selected_role_plan(ui);
-                    });
-                },
-            );
-        });
-
-        ui.add_space(PANEL_GAP);
-        let bottom = ui.available_size();
-        ui.allocate_ui_with_layout(
-            egui::vec2(bottom.x, bottom.y),
-            egui::Layout::top_down(egui::Align::Min),
-            |ui| {
-                panel(ui, "Private network planner", |ui| {
-                    self.render_private_network_plan(ui);
-                });
-            },
+        let changes = role_plan
+            .as_ref()
+            .map_or_else(|| "-".to_string(), |plan| plan.change_count().to_string());
+        let private_plan_count = private_plan.nodes.len().to_string();
+        let runtime_label = selected_node
+            .as_ref()
+            .map_or(self.private_network_runtime, |node| node.node_type)
+            .to_string();
+        metric_row(
+            ui,
+            &[
+                ("Role", self.selected_role.label(), "selected preset"),
+                ("Changes", &changes, "plugin states"),
+                ("Private Plan", &private_plan_count, "planned nodes"),
+                ("Runtime", &runtime_label, "selected"),
+            ],
         );
+
+        ui.add_space(theme::MD);
+        let mut index = self.roles_section as usize;
+        let labels = RolesSection::ALL.map(RolesSection::label);
+        if segmented_control(ui, &labels, &mut index) {
+            self.roles_section = RolesSection::ALL[index];
+        }
+        ui.add_space(theme::MD);
+
+        match self.roles_section {
+            RolesSection::Presets => panel(ui, "Role presets", |ui| {
+                self.render_role_presets(ui);
+            }),
+            RolesSection::Plan => panel(ui, "Selected role plan", |ui| {
+                self.render_selected_role_plan(ui);
+            }),
+            RolesSection::PrivateNetwork => panel(ui, "Private network planner", |ui| {
+                self.render_private_network_plan(ui);
+            }),
+        }
     }
 }
