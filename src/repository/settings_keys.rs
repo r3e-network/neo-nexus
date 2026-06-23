@@ -51,6 +51,10 @@ pub(in crate::repository) const SETTING_ALERT_ROUTING_TIMEOUT_SECONDS: &str =
 
 pub(in crate::repository) const SETTING_APPEARANCE_DARK_MODE: &str = "appearance.dark_mode";
 
+pub(in crate::repository) const SETTING_WORKSPACE_INSPECTOR_VISIBLE: &str =
+    "workspace.inspector_visible";
+pub(in crate::repository) const SETTING_WORKSPACE_LAST_VIEW: &str = "workspace.last_view";
+
 pub(in crate::repository) const WORKSPACE_BACKUP_SETTING_KEYS: &[&str] = &[
     SETTING_WATCHDOG_ENABLED,
     SETTING_WATCHDOG_MAX_ATTEMPTS,

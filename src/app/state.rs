@@ -43,6 +43,7 @@ pub struct NeoNexusApp {
     pub(in crate::app) remote_server_enabled: bool,
     pub(in crate::app) last_remote_server_probe: Option<RemoteServerProbeRecord>,
     pub(in crate::app) selected_view: View,
+    pub(in crate::app) persisted_view: View,
     pub(in crate::app) operations_section: OperationsSection,
     pub(in crate::app) settings_section: SettingsSection,
     pub(in crate::app) runtimes_section: RuntimesSection,
