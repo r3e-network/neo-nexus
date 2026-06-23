@@ -1,5 +1,5 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum View {
+pub enum View {
     Summary,
     Operations,
     Monitor,
@@ -17,7 +17,7 @@ pub(super) enum View {
 }
 
 impl View {
-    pub(super) const ALL: [Self; 14] = [
+    pub const ALL: [Self; 14] = [
         Self::Summary,
         Self::Operations,
         Self::Monitor,
@@ -91,7 +91,7 @@ impl View {
     /// Stable identifier used to persist the active view across restarts.
     /// Independent of `label()` so display text can change without breaking the
     /// saved preference.
-    pub(super) fn persist_key(self) -> &'static str {
+    pub fn persist_key(self) -> &'static str {
         match self {
             Self::Summary => "summary",
             Self::Operations => "operations",
@@ -110,7 +110,7 @@ impl View {
         }
     }
 
-    pub(super) fn from_persist_key(key: &str) -> Option<Self> {
+    pub fn from_persist_key(key: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|view| view.persist_key() == key)
     }
 

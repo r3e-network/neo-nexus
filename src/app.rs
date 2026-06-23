@@ -64,7 +64,6 @@ use sidecar_health::{
 use snapshot_draft::SnapshotDraft;
 use text::short_path;
 use theme::Theme;
-use view::View;
 use views::{
     FederationSection, MonitorSection, OperationsSection, RolesSection, RuntimesSection,
     SettingsSection, SnapshotsSection,
@@ -79,6 +78,7 @@ use workflow::{
 };
 
 pub use state::NeoNexusApp;
+pub use view::View;
 
 #[cfg(test)]
 #[path = "../tests/unit/app/tests.rs"]
