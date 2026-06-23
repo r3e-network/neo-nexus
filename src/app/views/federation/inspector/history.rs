@@ -5,7 +5,7 @@ use crate::app::{
     paging::page_count,
     text::truncate_middle,
     theme::muted_text,
-    widgets::{empty_state, grid_header, pagination_bar},
+    widgets::{chip_pill, empty_state, grid_header, pagination_bar},
     NeoNexusApp, REMOTE_PROBE_HISTORY_PAGE_SIZE,
 };
 
@@ -51,11 +51,13 @@ pub(super) fn render_probe_history(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
 fn render_history_filters(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new("Status").color(muted_text()));
-        status_button(app, ui, "All", None);
-        status_button(app, ui, "Healthy", Some(RemoteProbeStatus::Healthy));
-        status_button(app, ui, "Degraded", Some(RemoteProbeStatus::Degraded));
-        status_button(app, ui, "Disabled", Some(RemoteProbeStatus::Disabled));
-        status_button(app, ui, "Unreachable", Some(RemoteProbeStatus::Unreachable));
+        chip_pill(ui, |ui| {
+            status_button(app, ui, "All", None);
+            status_button(app, ui, "Healthy", Some(RemoteProbeStatus::Healthy));
+            status_button(app, ui, "Degraded", Some(RemoteProbeStatus::Degraded));
+            status_button(app, ui, "Disabled", Some(RemoteProbeStatus::Disabled));
+            status_button(app, ui, "Unreachable", Some(RemoteProbeStatus::Unreachable));
+        });
     });
     let response = ui.add_sized(
         [ui.available_width(), 24.0],

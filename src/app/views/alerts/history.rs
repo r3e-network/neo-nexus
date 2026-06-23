@@ -8,7 +8,7 @@ use super::super::super::{
     paging::page_count,
     text::truncate_middle,
     theme::{muted_text, status_color},
-    widgets::{empty_state, grid_header, pagination_bar},
+    widgets::{chip_pill, empty_state, grid_header, pagination_bar},
     NeoNexusApp, ALERT_DELIVERY_PAGE_SIZE,
 };
 
@@ -79,10 +79,12 @@ pub(super) fn render_alert_delivery_history(
 fn render_filter_bar(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new("Status").color(muted_text()));
-        filter_button(app, ui, "All", None);
-        filter_button(app, ui, "Delivered", Some(AlertDeliveryStatus::Delivered));
-        filter_button(app, ui, "Failed", Some(AlertDeliveryStatus::Failed));
-        filter_button(app, ui, "Skipped", Some(AlertDeliveryStatus::Skipped));
+        chip_pill(ui, |ui| {
+            filter_button(app, ui, "All", None);
+            filter_button(app, ui, "Delivered", Some(AlertDeliveryStatus::Delivered));
+            filter_button(app, ui, "Failed", Some(AlertDeliveryStatus::Failed));
+            filter_button(app, ui, "Skipped", Some(AlertDeliveryStatus::Skipped));
+        });
     });
     let response = ui.add_sized(
         [ui.available_width(), 24.0],

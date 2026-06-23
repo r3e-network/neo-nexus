@@ -13,6 +13,22 @@ pub(in crate::app) fn primary_button(ui: &mut egui::Ui, text: &str) -> egui::Res
     )
 }
 
+/// Wraps a row of mutually-exclusive filter chips in a hairline-bordered pill so
+/// single-select filters read as one macOS-style segmented control rather than a
+/// loose row of toggles. The chips and their behaviour are unchanged.
+pub(in crate::app) fn chip_pill(ui: &mut egui::Ui, add_chips: impl FnOnce(&mut egui::Ui)) {
+    let stroke = ui.style().visuals.widgets.noninteractive.bg_stroke;
+    egui::Frame::new()
+        .fill(theme::panel_fill())
+        .stroke(stroke)
+        .corner_radius(egui::CornerRadius::same(8))
+        .inner_margin(egui::Margin::symmetric(3, 2))
+        .show(ui, |ui| {
+            ui.spacing_mut().item_spacing.x = 2.0;
+            ui.horizontal(add_chips);
+        });
+}
+
 pub(in crate::app) fn pagination_bar(
     ui: &mut egui::Ui,
     page: &mut usize,

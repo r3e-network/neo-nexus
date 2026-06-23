@@ -1,22 +1,27 @@
 use eframe::egui;
 
 use crate::app::domain::PluginCategory;
+use crate::app::widgets::chip_pill;
 
 use super::super::super::{theme::muted_text, NeoNexusApp};
 
 pub(super) fn render_plugin_filter(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new("State").color(muted_text()));
-        state_button(app, ui, "All", None);
-        state_button(app, ui, "Enabled", Some(true));
-        state_button(app, ui, "Disabled", Some(false));
+        chip_pill(ui, |ui| {
+            state_button(app, ui, "All", None);
+            state_button(app, ui, "Enabled", Some(true));
+            state_button(app, ui, "Disabled", Some(false));
+        });
     });
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new("Category").color(muted_text()));
-        category_button(app, ui, "All", None);
-        for category in PluginCategory::ALL {
-            category_button(app, ui, category_label(category), Some(category));
-        }
+        chip_pill(ui, |ui| {
+            category_button(app, ui, "All", None);
+            for category in PluginCategory::ALL {
+                category_button(app, ui, category_label(category), Some(category));
+            }
+        });
     });
     let response = ui.add_sized(
         [ui.available_width(), 24.0],

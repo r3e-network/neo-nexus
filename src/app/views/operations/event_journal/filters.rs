@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::app::{domain::EventSeverity, NeoNexusApp};
+use crate::app::{domain::EventSeverity, widgets::chip_pill, NeoNexusApp};
 
 use super::EventJournalCounts;
 
@@ -35,26 +35,28 @@ fn render_search(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
 
 fn render_severity_filter(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
-        if ui
-            .selectable_label(app.event_severity_filter.is_none(), "All")
-            .clicked()
-        {
-            app.event_severity_filter = None;
-            app.event_page = 0;
-            app.selected_event = None;
-        }
-        for severity in EventSeverity::ALL {
+        chip_pill(ui, |ui| {
             if ui
-                .selectable_label(
-                    app.event_severity_filter == Some(severity),
-                    severity.label(),
-                )
+                .selectable_label(app.event_severity_filter.is_none(), "All")
                 .clicked()
             {
-                app.event_severity_filter = Some(severity);
+                app.event_severity_filter = None;
                 app.event_page = 0;
                 app.selected_event = None;
             }
-        }
+            for severity in EventSeverity::ALL {
+                if ui
+                    .selectable_label(
+                        app.event_severity_filter == Some(severity),
+                        severity.label(),
+                    )
+                    .clicked()
+                {
+                    app.event_severity_filter = Some(severity);
+                    app.event_page = 0;
+                    app.selected_event = None;
+                }
+            }
+        });
     });
 }

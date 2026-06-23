@@ -1,6 +1,7 @@
 use eframe::egui;
 
 use crate::app::domain::NodeType;
+use crate::app::widgets::chip_pill;
 
 use super::super::super::{theme::muted_text, NeoNexusApp};
 
@@ -14,15 +15,19 @@ pub(super) fn render_runtime_inventory_filter(app: &mut NeoNexusApp, ui: &mut eg
     );
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new("Trust").color(muted_text()));
-        inventory_trust_button(app, ui, "All", None);
-        inventory_trust_button(app, ui, "Signed", Some(true));
-        inventory_trust_button(app, ui, "Hash", Some(false));
+        chip_pill(ui, |ui| {
+            inventory_trust_button(app, ui, "All", None);
+            inventory_trust_button(app, ui, "Signed", Some(true));
+            inventory_trust_button(app, ui, "Hash", Some(false));
+        });
     });
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new("Platform").color(muted_text()));
-        inventory_platform_button(app, ui, "All", None);
-        inventory_platform_button(app, ui, "This host", Some(true));
-        inventory_platform_button(app, ui, "Other", Some(false));
+        chip_pill(ui, |ui| {
+            inventory_platform_button(app, ui, "All", None);
+            inventory_platform_button(app, ui, "This host", Some(true));
+            inventory_platform_button(app, ui, "Other", Some(false));
+        });
     });
     let response = ui.add_sized(
         [ui.available_width(), 24.0],
@@ -44,9 +49,11 @@ pub(super) fn render_runtime_release_filter(app: &mut NeoNexusApp, ui: &mut egui
     );
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new("Platform").color(muted_text()));
-        catalog_platform_button(app, ui, "All", None);
-        catalog_platform_button(app, ui, "This host", Some(true));
-        catalog_platform_button(app, ui, "Other", Some(false));
+        chip_pill(ui, |ui| {
+            catalog_platform_button(app, ui, "All", None);
+            catalog_platform_button(app, ui, "This host", Some(true));
+            catalog_platform_button(app, ui, "Other", Some(false));
+        });
     });
     let response = ui.add_sized(
         [ui.available_width(), 24.0],
@@ -67,19 +74,21 @@ fn render_runtime_buttons(
 ) {
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new("Runtime").color(muted_text()));
-        if ui.selectable_label(selected.is_none(), "All").clicked() {
-            set(app, None);
-            reset(app);
-        }
-        for node_type in NodeType::ALL {
-            if ui
-                .selectable_label(selected == Some(node_type), node_type.to_string())
-                .clicked()
-            {
-                set(app, Some(node_type));
+        chip_pill(ui, |ui| {
+            if ui.selectable_label(selected.is_none(), "All").clicked() {
+                set(app, None);
                 reset(app);
             }
-        }
+            for node_type in NodeType::ALL {
+                if ui
+                    .selectable_label(selected == Some(node_type), node_type.to_string())
+                    .clicked()
+                {
+                    set(app, Some(node_type));
+                    reset(app);
+                }
+            }
+        });
     });
 }
 

@@ -2,7 +2,7 @@ use eframe::egui;
 
 use crate::app::domain::{CheckSeverity, FleetDiagnostics};
 
-use super::super::super::super::{theme::muted_text, NeoNexusApp};
+use super::super::super::super::{theme::muted_text, widgets::chip_pill, NeoNexusApp};
 use super::super::helpers::{resolution_filter_combo, severity_filter_label};
 
 pub(super) fn render_action_filters(
@@ -14,21 +14,23 @@ pub(super) fn render_action_filters(
     let severity_counts = app.action_queue_severity_counts(diagnostics);
     ui.horizontal_wrapped(|ui| {
         ui.label(egui::RichText::new("Severity").color(muted_text()));
-        severity_button(app, ui, "All", None, &severity_counts);
-        severity_button(
-            app,
-            ui,
-            "Critical",
-            Some(CheckSeverity::Critical),
-            &severity_counts,
-        );
-        severity_button(
-            app,
-            ui,
-            "Warning",
-            Some(CheckSeverity::Warning),
-            &severity_counts,
-        );
+        chip_pill(ui, |ui| {
+            severity_button(app, ui, "All", None, &severity_counts);
+            severity_button(
+                app,
+                ui,
+                "Critical",
+                Some(CheckSeverity::Critical),
+                &severity_counts,
+            );
+            severity_button(
+                app,
+                ui,
+                "Warning",
+                Some(CheckSeverity::Warning),
+                &severity_counts,
+            );
+        });
         ui.separator();
         if resolution_filter_combo(
             ui,

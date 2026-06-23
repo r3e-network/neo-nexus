@@ -1,15 +1,18 @@
 use eframe::egui;
 
 use crate::app::domain::ProcessStateFilter;
+use crate::app::widgets::chip_pill;
 
 use super::super::super::{theme::muted_text, NeoNexusApp};
 
 pub(super) fn render_process_filter(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new("State").color(muted_text()));
-        state_button(app, ui, "All", None);
-        state_button(app, ui, "Observed", Some(ProcessStateFilter::Observed));
-        state_button(app, ui, "Missing", Some(ProcessStateFilter::Missing));
+        chip_pill(ui, |ui| {
+            state_button(app, ui, "All", None);
+            state_button(app, ui, "Observed", Some(ProcessStateFilter::Observed));
+            state_button(app, ui, "Missing", Some(ProcessStateFilter::Missing));
+        });
     });
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new("Pressure").color(muted_text()));
