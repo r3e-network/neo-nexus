@@ -29,6 +29,7 @@ impl eframe::App for NeoNexusApp {
         }
         self.ensure_valid_selection();
         self.persist_active_view_if_changed();
+        self.persist_active_sections_if_changed();
 
         egui::TopBottomPanel::top("application_header")
             .resizable(false)

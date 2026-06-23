@@ -21,6 +21,22 @@ impl SnapshotsSection {
             Self::Verify => "Verify & Cache",
         }
     }
+
+    /// Stable identifier used to persist the active sub-tab across restarts.
+    pub(in crate::app) fn persist_key(self) -> &'static str {
+        match self {
+            Self::Manifest => "manifest",
+            Self::Catalog => "catalog",
+            Self::Registry => "registry",
+            Self::Verify => "verify",
+        }
+    }
+
+    pub(in crate::app) fn from_persist_key(key: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|section| section.persist_key() == key)
+    }
 }
 
 #[cfg(test)]

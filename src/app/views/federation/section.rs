@@ -18,6 +18,21 @@ impl FederationSection {
             Self::Inspector => "Inspector",
         }
     }
+
+    /// Stable identifier used to persist the active sub-tab across restarts.
+    pub(in crate::app) fn persist_key(self) -> &'static str {
+        match self {
+            Self::Profiles => "profiles",
+            Self::Editor => "editor",
+            Self::Inspector => "inspector",
+        }
+    }
+
+    pub(in crate::app) fn from_persist_key(key: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|section| section.persist_key() == key)
+    }
 }
 
 #[cfg(test)]

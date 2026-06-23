@@ -21,6 +21,22 @@ impl RuntimesSection {
             Self::Applied => "Applied",
         }
     }
+
+    /// Stable identifier used to persist the active sub-tab across restarts.
+    pub(in crate::app) fn persist_key(self) -> &'static str {
+        match self {
+            Self::Install => "install",
+            Self::Catalog => "catalog",
+            Self::Installed => "installed",
+            Self::Applied => "applied",
+        }
+    }
+
+    pub(in crate::app) fn from_persist_key(key: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|section| section.persist_key() == key)
+    }
 }
 
 #[cfg(test)]

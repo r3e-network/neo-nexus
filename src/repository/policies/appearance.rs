@@ -59,4 +59,20 @@ impl Repository {
         transaction.commit()?;
         Ok(())
     }
+
+    /// Loads the persist key of the active sub-tab for a dense workspace page,
+    /// or `None` for a fresh workspace so the caller can fall back to the page
+    /// default.
+    pub fn load_workspace_section(&self, setting_key: &str) -> Result<Option<String>> {
+        let connection = self.connection()?;
+        load_setting(&connection, setting_key)
+    }
+
+    pub fn save_workspace_section(&self, setting_key: &str, section_key: &str) -> Result<()> {
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        save_setting(&transaction, setting_key, section_key)?;
+        transaction.commit()?;
+        Ok(())
+    }
 }

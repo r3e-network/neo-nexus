@@ -7,9 +7,6 @@ pub(super) struct StartupPolicies {
     pub(super) remote_federation_monitor: RemoteFederationMonitorPolicy,
     pub(super) alert_routing: AlertRoutingPolicy,
     pub(super) allow_external_sidecars: bool,
-    pub(super) theme: Theme,
-    pub(super) inspector_visible: bool,
-    pub(super) last_view: View,
     pub(super) notice: Option<String>,
 }
 
@@ -24,9 +21,6 @@ impl StartupPolicies {
         let (alert_routing, alert_routing_notice) = load_alert_routing_policy(repository);
         let (allow_external_sidecars, sidecar_policy_notice) =
             load_sidecar_execution_policy(repository);
-        let (theme, theme_notice) = load_theme(repository);
-        let (inspector_visible, inspector_notice) = load_inspector_visible(repository);
-        let (last_view, last_view_notice) = load_last_view(repository);
 
         Self {
             watchdog,
@@ -35,9 +29,6 @@ impl StartupPolicies {
             remote_federation_monitor,
             alert_routing,
             allow_external_sidecars,
-            theme,
-            inspector_visible,
-            last_view,
             notice: first_notice([
                 watchdog_notice,
                 runtime_upgrade_notice,
@@ -45,47 +36,8 @@ impl StartupPolicies {
                 remote_federation_monitor_notice,
                 alert_routing_notice,
                 sidecar_policy_notice,
-                theme_notice,
-                inspector_notice,
-                last_view_notice,
             ]),
         }
-    }
-}
-
-fn load_theme(repository: &Repository) -> (Theme, Option<String>) {
-    match repository.load_app_dark_mode() {
-        Ok(dark) => (Theme::from_dark_mode(dark), None),
-        Err(error) => (
-            Theme::default(),
-            Some(format!("Using default theme: {error}")),
-        ),
-    }
-}
-
-fn load_inspector_visible(repository: &Repository) -> (bool, Option<String>) {
-    match repository.load_app_inspector_visible() {
-        Ok(visible) => (visible, None),
-        Err(error) => (
-            false,
-            Some(format!("Using default inspector layout: {error}")),
-        ),
-    }
-}
-
-fn load_last_view(repository: &Repository) -> (View, Option<String>) {
-    match repository.load_workspace_last_view() {
-        Ok(stored) => (
-            stored
-                .as_deref()
-                .and_then(View::from_persist_key)
-                .unwrap_or(View::Summary),
-            None,
-        ),
-        Err(error) => (
-            View::Summary,
-            Some(format!("Using default workspace view: {error}")),
-        ),
     }
 }
 
@@ -155,6 +107,6 @@ fn load_sidecar_execution_policy(repository: &Repository) -> (bool, Option<Strin
     }
 }
 
-fn first_notice(notices: [Option<String>; 9]) -> Option<String> {
+fn first_notice(notices: [Option<String>; 6]) -> Option<String> {
     notices.into_iter().flatten().next()
 }
