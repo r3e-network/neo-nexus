@@ -39,4 +39,11 @@ impl NeoNexusApp {
             self.notice = Some(format!("Workspace view not saved: {error}"));
         }
     }
+
+    /// Switches the active workspace view programmatically. Mirrors selecting a
+    /// page in the sidebar, so automation, scripting, and verification harnesses
+    /// can drive the workbench to a specific page without simulating a click.
+    pub fn select_view(&mut self, view: View) {
+        self.selected_view = view;
+    }
 }
