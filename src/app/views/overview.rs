@@ -6,7 +6,7 @@ mod selection;
 
 use eframe::egui;
 
-use crate::dashboard::DashboardSummary;
+use crate::app::domain::DashboardSummary;
 
 use super::super::{widgets::panel, NeoNexusApp};
 

@@ -1,5 +1,4 @@
 use super::super::*;
-use crate::readiness_report::WorkspaceReadinessReport;
 
 impl NeoNexusApp {
     pub(in crate::app) fn export_workspace_readiness_report(

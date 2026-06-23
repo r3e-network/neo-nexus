@@ -1,5 +1,5 @@
 use super::*;
-use crate::supervisor::ProcessStart;
+use crate::app::domain::ProcessStart;
 
 impl NeoNexusApp {
     pub(in crate::app) fn apply_selected_managed_config_and_restart(&mut self) {

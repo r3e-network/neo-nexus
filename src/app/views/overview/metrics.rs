@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::dashboard::DashboardSummary;
+use crate::app::domain::DashboardSummary;
 
 use super::super::super::widgets::metric_row;
 

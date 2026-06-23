@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::watchdog::RestartPolicy;
+use crate::app::domain::RestartPolicy;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::app) struct WatchdogPolicyDraft {

@@ -1,7 +1,5 @@
 use super::super::super::*;
 
-use crate::watchdog::RestartPolicy;
-
 pub(super) struct StartupPolicies {
     pub(super) watchdog: RestartPolicy,
     pub(super) runtime_upgrade: RuntimeUpgradePolicy,
