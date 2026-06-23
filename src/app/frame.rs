@@ -30,7 +30,17 @@ impl eframe::App for NeoNexusApp {
         self.ensure_valid_selection();
         self.persist_active_view_if_changed();
         self.persist_active_sections_if_changed();
+        self.render_application_panels(context);
+    }
+}
 
+impl NeoNexusApp {
+    /// Lays out the fixed workbench panels: header, status bar, navigation
+    /// sidebar, optional inventory and inspector side panels, and the central
+    /// workspace. Extracted from `eframe::App::update` so a headless egui
+    /// context can render one real frame for geometry verification without a
+    /// live window or the macOS screen-capture permission.
+    pub(in crate::app) fn render_application_panels(&mut self, context: &egui::Context) {
         egui::TopBottomPanel::top("application_header")
             .resizable(false)
             .exact_height(60.0)
@@ -80,5 +90,18 @@ impl eframe::App for NeoNexusApp {
             .show(context, |ui| {
                 self.render_workspace(ui);
             });
+    }
+}
+
+impl NeoNexusApp {
+    /// Renders one frame of the workbench against a caller-supplied egui
+    /// context. This is the headless entry point used by geometry verification
+    /// tests: it installs the icon font and theme style, then lays out the real
+    /// panels so their pixel rects can be asserted without a live window or the
+    /// macOS screen-capture permission.
+    pub fn render_headless_frame(&mut self, context: &egui::Context) {
+        super::theme::install_icons(context);
+        configure_style(context, self.theme);
+        self.render_application_panels(context);
     }
 }
