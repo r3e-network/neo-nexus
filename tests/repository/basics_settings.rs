@@ -8,3 +8,5 @@ mod nodes;
 mod sidecars_federation;
 #[path = "basics_settings/watchdog_rpc.rs"]
 mod watchdog_rpc;
+#[path = "basics_settings/workspace_prefs.rs"]
+mod workspace_prefs;

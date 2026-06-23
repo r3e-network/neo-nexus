@@ -44,6 +44,7 @@ mod view;
 mod views;
 mod widgets;
 mod workflow;
+mod workspace_section_flow;
 
 use constants::*;
 use domain::*;
