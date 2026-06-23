@@ -6,7 +6,7 @@ use crate::app::theme;
 use crate::app::{
     domain::{ConfigValidationReport, NodeConfig, RenderedConfig},
     text::{short_path, truncate_middle},
-    widgets::{fact, primary_button, render_node_fact_sheet},
+    widgets::{fact, fact_error, primary_button, render_node_fact_sheet},
     NeoNexusApp,
 };
 
@@ -47,7 +47,7 @@ fn render_config_facts(app: &NeoNexusApp, ui: &mut egui::Ui, context: &ConfigCon
             fact(ui, "Validation", report.status_label());
             fact(ui, "Checks", &report.summary());
         }
-        Err(error) => fact(ui, "Validation", &error.to_string()),
+        Err(error) => fact_error(ui, "Validation", &error.to_string()),
     }
     fact(ui, "Enabled plugins", &context.enabled_plugins.to_string());
     fact(ui, "Export", &short_path(context.export_path, 42));

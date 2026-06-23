@@ -3,7 +3,7 @@ use eframe::egui;
 use crate::app::{
     domain::{CommitteeRoster, LaunchPackValidationStatus, PrivateNetworkPlan},
     text::{short_path, truncate_middle},
-    widgets::fact,
+    widgets::{fact, fact_error},
     NeoNexusApp,
 };
 
@@ -67,7 +67,7 @@ fn render_signer_status(
             "Signer handoff",
             &format!("{signer_reference_count} refs; committee keys pending"),
         ),
-        Err(error) => fact(ui, "Signer issue", &truncate_middle(&error.to_string(), 58)),
+        Err(error) => fact_error(ui, "Signer issue", &truncate_middle(&error.to_string(), 58)),
     }
 }
 
