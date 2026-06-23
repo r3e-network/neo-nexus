@@ -77,3 +77,22 @@ fn loads_and_persists_app_dark_mode_preference() {
     repository.save_app_dark_mode(false).unwrap();
     assert!(!repository.load_app_dark_mode().unwrap());
 }
+
+#[test]
+fn loads_and_persists_workspace_ui_state() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let repository = Repository::open(temp_dir.path().join("neonexus.db")).unwrap();
+
+    // A fresh workspace hides the inspector and has no remembered view.
+    assert!(!repository.load_app_inspector_visible().unwrap());
+    assert_eq!(repository.load_workspace_last_view().unwrap(), None);
+
+    repository.save_app_inspector_visible(true).unwrap();
+    assert!(repository.load_app_inspector_visible().unwrap());
+
+    repository.save_workspace_last_view("operations").unwrap();
+    assert_eq!(
+        repository.load_workspace_last_view().unwrap().as_deref(),
+        Some("operations")
+    );
+}

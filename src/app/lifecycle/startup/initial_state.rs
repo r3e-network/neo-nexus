@@ -9,7 +9,7 @@ pub(super) fn build_initial_app(
     NeoNexusApp {
         repository,
         theme: policies.theme,
-        inspector_visible: false,
+        inspector_visible: policies.inspector_visible,
         supervisor: ProcessSupervisor::default(),
         watchdog: Watchdog::new(policies.watchdog),
         watchdog_policy_draft: WatchdogPolicyDraft::from_policy(policies.watchdog),
@@ -50,7 +50,8 @@ pub(super) fn build_initial_app(
         remote_server_description: String::new(),
         remote_server_enabled: true,
         last_remote_server_probe: None,
-        selected_view: View::Summary,
+        selected_view: policies.last_view,
+        persisted_view: policies.last_view,
         operations_section: OperationsSection::Readiness,
         settings_section: SettingsSection::Watchdog,
         runtimes_section: RuntimesSection::Install,

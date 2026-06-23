@@ -88,6 +88,32 @@ impl View {
         }
     }
 
+    /// Stable identifier used to persist the active view across restarts.
+    /// Independent of `label()` so display text can change without breaking the
+    /// saved preference.
+    pub(super) fn persist_key(self) -> &'static str {
+        match self {
+            Self::Summary => "summary",
+            Self::Operations => "operations",
+            Self::Monitor => "monitor",
+            Self::Alerts => "alerts",
+            Self::Federation => "federation",
+            Self::Settings => "settings",
+            Self::Runtimes => "runtimes",
+            Self::Wallets => "wallets",
+            Self::Nodes => "nodes",
+            Self::Roles => "roles",
+            Self::Snapshots => "snapshots",
+            Self::Plugins => "plugins",
+            Self::Config => "config",
+            Self::Logs => "logs",
+        }
+    }
+
+    pub(super) fn from_persist_key(key: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|view| view.persist_key() == key)
+    }
+
     pub(super) fn subtitle(self) -> &'static str {
         match self {
             Self::Summary => "Fleet health, lifecycle posture, and native workspace state.",
