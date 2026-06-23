@@ -3,7 +3,7 @@ use eframe::egui;
 use crate::app::{
     domain::{RpcHealthRecord, RpcHealthStatus},
     text::truncate_middle,
-    widgets::fact,
+    widgets::{fact, fact_error},
     NeoNexusApp,
 };
 
@@ -27,7 +27,7 @@ pub(super) fn render_rpc_health(app: &NeoNexusApp, ui: &mut egui::Ui, node_id: &
             }
         }
         Err(error) => {
-            fact(ui, "RPC Health", &truncate_middle(&error.to_string(), 40));
+            fact_error(ui, "RPC Health", &truncate_middle(&error.to_string(), 40));
         }
     }
 }

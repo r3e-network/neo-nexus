@@ -6,7 +6,7 @@ use super::{
     super::super::{
         paging::page_count,
         text::truncate_end,
-        theme::muted_text,
+        theme::{danger, muted_text},
         widgets::{empty_state, pagination_bar},
         NeoNexusApp, LOG_LINES_PER_PAGE,
     },
@@ -21,7 +21,7 @@ pub(super) fn render_log_output(
     match snapshot {
         Ok(snapshot) => render_log_lines(app, ui, snapshot),
         Err(error) => {
-            ui.label(error.to_string());
+            ui.label(egui::RichText::new(error.to_string()).color(danger()));
         }
     }
 }

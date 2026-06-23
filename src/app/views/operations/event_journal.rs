@@ -4,7 +4,7 @@ mod list;
 
 use eframe::egui;
 
-use crate::app::domain::RuntimeEventFilter;
+use crate::app::{domain::RuntimeEventFilter, theme};
 
 use super::super::super::{widgets::empty_state, NeoNexusApp, EVENT_JOURNAL_LIMIT};
 
@@ -24,21 +24,21 @@ impl NeoNexusApp {
         let total_matches = match self.repository.count_events(&filter) {
             Ok(count) => count,
             Err(error) => {
-                ui.label(error.to_string());
+                ui.label(egui::RichText::new(error.to_string()).color(theme::danger()));
                 return;
             }
         };
         let total_events = match self.repository.count_events(&RuntimeEventFilter::default()) {
             Ok(count) => count,
             Err(error) => {
-                ui.label(error.to_string());
+                ui.label(egui::RichText::new(error.to_string()).color(theme::danger()));
                 return;
             }
         };
         let events = match self.repository.list_events(filter) {
             Ok(events) => events,
             Err(error) => {
-                ui.label(error.to_string());
+                ui.label(egui::RichText::new(error.to_string()).color(theme::danger()));
                 return;
             }
         };

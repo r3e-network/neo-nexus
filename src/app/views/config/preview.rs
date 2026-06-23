@@ -4,6 +4,7 @@ use crate::app::{
     domain::RenderedConfig,
     paging::page_count,
     text::truncate_end,
+    theme,
     widgets::{pagination_bar, panel},
     CONFIG_LINES_PER_PAGE,
 };
@@ -16,7 +17,7 @@ pub(super) fn render_config_preview(
     panel(ui, "Paged config preview", |ui| match rendered_config {
         Ok(config) => render_config_lines(ui, config_page, &config.text),
         Err(error) => {
-            ui.label(error.to_string());
+            ui.label(egui::RichText::new(error.to_string()).color(theme::danger()));
         }
     });
 }

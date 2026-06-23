@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 mod module_boundaries;
+mod visual_contract;
 
 fn manifest_path(relative: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join(relative)

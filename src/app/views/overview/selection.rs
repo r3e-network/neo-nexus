@@ -2,6 +2,7 @@ use eframe::egui;
 
 use super::super::super::{
     text::{short_path, truncate_middle},
+    theme,
     view::View,
     widgets::{empty_state, fact, render_node_fact_sheet},
     NeoNexusApp,
@@ -36,7 +37,15 @@ pub(super) fn render_summary_selection(app: &mut NeoNexusApp, ui: &mut egui::Ui)
             );
         }
         Ok(None) => fact(ui, "RPC Health", "unchecked"),
-        Err(error) => fact(ui, "RPC Health", &truncate_middle(&error.to_string(), 40)),
+        Err(error) => {
+            ui.label(
+                egui::RichText::new(format!(
+                    "RPC Health: {}",
+                    truncate_middle(&error.to_string(), 40)
+                ))
+                .color(theme::danger()),
+            );
+        }
     }
 
     ui.add_space(10.0);
