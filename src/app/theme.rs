@@ -4,9 +4,11 @@ use eframe::egui::{self, Color32};
 
 use crate::app::domain::NodeStatus;
 
+mod icons;
 mod style;
 mod tokens;
 
+pub(super) use icons::{glyph as view_icon_glyph, install as install_icons};
 pub(super) use style::configure_style;
 pub(in crate::app) use tokens::{
     column_header, label_caption, metric_value, muted_body, page_title, section_title, MD, SM, XS,

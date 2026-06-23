@@ -71,10 +71,14 @@ impl NeoNexusApp {
     fn render_nav_item(&mut self, ui: &mut egui::Ui, view: View) {
         let selected = self.selected_view == view;
         let width = ui.available_width();
+        // Phosphor glyph from the shared icon font, set beside the label so the
+        // sidebar reads like a macOS source-list: pictogram then title.
+        let icon = theme::view_icon_glyph(view);
+        let label = format!("{icon}   {}", view.label());
         let response = ui
             .add_sized(
                 [width, 32.0],
-                egui::Button::selectable(selected, view.label()),
+                egui::Button::selectable(selected, egui::RichText::new(label).size(13.5)),
             )
             .on_hover_text(view.subtitle());
         if response.clicked() {
