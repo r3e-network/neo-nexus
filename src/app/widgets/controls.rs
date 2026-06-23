@@ -36,21 +36,27 @@ pub(in crate::app) fn pagination_bar(
     item_count: usize,
 ) {
     ui.horizontal(|ui| {
-        ui.label(format!("Items: {item_count}"));
+        ui.label(theme::muted_body(format!("Items: {item_count}")));
         ui.separator();
-        if ui
-            .add_enabled(*page > 0, egui::Button::new("Previous"))
-            .clicked()
-        {
-            *page -= 1;
-        }
-        ui.label(format!("Page {} / {}", *page + 1, total_pages));
-        if ui
-            .add_enabled(*page + 1 < total_pages, egui::Button::new("Next"))
-            .clicked()
-        {
-            *page += 1;
-        }
+        ui.label(theme::muted_body(format!(
+            "Page {} / {}",
+            *page + 1,
+            total_pages
+        )));
+        chip_pill(ui, |ui| {
+            if ui
+                .add_enabled(*page > 0, egui::Button::new("Previous"))
+                .clicked()
+            {
+                *page -= 1;
+            }
+            if ui
+                .add_enabled(*page + 1 < total_pages, egui::Button::new("Next"))
+                .clicked()
+            {
+                *page += 1;
+            }
+        });
     });
 }
 
