@@ -8,10 +8,12 @@ impl NeoNexusApp {
         ui.horizontal(|ui| {
             ui.add_space(10.0);
             ui.label(egui::RichText::new("Status").color(muted_text()));
-            status_button(self, ui, "All", None);
-            for status in NodeStatus::ALL {
-                status_button(self, ui, status.label(), Some(status));
-            }
+            chip_pill(ui, |ui| {
+                status_button(self, ui, "All", None);
+                for status in NodeStatus::ALL {
+                    status_button(self, ui, status.label(), Some(status));
+                }
+            });
         });
 
         ui.add_space(4.0);

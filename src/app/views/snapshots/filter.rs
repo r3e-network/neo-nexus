@@ -1,6 +1,7 @@
 use eframe::egui;
 
 use crate::app::domain::{Network, NodeType};
+use crate::app::widgets::chip_pill;
 
 use super::super::super::{theme::muted_text, NeoNexusApp};
 
@@ -21,21 +22,25 @@ pub(super) fn render_snapshot_registry_filter(app: &mut NeoNexusApp, ui: &mut eg
     );
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new("Integrity").color(muted_text()));
-        registry_bool_button(app, ui, "All", None, RegistryBoolField::Verified);
-        registry_bool_button(app, ui, "Verified", Some(true), RegistryBoolField::Verified);
-        registry_bool_button(
-            app,
-            ui,
-            "Unverified",
-            Some(false),
-            RegistryBoolField::Verified,
-        );
+        chip_pill(ui, |ui| {
+            registry_bool_button(app, ui, "All", None, RegistryBoolField::Verified);
+            registry_bool_button(app, ui, "Verified", Some(true), RegistryBoolField::Verified);
+            registry_bool_button(
+                app,
+                ui,
+                "Unverified",
+                Some(false),
+                RegistryBoolField::Verified,
+            );
+        });
     });
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new("Cache").color(muted_text()));
-        registry_bool_button(app, ui, "All", None, RegistryBoolField::Cached);
-        registry_bool_button(app, ui, "Cached", Some(true), RegistryBoolField::Cached);
-        registry_bool_button(app, ui, "Missing", Some(false), RegistryBoolField::Cached);
+        chip_pill(ui, |ui| {
+            registry_bool_button(app, ui, "All", None, RegistryBoolField::Cached);
+            registry_bool_button(app, ui, "Cached", Some(true), RegistryBoolField::Cached);
+            registry_bool_button(app, ui, "Missing", Some(false), RegistryBoolField::Cached);
+        });
     });
     let response = ui.add_sized(
         [ui.available_width(), 24.0],
@@ -81,26 +86,28 @@ fn render_network_buttons(
 ) {
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new("Network").color(muted_text()));
-        option_button(
-            ui,
-            selected.is_none(),
-            "All",
-            app,
-            &mut set,
-            &mut reset,
-            None,
-        );
-        for network in Network::ALL {
+        chip_pill(ui, |ui| {
             option_button(
                 ui,
-                selected == Some(network),
-                &network.to_string(),
+                selected.is_none(),
+                "All",
                 app,
                 &mut set,
                 &mut reset,
-                Some(network),
+                None,
             );
-        }
+            for network in Network::ALL {
+                option_button(
+                    ui,
+                    selected == Some(network),
+                    &network.to_string(),
+                    app,
+                    &mut set,
+                    &mut reset,
+                    Some(network),
+                );
+            }
+        });
     });
 }
 
@@ -113,26 +120,28 @@ fn render_runtime_buttons(
 ) {
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new("Runtime").color(muted_text()));
-        option_button(
-            ui,
-            selected.is_none(),
-            "All",
-            app,
-            &mut set,
-            &mut reset,
-            None,
-        );
-        for node_type in NodeType::ALL {
+        chip_pill(ui, |ui| {
             option_button(
                 ui,
-                selected == Some(node_type),
-                &node_type.to_string(),
+                selected.is_none(),
+                "All",
                 app,
                 &mut set,
                 &mut reset,
-                Some(node_type),
+                None,
             );
-        }
+            for node_type in NodeType::ALL {
+                option_button(
+                    ui,
+                    selected == Some(node_type),
+                    &node_type.to_string(),
+                    app,
+                    &mut set,
+                    &mut reset,
+                    Some(node_type),
+                );
+            }
+        });
     });
 }
 

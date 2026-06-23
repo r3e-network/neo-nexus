@@ -1,6 +1,7 @@
 use eframe::egui;
 
 use crate::app::domain::{CheckSeverity, NodeDiagnostics};
+use crate::app::widgets::chip_pill;
 
 use super::super::super::super::{theme::muted_text, NeoNexusApp};
 use super::super::helpers::{resolution_filter_combo, severity_filter_label};
@@ -14,23 +15,25 @@ pub(super) fn render_check_filters(
     let severity_counts = app.readiness_check_severity_counts(node);
     ui.horizontal_wrapped(|ui| {
         ui.label(egui::RichText::new("Severity").color(muted_text()));
-        severity_button(app, ui, "All", None, &severity_counts);
-        severity_button(
-            app,
-            ui,
-            "Critical",
-            Some(CheckSeverity::Critical),
-            &severity_counts,
-        );
-        severity_button(
-            app,
-            ui,
-            "Warning",
-            Some(CheckSeverity::Warning),
-            &severity_counts,
-        );
-        severity_button(app, ui, "Info", Some(CheckSeverity::Info), &severity_counts);
-        severity_button(app, ui, "Pass", Some(CheckSeverity::Pass), &severity_counts);
+        chip_pill(ui, |ui| {
+            severity_button(app, ui, "All", None, &severity_counts);
+            severity_button(
+                app,
+                ui,
+                "Critical",
+                Some(CheckSeverity::Critical),
+                &severity_counts,
+            );
+            severity_button(
+                app,
+                ui,
+                "Warning",
+                Some(CheckSeverity::Warning),
+                &severity_counts,
+            );
+            severity_button(app, ui, "Info", Some(CheckSeverity::Info), &severity_counts);
+            severity_button(app, ui, "Pass", Some(CheckSeverity::Pass), &severity_counts);
+        });
         ui.separator();
         if resolution_filter_combo(
             ui,

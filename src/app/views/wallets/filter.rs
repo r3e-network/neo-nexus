@@ -1,13 +1,15 @@
 use eframe::egui;
 
-use super::super::super::{theme::muted_text, NeoNexusApp};
+use super::super::super::{theme::muted_text, widgets::chip_pill, NeoNexusApp};
 
 pub(super) fn render_wallet_profile_filter(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new("Usage").color(muted_text()));
-        filter_button(app, ui, "All", None);
-        filter_button(app, ui, "Used", Some(true));
-        filter_button(app, ui, "Unused", Some(false));
+        chip_pill(ui, |ui| {
+            filter_button(app, ui, "All", None);
+            filter_button(app, ui, "Used", Some(true));
+            filter_button(app, ui, "Unused", Some(false));
+        });
     });
     let response = ui.add_sized(
         [ui.available_width(), 24.0],

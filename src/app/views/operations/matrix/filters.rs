@@ -1,6 +1,7 @@
 use eframe::egui;
 
 use crate::app::domain::{CheckSeverity, FleetDiagnostics, Network, NodeStatus};
+use crate::app::widgets::chip_pill;
 
 use super::super::super::super::{theme::muted_text, NeoNexusApp};
 
@@ -11,23 +12,29 @@ pub(super) fn render_port_filters(
 ) {
     ui.horizontal_wrapped(|ui| {
         ui.label(egui::RichText::new("Status").color(muted_text()));
-        status_button(app, ui, "All", None);
-        for status in NodeStatus::ALL {
-            status_button(app, ui, status.label(), Some(status));
-        }
+        chip_pill(ui, |ui| {
+            status_button(app, ui, "All", None);
+            for status in NodeStatus::ALL {
+                status_button(app, ui, status.label(), Some(status));
+            }
+        });
     });
     ui.horizontal_wrapped(|ui| {
         ui.label(egui::RichText::new("Network").color(muted_text()));
-        network_button(app, ui, "All", None);
-        for network in Network::ALL {
-            network_button(app, ui, &network.to_string(), Some(network));
-        }
+        chip_pill(ui, |ui| {
+            network_button(app, ui, "All", None);
+            for network in Network::ALL {
+                network_button(app, ui, &network.to_string(), Some(network));
+            }
+        });
     });
     ui.horizontal_wrapped(|ui| {
         ui.label(egui::RichText::new("Health").color(muted_text()));
-        health_button(app, ui, "All", None);
-        health_button(app, ui, "Blocked", Some(CheckSeverity::Critical));
-        health_button(app, ui, "Clear", Some(CheckSeverity::Pass));
+        chip_pill(ui, |ui| {
+            health_button(app, ui, "All", None);
+            health_button(app, ui, "Blocked", Some(CheckSeverity::Critical));
+            health_button(app, ui, "Clear", Some(CheckSeverity::Pass));
+        });
         ui.separator();
         if ui
             .add_enabled(
