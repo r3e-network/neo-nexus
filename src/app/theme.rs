@@ -93,7 +93,7 @@ const LIGHT_PALETTE: Palette = Palette {
     accent_hover: Color32::from_rgb(73, 71, 196),
     on_accent: Color32::from_rgb(255, 255, 255),
     text: Color32::from_rgb(29, 29, 31),
-    muted_text: Color32::from_rgb(124, 124, 130),
+    muted_text: Color32::from_rgb(117, 117, 123),
     card_fill: Color32::from_rgb(255, 255, 255),
     panel_fill: Color32::from_rgb(237, 237, 241),
     window_fill: Color32::from_rgb(242, 242, 246),
@@ -101,7 +101,7 @@ const LIGHT_PALETTE: Palette = Palette {
     faint_fill: Color32::from_rgb(232, 232, 237),
     border: Color32::from_rgb(220, 220, 226),
     status_running: Color32::from_rgb(40, 167, 90),
-    status_starting: Color32::from_rgb(214, 138, 10),
+    status_starting: Color32::from_rgb(200, 110, 0),
     status_stopped: Color32::from_rgb(142, 142, 147),
     status_error: Color32::from_rgb(213, 60, 55),
     info: Color32::from_rgb(10, 122, 158),
@@ -110,8 +110,8 @@ const LIGHT_PALETTE: Palette = Palette {
 // Dark: layered greys (window < sidebar/card) with a brighter indigo accent and
 // lifted status colours for contrast on dark surfaces.
 const DARK_PALETTE: Palette = Palette {
-    accent: Color32::from_rgb(125, 122, 255),
-    accent_hover: Color32::from_rgb(149, 146, 255),
+    accent: Color32::from_rgb(100, 97, 235),
+    accent_hover: Color32::from_rgb(85, 82, 220),
     on_accent: Color32::from_rgb(255, 255, 255),
     text: Color32::from_rgb(243, 243, 245),
     muted_text: Color32::from_rgb(152, 152, 157),
