@@ -1,5 +1,4 @@
 use super::super::*;
-use crate::event_journal_report::EventJournalReportExport;
 
 impl NeoNexusApp {
     pub(in crate::app) fn export_event_journal_report(&mut self) {

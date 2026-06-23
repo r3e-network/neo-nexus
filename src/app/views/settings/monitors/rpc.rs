@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use super::widgets::{interval_drag, validation_error};
-use crate::{app::NeoNexusApp, rpc_health::RpcHealthMonitorPolicy};
+use crate::app::{domain::RpcHealthMonitorPolicy, NeoNexusApp};
 
 pub(super) fn render_rpc_monitor_policy(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.checkbox(

@@ -1,8 +1,10 @@
 use eframe::egui;
 
-use crate::{
-    app::{text::truncate_middle, widgets::fact, NeoNexusApp},
-    rpc_health::{RpcHealthRecord, RpcHealthStatus},
+use crate::app::{
+    domain::{RpcHealthRecord, RpcHealthStatus},
+    text::truncate_middle,
+    widgets::fact,
+    NeoNexusApp,
 };
 
 pub(super) fn render_rpc_health(app: &NeoNexusApp, ui: &mut egui::Ui, node_id: &str) {
