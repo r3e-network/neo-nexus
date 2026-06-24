@@ -16,7 +16,7 @@ pub mod launch;
 pub mod logs;
 pub mod manager;
 pub mod metrics;
-pub mod native_ui;
+pub mod native_ui_audit;
 pub mod node_lifecycle;
 pub mod plugins;
 pub mod port_planner;

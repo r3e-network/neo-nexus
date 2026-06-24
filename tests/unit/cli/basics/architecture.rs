@@ -11,7 +11,7 @@ const SHARED_DOMAIN_MODULES: &[&str] = &[
     "federation",
     "logs",
     "metrics",
-    "native_ui",
+    "native_ui_audit",
     "plugins",
     "private_network",
     "readiness_report",
