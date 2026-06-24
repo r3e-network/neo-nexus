@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::app::theme::panel_fill;
+use crate::app::theme::card_surface;
 
 /// macOS-style segmented control: a single rounded, hairline-bordered pill that
 /// holds equal-width selectable segments. The active segment lifts with the
@@ -21,9 +21,9 @@ pub(in crate::app) fn segmented_control(
     let mut changed = false;
     let stroke = ui.style().visuals.widgets.noninteractive.bg_stroke;
     egui::Frame::new()
-        .fill(panel_fill())
+        .fill(card_surface())
         .stroke(stroke)
-        .corner_radius(egui::CornerRadius::same(9))
+        .corner_radius(egui::CornerRadius::same(8))
         .inner_margin(egui::Margin::same(3))
         .show(ui, |ui| {
             ui.columns(segments.len(), |columns| {

@@ -12,9 +12,9 @@ pub(super) use super::super::super::view::View;
 
 impl NeoNexusApp {
     pub(in crate::app) fn render_application_header(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(4.0);
+        ui.add_space(theme::SM);
         ui.horizontal(|ui| {
-            ui.add_space(2.0);
+            ui.add_space(theme::XS);
             ui.vertical(|ui| {
                 ui.add_space(1.0);
                 ui.label(theme::page_title(self.selected_view.title()));
@@ -22,7 +22,7 @@ impl NeoNexusApp {
             });
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.add_space(6.0);
+                ui.add_space(theme::SM);
                 render_node_action_buttons(self, ui);
                 ui.separator();
                 render_application_menu(self, ui);

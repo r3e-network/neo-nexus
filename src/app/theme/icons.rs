@@ -45,6 +45,13 @@ pub(in crate::app) fn glyph(view: View) -> &'static str {
     }
 }
 
+/// Phosphor glyph for an empty state: a muted tray that reads as "nothing here
+/// yet" so an empty panel has a focal pictogram above its guidance text, like a
+/// macOS empty list, rather than bare words.
+pub(in crate::app) fn empty_glyph() -> &'static str {
+    regular::TRAY
+}
+
 #[cfg(test)]
 #[path = "../../../tests/unit/app/theme/icons.rs"]
 mod tests;

@@ -19,7 +19,7 @@ pub(in crate::app) fn primary_button(ui: &mut egui::Ui, text: &str) -> egui::Res
 pub(in crate::app) fn chip_pill(ui: &mut egui::Ui, add_chips: impl FnOnce(&mut egui::Ui)) {
     let stroke = ui.style().visuals.widgets.noninteractive.bg_stroke;
     egui::Frame::new()
-        .fill(theme::panel_fill())
+        .fill(theme::card_surface())
         .stroke(stroke)
         .corner_radius(egui::CornerRadius::same(8))
         .inner_margin(egui::Margin::symmetric(3, 2))

@@ -2,7 +2,7 @@ use eframe::egui;
 
 use super::super::super::{
     shortcuts::{labels::shortcut_hint, AppShortcut},
-    theme::{self, muted_text},
+    theme,
     view::View,
     NeoNexusApp,
 };
@@ -32,22 +32,18 @@ const NAV_GROUPS: &[(&str, &[View])] = &[
 
 impl NeoNexusApp {
     pub(in crate::app) fn render_navigation_sidebar(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(2.0);
+        ui.add_space(theme::XS);
         ui.label(theme::page_title("NeoNexus"));
-        ui.label(
-            egui::RichText::new("Neo node operations")
-                .color(muted_text())
-                .size(11.0),
-        );
-        ui.add_space(14.0);
+        ui.label(theme::muted_body("Neo node operations"));
+        ui.add_space(theme::XL);
 
         // Controls pinned to the bottom; navigation fills the space above.
         ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-            ui.add_space(2.0);
+            ui.add_space(theme::XS);
             self.render_sidebar_controls(ui);
-            ui.add_space(8.0);
+            ui.add_space(theme::SM);
             ui.separator();
-            ui.add_space(8.0);
+            ui.add_space(theme::SM);
 
             ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
                 self.render_navigation_items(ui);
@@ -58,10 +54,10 @@ impl NeoNexusApp {
     fn render_navigation_items(&mut self, ui: &mut egui::Ui) {
         for (index, (group, views)) in NAV_GROUPS.iter().enumerate() {
             if index > 0 {
-                ui.add_space(14.0);
+                ui.add_space(theme::LG);
             }
             ui.label(theme::label_caption(*group));
-            ui.add_space(4.0);
+            ui.add_space(theme::XS);
             for &view in *views {
                 self.render_nav_item(ui, view);
             }
@@ -75,11 +71,20 @@ impl NeoNexusApp {
         // sidebar reads like a macOS source-list: pictogram then title.
         let icon = theme::view_icon_glyph(view);
         let label = format!("{icon}   {}", view.label());
+        // The selected page reads as a macOS source-list selection: a solid
+        // accent fill with the label drawn in the on-accent foreground, so the
+        // active page is unmistakable rather than a subtle egui default tint.
+        let text = if selected {
+            theme::body(label).color(theme::on_accent()).strong()
+        } else {
+            theme::body(label)
+        };
+        let mut button = egui::Button::selectable(selected, text);
+        if selected {
+            button = button.fill(theme::accent()).stroke(egui::Stroke::NONE);
+        }
         let response = ui
-            .add_sized(
-                [width, 32.0],
-                egui::Button::selectable(selected, theme::body(label)),
-            )
+            .add_sized([width, 32.0], button)
             .on_hover_text(view.subtitle());
         if response.clicked() {
             self.selected_view = view;

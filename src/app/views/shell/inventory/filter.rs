@@ -6,8 +6,8 @@ impl NeoNexusApp {
         ui: &mut egui::Ui,
     ) {
         ui.horizontal(|ui| {
-            ui.add_space(10.0);
-            ui.label(egui::RichText::new("Status").color(muted_text()));
+            ui.add_space(theme::MD);
+            ui.label(theme::muted_body("Status"));
             chip_pill(ui, |ui| {
                 status_button(self, ui, "All", None);
                 for status in NodeStatus::ALL {
@@ -16,9 +16,9 @@ impl NeoNexusApp {
             });
         });
 
-        ui.add_space(4.0);
+        ui.add_space(theme::XS);
         ui.horizontal(|ui| {
-            ui.add_space(10.0);
+            ui.add_space(theme::MD);
             let response = ui.add_sized(
                 [(ui.available_width() - 10.0).max(120.0), 24.0],
                 egui::TextEdit::singleline(&mut self.node_query).hint_text("Search"),

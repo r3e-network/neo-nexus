@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use eframe::egui;
 
-use super::{theme::configure_style, NeoNexusApp};
+use super::{theme, theme::configure_style, NeoNexusApp};
 
 impl eframe::App for NeoNexusApp {
     fn update(&mut self, context: &egui::Context, _frame: &mut eframe::Frame) {
@@ -34,6 +34,16 @@ impl eframe::App for NeoNexusApp {
     }
 }
 
+/// A chrome panel frame (sidebar, header, status bar, inspector): a raised
+/// surface that lifts off the workspace canvas with the mid-tier panel fill and
+/// a hairline border so the chrome reads as distinct from the content area.
+fn chrome_frame() -> egui::Frame {
+    egui::Frame::new()
+        .fill(theme::panel_fill())
+        .stroke(theme::hairline())
+        .corner_radius(egui::CornerRadius::same(0))
+}
+
 impl NeoNexusApp {
     /// Lays out the fixed workbench panels: header, status bar, navigation
     /// sidebar, optional inventory and inspector side panels, and the central
@@ -44,21 +54,19 @@ impl NeoNexusApp {
         egui::TopBottomPanel::top("application_header")
             .resizable(false)
             .exact_height(60.0)
+            .frame(chrome_frame().inner_margin(egui::Margin::symmetric(16, 10)))
             .show(context, |ui| self.render_application_header(ui));
 
         egui::TopBottomPanel::bottom("status_bar")
             .resizable(false)
             .exact_height(28.0)
+            .frame(chrome_frame().inner_margin(egui::Margin::symmetric(12, 6)))
             .show(context, |ui| self.render_status_bar(ui));
-
-        let style = context.style();
 
         egui::SidePanel::left("navigation_panel")
             .resizable(false)
             .exact_width(212.0)
-            .frame(
-                egui::Frame::side_top_panel(&style).inner_margin(egui::Margin::symmetric(12, 12)),
-            )
+            .frame(chrome_frame().inner_margin(egui::Margin::symmetric(12, 14)))
             .show(context, |ui| self.render_navigation_sidebar(ui));
 
         if self.selected_view.shows_inventory() {
@@ -66,10 +74,7 @@ impl NeoNexusApp {
                 .resizable(true)
                 .default_width(248.0)
                 .width_range(200.0..=340.0)
-                .frame(
-                    egui::Frame::side_top_panel(&style)
-                        .inner_margin(egui::Margin::symmetric(14, 14)),
-                )
+                .frame(chrome_frame().inner_margin(egui::Margin::symmetric(14, 14)))
                 .show(context, |ui| self.render_inventory_panel(ui));
         }
 
@@ -78,13 +83,11 @@ impl NeoNexusApp {
                 .resizable(true)
                 .default_width(320.0)
                 .width_range(280.0..=420.0)
-                .frame(
-                    egui::Frame::side_top_panel(&style)
-                        .inner_margin(egui::Margin::symmetric(16, 14)),
-                )
+                .frame(chrome_frame().inner_margin(egui::Margin::symmetric(16, 14)))
                 .show(context, |ui| self.render_inspector_panel(ui));
         }
 
+        let style = context.style();
         egui::CentralPanel::default()
             .frame(egui::Frame::central_panel(&style).inner_margin(egui::Margin::symmetric(22, 18)))
             .show(context, |ui| {
