@@ -30,20 +30,28 @@ impl NeoNexusApp {
     fn restart_after_managed_config_apply(&mut self, node: NodeConfig) {
         let plan = self.launch_plan_for(&node);
         let log_path = self.node_log_path(&node);
-        match self.supervisor.restart(&node, &plan, &log_path) {
-            Ok(start) => self.record_managed_config_restart_success(&node, start),
-            Err(error) => self.record_managed_config_restart_failure(&node, error),
+        // Delegate the supervise -> persist-status pipeline to the shared core.
+        // Config was already exported above, so no managed config is passed here.
+        let outcome = execute_node_launch(
+            &self.repository,
+            &mut self.supervisor,
+            &node,
+            &plan,
+            &log_path,
+            LaunchAction::Restart,
+            None,
+        );
+        match outcome {
+            NodeLaunchOutcome::Started { pid, log_path } => {
+                self.record_managed_config_restart_success(&node, ProcessStart { pid, log_path });
+            }
+            NodeLaunchOutcome::Failed { message } => {
+                self.record_managed_config_restart_failure(&node, anyhow::anyhow!(message));
+            }
         }
     }
 
     fn record_managed_config_restart_success(&mut self, node: &NodeConfig, start: ProcessStart) {
-        if let Err(error) =
-            self.repository
-                .update_node_status(&node.id, NodeStatus::Running, Some(start.pid))
-        {
-            self.notice = Some(error.to_string());
-            return;
-        }
         self.watchdog.clear(&node.id);
         let message = format!(
             "Managed config applied and {} restarted with PID {}; log {}",
@@ -62,9 +70,6 @@ impl NeoNexusApp {
     }
 
     fn record_managed_config_restart_failure(&mut self, node: &NodeConfig, error: anyhow::Error) {
-        let _ = self
-            .repository
-            .update_node_status(&node.id, NodeStatus::Error, None);
         let message = format!(
             "Managed config applied to {} but restart failed: {}",
             node.name, error

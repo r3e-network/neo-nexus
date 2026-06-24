@@ -2,6 +2,7 @@ pub(in crate::app) use crate::core::{
     distribution::{
         ReleasePackage, ReleasePackageVerification, ReleasePackageVerifier, ReleasePackager,
     },
+    lifecycle::{execute_node_launch, LaunchAction, ManagedConfig, NodeLaunchOutcome},
     node::{
         filter_nodes, plan_available_node_ports, validate_node_port, validate_node_ports, Network,
         NewNode, NodeConfig, NodeInventoryFilter, NodeStatus, NodeType, PortAssignment,
