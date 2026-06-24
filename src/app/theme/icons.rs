@@ -52,6 +52,13 @@ pub(in crate::app) fn empty_glyph() -> &'static str {
     regular::TRAY
 }
 
+/// Phosphor glyph for the sidebar brand mark: a small connected-nodes pictogram
+/// rendered in the accent colour to anchor the workspace identity the way a
+/// macOS sidebar marks the owning application.
+pub(in crate::app) fn brand_glyph() -> &'static str {
+    regular::SHARE_NETWORK
+}
+
 #[cfg(test)]
 #[path = "../../../tests/unit/app/theme/icons.rs"]
 mod tests;
