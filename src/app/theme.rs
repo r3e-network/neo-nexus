@@ -112,20 +112,23 @@ const LIGHT_PALETTE: Palette = Palette {
     info: Color32::from_rgb(10, 122, 158),
 };
 
-// Dark: layered greys (window < sidebar/card) with a brighter indigo accent and
-// lifted status colours for contrast on dark surfaces.
+// Dark: three clearly separated background tiers so the workbench is never a
+// wall of near-black. The window (canvas) is the darkest, chrome panels lift
+// visibly above it, and cards lift again — mirroring the light theme's readable
+// hierarchy. Tiers are spaced ~16 brightness steps apart so each layer is
+// perceptible, with a brighter border so panel/card edges read clearly on dark.
 const DARK_PALETTE: Palette = Palette {
     accent: Color32::from_rgb(100, 97, 235),
-    accent_hover: Color32::from_rgb(85, 82, 220),
+    accent_hover: Color32::from_rgb(86, 83, 220),
     on_accent: Color32::from_rgb(255, 255, 255),
     text: Color32::from_rgb(243, 243, 245),
-    muted_text: Color32::from_rgb(152, 152, 157),
-    card_fill: Color32::from_rgb(38, 38, 42),
-    panel_fill: Color32::from_rgb(26, 26, 29),
-    window_fill: Color32::from_rgb(22, 22, 25),
-    field_fill: Color32::from_rgb(32, 32, 36),
-    faint_fill: Color32::from_rgb(34, 34, 38),
-    border: Color32::from_rgb(54, 54, 60),
+    muted_text: Color32::from_rgb(162, 162, 168),
+    card_fill: Color32::from_rgb(56, 56, 63),
+    panel_fill: Color32::from_rgb(38, 38, 44),
+    window_fill: Color32::from_rgb(20, 20, 23),
+    field_fill: Color32::from_rgb(50, 50, 57),
+    faint_fill: Color32::from_rgb(52, 52, 59),
+    border: Color32::from_rgb(78, 78, 88),
     status_running: Color32::from_rgb(48, 209, 88),
     status_starting: Color32::from_rgb(255, 214, 70),
     status_stopped: Color32::from_rgb(152, 152, 157),
