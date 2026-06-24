@@ -136,7 +136,7 @@ fn cli_actions_use_core_facade_for_shared_domain_services() -> Result<()> {
         "event_journal_report",
         "events",
         "metrics",
-        "native_ui",
+        "native_ui_audit",
         "private_network",
         "readiness_report",
         "release_pack",
@@ -170,7 +170,12 @@ fn cli_quality_output_uses_core_facade_report_types() -> Result<()> {
         output_source.contains("use crate::core::quality::{"),
         "CLI quality output should use core::quality report types"
     );
-    for module in ["ci_policy", "native_ui", "source_purity", "source_quality"] {
+    for module in [
+        "ci_policy",
+        "native_ui_audit",
+        "source_purity",
+        "source_quality",
+    ] {
         assert!(
             !output_source.contains(&format!("{module}::")),
             "CLI quality output should import {module} reports through core::quality"

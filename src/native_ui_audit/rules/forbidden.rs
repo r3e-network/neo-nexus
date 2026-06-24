@@ -1,6 +1,6 @@
 use super::markers::ForbiddenMarker;
 
-pub(in crate::native_ui) fn forbidden_markers() -> Vec<ForbiddenMarker> {
+pub(in crate::native_ui_audit) fn forbidden_markers() -> Vec<ForbiddenMarker> {
     vec![
         ForbiddenMarker {
             marker: ["egui", "ScrollArea", ""].join("::"),

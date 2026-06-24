@@ -1,6 +1,6 @@
 use super::markers::RequiredMarker;
 
-pub(in crate::native_ui) fn required_markers() -> [RequiredMarker; 10] {
+pub(in crate::native_ui_audit) fn required_markers() -> [RequiredMarker; 10] {
     [
         RequiredMarker {
             path: "src/main.rs",

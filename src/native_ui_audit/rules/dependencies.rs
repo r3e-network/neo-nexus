@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 
 use super::markers::RequiredMarker;
 
-pub(in crate::native_ui) fn cargo_dependency_present(
+pub(in crate::native_ui_audit) fn cargo_dependency_present(
     root: &Path,
     dependency_name: &str,
 ) -> Result<bool> {
@@ -37,7 +37,7 @@ fn cargo_dependency_tables(
         .filter_map(|key| value.get(key).and_then(toml::Value::as_table))
 }
 
-pub(in crate::native_ui) fn cargo_dependency_requirements() -> [RequiredMarker; 2] {
+pub(in crate::native_ui_audit) fn cargo_dependency_requirements() -> [RequiredMarker; 2] {
     [
         RequiredMarker {
             path: "Cargo.toml",
