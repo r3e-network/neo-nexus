@@ -48,7 +48,7 @@ pub(super) fn render_summary_selection(app: &mut NeoNexusApp, ui: &mut egui::Ui)
         }
     }
 
-    ui.add_space(10.0);
+    ui.add_space(theme::MD);
     ui.horizontal(|ui| {
         let running = node.status.is_running();
         if ui

@@ -2,11 +2,11 @@ use eframe::egui;
 
 use crate::app::domain::NodeConfig;
 
-use super::super::super::super::{view::View, NeoNexusApp};
+use super::super::super::super::{theme, view::View, NeoNexusApp};
 
 impl NeoNexusApp {
     pub(super) fn render_inspector_actions(&mut self, ui: &mut egui::Ui, node: &NodeConfig) {
-        ui.add_space(8.0);
+        ui.add_space(theme::SM);
         self.render_node_lifecycle_actions(ui, node);
         self.render_workspace_jump_actions(ui);
     }

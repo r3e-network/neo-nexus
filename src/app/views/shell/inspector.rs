@@ -24,9 +24,9 @@ impl NeoNexusApp {
 }
 
 fn render_inspector_header(ui: &mut egui::Ui) {
-    ui.add_space(10.0);
+    ui.add_space(theme::MD);
     ui.horizontal(|ui| {
-        ui.add_space(10.0);
+        ui.add_space(theme::MD);
         ui.vertical(|ui| {
             ui.label(theme::section_title("Inspector"));
             ui.label(theme::muted_body("Selection and runtime details"));

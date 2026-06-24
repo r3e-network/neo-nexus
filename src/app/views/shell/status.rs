@@ -5,7 +5,7 @@ use super::super::super::{text::short_path, theme, NeoNexusApp};
 impl NeoNexusApp {
     pub(in crate::app) fn render_status_bar(&self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            ui.add_space(8.0);
+            ui.add_space(theme::SM);
             ui.label(theme::muted_body(format!("Nodes: {}", self.nodes.len())));
             ui.separator();
             ui.label(theme::muted_body(format!(
@@ -49,7 +49,7 @@ impl NeoNexusApp {
                 )));
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.add_space(8.0);
+                ui.add_space(theme::SM);
                 ui.label(theme::muted_body(self.notice.as_deref().unwrap_or("Ready")));
             });
         });

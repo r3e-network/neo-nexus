@@ -8,11 +8,11 @@ mod icons;
 mod style;
 mod tokens;
 
-pub(super) use icons::{glyph as view_icon_glyph, install as install_icons};
+pub(super) use icons::{empty_glyph, glyph as view_icon_glyph, install as install_icons};
 pub(super) use style::configure_style;
 pub(in crate::app) use tokens::{
-    body, column_header, label_caption, metric_value, muted_body, page_title, section_title, MD,
-    SM, XS,
+    body, column_header, label_caption, metric_value, muted_body, page_title, section_title, LG,
+    MD, SM, XL, XS,
 };
 
 /// Visual theme for the native workbench. The palettes follow a calm,
@@ -88,7 +88,9 @@ struct Palette {
 }
 
 // Light: airy near-white surfaces with a soft grey workspace, hairline borders,
-// and macOS system status colours.
+// and macOS system status colours. The three background tiers run darkest to
+// lightest: window (canvas) < panel (sidebar chrome) < card (raised content),
+// so cards and panels each read as a distinct elevated layer.
 const LIGHT_PALETTE: Palette = Palette {
     accent: Color32::from_rgb(88, 86, 214),
     accent_hover: Color32::from_rgb(73, 71, 196),
@@ -96,8 +98,8 @@ const LIGHT_PALETTE: Palette = Palette {
     text: Color32::from_rgb(29, 29, 31),
     muted_text: Color32::from_rgb(117, 117, 123),
     card_fill: Color32::from_rgb(255, 255, 255),
-    panel_fill: Color32::from_rgb(237, 237, 241),
-    window_fill: Color32::from_rgb(242, 242, 246),
+    panel_fill: Color32::from_rgb(244, 244, 248),
+    window_fill: Color32::from_rgb(236, 236, 240),
     field_fill: Color32::from_rgb(255, 255, 255),
     faint_fill: Color32::from_rgb(232, 232, 237),
     border: Color32::from_rgb(220, 220, 226),
@@ -148,8 +150,37 @@ pub(super) fn muted_text() -> Color32 {
     palette(active_theme()).muted_text
 }
 
+/// The workbench surface that cards float on top of (panels, sidebar,
+/// inventory, inspector). This is the mid-tone of the three-tier background
+/// hierarchy: `window_fill` < `panel_fill` < `card_fill`, so cards read as a
+/// distinct elevated layer rather than dissolving into the workspace.
 pub(super) fn panel_fill() -> Color32 {
+    palette(active_theme()).panel_fill
+}
+
+/// The raised card surface. Cards and pill containers use this lighter fill so
+/// they lift clearly off the surrounding `panel_fill` workspace.
+pub(super) fn card_surface() -> Color32 {
     palette(active_theme()).card_fill
+}
+
+/// Soft drop shadow for raised cards. A faint, low-spread blur keyed to the
+/// theme so cards read as floating surfaces (the macOS "elevated card" look)
+/// without harsh edges. Dark surfaces get a stronger, more opaque shadow.
+pub(super) fn card_shadow() -> egui::Shadow {
+    let theme = active_theme();
+    let alpha = if theme.is_dark() { 120 } else { 28 };
+    egui::Shadow {
+        offset: [0, 1],
+        blur: 4,
+        spread: 0,
+        color: Color32::from_black_alpha(alpha),
+    }
+}
+
+/// Hairline separator stroke shared by panel boundaries and dividers.
+pub(super) fn hairline() -> egui::Stroke {
+    egui::Stroke::new(1.0, palette(active_theme()).border)
 }
 
 /// Semantic colours for inline status text (validation, severity, pressure,

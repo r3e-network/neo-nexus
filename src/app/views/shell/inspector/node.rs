@@ -9,7 +9,7 @@ use super::{
     super::super::super::{
         format_duration,
         text::{non_empty, short_path, truncate_middle},
-        theme::status_color,
+        theme::{self, status_color},
         widgets::{fact, render_node_fact_sheet},
         NeoNexusApp,
     },
@@ -69,10 +69,10 @@ impl NeoNexusApp {
 
 fn render_node_heading(ui: &mut egui::Ui, node: &NodeConfig) {
     ui.horizontal(|ui| {
-        ui.add_space(8.0);
-        ui.heading(truncated_node_name(&node.name));
+        ui.add_space(theme::SM);
+        ui.label(theme::section_title(truncated_node_name(&node.name)));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.add_space(8.0);
+            ui.add_space(theme::SM);
             ui.label(
                 egui::RichText::new(node.status.label())
                     .color(status_color(node.status))

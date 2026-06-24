@@ -12,7 +12,10 @@ pub(in crate::app) fn configure_style(context: &egui::Context, theme: Theme) {
     };
 
     let visuals = &mut style.visuals;
-    visuals.panel_fill = palette.panel_fill;
+    // The central workspace is the deepest background tier (the canvas cards
+    // float on); the chrome panels (sidebar, header, inspector) lift off it by
+    // carrying their own lighter `panel_fill` frame set in `frame.rs`.
+    visuals.panel_fill = palette.window_fill;
     visuals.window_fill = palette.window_fill;
     visuals.extreme_bg_color = palette.field_fill;
     visuals.faint_bg_color = palette.faint_fill;

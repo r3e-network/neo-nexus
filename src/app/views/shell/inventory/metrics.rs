@@ -23,7 +23,7 @@ impl NeoNexusApp {
         };
 
         ui.horizontal(|ui| {
-            ui.add_space(10.0);
+            ui.add_space(theme::MD);
             ui.vertical(|ui| {
                 fact(ui, "Total", &self.nodes.len().to_string());
                 fact(ui, "Running", &running.to_string());

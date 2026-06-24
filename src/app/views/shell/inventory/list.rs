@@ -53,10 +53,10 @@ impl NeoNexusApp {
                 }
 
                 ui.horizontal(|ui| {
-                    ui.add_space(8.0);
-                    ui.label(egui::RichText::new(node.node_type.to_string()).color(muted_text()));
+                    ui.add_space(theme::SM);
+                    ui.label(theme::muted_body(node.node_type.to_string()));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.add_space(6.0);
+                        ui.add_space(theme::SM);
                         ui.label(
                             egui::RichText::new(node.status.label())
                                 .color(status_color(node.status))
@@ -65,6 +65,8 @@ impl NeoNexusApp {
                     });
                 });
             } else {
+                // Reserve the two-row node rhythm for an empty slot so the list
+                // stays evenly paced (button row 32pt + detail row).
                 ui.add_space(52.0);
             }
         }

@@ -6,7 +6,7 @@ mod selection;
 
 use eframe::egui;
 
-use crate::app::domain::DashboardSummary;
+use crate::app::{domain::DashboardSummary, theme};
 
 use super::super::{widgets::panel, NeoNexusApp};
 
@@ -15,7 +15,7 @@ impl NeoNexusApp {
         let summary = DashboardSummary::load(&self.repository).ok();
         metrics::render_overview_metrics(ui, summary.as_ref());
 
-        ui.add_space(10.0);
+        ui.add_space(theme::MD);
         let layout = layout::overview_layout(ui.available_size());
 
         ui.horizontal(|ui| {
