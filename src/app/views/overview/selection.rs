@@ -4,7 +4,7 @@ use super::super::super::{
     text::{short_path, truncate_middle},
     theme,
     view::View,
-    widgets::{empty_state, fact, render_node_fact_sheet},
+    widgets::{self, empty_state, fact, render_node_fact_sheet},
     NeoNexusApp,
 };
 
@@ -51,25 +51,19 @@ pub(super) fn render_summary_selection(app: &mut NeoNexusApp, ui: &mut egui::Ui)
     ui.add_space(theme::MD);
     ui.horizontal(|ui| {
         let running = node.status.is_running();
-        if ui
-            .add_enabled(!running, egui::Button::new("Start"))
-            .clicked()
-        {
+        if widgets::secondary_button_enabled(ui, "Start", !running).clicked() {
             app.start_selected_node();
         }
-        if ui.add_enabled(running, egui::Button::new("Stop")).clicked() {
+        if widgets::secondary_button_enabled(ui, "Stop", running).clicked() {
             app.stop_selected_node();
         }
-        if ui
-            .add_enabled(running, egui::Button::new("Restart"))
-            .clicked()
-        {
+        if widgets::secondary_button_enabled(ui, "Restart", running).clicked() {
             app.restart_selected_node();
         }
-        if ui.button("Edit").clicked() {
+        if widgets::secondary_button(ui, "Edit").clicked() {
             app.load_selected_node_into_draft();
         }
-        if ui.button("Logs").clicked() {
+        if widgets::secondary_button(ui, "Logs").clicked() {
             app.selected_view = View::Logs;
         }
     });

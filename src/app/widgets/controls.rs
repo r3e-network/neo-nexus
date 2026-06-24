@@ -13,6 +13,29 @@ pub(in crate::app) fn primary_button(ui: &mut egui::Ui, text: &str) -> egui::Res
     )
 }
 
+/// A secondary action button: a plain bordered button that shares the
+/// `primary_button` minimum height so a row of actions (e.g. Start / Stop /
+/// Edit) reads as one coherent, evenly-sized group rather than a mix of
+/// egui-default and accent buttons. Pair with `primary_button` for the
+/// dominant/confirm action.
+pub(in crate::app) fn secondary_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
+    ui.add(egui::Button::new(text).min_size(egui::vec2(72.0, 28.0)))
+}
+
+/// Same as `secondary_button` but disabled when `enabled` is false, so a
+/// lifecycle action (e.g. Stop while stopped) keeps its consistent size while
+/// greyed out rather than collapsing or shifting the row.
+pub(in crate::app) fn secondary_button_enabled(
+    ui: &mut egui::Ui,
+    text: &str,
+    enabled: bool,
+) -> egui::Response {
+    ui.add_enabled(
+        enabled,
+        egui::Button::new(text).min_size(egui::vec2(72.0, 28.0)),
+    )
+}
+
 /// Wraps a row of mutually-exclusive filter chips in a hairline-bordered pill so
 /// single-select filters read as one macOS-style segmented control rather than a
 /// loose row of toggles. The chips and their behaviour are unchanged.
