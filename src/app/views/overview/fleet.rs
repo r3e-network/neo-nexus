@@ -5,14 +5,18 @@ use crate::app::domain::{NodeConfig, NodeStatus};
 use super::super::super::{
     paging::page_count,
     text::truncate_middle,
-    theme::{muted_text, status_color},
+    theme::{self, status_color},
     widgets::{empty_state, grid_header, pagination_bar},
     NeoNexusApp, OVERVIEW_FLEET_PAGE_SIZE,
 };
 
 pub(super) fn render_fleet_snapshot(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     if app.nodes.is_empty() {
-        empty_state(ui, "Empty fleet", "Create a node from Node Studio.");
+        empty_state(
+            ui,
+            "Empty fleet",
+            "Use New Node to create the first local runtime.",
+        );
         return;
     }
 
@@ -39,7 +43,7 @@ pub(super) fn render_fleet_snapshot(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
 
 fn render_fleet_filter(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Status").color(muted_text()));
+        ui.label(theme::muted_body("Status"));
         status_button(app, ui, "All", None);
         for status in NodeStatus::ALL {
             status_button(app, ui, status.label(), Some(status));
@@ -95,7 +99,7 @@ fn render_fleet_table(app: &mut NeoNexusApp, ui: &mut egui::Ui, rows: &[&NodeCon
                 ui.label(node.network.to_string());
                 ui.label(node.rpc_port.to_string());
                 ui.label(
-                    egui::RichText::new(node.status.label())
+                    theme::body(node.status.label())
                         .color(status_color(node.status))
                         .strong(),
                 );
