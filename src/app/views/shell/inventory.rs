@@ -6,7 +6,7 @@ use super::super::super::{
     paging::page_count,
     text::truncate_middle,
     theme::{self, status_color},
-    widgets::{chip_pill, empty_state, fact, pagination_bar},
+    widgets::{chip_pill, empty_state, mini_stat, pagination_bar},
     NeoNexusApp, NODE_PAGE_SIZE,
 };
 

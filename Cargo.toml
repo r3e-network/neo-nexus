@@ -41,3 +41,8 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
 tempfile = "3"
+# Used only by tests/ui_visual_truth.rs, an opt-in pixel-truth rasterizer for
+# verifying rendered output without screen capture (which on a Retina/scaled
+# desktop captures mostly empty workspace). image is already in the tree via
+# eframe; pinning it as a direct dev-dep makes the rasterizer reproducible.
+image = { version = "0.25", default-features = false, features = ["png"] }

@@ -13,7 +13,7 @@ use eframe::egui;
 use crate::app::domain::FastSyncSnapshot;
 
 use super::super::{
-    text::short_path,
+    text::{short_path, truncate_middle},
     theme,
     widgets::{empty_state, metric_row, panel, segmented_control},
     NeoNexusApp, SNAPSHOT_PAGE_SIZE,
