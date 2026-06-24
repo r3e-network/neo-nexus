@@ -78,7 +78,7 @@ impl NeoNexusApp {
         let response = ui
             .add_sized(
                 [width, 32.0],
-                egui::Button::selectable(selected, egui::RichText::new(label).size(13.5)),
+                egui::Button::selectable(selected, theme::body(label)),
             )
             .on_hover_text(view.subtitle());
         if response.clicked() {
