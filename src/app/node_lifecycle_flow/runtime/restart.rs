@@ -28,30 +28,30 @@ impl NeoNexusApp {
             return;
         }
 
-        if let Some(path) = plan.managed_config_path.as_ref() {
-            if let Err(error) = ConfigExporter::write_node_config_to_path(path, &node, &plugins) {
-                self.record_node_start_failure(&node, error.to_string());
-                return;
-            }
-        }
-
+        // Delegate the export -> supervise -> persist-status pipeline to the
+        // shared core so the GUI and a future CLI use one restart path.
+        let managed_config_path = plan.managed_config_path.as_deref();
         let log_path = self.node_log_path(&node);
-        match self.supervisor.restart(&node, &plan, &log_path) {
-            Ok(start) => {
-                if let Err(error) = self.repository.update_node_status(
-                    &node.id,
-                    NodeStatus::Running,
-                    Some(start.pid),
-                ) {
-                    self.notice = Some(error.to_string());
-                    return;
-                }
+        let outcome = execute_node_launch(
+            &self.repository,
+            &mut self.supervisor,
+            &node,
+            &plan,
+            &log_path,
+            LaunchAction::Restart,
+            managed_config_path.map(|path| ManagedConfig {
+                path,
+                plugins: &plugins,
+            }),
+        );
+        match outcome {
+            NodeLaunchOutcome::Started { pid, log_path } => {
                 self.watchdog.clear(&node.id);
                 let message = format!(
                     "{} restarted with PID {}; log {}",
                     node.name,
-                    start.pid,
-                    short_path(&start.log_path, 42)
+                    pid,
+                    short_path(&log_path, 42)
                 );
                 self.record_node_event(
                     &node,
@@ -62,11 +62,8 @@ impl NeoNexusApp {
                 self.notice = Some(message);
                 self.reload_nodes();
             }
-            Err(error) => {
-                let _ = self
-                    .repository
-                    .update_node_status(&node.id, NodeStatus::Error, None);
-                let message = format!("{} restart failed: {error}", node.name);
+            NodeLaunchOutcome::Failed { message } => {
+                let message = format!("{} restart failed: {message}", node.name);
                 self.record_node_start_failure(&node, message);
                 self.reload_nodes();
             }

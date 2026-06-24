@@ -23,57 +23,59 @@ impl NeoNexusApp {
             return;
         }
 
-        if let Some(path) = plan.managed_config_path.as_ref() {
-            if let Err(error) = ConfigExporter::write_node_config_to_path(path, &node, &plugins) {
-                self.fail_node_start(&node, mode, error.to_string());
-                return;
-            }
-        }
-
+        // Delegate the export -> supervise -> persist-status pipeline to the
+        // shared core so the GUI and a future CLI use one launch path.
+        let managed_config_path = plan.managed_config_path.as_deref();
         let log_path = self.node_log_path(&node);
-        match self.supervisor.start(&node, &plan, &log_path) {
-            Ok(start) => {
-                if let Err(error) = self.repository.update_node_status(
-                    &node.id,
-                    NodeStatus::Running,
-                    Some(start.pid),
-                ) {
-                    self.notice = Some(error.to_string());
-                } else {
-                    match mode {
-                        StartMode::Manual => {
-                            self.watchdog.clear(&node.id);
-                            self.notice = Some(format!(
-                                "{} started; log {}",
-                                node.name,
-                                short_path(&start.log_path, 42)
-                            ));
-                            self.record_node_event(
-                                &node,
-                                EventKind::NodeStarted,
-                                EventSeverity::Info,
-                                format!("{} started with PID {}", node.name, start.pid),
-                            );
-                        }
-                        StartMode::Watchdog { attempt } => {
-                            self.notice = Some(format!(
-                                "{} restarted by watchdog attempt {}; log {}",
-                                node.name,
-                                attempt,
-                                short_path(&start.log_path, 42)
-                            ));
-                            self.record_node_event(
-                                &node,
-                                EventKind::WatchdogRestarted,
-                                EventSeverity::Warning,
-                                format!("{} restarted by watchdog attempt {attempt}", node.name),
-                            );
-                        }
+        let outcome = execute_node_launch(
+            &self.repository,
+            &mut self.supervisor,
+            &node,
+            &plan,
+            &log_path,
+            LaunchAction::Start,
+            managed_config_path.map(|path| ManagedConfig {
+                path,
+                plugins: &plugins,
+            }),
+        );
+        match outcome {
+            NodeLaunchOutcome::Started { pid, log_path } => {
+                match mode {
+                    StartMode::Manual => {
+                        self.watchdog.clear(&node.id);
+                        self.notice = Some(format!(
+                            "{} started; log {}",
+                            node.name,
+                            short_path(&log_path, 42)
+                        ));
+                        self.record_node_event(
+                            &node,
+                            EventKind::NodeStarted,
+                            EventSeverity::Info,
+                            format!("{} started with PID {}", node.name, pid),
+                        );
+                    }
+                    StartMode::Watchdog { attempt } => {
+                        self.notice = Some(format!(
+                            "{} restarted by watchdog attempt {}; log {}",
+                            node.name,
+                            attempt,
+                            short_path(&log_path, 42)
+                        ));
+                        self.record_node_event(
+                            &node,
+                            EventKind::WatchdogRestarted,
+                            EventSeverity::Warning,
+                            format!("{} restarted by watchdog attempt {attempt}", node.name),
+                        );
                     }
                 }
                 self.reload_nodes();
             }
-            Err(error) => self.fail_node_start(&node, mode, error.to_string()),
+            NodeLaunchOutcome::Failed { message } => {
+                self.fail_node_start(&node, mode, message);
+            }
         }
     }
 }

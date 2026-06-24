@@ -1,4 +1,5 @@
 pub mod distribution;
+pub mod lifecycle;
 pub mod node;
 pub mod operations;
 pub mod quality;
