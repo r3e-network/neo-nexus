@@ -33,8 +33,9 @@ fn metric_tile(ui: &mut egui::Ui, title: &str, value: &str, caption: &str) {
         ui.set_min_width(ui.available_width());
         ui.vertical(|ui| {
             ui.label(theme::label_caption(title));
-            ui.add_space(2.0);
+            ui.add_space(theme::XS);
             ui.label(theme::metric_value(value));
+            ui.add_space(theme::XS);
             ui.label(theme::muted_body(caption));
         });
     });

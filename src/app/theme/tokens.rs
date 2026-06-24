@@ -5,11 +5,14 @@ use super::muted_text;
 // Spacing scale (logical points). One rhythm shared by every view so panels and
 // sections breathe consistently instead of each file inventing its own gaps.
 // The scale is a 4pt grid (XS 4 → SM 8 → MD 12 → LG 16 → XL 20) so spacing
-// stays harmonious across the whole workbench.
+// stays harmonious across the whole workbench. All tiers are defined even when
+// not yet adopted everywhere, so later views pick a tier rather than inventing
+// a literal; unused tiers stay available as the scale rolls out.
 pub(in crate::app) const XS: f32 = 4.0;
 pub(in crate::app) const SM: f32 = 8.0;
 pub(in crate::app) const MD: f32 = 12.0;
 pub(in crate::app) const LG: f32 = 16.0;
+#[allow(dead_code)]
 pub(in crate::app) const XL: f32 = 20.0;
 
 // Type scale. Sizes live here as the single tuning knob; colour is pulled from

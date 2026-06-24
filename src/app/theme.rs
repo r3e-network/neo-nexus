@@ -8,11 +8,13 @@ mod icons;
 mod style;
 mod tokens;
 
-pub(super) use icons::{empty_glyph, glyph as view_icon_glyph, install as install_icons};
+pub(super) use icons::{
+    brand_glyph, empty_glyph, glyph as view_icon_glyph, install as install_icons,
+};
 pub(super) use style::configure_style;
 pub(in crate::app) use tokens::{
     body, column_header, label_caption, metric_value, muted_body, page_title, section_title, LG,
-    MD, SM, XL, XS,
+    MD, SM, XS,
 };
 
 /// Visual theme for the native workbench. The palettes follow a calm,
@@ -164,16 +166,18 @@ pub(super) fn card_surface() -> Color32 {
     palette(active_theme()).card_fill
 }
 
-/// Soft drop shadow for raised cards. A faint, low-spread blur keyed to the
-/// theme so cards read as floating surfaces (the macOS "elevated card" look)
-/// without harsh edges. Dark surfaces get a stronger, more opaque shadow.
+/// Soft drop shadow for raised cards. A wider, softer blur with a touch of
+/// vertical offset so cards read as floating surfaces with real depth (the
+/// macOS "elevated card" look) rather than a faint edge tint. Dark surfaces
+/// get a stronger, more opaque shadow since dark backgrounds swallow faint
+/// ones; light surfaces stay airy but visibly lifted.
 pub(super) fn card_shadow() -> egui::Shadow {
     let theme = active_theme();
-    let alpha = if theme.is_dark() { 120 } else { 28 };
+    let alpha = if theme.is_dark() { 150 } else { 42 };
     egui::Shadow {
-        offset: [0, 1],
-        blur: 4,
-        spread: 0,
+        offset: [0, 2],
+        blur: 8,
+        spread: 1,
         color: Color32::from_black_alpha(alpha),
     }
 }

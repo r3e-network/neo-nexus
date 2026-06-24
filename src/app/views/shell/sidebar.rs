@@ -33,9 +33,19 @@ const NAV_GROUPS: &[(&str, &[View])] = &[
 impl NeoNexusApp {
     pub(in crate::app) fn render_navigation_sidebar(&mut self, ui: &mut egui::Ui) {
         ui.add_space(theme::XS);
-        ui.label(theme::page_title("NeoNexus"));
-        ui.label(theme::muted_body("Neo node operations"));
-        ui.add_space(theme::XL);
+        // Brand mark: a small connected-nodes glyph in the accent colour beside
+        // the workspace name, anchoring the sidebar the way a macOS sidebar
+        // marks its owning application.
+        ui.horizontal(|ui| {
+            ui.label(theme::metric_value(theme::brand_glyph()).color(theme::accent()));
+            ui.vertical(|ui| {
+                ui.label(theme::page_title("NeoNexus"));
+                ui.label(theme::muted_body("Neo node operations"));
+            });
+        });
+        ui.add_space(theme::SM);
+        ui.separator();
+        ui.add_space(theme::SM);
 
         // Controls pinned to the bottom; navigation fills the space above.
         ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
