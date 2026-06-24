@@ -52,3 +52,9 @@ pub(in crate::app) fn column_header(text: impl Into<String>) -> RichText {
 pub(in crate::app) fn muted_body(text: impl Into<String>) -> RichText {
     RichText::new(text).size(SIZE_BODY).color(muted_text())
 }
+
+/// Primary body text at the default foreground colour (navigation labels, list
+/// rows, default-strength body copy).
+pub(in crate::app) fn body(text: impl Into<String>) -> RichText {
+    RichText::new(text).size(SIZE_BODY)
+}
