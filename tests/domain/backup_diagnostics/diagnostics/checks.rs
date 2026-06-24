@@ -102,12 +102,18 @@ fn launch_readiness_warns_when_runtime_args_bypass_managed_config() {
         pid: None,
     };
 
-    let readiness = evaluate_launch_readiness(
+    let readiness = evaluate_launch_readiness_with_port_probe(
         &node,
         std::slice::from_ref(&node),
         &[],
         temp_dir.path().join("generated.toml"),
         temp_dir.path().join("work"),
+        // Inject a port probe that always reports the port as free. This test
+        // exercises the managed-config warning path, not port availability —
+        // probing a real localhost port makes it flaky on any host that runs an
+        // actual node (the exact audience for a node-management app), since an
+        // in-use port would flip the result to "blocked" and mask the warning.
+        |_port| true,
     );
 
     assert_eq!(readiness.status_label(), "review");
