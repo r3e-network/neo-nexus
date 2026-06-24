@@ -60,7 +60,7 @@ impl NeoNexusApp {
         egui::TopBottomPanel::bottom("status_bar")
             .resizable(false)
             .exact_height(28.0)
-            .frame(chrome_frame().inner_margin(egui::Margin::symmetric(12, 6)))
+            .frame(chrome_frame().inner_margin(egui::Margin::symmetric(12, 4)))
             .show(context, |ui| self.render_status_bar(ui));
 
         egui::SidePanel::left("navigation_panel")

@@ -74,7 +74,7 @@ fn render_node_heading(ui: &mut egui::Ui, node: &NodeConfig) {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.add_space(theme::SM);
             ui.label(
-                egui::RichText::new(node.status.label())
+                theme::body(node.status.label())
                     .color(status_color(node.status))
                     .strong(),
             );

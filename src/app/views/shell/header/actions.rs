@@ -26,7 +26,7 @@ fn render_primary_action_button(
 ) -> bool {
     ui.add_enabled_ui(primary_action_enabled(shortcut, action_state), |ui| {
         ui.add_sized(
-            [primary_action_width(shortcut), 30.0],
+            [primary_action_width(shortcut), 28.0],
             egui::Button::new(shortcut_toolbar_label(shortcut)),
         )
     })

@@ -93,7 +93,7 @@ fn empty_states_render_actionable_guidance_not_blank_panels() {
     for hint in [
         "Use New Node to define the first local runtime.",
         "Choose a node from Inventory.",
-        "Create a node from Node Studio.",
+        "Use New Node to create the first local runtime.",
     ] {
         assert!(
             by_text.contains_key(hint),
