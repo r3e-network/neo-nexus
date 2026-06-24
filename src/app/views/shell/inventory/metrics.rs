@@ -24,11 +24,20 @@ impl NeoNexusApp {
 
         ui.horizontal(|ui| {
             ui.add_space(theme::MD);
+            // Two rows of two compact stats so the panel's summary counts read
+            // with presence (caption over value) instead of four flat text rows.
             ui.vertical(|ui| {
-                fact(ui, "Total", &self.nodes.len().to_string());
-                fact(ui, "Running", &running.to_string());
-                fact(ui, "Stopped", &stopped.to_string());
-                fact(ui, "Visible", &visible.to_string());
+                ui.horizontal(|ui| {
+                    mini_stat(ui, "Total", &self.nodes.len().to_string());
+                    ui.add_space(theme::LG);
+                    mini_stat(ui, "Running", &running.to_string());
+                });
+                ui.add_space(theme::SM);
+                ui.horizontal(|ui| {
+                    mini_stat(ui, "Stopped", &stopped.to_string());
+                    ui.add_space(theme::LG);
+                    mini_stat(ui, "Visible", &visible.to_string());
+                });
             });
         });
     }

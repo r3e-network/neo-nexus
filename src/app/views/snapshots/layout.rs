@@ -5,7 +5,18 @@ impl NeoNexusApp {
         let snapshots = match self.repository.list_fast_sync_snapshots() {
             Ok(snapshots) => snapshots,
             Err(error) => {
-                empty_state(ui, "Snapshot registry unavailable", &error.to_string());
+                empty_state(ui, "Snapshot registry unavailable", "The snapshot registry could not be loaded. Reloading the workspace may resolve transient access errors.");
+                ui.add_space(theme::SM);
+                // Surface the technical cause as a small danger-coloured detail
+                // below the empty state (errors must use a semantic colour per the
+                // visual contract), rather than as the primary centred message so a
+                // long anyhow trace doesn't blow out the layout.
+                ui.vertical_centered(|ui| {
+                    ui.label(
+                        theme::label_caption(truncate_middle(&error.to_string(), 72))
+                            .color(theme::danger()),
+                    );
+                });
                 return;
             }
         };

@@ -41,6 +41,17 @@ fn metric_tile(ui: &mut egui::Ui, title: &str, value: &str, caption: &str) {
     });
 }
 
+/// Compact labelled stat for dense side panels: a caption over a value, with no
+/// card chrome (the surrounding panel provides the surface). Used where a full
+/// metric tile would be too heavy but a plain fact row lacks presence — e.g. the
+/// inventory's Total/Running/Stopped/Visible counts.
+pub(in crate::app) fn mini_stat(ui: &mut egui::Ui, label: &str, value: &str) {
+    ui.vertical(|ui| {
+        ui.label(theme::label_caption(label));
+        ui.label(theme::section_title(value).strong());
+    });
+}
+
 pub(in crate::app) fn panel(
     ui: &mut egui::Ui,
     title: &str,

@@ -8,6 +8,7 @@ use crate::app::domain::FleetDiagnostics;
 use super::{
     super::super::{
         text::truncate_middle,
+        theme,
         view::View,
         widgets::{empty_state, fact},
         NeoNexusApp,
@@ -38,7 +39,7 @@ impl NeoNexusApp {
         };
 
         ui.horizontal(|ui| {
-            ui.heading(truncate_middle(&node.node_name, 28));
+            ui.label(theme::section_title(truncate_middle(&node.node_name, 28)).strong());
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(
                     egui::RichText::new(format!("{}%", node.score))
