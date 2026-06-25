@@ -4,8 +4,8 @@ use eframe::egui;
 
 use super::super::super::{
     text::{short_path, truncate_middle},
-    theme::{accent, muted_text},
-    widgets::{empty_state, fact},
+    theme::{self, accent, muted_text},
+    widgets::{empty_state, fact, secondary_button},
     NeoNexusApp,
 };
 
@@ -20,7 +20,7 @@ pub(super) fn render_selected_wallet_profile(app: &mut NeoNexusApp, ui: &mut egu
     };
 
     ui.horizontal(|ui| {
-        ui.heading(truncate_middle(&profile.label, 30));
+        ui.label(theme::section_title(truncate_middle(&profile.label, 30)));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.label(egui::RichText::new("metadata").color(accent()).strong());
         });
@@ -75,21 +75,21 @@ pub(super) fn render_selected_wallet_profile(app: &mut NeoNexusApp, ui: &mut egu
         );
     }
 
-    ui.add_space(6.0);
+    ui.add_space(theme::SM);
     ui.horizontal(|ui| {
-        if ui.button("Use").clicked() {
+        if secondary_button(ui, "Use").clicked() {
             app.mark_selected_neo_wallet_profile_used();
         }
-        if ui.button("Use in Roles").clicked() {
+        if secondary_button(ui, "Use in Roles").clicked() {
             app.use_selected_neo_wallet_profile_for_private_network_signer_refs();
         }
-        if ui.button("Load Form").clicked() {
+        if secondary_button(ui, "Load Form").clicked() {
             app.wallet_profile_source = profile.source_path.clone();
             app.wallet_profile_id = profile.id.clone();
             app.wallet_profile_label = profile.label.clone();
             app.notice = Some(format!("Wallet profile loaded: {}", profile.label));
         }
-        if ui.button("Delete").clicked() {
+        if secondary_button(ui, "Delete").clicked() {
             app.delete_selected_neo_wallet_profile();
         }
     });
