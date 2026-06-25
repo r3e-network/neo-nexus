@@ -1,8 +1,11 @@
 use eframe::egui;
 
 use super::super::super::{
-    format_duration, text::truncate_middle, theme::muted_text, widgets::fact, NeoNexusApp,
-    METRICS_REFRESH_INTERVAL,
+    format_duration,
+    text::truncate_middle,
+    theme::muted_text,
+    widgets::{fact, secondary_button, secondary_button_enabled},
+    NeoNexusApp, METRICS_REFRESH_INTERVAL,
 };
 
 const MISSING_ROWS: usize = 4;
@@ -67,29 +70,23 @@ pub(super) fn render_telemetry_health(app: &mut NeoNexusApp, ui: &mut egui::Ui) 
 fn render_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     let can_reconcile = !app.metrics_snapshot.missing_processes.is_empty();
     ui.horizontal(|ui| {
-        if ui.button("Refresh").clicked() {
+        if secondary_button(ui, "Refresh").clicked() {
             app.refresh_metrics_now();
             app.notice = Some("Telemetry refreshed".to_string());
         }
-        if ui
-            .add_enabled(can_reconcile, egui::Button::new("Focus Missing"))
+        if secondary_button_enabled(ui, "Focus Missing", can_reconcile)
             .on_hover_text("Show missing running-node PIDs in the process table")
             .clicked()
         {
             app.focus_missing_processes();
         }
-        if ui
-            .add_enabled(
-                app.has_active_monitor_process_filter(),
-                egui::Button::new("Clear Filters"),
-            )
+        if secondary_button_enabled(ui, "Clear Filters", app.has_active_monitor_process_filter())
             .on_hover_text("Show all managed process rows")
             .clicked()
         {
             app.clear_monitor_process_filters();
         }
-        if ui
-            .add_enabled(can_reconcile, egui::Button::new("Repair Missing"))
+        if secondary_button_enabled(ui, "Repair Missing", can_reconcile)
             .on_hover_text("Mark missing running process records as stopped")
             .clicked()
         {

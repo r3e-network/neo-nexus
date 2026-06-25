@@ -34,16 +34,16 @@ impl NeoNexusApp {
         );
         labeled_text(ui, "Signer key", &mut self.runtime_signer_public_key);
         ui.horizontal(|ui| {
-            if ui.button("Save").clicked() {
+            if crate::app::widgets::secondary_button(ui, "Save").clicked() {
                 self.save_runtime_signer_profile();
             }
-            if ui.button("Catalog").clicked() {
+            if crate::app::widgets::secondary_button(ui, "Catalog").clicked() {
                 self.use_selected_runtime_signer_for_catalog();
             }
-            if ui.button("Package").clicked() {
+            if crate::app::widgets::secondary_button(ui, "Package").clicked() {
                 self.use_selected_runtime_signer_for_package();
             }
-            if ui.button("Delete").clicked() {
+            if crate::app::widgets::secondary_button(ui, "Delete").clicked() {
                 self.delete_selected_runtime_signer_profile();
             }
         });
