@@ -4,7 +4,9 @@ use crate::app::domain::{Network, NodeType, StorageEngine};
 
 use super::super::super::{
     theme::muted_text,
-    widgets::{labeled_combo, labeled_text, primary_button},
+    widgets::{
+        labeled_combo, labeled_text, primary_button, secondary_button, secondary_button_enabled,
+    },
     NeoNexusApp,
 };
 
@@ -88,27 +90,24 @@ fn action_bar(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         if primary_button(ui, "Save New").clicked() {
             app.create_node();
         }
-        if ui.button("Probe Draft").clicked() {
+        if secondary_button(ui, "Probe Draft").clicked() {
             app.probe_draft_binary();
         }
-        if ui.button("Smoke Draft").clicked() {
+        if secondary_button(ui, "Smoke Draft").clicked() {
             app.smoke_draft_runtime();
         }
-        if ui.button("Auto Ports").clicked() {
+        if secondary_button(ui, "Auto Ports").clicked() {
             app.auto_assign_draft_ports();
         }
 
         let selected_can_edit = app
             .selected_node()
             .is_some_and(|node| !node.status.is_running());
-        if ui
-            .add_enabled(selected_can_edit, egui::Button::new("Update Selected"))
-            .clicked()
-        {
+        if secondary_button_enabled(ui, "Update Selected", selected_can_edit).clicked() {
             app.update_selected_node();
         }
 
-        if ui.button("Reset Draft").clicked() {
+        if secondary_button(ui, "Reset Draft").clicked() {
             app.draft = Default::default();
             app.notice = Some("Draft reset".to_string());
         }

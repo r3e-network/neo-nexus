@@ -5,7 +5,7 @@ use crate::app::domain::format_bytes;
 use super::super::super::{
     paging::page_count,
     text::truncate_middle,
-    widgets::{empty_state, fact, grid_header, labeled_text, pagination_bar},
+    widgets::{empty_state, fact, grid_header, labeled_text, pagination_bar, secondary_button},
     NeoNexusApp, SNAPSHOT_CATALOG_PAGE_SIZE,
 };
 use super::filter::render_snapshot_catalog_filter;
@@ -16,16 +16,16 @@ impl NeoNexusApp {
         labeled_text(ui, "Signature", &mut self.snapshot_catalog_signature_source);
         labeled_text(ui, "Public key", &mut self.snapshot_catalog_public_key);
         ui.horizontal(|ui| {
-            if ui.button("Load").clicked() {
+            if secondary_button(ui, "Load").clicked() {
                 self.load_fast_sync_snapshot_catalog();
             }
-            if ui.button("Use").clicked() {
+            if secondary_button(ui, "Use").clicked() {
                 self.load_selected_snapshot_catalog_entry_into_draft();
             }
-            if ui.button("Save").clicked() {
+            if secondary_button(ui, "Save").clicked() {
                 self.save_selected_snapshot_catalog_entry_manifest();
             }
-            if ui.button("Download").clicked() {
+            if secondary_button(ui, "Download").clicked() {
                 self.download_selected_snapshot_catalog_entry();
             }
         });

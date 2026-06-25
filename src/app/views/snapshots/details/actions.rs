@@ -2,7 +2,7 @@ use eframe::egui;
 
 use crate::app::{
     domain::{FastSyncSnapshot, NodeConfig},
-    NeoNexusApp,
+    widgets, NeoNexusApp,
 };
 
 use super::super::status::snapshot_is_verified;
@@ -15,31 +15,27 @@ pub(super) fn render_snapshot_actions(
     snapshot: &FastSyncSnapshot,
 ) {
     ui.horizontal(|ui| {
-        if ui.button("Verify SHA-256").clicked() {
+        if widgets::secondary_button(ui, "Verify SHA-256").clicked() {
             app.verify_selected_snapshot();
         }
-        if ui
-            .add_enabled(
-                snapshot.source_url.is_some(),
-                egui::Button::new("Download HTTPS"),
-            )
+        if widgets::secondary_button_enabled(ui, "Download HTTPS", snapshot.source_url.is_some())
             .clicked()
         {
             app.download_selected_snapshot();
         }
-        if ui.button("Cache Local").clicked() {
+        if widgets::secondary_button(ui, "Cache Local").clicked() {
             app.cache_selected_snapshot();
         }
-        if ui
-            .add_enabled(
-                can_apply_snapshot(app, snapshot),
-                egui::Button::new("Import to Node"),
-            )
-            .clicked()
+        if widgets::secondary_button_enabled(
+            ui,
+            "Import to Node",
+            can_apply_snapshot(app, snapshot),
+        )
+        .clicked()
         {
             app.apply_selected_snapshot_to_node();
         }
-        if ui.button("Load Manifest").clicked() {
+        if widgets::secondary_button(ui, "Load Manifest").clicked() {
             load_snapshot_into_draft(app, snapshot);
         }
     });
