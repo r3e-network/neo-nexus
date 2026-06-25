@@ -1,29 +1,21 @@
 use eframe::egui;
 
-use crate::app::{theme::muted_text, NeoNexusApp};
+use crate::app::{theme::muted_text, widgets, NeoNexusApp};
 
 pub(super) fn render_policy_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.separator();
     ui.horizontal(|ui| {
-        if ui
-            .add_enabled(can_save_policy(app), egui::Button::new("Save Route"))
-            .clicked()
-        {
+        if widgets::secondary_button_enabled(ui, "Save Route", can_save_policy(app)).clicked() {
             app.save_alert_routing_policy();
         }
-        if ui
-            .add_enabled(can_reset_policy(app), egui::Button::new("Reset Draft"))
-            .clicked()
-        {
+        if widgets::secondary_button_enabled(ui, "Reset Draft", can_reset_policy(app)).clicked() {
             app.reset_alert_routing_policy_draft();
         }
-        if ui
-            .add_enabled(can_preview_policy(app), egui::Button::new("Preview Route"))
-            .clicked()
+        if widgets::secondary_button_enabled(ui, "Preview Route", can_preview_policy(app)).clicked()
         {
             app.preview_alert_routing_policy_draft();
         }
-        if ui.button("Prune History").clicked() {
+        if widgets::secondary_button(ui, "Prune History").clicked() {
             app.prune_alert_delivery_history();
         }
     });

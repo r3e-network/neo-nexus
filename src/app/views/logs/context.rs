@@ -8,7 +8,7 @@ use super::{
     super::super::{
         text::{short_path, truncate_middle},
         theme::{section_title, status_color},
-        widgets::{fact, render_node_fact_sheet},
+        widgets::{fact, render_node_fact_sheet, secondary_button, secondary_button_enabled},
         NeoNexusApp,
     },
     diagnosis::{diagnosis_color, retention_label},
@@ -91,26 +91,21 @@ fn render_log_controls(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         }
     });
     ui.horizontal(|ui| {
-        if ui.button("Refresh").clicked() {
+        if secondary_button(ui, "Refresh").clicked() {
             app.notice = Some("Log refreshed".to_string());
         }
-        if ui.button("Latest").clicked() {
+        if secondary_button(ui, "Latest").clicked() {
             app.log_follow_tail = true;
         }
         ui.checkbox(&mut app.log_follow_tail, "Follow Tail");
     });
     ui.horizontal(|ui| {
-        if ui
-            .add_enabled(
-                !app.log_query.trim().is_empty(),
-                egui::Button::new("Clear Search"),
-            )
-            .clicked()
+        if secondary_button_enabled(ui, "Clear Search", !app.log_query.trim().is_empty()).clicked()
         {
             app.log_query.clear();
             app.log_page = 0;
         }
-        if ui.button("Clear Log").clicked() {
+        if secondary_button(ui, "Clear Log").clicked() {
             app.clear_selected_log();
         }
     });
