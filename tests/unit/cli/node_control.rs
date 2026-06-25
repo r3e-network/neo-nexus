@@ -176,3 +176,53 @@ fn node_list_cli_reports_empty_workspace() -> Result<()> {
     );
     Ok(())
 }
+
+/// `--node-status` prints a detailed single-node report: identity, status,
+/// ports, version, and the RPC-health section (which reads through the core
+/// operation, not the repository). An unknown node errors cleanly.
+#[test]
+fn node_status_cli_prints_detailed_report() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let db_path = temp_dir.path().join("neonexus.db");
+    let repository = Repository::open(&db_path)?;
+    repository.create_node(NewNode {
+        name: "alpha".to_string(),
+        node_type: NodeType::NeoRs,
+        network: Network::Mainnet,
+        binary_path: "/opt/neo-node".into(),
+        args: Vec::new(),
+        runtime_version: "v0.8.0".to_string(),
+        storage_engine: StorageEngine::RocksDb,
+        rpc_port: 50332,
+        p2p_port: 50333,
+        ws_port: Some(50334),
+    })?;
+    drop(repository);
+
+    let db_arg = db_path.display().to_string();
+    let action = action_from_args(["neo-nexus", "--node-status", &db_arg, "alpha"])?;
+
+    match action {
+        CliAction::PrintWithExitCode { text, exit_code } => {
+            assert_eq!(exit_code, 0, "node-status should succeed");
+            assert!(
+                text.contains("Name:    alpha"),
+                "report should name the node"
+            );
+            assert!(
+                text.contains("RPC:     50332"),
+                "report should show the RPC port"
+            );
+            assert!(
+                text.contains("WS:      50334"),
+                "report should show the WS port"
+            );
+            assert!(
+                text.contains("RPC health:"),
+                "report should include the RPC health section"
+            );
+        }
+        other => panic!("expected PrintWithExitCode, got {other:?}"),
+    }
+    Ok(())
+}

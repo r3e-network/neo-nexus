@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use super::*;
 
 use crate::core::lifecycle::{execute_node_launch, LaunchAction, ManagedConfig, NodeLaunchOutcome};
+use crate::core::node_health::latest_node_rpc_health;
 use crate::core::operations::{evaluate_launch_readiness, evaluate_restart_readiness};
 use crate::core::workspace::ConfigExporter;
 use crate::launch::LaunchPlanner;
@@ -182,6 +183,54 @@ pub(in crate::cli::actions) fn node_list_action(args: &[String]) -> Result<CliAc
             node.p2p_port
         ));
     }
+    Ok(CliAction::PrintWithExitCode {
+        exit_code: 0,
+        text: lines.join("\n"),
+    })
+}
+
+/// `--node-status <db> <node-name>`: print a detailed single-node report
+/// (identity, status/pid, ports, version, storage, latest RPC health) so an
+/// operator or script can inspect one node headlessly. All reads go through the
+/// core facade, never the repository's row API directly.
+pub(in crate::cli::actions) fn node_status_action(args: &[String]) -> Result<CliAction> {
+    require_arg_count(args, 4, "--node-status")?;
+    let repository = open_workspace(&args[2])?;
+    let node = node_by_name(&repository, &args[3])?;
+
+    let mut lines = Vec::with_capacity(12);
+    lines.push(format!("Name:    {}", node.name));
+    lines.push(format!("Type:    {}", node.node_type));
+    lines.push(format!("Network: {}", node.network));
+    lines.push(format!("Version: {}", node.runtime_version));
+    lines.push(format!("Storage: {}", node.storage_engine));
+    lines.push(format!("Status:  {}", node.status));
+    if let Some(pid) = node.pid {
+        lines.push(format!("PID:     {pid}"));
+    }
+    lines.push(format!("RPC:     {}", node.rpc_port));
+    lines.push(format!("P2P:     {}", node.p2p_port));
+    if let Some(ws) = node.ws_port {
+        lines.push(format!("WS:      {ws}"));
+    }
+    lines.push(format!("Binary:  {}", node.binary_path.display()));
+
+    // Latest RPC health probe, via the core read operation (not the repository).
+    match latest_node_rpc_health(&repository, &node.id) {
+        Ok(Some(health)) => {
+            lines.push(String::new());
+            lines.push("RPC health:".to_string());
+            lines.push(format!("  status:   {}", health.status));
+            if let Some(height) = health.block_count {
+                lines.push(format!("  height:   {height}"));
+            }
+            lines.push(format!("  endpoint: {}", health.endpoint));
+            lines.push(format!("  message:  {}", health.message));
+        }
+        Ok(None) => lines.push("RPC health: unchecked".to_string()),
+        Err(error) => lines.push(format!("RPC health: error — {error}")),
+    }
+
     Ok(CliAction::PrintWithExitCode {
         exit_code: 0,
         text: lines.join("\n"),
