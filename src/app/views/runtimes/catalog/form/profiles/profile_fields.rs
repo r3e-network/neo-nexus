@@ -32,13 +32,13 @@ impl NeoNexusApp {
             },
         );
         ui.horizontal(|ui| {
-            if ui.button("Save").clicked() {
+            if crate::app::widgets::secondary_button(ui, "Save").clicked() {
                 self.save_runtime_catalog_profile();
             }
-            if ui.button("Recall").clicked() {
+            if crate::app::widgets::secondary_button(ui, "Recall").clicked() {
                 self.load_selected_runtime_catalog_profile_into_form();
             }
-            if ui.button("Delete").clicked() {
+            if crate::app::widgets::secondary_button(ui, "Delete").clicked() {
                 self.delete_selected_runtime_catalog_profile();
             }
         });

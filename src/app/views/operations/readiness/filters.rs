@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use crate::app::domain::{CheckSeverity, NodeDiagnostics};
-use crate::app::widgets::chip_pill;
+use crate::app::widgets::{chip_pill, secondary_button_enabled};
 
 use super::super::super::super::{theme::muted_text, NeoNexusApp};
 use super::super::helpers::{resolution_filter_combo, severity_filter_label};
@@ -44,28 +44,19 @@ pub(super) fn render_check_filters(
             app.set_readiness_check_resolution_filter(node, app.readiness_check_resolution_filter);
         }
         ui.separator();
-        if ui
-            .add_enabled(
-                node.critical_count() > 0,
-                egui::Button::new("Focus Critical"),
-            )
+        if secondary_button_enabled(ui, "Focus Critical", node.critical_count() > 0)
             .on_hover_text("Show critical checks for the selected node")
             .clicked()
         {
             app.focus_readiness_check_severity(node, CheckSeverity::Critical);
         }
-        if ui
-            .add_enabled(node.warning_count() > 0, egui::Button::new("Focus Warning"))
+        if secondary_button_enabled(ui, "Focus Warning", node.warning_count() > 0)
             .on_hover_text("Show warning checks for the selected node")
             .clicked()
         {
             app.focus_readiness_check_severity(node, CheckSeverity::Warning);
         }
-        if ui
-            .add_enabled(
-                app.has_active_readiness_check_filter(),
-                egui::Button::new("Clear Filters"),
-            )
+        if secondary_button_enabled(ui, "Clear Filters", app.has_active_readiness_check_filter())
             .on_hover_text("Show all checks for the selected node")
             .clicked()
         {

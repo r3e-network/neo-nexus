@@ -2,7 +2,11 @@ use eframe::egui;
 
 use crate::app::domain::{CheckSeverity, FleetDiagnostics};
 
-use super::super::super::super::{theme::muted_text, widgets::chip_pill, NeoNexusApp};
+use super::super::super::super::{
+    theme::muted_text,
+    widgets::{chip_pill, secondary_button_enabled},
+    NeoNexusApp,
+};
 use super::super::helpers::{resolution_filter_combo, severity_filter_label};
 
 pub(super) fn render_action_filters(
@@ -41,31 +45,19 @@ pub(super) fn render_action_filters(
             app.set_action_queue_resolution_filter(diagnostics, app.action_queue_resolution_filter);
         }
         ui.separator();
-        if ui
-            .add_enabled(
-                diagnostics.critical_count > 0,
-                egui::Button::new("Focus Critical"),
-            )
+        if secondary_button_enabled(ui, "Focus Critical", diagnostics.critical_count > 0)
             .on_hover_text("Show critical readiness actions and select the highest-risk row")
             .clicked()
         {
             app.focus_action_queue_severity(diagnostics, CheckSeverity::Critical);
         }
-        if ui
-            .add_enabled(
-                diagnostics.warning_count > 0,
-                egui::Button::new("Focus Warning"),
-            )
+        if secondary_button_enabled(ui, "Focus Warning", diagnostics.warning_count > 0)
             .on_hover_text("Show warning readiness actions and select the highest-risk row")
             .clicked()
         {
             app.focus_action_queue_severity(diagnostics, CheckSeverity::Warning);
         }
-        if ui
-            .add_enabled(
-                app.has_active_action_queue_filter(),
-                egui::Button::new("Clear Filters"),
-            )
+        if secondary_button_enabled(ui, "Clear Filters", app.has_active_action_queue_filter())
             .on_hover_text("Show all readiness actions")
             .clicked()
         {
