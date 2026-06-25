@@ -4,7 +4,12 @@ mod summary;
 
 use crate::app::domain::FleetDiagnostics;
 
-use super::super::super::{text::short_path, theme::muted_text, widgets::fact, NeoNexusApp};
+use super::super::super::{
+    text::short_path,
+    theme::muted_text,
+    widgets::{fact, secondary_button, secondary_button_enabled},
+    NeoNexusApp,
+};
 
 use summary::WorkspaceSafetySummary;
 
@@ -60,36 +65,31 @@ impl NeoNexusApp {
         ui.add_space(8.0);
 
         ui.horizontal(|ui| {
-            if ui
-                .add_enabled(safety.can_export(), egui::Button::new("Export"))
+            if secondary_button_enabled(ui, "Export", safety.can_export())
                 .on_hover_text("Export workspace backup")
                 .clicked()
             {
                 self.export_workspace_backup();
             }
-            if ui
-                .add_enabled(safety.can_import(), egui::Button::new("Import"))
+            if secondary_button_enabled(ui, "Import", safety.can_import())
                 .on_hover_text("Import latest workspace backup")
                 .clicked()
             {
                 self.import_latest_workspace_backup();
             }
-            if ui
-                .add_enabled(safety.can_validate_backup(), egui::Button::new("Validate"))
+            if secondary_button_enabled(ui, "Validate", safety.can_validate_backup())
                 .on_hover_text("Validate latest workspace backup without importing")
                 .clicked()
             {
                 self.validate_latest_workspace_backup();
             }
-            if ui
-                .button("Integrity")
+            if secondary_button(ui, "Integrity")
                 .on_hover_text("Run read-only database integrity check")
                 .clicked()
             {
                 self.run_workspace_integrity_check();
             }
-            if ui
-                .button("Bundle")
+            if secondary_button(ui, "Bundle")
                 .on_hover_text("Export redacted diagnostics support bundle")
                 .clicked()
             {

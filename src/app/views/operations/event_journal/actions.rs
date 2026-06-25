@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::app::{NeoNexusApp, EVENT_RETAIN_AFTER_PRUNE};
+use crate::app::{widgets, NeoNexusApp, EVENT_RETAIN_AFTER_PRUNE};
 
 use super::EventJournalCounts;
 
@@ -10,22 +10,19 @@ pub(super) fn render_event_actions(
     counts: EventJournalCounts,
 ) {
     ui.horizontal(|ui| {
-        if ui
-            .add_enabled(has_active_filter(app), egui::Button::new("Clear"))
+        if widgets::secondary_button_enabled(ui, "Clear", has_active_filter(app))
             .on_hover_text("Clear event journal filters")
             .clicked()
         {
             clear_event_filters(app);
         }
-        if ui
-            .add_enabled(counts.total_matches > 0, egui::Button::new("Export"))
+        if widgets::secondary_button_enabled(ui, "Export", counts.total_matches > 0)
             .on_hover_text("Export filtered audit evidence as text and JSON")
             .clicked()
         {
             app.export_event_journal_report();
         }
-        if ui
-            .add_enabled(can_prune_events(counts), egui::Button::new("Prune"))
+        if widgets::secondary_button_enabled(ui, "Prune", can_prune_events(counts))
             .on_hover_text("Retain only the newest bounded audit events")
             .clicked()
         {

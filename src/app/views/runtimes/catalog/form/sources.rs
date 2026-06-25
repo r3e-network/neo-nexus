@@ -9,13 +9,13 @@ impl NeoNexusApp {
         labeled_text(ui, "Signature", &mut self.runtime_catalog_signature_source);
         labeled_text(ui, "Catalog key", &mut self.runtime_catalog_public_key);
         ui.horizontal(|ui| {
-            if ui.button("Load").clicked() {
+            if crate::app::widgets::secondary_button(ui, "Load").clicked() {
                 self.load_runtime_release_catalog();
             }
-            if ui.button("Use Release").clicked() {
+            if crate::app::widgets::secondary_button(ui, "Use Release").clicked() {
                 self.load_selected_runtime_release_into_draft();
             }
-            if ui.button("Use Latest").clicked() {
+            if crate::app::widgets::secondary_button(ui, "Use Latest").clicked() {
                 self.use_latest_runtime_release_for_selected_node();
             }
         });
