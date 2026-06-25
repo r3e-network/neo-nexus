@@ -52,3 +52,26 @@ fn is_exempt_app_source(relative_text: &str) -> bool {
         || relative_text.starts_with("src/app/tests/")
         || relative_text.ends_with("/tests.rs")
 }
+
+/// A view must read a node's RPC health through the high-level core operation
+/// (`node_rpc_health_history` / `latest_node_rpc_health`), not by calling the
+/// repository's row API during paint. Scanning the raw `list_rpc_health` /
+/// `latest_rpc_health` repository calls in view source keeps the persistence
+/// layer behind the core facade and prevents a SQLite query per frame.
+#[test]
+fn views_read_rpc_health_through_core_not_the_repository() -> anyhow::Result<()> {
+    for path in rust_sources("src/app/views.rs", "src/app/views")? {
+        let source = std::fs::read_to_string(&path)?;
+        for forbidden in [
+            ".repository.list_rpc_health",
+            ".repository.latest_rpc_health",
+        ] {
+            assert!(
+                !source.contains(forbidden),
+                "{} reaches into the repository with {forbidden}; read RPC health through the core::node_health operation instead",
+                path.display(),
+            );
+        }
+    }
+    Ok(())
+}
