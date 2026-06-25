@@ -4,7 +4,7 @@ use crate::{
     app::{
         domain::{NodeConfig, NodeStatus},
         text::{non_empty, short_path, truncate_middle},
-        theme::status_color,
+        theme::{section_title, status_color},
         widgets::{fact, render_node_fact_sheet},
         NeoNexusApp,
     },
@@ -30,7 +30,7 @@ pub(super) fn render_node_summary(app: &NeoNexusApp, ui: &mut egui::Ui, node: &N
 
 fn render_node_header(ui: &mut egui::Ui, name: &str, status: NodeStatus) {
     ui.horizontal(|ui| {
-        ui.heading(truncate_middle(name, 24));
+        ui.label(section_title(truncate_middle(name, 24)).strong());
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.label(
                 egui::RichText::new(status.label())

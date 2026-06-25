@@ -5,6 +5,7 @@ use crate::app::domain::{NodeConfig, NodeType};
 use super::{
     super::super::{
         text::truncate_middle,
+        theme::section_title,
         widgets::{empty_state, fact, plugin_enabled},
         NeoNexusApp,
     },
@@ -30,7 +31,7 @@ pub(super) fn render_plugin_details(app: &mut NeoNexusApp, ui: &mut egui::Ui, no
     let mut enabled = plugin_enabled(&states, plugin.id);
     let before = enabled;
 
-    ui.heading(plugin.name);
+    ui.label(section_title(plugin.name).strong());
     ui.label(plugin.description);
     ui.separator();
     fact(ui, "Internal ID", &plugin.id.to_string());
