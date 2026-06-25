@@ -66,6 +66,8 @@ const USAGE_LINES: &[&str] = &[
     "  neo-nexus --verify-release-package-json <dist-dir|manifest.json|archive.zip>",
     "  neo-nexus --node-start <neonexus.db> <node-name>",
     "  neo-nexus --node-stop <neonexus.db> <node-name>",
+    "  neo-nexus --node-restart <neonexus.db> <node-name>",
+    "  neo-nexus --node-list <neonexus.db>",
 ];
 
 const APPLICATION_MODE_LINES: &[&str] = &[
@@ -123,6 +125,8 @@ const OPTION_LINES: &[&str] = &[
     "  --verify-release-package-json Print release package verification as JSON",
     "  --node-start                 Start a node headlessly via the same core path as the GUI",
     "  --node-stop                  Stop a node headlessly via the shared supervisor",
+    "  --node-restart               Restart a node headlessly via the shared core path",
+    "  --node-list                  List all nodes in a workspace as a compact table",
     "  --help                       Print this help and exit",
 ];
 
@@ -161,8 +165,9 @@ const NATIVE_UI_AUDIT_LINES: &[&str] = &[
 
 const NODE_CONTROL_LINES: &[&str] = &[
     "NODE CONTROL:",
-    "  Start or stop nodes headlessly. These run the SAME core launch pipeline as the GUI",
-    "  (readiness -> managed config -> supervise -> persist status), so a scripted node and an",
-    "  operator's node behave identically.",
-    "  --node-start and --node-stop take the workspace database path and the node's name.",
+    "  Start, stop, restart, or list nodes headlessly. These run the SAME core launch pipeline as",
+    "  the GUI (readiness -> managed config -> supervise -> persist status), so a scripted node and",
+    "  an operator's node behave identically.",
+    "  --node-start / --node-stop / --node-restart take the workspace database path and node name.",
+    "  --node-list takes just the workspace database path.",
 ];

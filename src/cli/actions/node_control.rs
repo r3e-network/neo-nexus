@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use super::*;
 
 use crate::core::lifecycle::{execute_node_launch, LaunchAction, ManagedConfig, NodeLaunchOutcome};
-use crate::core::operations::evaluate_launch_readiness;
+use crate::core::operations::{evaluate_launch_readiness, evaluate_restart_readiness};
 use crate::core::workspace::ConfigExporter;
 use crate::launch::LaunchPlanner;
 use crate::supervisor::{log_path_for, ProcessSupervisor};
@@ -16,39 +16,91 @@ pub(in crate::cli::actions) fn node_start_action(args: &[String]) -> Result<CliA
     require_arg_count(args, 4, "--node-start")?;
     let repository = open_workspace(&args[2])?;
     let node = node_by_name(&repository, &args[3])?;
+
+    launch_node(
+        &repository,
+        &node,
+        LaunchAction::Start,
+        "started",
+        "failed to start",
+    )
+}
+
+/// `--node-restart <db> <node-name>`: restart a node through the SAME core
+/// pipeline the GUI uses (evaluate_restart_readiness -> execute_node_launch with
+/// Restart), so CLI restart and operator restart behave identically.
+pub(in crate::cli::actions) fn node_restart_action(args: &[String]) -> Result<CliAction> {
+    require_arg_count(args, 4, "--node-restart")?;
+    let repository = open_workspace(&args[2])?;
+    let node = node_by_name(&repository, &args[3])?;
+    if !node.status.is_running() {
+        return Ok(CliAction::PrintWithExitCode {
+            exit_code: 1,
+            text: format!("{} must be running before restart", node.name),
+        });
+    }
+
+    launch_node(
+        &repository,
+        &node,
+        LaunchAction::Restart,
+        "restarted",
+        "failed to restart",
+    )
+}
+
+/// Shared launch/restart pipeline: evaluate readiness, build the plan, and run
+/// `execute_node_launch` with the given action. `verb_past`/`fail_verb` tailor
+/// the printed message to start vs restart.
+fn launch_node(
+    repository: &Repository,
+    node: &NodeConfig,
+    action: LaunchAction,
+    verb_past: &str,
+    fail_verb: &str,
+) -> Result<CliAction> {
     let plugins = repository
         .list_plugin_states(&node.id)
         .context("failed to read plugin states")?;
-    let work_dir = workspace_child_dir(&repository, "nodes").join(&node.id);
-    let managed_config_path = ConfigExporter::managed_target_path(&work_dir, &node);
-    let log_path = log_path_for(workspace_child_dir(&repository, "logs"), &node);
+    let work_dir = workspace_child_dir(repository, "nodes").join(&node.id);
+    let managed_config_path = ConfigExporter::managed_target_path(&work_dir, node);
+    let log_path = log_path_for(workspace_child_dir(repository, "logs"), node);
 
-    let readiness = evaluate_launch_readiness(
-        &node,
-        std::slice::from_ref(&node),
-        &plugins,
-        &managed_config_path,
-        &work_dir,
-    );
+    let readiness = match action {
+        LaunchAction::Start => evaluate_launch_readiness(
+            node,
+            std::slice::from_ref(node),
+            &plugins,
+            &managed_config_path,
+            &work_dir,
+        ),
+        LaunchAction::Restart => evaluate_restart_readiness(
+            node,
+            std::slice::from_ref(node),
+            &plugins,
+            &managed_config_path,
+            &work_dir,
+        ),
+    };
     if let Some(blocker) = readiness.blocking_summary() {
         return Ok(CliAction::PrintWithExitCode {
             exit_code: 1,
             text: format!(
-                "{} not started: launch readiness blocked — {blocker}",
+                "{} not {verb_past}: readiness blocked — {blocker}",
                 node.name
             ),
         });
     }
 
-    let plan = LaunchPlanner::plan(&node, &managed_config_path, &work_dir);
+    let plan = LaunchPlanner::plan(node, &managed_config_path, &work_dir);
     let mut supervisor = ProcessSupervisor::default();
     let outcome = execute_node_launch(
-        &repository,
+        repository,
         &mut supervisor,
-        &node,
+        node,
         &plan,
         &log_path,
-        LaunchAction::Start,
+        action,
         Some(ManagedConfig {
             path: &managed_config_path,
             plugins: &plugins,
@@ -59,7 +111,7 @@ pub(in crate::cli::actions) fn node_start_action(args: &[String]) -> Result<CliA
         NodeLaunchOutcome::Started { pid, log_path } => CliAction::PrintWithExitCode {
             exit_code: 0,
             text: format!(
-                "{} started with PID {}; log {}",
+                "{} {verb_past} with PID {}; log {}",
                 node.name,
                 pid,
                 log_path.display()
@@ -67,7 +119,7 @@ pub(in crate::cli::actions) fn node_start_action(args: &[String]) -> Result<CliA
         },
         NodeLaunchOutcome::Failed { message } => CliAction::PrintWithExitCode {
             exit_code: 1,
-            text: format!("{} failed to start: {message}", node.name),
+            text: format!("{} {fail_verb}: {message}", node.name),
         },
     })
 }
@@ -95,6 +147,58 @@ pub(in crate::cli::actions) fn node_stop_action(args: &[String]) -> Result<CliAc
             None => format!("{} was not running", node.name),
         },
     })
+}
+
+/// `--node-list <db>`: print every node in the workspace as a compact table, so
+/// a script or operator can see fleet status headlessly. Columns are name,
+/// type, network, status, rpc port, p2p port.
+pub(in crate::cli::actions) fn node_list_action(args: &[String]) -> Result<CliAction> {
+    require_arg_count(args, 3, "--node-list")?;
+    let repository = open_workspace(&args[2])?;
+    let nodes = repository
+        .list_nodes()
+        .context("failed to read nodes from the workspace")?;
+
+    if nodes.is_empty() {
+        return Ok(CliAction::PrintWithExitCode {
+            exit_code: 0,
+            text: "No nodes in the workspace.".to_string(),
+        });
+    }
+
+    let mut lines = Vec::with_capacity(nodes.len() + 1);
+    lines.push(format!(
+        "{:<24} {:<8} {:<8} {:<8} {:>8} {:>8}",
+        "NAME", "TYPE", "NETWORK", "STATUS", "RPC", "P2P"
+    ));
+    for node in &nodes {
+        lines.push(format!(
+            "{:<24} {:<8} {:<8} {:<8} {:>8} {:>8}",
+            truncate_node_name(&node.name, 24),
+            node.node_type,
+            node.network,
+            node.status,
+            node.rpc_port,
+            node.p2p_port
+        ));
+    }
+    Ok(CliAction::PrintWithExitCode {
+        exit_code: 0,
+        text: lines.join("\n"),
+    })
+}
+
+fn truncate_node_name(name: &str, max: usize) -> String {
+    if name.len() <= max {
+        name.to_string()
+    } else {
+        let end = name.char_indices().take(max - 1).last().map(|(i, _)| i);
+        if let Some(i) = end {
+            format!("{}…", &name[..i])
+        } else {
+            format!("{}…", name.chars().take(max - 1).collect::<String>())
+        }
+    }
 }
 
 fn open_workspace(db_path: &str) -> Result<Repository> {

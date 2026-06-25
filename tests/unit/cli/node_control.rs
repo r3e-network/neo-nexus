@@ -33,7 +33,7 @@ fn node_start_cli_reports_readiness_block_for_missing_binary() -> Result<()> {
 
     assert!(
         matches!(action, CliAction::PrintWithExitCode { text, exit_code: 1 }
-            if text.contains("not started") && text.contains("launch readiness blocked"))
+            if text.contains("not started") && text.contains("readiness blocked"))
     );
     Ok(())
 }
@@ -83,6 +83,96 @@ fn node_stop_cli_reports_not_running() -> Result<()> {
     assert!(
         matches!(action, CliAction::PrintWithExitCode { text, exit_code: 0 }
             if text.contains("was not running"))
+    );
+    Ok(())
+}
+
+/// `--node-restart` on a node that is not running refuses to restart (mirrors
+/// the GUI's guard), proving the CLI restart path is reached.
+#[test]
+fn node_restart_cli_refuses_when_not_running() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let db_path = temp_dir.path().join("neonexus.db");
+    let repository = Repository::open(&db_path)?;
+    repository.create_node(NewNode {
+        name: "stopped node".to_string(),
+        node_type: NodeType::NeoRs,
+        network: Network::Testnet,
+        binary_path: "/opt/neo-rs/neo-node".into(),
+        args: Vec::new(),
+        runtime_version: "v0.8.0".to_string(),
+        storage_engine: StorageEngine::RocksDb,
+        rpc_port: 30332,
+        p2p_port: 30333,
+        ws_port: None,
+    })?;
+    drop(repository);
+
+    let db_arg = db_path.display().to_string();
+    let action = action_from_args(["neo-nexus", "--node-restart", &db_arg, "stopped node"])?;
+
+    assert!(
+        matches!(action, CliAction::PrintWithExitCode { text, exit_code: 1 }
+            if text.contains("must be running before restart"))
+    );
+    Ok(())
+}
+
+/// `--node-list` prints a compact table of all nodes, with a header row, so a
+/// script can parse fleet status headlessly. An empty workspace prints a clear
+/// "no nodes" message.
+#[test]
+fn node_list_cli_prints_fleet_table() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let db_path = temp_dir.path().join("neonexus.db");
+    let repository = Repository::open(&db_path)?;
+    repository.create_node(NewNode {
+        name: "alpha".to_string(),
+        node_type: NodeType::NeoRs,
+        network: Network::Mainnet,
+        binary_path: "/opt/neo-node".into(),
+        args: Vec::new(),
+        runtime_version: "v0.8.0".to_string(),
+        storage_engine: StorageEngine::RocksDb,
+        rpc_port: 40332,
+        p2p_port: 40333,
+        ws_port: None,
+    })?;
+    drop(repository);
+
+    let db_arg = db_path.display().to_string();
+    let action = action_from_args(["neo-nexus", "--node-list", &db_arg])?;
+
+    match action {
+        CliAction::PrintWithExitCode { text, exit_code } => {
+            assert_eq!(exit_code, 0, "node-list should succeed");
+            assert!(text.contains("NAME"), "table should have a header");
+            assert!(text.contains("alpha"), "table should list the node");
+            assert!(
+                text.contains("mainnet"),
+                "table should show the node's network"
+            );
+        }
+        other => panic!("expected PrintWithExitCode, got {other:?}"),
+    }
+    Ok(())
+}
+
+/// `--node-list` on an empty workspace reports no nodes rather than printing an
+/// empty table.
+#[test]
+fn node_list_cli_reports_empty_workspace() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let db_path = temp_dir.path().join("neonexus.db");
+    Repository::open(&db_path)?;
+    drop(Repository::open(&db_path)?);
+
+    let db_arg = db_path.display().to_string();
+    let action = action_from_args(["neo-nexus", "--node-list", &db_arg])?;
+
+    assert!(
+        matches!(action, CliAction::PrintWithExitCode { text, exit_code: 0 }
+            if text.contains("No nodes"))
     );
     Ok(())
 }
