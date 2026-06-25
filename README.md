@@ -70,6 +70,19 @@ cargo run -- --validate-wallet /path/to/validator.wallet.json
 cargo run -- --validate-launch-pack /path/to/private-network/manifest.json
 ```
 
+Node control runs headlessly through the **same core launch pipeline** the GUI
+uses, so a scripted node and an operator's node behave identically:
+
+```bash
+cargo run -- --node-start /path/to/neonexus.db "node name"
+cargo run -- --node-stop  /path/to/neonexus.db "node name"
+```
+
+`--node-start` evaluates launch readiness, exports the managed config, launches
+the supervised process, and persists status. `--node-stop` stops it via the
+shared supervisor and is idempotent for scripts (reports "was not running" when
+already stopped).
+
 After a release build:
 
 ```bash
@@ -146,11 +159,14 @@ The source tree is intentionally Rust-only:
   explicit headless manager commands.
 - `src/app/` contains the native `egui` application shell, the design-token
   theme layer, shared widgets, view modules, and workflow bindings.
-- `src/core/` is the UI-free facade shared by GUI and CLI surfaces.
+- `src/core/` is the UI-free facade shared by GUI and CLI surfaces. High-level
+  operations live here: `core::lifecycle` (node start/stop/restart orchestration
+  used by both modes), `core::node_health` and `core::workspace_queries`
+  (read APIs so frontends never query the repository directly during render).
 - `src/cli/` parses headless commands and renders text/JSON output.
 - Domain modules such as `runtime`, `snapshots`, `config`, `launch`,
   `repository`, `backup`, `wallet`, `private_network`, `supervisor`,
-  `source_purity`, `source_quality`, `native_ui`, and `ci_policy` hold
+  `source_purity`, `source_quality`, `native_ui_audit`, and `ci_policy` hold
   reusable behavior outside the application shell.
 
 Tests are kept out of `src/` so the source tree reads as production only:
