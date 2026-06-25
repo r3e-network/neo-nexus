@@ -1,6 +1,7 @@
 pub mod distribution;
 pub mod lifecycle;
 pub mod node;
+pub mod node_health;
 pub mod operations;
 pub mod quality;
 pub mod runtime;

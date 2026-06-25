@@ -1,14 +1,14 @@
 use eframe::egui;
 
 use crate::app::{
-    domain::{RpcHealthRecord, RpcHealthStatus},
+    domain::{node_rpc_health_history, RpcHealthRecord, RpcHealthStatus},
     text::truncate_middle,
     widgets::{fact, fact_error},
     NeoNexusApp,
 };
 
 pub(super) fn render_rpc_health(app: &NeoNexusApp, ui: &mut egui::Ui, node_id: &str) {
-    match app.repository.list_rpc_health(node_id, 5) {
+    match node_rpc_health_history(&app.repository, node_id, 5) {
         Ok(history) => {
             if let Some(health) = history.first() {
                 fact(ui, "RPC Health", health.status.label());

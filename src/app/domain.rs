@@ -8,6 +8,7 @@ pub(in crate::app) use crate::core::{
         NewNode, NodeConfig, NodeInventoryFilter, NodeStatus, NodeType, PortAssignment,
         StorageEngine, DEFAULT_RPC_PORT,
     },
+    node_health::{latest_node_rpc_health, node_rpc_health_history},
     operations::{
         alert_target_label, deliver_webhook_alert, diagnostic_check_resolution_counts,
         diagnostic_check_severity_counts, evaluate_fleet, evaluate_launch_readiness,

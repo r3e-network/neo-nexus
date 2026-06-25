@@ -7,6 +7,8 @@ use super::super::super::{
     widgets::{self, empty_state, fact, render_node_fact_sheet},
     NeoNexusApp,
 };
+// High-level core read so the view does not reach into the repository during paint.
+use crate::app::domain::latest_node_rpc_health;
 
 pub(super) fn render_summary_selection(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     let Some(node) = app.selected_node().cloned() else {
@@ -25,7 +27,7 @@ pub(super) fn render_summary_selection(app: &mut NeoNexusApp, ui: &mut egui::Ui)
             node.pid.map_or(String::new(), |pid| format!(" ({pid})"))
         ),
     );
-    match app.repository.latest_rpc_health(&node.id) {
+    match latest_node_rpc_health(&app.repository, &node.id) {
         Ok(Some(health)) => {
             fact(ui, "RPC Health", health.status.label());
             fact(
