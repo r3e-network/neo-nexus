@@ -40,6 +40,7 @@ mod config;
 mod dispatcher;
 mod health;
 mod launch_pack;
+mod node_control;
 mod quality;
 mod release;
 mod reports;
@@ -51,8 +52,8 @@ pub(super) use self::basics::{help_text, self_check_text, version_text};
 pub(super) use self::config::GeneratedNodeConfigReport;
 pub(super) use self::dispatcher::action_from_args_vec;
 use self::{
-    alerts::*, backup::*, completions::*, config::*, health::*, launch_pack::*, quality::*,
-    release::*, reports::*, wallet::*, workspace::*,
+    alerts::*, backup::*, completions::*, config::*, health::*, launch_pack::*, node_control::*,
+    quality::*, release::*, reports::*, wallet::*, workspace::*,
 };
 
 fn current_unix_time() -> Result<u64> {

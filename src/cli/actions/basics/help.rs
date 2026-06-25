@@ -12,6 +12,7 @@ pub(in crate::cli) fn help_text() -> String {
         help_section(NATIVE_BOUNDARY_LINES),
         help_section(SOURCE_QUALITY_LINES),
         help_section(NATIVE_UI_AUDIT_LINES),
+        help_section(NODE_CONTROL_LINES),
     ]
     .join("\n\n")
 }
@@ -63,6 +64,8 @@ const USAGE_LINES: &[&str] = &[
     "  neo-nexus --package-release <output-dir>",
     "  neo-nexus --verify-release-package <dist-dir|manifest.json|archive.zip>",
     "  neo-nexus --verify-release-package-json <dist-dir|manifest.json|archive.zip>",
+    "  neo-nexus --node-start <neonexus.db> <node-name>",
+    "  neo-nexus --node-stop <neonexus.db> <node-name>",
 ];
 
 const APPLICATION_MODE_LINES: &[&str] = &[
@@ -118,6 +121,8 @@ const OPTION_LINES: &[&str] = &[
     "  --package-release            Package the current native executable as a signed-by-checksum ZIP",
     "  --verify-release-package     Verify release ZIP, manifests, checksum, and binary hash",
     "  --verify-release-package-json Print release package verification as JSON",
+    "  --node-start                 Start a node headlessly via the same core path as the GUI",
+    "  --node-stop                  Stop a node headlessly via the shared supervisor",
     "  --help                       Print this help and exit",
 ];
 
@@ -152,4 +157,12 @@ const NATIVE_UI_AUDIT_LINES: &[&str] = &[
     "NATIVE UI AUDIT:",
     "  neo-nexus --native-ui-audit <repo-dir>",
     "  neo-nexus --native-ui-audit-json <repo-dir>",
+];
+
+const NODE_CONTROL_LINES: &[&str] = &[
+    "NODE CONTROL:",
+    "  Start or stop nodes headlessly. These run the SAME core launch pipeline as the GUI",
+    "  (readiness -> managed config -> supervise -> persist status), so a scripted node and an",
+    "  operator's node behave identically.",
+    "  --node-start and --node-stop take the workspace database path and the node's name.",
 ];

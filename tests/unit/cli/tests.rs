@@ -161,5 +161,6 @@ mod backup_wallet_launch;
 mod basics;
 mod config;
 mod health;
+mod node_control;
 mod quality;
 mod reports;
