@@ -2,7 +2,7 @@ use super::*;
 
 impl NeoNexusApp {
     pub(in crate::app::views) fn render_snapshots(&mut self, ui: &mut egui::Ui) {
-        let snapshots = match self.repository.list_fast_sync_snapshots() {
+        let snapshots = match list_workspace_snapshots(&self.repository) {
             Ok(snapshots) => snapshots,
             Err(error) => {
                 empty_state(ui, "Snapshot registry unavailable", "The snapshot registry could not be loaded. Reloading the workspace may resolve transient access errors.");

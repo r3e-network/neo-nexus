@@ -4,7 +4,10 @@ mod list;
 
 use eframe::egui;
 
-use crate::app::{domain::RuntimeEventFilter, theme};
+use crate::app::{
+    domain::{count_workspace_events, list_workspace_events, RuntimeEventFilter},
+    theme,
+};
 
 use super::super::super::{widgets::empty_state, NeoNexusApp, EVENT_JOURNAL_LIMIT};
 
@@ -21,21 +24,22 @@ impl NeoNexusApp {
             self.event_query.clone(),
             EVENT_JOURNAL_LIMIT,
         );
-        let total_matches = match self.repository.count_events(&filter) {
+        let total_matches = match count_workspace_events(&self.repository, &filter) {
             Ok(count) => count,
             Err(error) => {
                 ui.label(egui::RichText::new(error.to_string()).color(theme::danger()));
                 return;
             }
         };
-        let total_events = match self.repository.count_events(&RuntimeEventFilter::default()) {
-            Ok(count) => count,
-            Err(error) => {
-                ui.label(egui::RichText::new(error.to_string()).color(theme::danger()));
-                return;
-            }
-        };
-        let events = match self.repository.list_events(filter) {
+        let total_events =
+            match count_workspace_events(&self.repository, &RuntimeEventFilter::default()) {
+                Ok(count) => count,
+                Err(error) => {
+                    ui.label(egui::RichText::new(error.to_string()).color(theme::danger()));
+                    return;
+                }
+            };
+        let events = match list_workspace_events(&self.repository, filter) {
             Ok(events) => events,
             Err(error) => {
                 ui.label(egui::RichText::new(error.to_string()).color(theme::danger()));

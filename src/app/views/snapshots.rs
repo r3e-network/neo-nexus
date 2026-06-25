@@ -10,7 +10,7 @@ mod status;
 
 use eframe::egui;
 
-use crate::app::domain::FastSyncSnapshot;
+use crate::app::domain::{list_workspace_snapshots, FastSyncSnapshot};
 
 use super::super::{
     text::{short_path, truncate_middle},
