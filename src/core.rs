@@ -7,6 +7,7 @@ pub mod quality;
 pub mod runtime;
 pub mod security;
 pub mod workspace;
+pub mod workspace_queries;
 
 #[cfg(test)]
 #[path = "../tests/unit/core/tests.rs"]

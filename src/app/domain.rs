@@ -64,4 +64,5 @@ pub(in crate::app) use crate::core::{
         WorkspaceBackupValidation, WorkspaceIntegrityChecker, WorkspaceIntegrityReport,
         WorkspaceReadinessReport, WorkspaceReadinessReporter, WorkspaceSupportBundleExporter,
     },
+    workspace_queries::{count_workspace_events, list_workspace_events, list_workspace_snapshots},
 };
