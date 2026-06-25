@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::app::widgets;
+
 pub(in crate::app::views::roles::private_network) fn render_plan_actions(
     app: &mut NeoNexusApp,
     ui: &mut egui::Ui,
@@ -8,27 +10,24 @@ pub(in crate::app::views::roles::private_network) fn render_plan_actions(
     signer_handoff_valid: bool,
 ) {
     ui.horizontal(|ui| {
-        if ui
-            .add_enabled(can_create_nodes, egui::Button::new("Create Nodes"))
-            .clicked()
-        {
+        if widgets::secondary_button_enabled(ui, "Create Nodes", can_create_nodes).clicked() {
             app.materialize_private_network_plan();
         }
-        if ui
-            .add_enabled(
-                launch_pack_ready && signer_handoff_valid,
-                egui::Button::new("Export Launch Pack"),
-            )
-            .clicked()
+        if widgets::secondary_button_enabled(
+            ui,
+            "Export Launch Pack",
+            launch_pack_ready && signer_handoff_valid,
+        )
+        .clicked()
         {
             app.export_private_network_launch_pack();
         }
-        if ui
-            .add_enabled(
-                app.private_network_last_export_root.is_some(),
-                egui::Button::new("Revalidate Pack"),
-            )
-            .clicked()
+        if widgets::secondary_button_enabled(
+            ui,
+            "Revalidate Pack",
+            app.private_network_last_export_root.is_some(),
+        )
+        .clicked()
         {
             app.revalidate_private_network_launch_pack();
         }
@@ -38,43 +37,43 @@ pub(in crate::app::views::roles::private_network) fn render_plan_actions(
             &mut app.private_network_allow_external_sidecars,
             "Allow External",
         );
-        if ui.button("Save Policy").clicked() {
+        if widgets::secondary_button(ui, "Save Policy").clicked() {
             app.save_private_network_sidecar_execution_policy();
         }
-        if ui
-            .add_enabled(
-                app.private_network_last_export_root.is_some(),
-                egui::Button::new("Load Sidecars"),
-            )
-            .clicked()
+        if widgets::secondary_button_enabled(
+            ui,
+            "Load Sidecars",
+            app.private_network_last_export_root.is_some(),
+        )
+        .clicked()
         {
             app.refresh_private_network_launch_pack_sidecars();
         }
-        if ui
-            .add_enabled(
-                app.private_network_last_export_root.is_some(),
-                egui::Button::new("Start Sidecars"),
-            )
-            .clicked()
+        if widgets::secondary_button_enabled(
+            ui,
+            "Start Sidecars",
+            app.private_network_last_export_root.is_some(),
+        )
+        .clicked()
         {
             app.start_private_network_launch_pack_sidecars();
         }
-        if ui
-            .add_enabled(
-                !app.private_network_sidecar_pids.is_empty(),
-                egui::Button::new("Stop Sidecars"),
-            )
-            .clicked()
+        if widgets::secondary_button_enabled(
+            ui,
+            "Stop Sidecars",
+            !app.private_network_sidecar_pids.is_empty(),
+        )
+        .clicked()
         {
             app.stop_private_network_launch_pack_sidecars();
         }
-        if ui
-            .add_enabled(
-                app.private_network_sidecar_report.is_some()
-                    || app.private_network_last_export_root.is_some(),
-                egui::Button::new("Check Health"),
-            )
-            .clicked()
+        if widgets::secondary_button_enabled(
+            ui,
+            "Check Health",
+            app.private_network_sidecar_report.is_some()
+                || app.private_network_last_export_root.is_some(),
+        )
+        .clicked()
         {
             app.check_private_network_launch_pack_sidecar_health();
         }
