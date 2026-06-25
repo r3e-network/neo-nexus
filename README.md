@@ -70,18 +70,25 @@ cargo run -- --validate-wallet /path/to/validator.wallet.json
 cargo run -- --validate-launch-pack /path/to/private-network/manifest.json
 ```
 
-Node control runs headlessly through the **same core launch pipeline** the GUI
-uses, so a scripted node and an operator's node behave identically:
+Node control runs headlessly through the **same core pipeline** the GUI uses
+(readiness, lifecycle, health reads), so a scripted node and an operator's node
+behave identically:
 
 ```bash
-cargo run -- --node-start /path/to/neonexus.db "node name"
-cargo run -- --node-stop  /path/to/neonexus.db "node name"
+cargo run -- --node-list    /path/to/neonexus.db
+cargo run -- --node-status  /path/to/neonexus.db "node name"
+cargo run -- --node-start   /path/to/neonexus.db "node name"
+cargo run -- --node-stop    /path/to/neonexus.db "node name"
+cargo run -- --node-restart /path/to/neonexus.db "node name"
 ```
 
-`--node-start` evaluates launch readiness, exports the managed config, launches
-the supervised process, and persists status. `--node-stop` stops it via the
-shared supervisor and is idempotent for scripts (reports "was not running" when
-already stopped).
+`--node-list` prints every node as a compact table (name/type/network/status/
+ports). `--node-status` prints a detailed single-node report including the
+latest RPC health probe. `--node-start` evaluates launch readiness, exports the
+managed config, launches the supervised process, and persists status.
+`--node-stop` stops it via the shared supervisor and is idempotent for scripts
+(reports "was not running" when already stopped). `--node-restart` restarts a
+running node through the same readiness + launch path.
 
 After a release build:
 
