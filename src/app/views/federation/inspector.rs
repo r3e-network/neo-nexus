@@ -2,7 +2,7 @@ use eframe::egui;
 
 use super::super::super::{
     text::truncate_middle,
-    theme::muted_text,
+    theme::{muted_text, section_title},
     widgets::{empty_state, fact},
     NeoNexusApp,
 };
@@ -26,7 +26,7 @@ impl NeoNexusApp {
         };
 
         ui.horizontal(|ui| {
-            ui.heading(truncate_middle(&profile.name, 28));
+            ui.label(section_title(truncate_middle(&profile.name, 28)).strong());
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(
                     egui::RichText::new(if profile.enabled {

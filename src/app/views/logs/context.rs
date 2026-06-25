@@ -7,7 +7,7 @@ use crate::app::domain::{LogReader, LogSnapshot, NodeConfig, NodeStatus};
 use super::{
     super::super::{
         text::{short_path, truncate_middle},
-        theme::status_color,
+        theme::{section_title, status_color},
         widgets::{fact, render_node_fact_sheet},
         NeoNexusApp,
     },
@@ -33,7 +33,7 @@ pub(super) fn render_log_context(
 
 fn render_log_heading(ui: &mut egui::Ui, node: &NodeConfig) {
     ui.horizontal(|ui| {
-        ui.heading(truncate_middle(&node.name, 24));
+        ui.label(section_title(truncate_middle(&node.name, 24)).strong());
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.label(
                 egui::RichText::new(node.status.label())
