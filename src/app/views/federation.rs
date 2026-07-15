@@ -27,12 +27,12 @@ impl NeoNexusApp {
         let probe = self
             .selected_remote_server_probe()
             .map_or("not probed", |report| report.status.label());
-        let auto_label = if self.remote_federation_monitor_policy.enabled {
+        let auto_label = if self.async_bus.remote_federation_monitor_policy.enabled {
             "enabled"
         } else {
             "disabled"
         };
-        let auto_detail = format!("{} pending", self.remote_federation_pending.len());
+        let auto_detail = format!("{} pending", self.async_bus.remote_federation_pending.len());
 
         let remotes = self.remote_servers.len().to_string();
         let enabled_label = enabled.to_string();
@@ -50,14 +50,14 @@ impl NeoNexusApp {
         );
 
         ui.add_space(theme::MD);
-        let mut index = self.federation_section as usize;
+        let mut index = self.sections.federation as usize;
         let labels = FederationSection::ALL.map(FederationSection::label);
         if segmented_control(ui, &labels, &mut index) {
-            self.federation_section = FederationSection::ALL[index];
+            self.sections.federation = FederationSection::ALL[index];
         }
         ui.add_space(theme::MD);
 
-        match self.federation_section {
+        match self.sections.federation {
             FederationSection::Profiles => panel(ui, "Remote profiles", |ui| {
                 self.render_remote_profile_list(ui);
             }),

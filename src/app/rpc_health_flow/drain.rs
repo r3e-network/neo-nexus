@@ -2,8 +2,8 @@ use super::*;
 
 impl NeoNexusApp {
     pub(in crate::app) fn drain_rpc_health_results(&mut self) {
-        while let Ok(result) = self.rpc_health_results.try_recv() {
-            self.rpc_health_pending.remove(&result.node.id);
+        while let Ok(result) = self.async_bus.rpc_health_results.try_recv() {
+            self.async_bus.rpc_health_pending.remove(&result.node.id);
             let Some(node) = self.fleet
                 .nodes
                 .iter()

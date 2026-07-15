@@ -3,17 +3,17 @@ use super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn schedule_due_rpc_health_checks(&mut self) {
         self.prune_deleted_rpc_health_runtime_state();
-        if !self.rpc_health_monitor_policy.enabled {
+        if !self.async_bus.rpc_health_monitor_policy.enabled {
             return;
         }
 
         let now = Instant::now();
-        let interval = self.rpc_health_monitor_policy.interval_duration();
+        let interval = self.async_bus.rpc_health_monitor_policy.interval_duration();
         let Some(node) = self.fleet.nodes.iter().find_map(|node| {
-            if !node.status.is_running() || self.rpc_health_pending.contains(&node.id) {
+            if !node.status.is_running() || self.async_bus.rpc_health_pending.contains(&node.id) {
                 return None;
             }
-            let due = self
+            let due = self.async_bus
                 .rpc_health_last_started
                 .get(&node.id)
                 .is_none_or(|last_started| now.duration_since(*last_started) >= interval);
@@ -22,9 +22,9 @@ impl NeoNexusApp {
             return;
         };
 
-        self.rpc_health_pending.insert(node.id.clone());
-        self.rpc_health_last_started.insert(node.id.clone(), now);
-        let sender = self.rpc_health_sender.clone();
+        self.async_bus.rpc_health_pending.insert(node.id.clone());
+        self.async_bus.rpc_health_last_started.insert(node.id.clone(), now);
+        let sender = self.async_bus.rpc_health_sender.clone();
         let thread_node = node.clone();
         if let Err(error) = thread::Builder::new()
             .name(format!("neonexus-rpc-health-{}", thread_node.id))
@@ -36,7 +36,7 @@ impl NeoNexusApp {
                 });
             })
         {
-            self.rpc_health_pending.remove(&node.id);
+            self.async_bus.rpc_health_pending.remove(&node.id);
             self.session.notice = Some(format!(
                 "Unable to start RPC health probe for {}: {error}",
                 node.name
@@ -50,9 +50,9 @@ impl NeoNexusApp {
             .iter()
             .map(|node| node.id.clone())
             .collect::<BTreeSet<_>>();
-        self.rpc_health_pending
+        self.async_bus.rpc_health_pending
             .retain(|node_id| live_node_ids.contains(node_id));
-        self.rpc_health_last_started
+        self.async_bus.rpc_health_last_started
             .retain(|node_id, _| live_node_ids.contains(node_id));
     }
 }

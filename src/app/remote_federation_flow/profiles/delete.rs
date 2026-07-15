@@ -25,8 +25,8 @@ impl NeoNexusApp {
                 {
                     self.last_remote_server_probe = None;
                 }
-                self.remote_federation_pending.remove(&profile.id);
-                self.remote_federation_last_started.remove(&profile.id);
+                self.async_bus.remote_federation_pending.remove(&profile.id);
+                self.async_bus.remote_federation_last_started.remove(&profile.id);
                 self.reload_remote_servers();
             }
             Err(error) => self.session.notice = Some(error.to_string()),

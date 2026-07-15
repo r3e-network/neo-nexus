@@ -31,22 +31,22 @@ pub(super) fn render_telemetry_health(app: &mut NeoNexusApp, ui: &mut egui::Ui) 
     fact(
         ui,
         "RPC Auto",
-        if app.rpc_health_monitor_policy.enabled {
+        if app.async_bus.rpc_health_monitor_policy.enabled {
             "enabled"
         } else {
             "disabled"
         },
     );
-    fact(ui, "RPC Pending", &app.rpc_health_pending.len().to_string());
+    fact(ui, "RPC Pending", &app.async_bus.rpc_health_pending.len().to_string());
     fact(
         ui,
         "RPC Interval",
-        &format_duration(app.rpc_health_monitor_policy.interval_duration()),
+        &format_duration(app.async_bus.rpc_health_monitor_policy.interval_duration()),
     );
     fact(
         ui,
         "Fed Auto",
-        if app.remote_federation_monitor_policy.enabled {
+        if app.async_bus.remote_federation_monitor_policy.enabled {
             "enabled"
         } else {
             "disabled"
@@ -55,12 +55,12 @@ pub(super) fn render_telemetry_health(app: &mut NeoNexusApp, ui: &mut egui::Ui) 
     fact(
         ui,
         "Fed Pending",
-        &app.remote_federation_pending.len().to_string(),
+        &app.async_bus.remote_federation_pending.len().to_string(),
     );
     fact(
         ui,
         "Fed Interval",
-        &format_duration(app.remote_federation_monitor_policy.interval_duration()),
+        &format_duration(app.async_bus.remote_federation_monitor_policy.interval_duration()),
     );
 
     render_actions(app, ui);

@@ -16,8 +16,8 @@ fn rpc_health_drain_clears_pending_for_a_node_deleted_mid_probe() -> anyhow::Res
     app.reload_nodes();
 
     // A probe is in flight: the node is pending and a result is queued.
-    app.rpc_health_pending.insert(node.id.clone());
-    app.rpc_health_sender
+    app.async_bus.rpc_health_pending.insert(node.id.clone());
+    app.async_bus.rpc_health_sender
         .send(RpcHealthProbeResult {
             report: RpcHealthReport {
                 endpoint: format!("127.0.0.1:{}", node.rpc_port),
@@ -39,7 +39,7 @@ fn rpc_health_drain_clears_pending_for_a_node_deleted_mid_probe() -> anyhow::Res
     // records for the deleted node.
     app.drain_rpc_health_results();
 
-    assert!(!app.rpc_health_pending.contains(&node.id));
+    assert!(!app.async_bus.rpc_health_pending.contains(&node.id));
     assert!(app.repository.latest_rpc_health(&node.id)?.is_none());
 
     Ok(())

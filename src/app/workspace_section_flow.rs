@@ -28,48 +28,48 @@ impl NeoNexusApp {
         persist_section(
             &self.repository,
             &mut self.session.notice,
-            self.settings_section,
-            &mut self.persisted_settings_section,
+            self.sections.settings,
+            &mut self.sections.persisted_settings,
             KEY_SETTINGS,
             SettingsSection::persist_key,
         );
         persist_section(
             &self.repository,
             &mut self.session.notice,
-            self.runtimes_section,
-            &mut self.persisted_runtimes_section,
+            self.sections.runtimes,
+            &mut self.sections.persisted_runtimes,
             KEY_RUNTIMES,
             RuntimesSection::persist_key,
         );
         persist_section(
             &self.repository,
             &mut self.session.notice,
-            self.snapshots_section,
-            &mut self.persisted_snapshots_section,
+            self.sections.snapshots,
+            &mut self.sections.persisted_snapshots,
             KEY_SNAPSHOTS,
             SnapshotsSection::persist_key,
         );
         persist_section(
             &self.repository,
             &mut self.session.notice,
-            self.monitor_section,
-            &mut self.persisted_monitor_section,
+            self.sections.monitor,
+            &mut self.sections.persisted_monitor,
             KEY_MONITOR,
             MonitorSection::persist_key,
         );
         persist_section(
             &self.repository,
             &mut self.session.notice,
-            self.federation_section,
-            &mut self.persisted_federation_section,
+            self.sections.federation,
+            &mut self.sections.persisted_federation,
             KEY_FEDERATION,
             FederationSection::persist_key,
         );
         persist_section(
             &self.repository,
             &mut self.session.notice,
-            self.roles_section,
-            &mut self.persisted_roles_section,
+            self.sections.roles,
+            &mut self.sections.persisted_roles,
             KEY_ROLES,
             RolesSection::persist_key,
         );

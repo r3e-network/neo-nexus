@@ -34,10 +34,10 @@ impl NeoNexusApp {
     fn reload_rpc_health_monitor_policy(&mut self) {
         match self.repository.load_rpc_health_monitor_policy() {
             Ok(policy) => {
-                self.rpc_health_monitor_policy = policy;
-                self.rpc_health_monitor_policy_draft =
-                    RpcHealthMonitorPolicyDraft::from_policy(self.rpc_health_monitor_policy);
-                self.rpc_health_last_started.clear();
+                self.async_bus.rpc_health_monitor_policy = policy;
+                self.async_bus.rpc_health_monitor_policy_draft =
+                    RpcHealthMonitorPolicyDraft::from_policy(self.async_bus.rpc_health_monitor_policy);
+                self.async_bus.rpc_health_last_started.clear();
             }
             Err(error) => self.session.notice = Some(error.to_string()),
         }
@@ -46,12 +46,12 @@ impl NeoNexusApp {
     fn reload_remote_federation_monitor_policy(&mut self) {
         match self.repository.load_remote_federation_monitor_policy() {
             Ok(policy) => {
-                self.remote_federation_monitor_policy = policy;
-                self.remote_federation_monitor_policy_draft =
+                self.async_bus.remote_federation_monitor_policy = policy;
+                self.async_bus.remote_federation_monitor_policy_draft =
                     RemoteFederationMonitorPolicyDraft::from_policy(
-                        self.remote_federation_monitor_policy,
+                        self.async_bus.remote_federation_monitor_policy,
                     );
-                self.remote_federation_last_started.clear();
+                self.async_bus.remote_federation_last_started.clear();
             }
             Err(error) => self.session.notice = Some(error.to_string()),
         }
@@ -60,9 +60,9 @@ impl NeoNexusApp {
     fn reload_alert_routing_policy(&mut self) {
         match self.repository.load_alert_routing_policy() {
             Ok(policy) => {
-                self.alert_routing_policy = policy;
-                self.alert_routing_policy_draft =
-                    AlertRoutingPolicyDraft::from_policy(&self.alert_routing_policy);
+                self.async_bus.alert_routing_policy = policy;
+                self.async_bus.alert_routing_policy_draft =
+                    AlertRoutingPolicyDraft::from_policy(&self.async_bus.alert_routing_policy);
             }
             Err(error) => self.session.notice = Some(error.to_string()),
         }

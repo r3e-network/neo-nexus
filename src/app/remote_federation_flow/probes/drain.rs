@@ -2,8 +2,8 @@ use super::*;
 
 impl NeoNexusApp {
     pub(in crate::app) fn drain_remote_federation_results(&mut self) {
-        while let Ok(result) = self.remote_federation_results.try_recv() {
-            self.remote_federation_pending.remove(&result.profile.id);
+        while let Ok(result) = self.async_bus.remote_federation_results.try_recv() {
+            self.async_bus.remote_federation_pending.remove(&result.profile.id);
             let Some(profile) = self
                 .remote_servers
                 .iter()

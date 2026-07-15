@@ -3,8 +3,8 @@ use crate::app::domain::AlertDeliveryStatus;
 
 impl NeoNexusApp {
     pub(in crate::app) fn drain_alert_delivery_results(&mut self) {
-        while let Ok(report) = self.alert_delivery_results.try_recv() {
-            self.alert_delivery_pending = self.alert_delivery_pending.saturating_sub(1);
+        while let Ok(report) = self.async_bus.alert_delivery_results.try_recv() {
+            self.async_bus.alert_delivery_pending = self.async_bus.alert_delivery_pending.saturating_sub(1);
             let failed = report.status != AlertDeliveryStatus::Delivered;
             let message = report.message.clone();
             if let Err(error) = self.repository.record_alert_delivery(&report) {
@@ -25,15 +25,15 @@ impl NeoNexusApp {
     }
 
     pub(in crate::app) fn route_alert_for_event(&mut self, event: RuntimeEvent) {
-        if !should_route_alert(&self.alert_routing_policy, &event) {
+        if !should_route_alert(&self.async_bus.alert_routing_policy, &event) {
             return;
         }
 
-        let policy = self.alert_routing_policy.clone();
-        let sender = self.alert_delivery_sender.clone();
+        let policy = self.async_bus.alert_routing_policy.clone();
+        let sender = self.async_bus.alert_delivery_sender.clone();
         let thread_policy = policy.clone();
         let thread_event = event.clone();
-        self.alert_delivery_pending += 1;
+        self.async_bus.alert_delivery_pending += 1;
         if let Err(error) = thread::Builder::new()
             .name(format!("neonexus-alert-event-{}", event.id))
             .spawn(move || {
@@ -42,7 +42,7 @@ impl NeoNexusApp {
                 let _ = sender.send(report);
             })
         {
-            self.alert_delivery_pending = self.alert_delivery_pending.saturating_sub(1);
+            self.async_bus.alert_delivery_pending = self.async_bus.alert_delivery_pending.saturating_sub(1);
             let target = policy
                 .webhook_url
                 .as_deref()

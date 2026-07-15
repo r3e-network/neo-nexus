@@ -58,11 +58,11 @@ impl NeoNexusApp {
             }
         }
         if self.session.selected_view == View::Snapshots {
-            self.runtimes_section = RuntimesSection::Sync;
+            self.sections.runtimes = RuntimesSection::Sync;
             self.session.selected_view = View::Runtimes;
         }
         if self.session.selected_view == View::Alerts {
-            self.settings_section = SettingsSection::Alerts;
+            self.sections.settings = SettingsSection::Alerts;
             self.session.selected_view = View::Settings;
         }
     }

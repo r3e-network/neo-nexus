@@ -6,7 +6,7 @@ fn alert_routing_policy_action_persists_and_audits() -> anyhow::Result<()> {
     let repository = Repository::open(temp_dir.path().join("neonexus.db"))?;
     let mut app = NeoNexusApp::new(repository);
 
-    app.alert_routing_policy_draft = AlertRoutingPolicyDraft {
+    app.async_bus.alert_routing_policy_draft = AlertRoutingPolicyDraft {
         enabled: true,
         provider: AlertProvider::Telegram,
         min_severity: EventSeverity::Critical,
@@ -15,12 +15,12 @@ fn alert_routing_policy_action_persists_and_audits() -> anyhow::Result<()> {
     };
     app.save_alert_routing_policy();
 
-    assert!(app.alert_routing_policy.enabled);
+    assert!(app.async_bus.alert_routing_policy.enabled);
     assert_eq!(
-        app.alert_routing_policy.min_severity,
+        app.async_bus.alert_routing_policy.min_severity,
         EventSeverity::Critical
     );
-    assert_eq!(app.alert_routing_policy.provider, AlertProvider::Telegram);
+    assert_eq!(app.async_bus.alert_routing_policy.provider, AlertProvider::Telegram);
     assert_eq!(
         app.repository
             .load_alert_routing_policy()?
@@ -44,7 +44,7 @@ fn alert_routing_policy_preview_uses_draft_without_sending() -> anyhow::Result<(
     let repository = Repository::open(temp_dir.path().join("neonexus.db"))?;
     let mut app = NeoNexusApp::new(repository);
 
-    app.alert_routing_policy_draft = AlertRoutingPolicyDraft {
+    app.async_bus.alert_routing_policy_draft = AlertRoutingPolicyDraft {
         enabled: false,
         provider: AlertProvider::Datadog,
         min_severity: EventSeverity::Critical,
@@ -54,7 +54,7 @@ fn alert_routing_policy_preview_uses_draft_without_sending() -> anyhow::Result<(
     };
     app.preview_alert_routing_policy_draft();
 
-    let preview = app
+    let preview = app.async_bus
         .last_alert_preview
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("expected alert preview report"))?;
@@ -74,16 +74,16 @@ fn alert_routing_policy_preview_uses_draft_without_sending() -> anyhow::Result<(
         .as_deref()
         .is_some_and(|notice| notice.contains("Alert preview ready")));
 
-    app.alert_routing_policy_draft.min_severity = EventSeverity::Warning;
-    assert!(app.last_alert_preview.is_some());
+    app.async_bus.alert_routing_policy_draft.min_severity = EventSeverity::Warning;
+    assert!(app.async_bus.last_alert_preview.is_some());
     assert!(!app.alert_preview_matches_draft());
 
-    app.alert_routing_policy_draft.webhook_url =
+    app.async_bus.alert_routing_policy_draft.webhook_url =
         "https://event-management-intake.datadoghq.com/api/v2/events".to_string();
     app.preview_alert_routing_policy_draft();
 
-    assert!(app.last_alert_preview.is_none());
-    assert!(app.last_alert_preview_policy.is_none());
+    assert!(app.async_bus.last_alert_preview.is_none());
+    assert!(app.async_bus.last_alert_preview_policy.is_none());
     assert!(app.session
         .notice
         .as_deref()

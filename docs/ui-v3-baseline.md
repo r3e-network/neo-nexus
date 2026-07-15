@@ -46,6 +46,8 @@ cargo test --release --test ui_visual_truth -- --nocapture --ignored
   - `session: SessionUi` — theme, view, inspector, notice, toasts, node workspace tab, network hub
   - `fleet: FleetUi` — nodes, selection, draft, inventory filters/paging
   - `operations_ui: OperationsUi` — operations section + action queue / readiness / ports / journal list UI
+  - `sections: WorkspaceSections` — settings/runtimes/snapshots/monitor/federation/roles tabs
+  - `async_bus: AsyncProbeBus` — RPC health, federation, and alert delivery channels + pending sets
 - Fleet helpers: `reset_fleet_paging` / `set_fleet_status_filter` / `select_fleet_node` / `running_node_count`
 
 ### Phase 4 surface polish (landed)

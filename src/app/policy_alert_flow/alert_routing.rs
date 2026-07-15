@@ -2,17 +2,17 @@ use super::*;
 
 impl NeoNexusApp {
     pub(in crate::app) fn preview_alert_routing_policy_draft(&mut self) {
-        if let Some(message) = self.alert_routing_policy_draft.validation_message() {
-            self.last_alert_preview = None;
-            self.last_alert_preview_policy = None;
+        if let Some(message) = self.async_bus.alert_routing_policy_draft.validation_message() {
+            self.async_bus.last_alert_preview = None;
+            self.async_bus.last_alert_preview_policy = None;
             self.session.notice = Some(message);
             return;
         }
 
-        let policy = self.alert_routing_policy_draft.to_policy();
+        let policy = self.async_bus.alert_routing_policy_draft.to_policy();
         let Some(target_url) = policy.webhook_url.as_deref() else {
-            self.last_alert_preview = None;
-            self.last_alert_preview_policy = None;
+            self.async_bus.last_alert_preview = None;
+            self.async_bus.last_alert_preview_policy = None;
             self.session.notice = Some("Alert preview requires a target URL".to_string());
             return;
         };
@@ -21,8 +21,8 @@ impl NeoNexusApp {
             occurred_at_unix: match current_unix_time() {
                 Ok(timestamp) => timestamp,
                 Err(error) => {
-                    self.last_alert_preview = None;
-                    self.last_alert_preview_policy = None;
+                    self.async_bus.last_alert_preview = None;
+                    self.async_bus.last_alert_preview_policy = None;
                     self.session.notice = Some(error.to_string());
                     return;
                 }
@@ -45,43 +45,43 @@ impl NeoNexusApp {
                     "Alert preview ready: {} route to {}",
                     report.provider, report.endpoint
                 ));
-                self.last_alert_preview = Some(report);
-                self.last_alert_preview_policy = Some(policy);
+                self.async_bus.last_alert_preview = Some(report);
+                self.async_bus.last_alert_preview_policy = Some(policy);
             }
             Err(error) => {
-                self.last_alert_preview = None;
-                self.last_alert_preview_policy = None;
+                self.async_bus.last_alert_preview = None;
+                self.async_bus.last_alert_preview_policy = None;
                 self.session.notice = Some(format!("Alert preview failed: {error}"));
             }
         }
     }
 
     pub(in crate::app) fn alert_preview_matches_draft(&self) -> bool {
-        self.last_alert_preview_policy
+        self.async_bus.last_alert_preview_policy
             .as_ref()
             .is_some_and(|policy| {
-                self.alert_routing_policy_draft
+                self.async_bus.alert_routing_policy_draft
                     .validation_message()
                     .is_none()
-                    && self.alert_routing_policy_draft.to_policy() == policy.clone()
+                    && self.async_bus.alert_routing_policy_draft.to_policy() == policy.clone()
             })
     }
 
     pub(in crate::app) fn save_alert_routing_policy(&mut self) {
-        if let Some(message) = self.alert_routing_policy_draft.validation_message() {
+        if let Some(message) = self.async_bus.alert_routing_policy_draft.validation_message() {
             self.session.notice = Some(message);
             return;
         }
 
-        let policy = self.alert_routing_policy_draft.to_policy();
+        let policy = self.async_bus.alert_routing_policy_draft.to_policy();
         match self.repository.save_alert_routing_policy(policy.clone()) {
             Ok(()) => {
-                self.alert_routing_policy = policy.normalized();
-                self.alert_routing_policy_draft =
-                    AlertRoutingPolicyDraft::from_policy(&self.alert_routing_policy);
+                self.async_bus.alert_routing_policy = policy.normalized();
+                self.async_bus.alert_routing_policy_draft =
+                    AlertRoutingPolicyDraft::from_policy(&self.async_bus.alert_routing_policy);
                 let message = format!(
                     "Alert routing policy saved: {}",
-                    self.alert_routing_policy.describe()
+                    self.async_bus.alert_routing_policy.describe()
                 );
                 self.record_event_notice(
                     EventKind::AlertRoutingPolicyUpdated,
@@ -94,8 +94,8 @@ impl NeoNexusApp {
     }
 
     pub(in crate::app) fn reset_alert_routing_policy_draft(&mut self) {
-        self.alert_routing_policy_draft =
-            AlertRoutingPolicyDraft::from_policy(&self.alert_routing_policy);
+        self.async_bus.alert_routing_policy_draft =
+            AlertRoutingPolicyDraft::from_policy(&self.async_bus.alert_routing_policy);
         self.session.notice = Some("Alert routing policy draft reset".to_string());
     }
 

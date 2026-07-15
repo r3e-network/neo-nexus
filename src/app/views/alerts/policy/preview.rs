@@ -11,7 +11,7 @@ use crate::app::{
 pub(super) fn render_alert_preview(app: &NeoNexusApp, ui: &mut egui::Ui) {
     ui.separator();
     ui.label(egui::RichText::new("Last preview").strong());
-    let Some(preview) = app.last_alert_preview.as_ref() else {
+    let Some(preview) = app.async_bus.last_alert_preview.as_ref() else {
         ui.label(egui::RichText::new("No preview run.").color(muted_text()));
         return;
     };

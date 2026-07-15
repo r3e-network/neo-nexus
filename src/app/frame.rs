@@ -23,9 +23,7 @@ impl eframe::App for NeoNexusApp {
         self.session.toasts.mirror_notice(self.session.notice.as_deref());
         self.session.toasts.expire_due();
         if self.watchdog.has_pending_restart()
-            || !self.rpc_health_pending.is_empty()
-            || !self.remote_federation_pending.is_empty()
-            || self.alert_delivery_pending > 0
+            || self.async_bus.has_in_flight_work()
             || !self.session.toasts.is_empty()
         {
             context.request_repaint_after(Duration::from_millis(500));

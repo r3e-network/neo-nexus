@@ -1,12 +1,16 @@
 use super::*;
 
+mod async_bus;
 mod fleet;
 mod operations_ui;
+mod sections;
 mod session;
 mod toasts;
 
+pub(in crate::app) use async_bus::AsyncProbeBus;
 pub(in crate::app) use fleet::FleetUi;
 pub(in crate::app) use operations_ui::OperationsUi;
+pub(in crate::app) use sections::WorkspaceSections;
 pub(in crate::app) use session::SessionUi;
 pub(in crate::app) use toasts::render_toast_strip;
 
@@ -15,6 +19,8 @@ pub struct NeoNexusApp {
     pub(in crate::app) session: SessionUi,
     pub(in crate::app) fleet: FleetUi,
     pub(in crate::app) operations_ui: OperationsUi,
+    pub(in crate::app) sections: WorkspaceSections,
+    pub(in crate::app) async_bus: AsyncProbeBus,
     pub(in crate::app) supervisor: ProcessSupervisor,
     pub(in crate::app) watchdog: Watchdog,
     pub(in crate::app) watchdog_policy_draft: WatchdogPolicyDraft,
@@ -51,18 +57,6 @@ pub struct NeoNexusApp {
     pub(in crate::app) remote_server_description: String,
     pub(in crate::app) remote_server_enabled: bool,
     pub(in crate::app) last_remote_server_probe: Option<RemoteServerProbeRecord>,
-    pub(in crate::app) settings_section: SettingsSection,
-    pub(in crate::app) persisted_settings_section: SettingsSection,
-    pub(in crate::app) runtimes_section: RuntimesSection,
-    pub(in crate::app) persisted_runtimes_section: RuntimesSection,
-    pub(in crate::app) snapshots_section: SnapshotsSection,
-    pub(in crate::app) persisted_snapshots_section: SnapshotsSection,
-    pub(in crate::app) monitor_section: MonitorSection,
-    pub(in crate::app) persisted_monitor_section: MonitorSection,
-    pub(in crate::app) federation_section: FederationSection,
-    pub(in crate::app) persisted_federation_section: FederationSection,
-    pub(in crate::app) roles_section: RolesSection,
-    pub(in crate::app) persisted_roles_section: RolesSection,
     pub(in crate::app) selected_plugin: Option<PluginId>,
     pub(in crate::app) plugin_package_source: String,
     pub(in crate::app) plugin_package_expected_sha256: String,
@@ -133,28 +127,6 @@ pub struct NeoNexusApp {
     pub(in crate::app) remote_probe_history_page: usize,
     pub(in crate::app) remote_probe_history_query: String,
     pub(in crate::app) remote_probe_history_status_filter: Option<RemoteProbeStatus>,
-    pub(in crate::app) alert_delivery_page: usize,
-    pub(in crate::app) alert_delivery_status_filter: Option<AlertDeliveryStatus>,
-    pub(in crate::app) alert_delivery_query: String,
-    pub(in crate::app) alert_routing_policy: AlertRoutingPolicy,
-    pub(in crate::app) alert_routing_policy_draft: AlertRoutingPolicyDraft,
-    pub(in crate::app) last_alert_preview: Option<AlertPreviewReport>,
-    pub(in crate::app) last_alert_preview_policy: Option<AlertRoutingPolicy>,
-    pub(in crate::app) alert_delivery_pending: usize,
-    pub(in crate::app) alert_delivery_results: Receiver<AlertDeliveryReport>,
-    pub(in crate::app) alert_delivery_sender: Sender<AlertDeliveryReport>,
-    pub(in crate::app) rpc_health_monitor_policy: RpcHealthMonitorPolicy,
-    pub(in crate::app) rpc_health_monitor_policy_draft: RpcHealthMonitorPolicyDraft,
-    pub(in crate::app) rpc_health_last_started: BTreeMap<String, Instant>,
-    pub(in crate::app) rpc_health_pending: BTreeSet<String>,
-    pub(in crate::app) rpc_health_results: Receiver<RpcHealthProbeResult>,
-    pub(in crate::app) rpc_health_sender: Sender<RpcHealthProbeResult>,
-    pub(in crate::app) remote_federation_monitor_policy: RemoteFederationMonitorPolicy,
-    pub(in crate::app) remote_federation_monitor_policy_draft: RemoteFederationMonitorPolicyDraft,
-    pub(in crate::app) remote_federation_last_started: BTreeMap<String, Instant>,
-    pub(in crate::app) remote_federation_pending: BTreeSet<String>,
-    pub(in crate::app) remote_federation_results: Receiver<RemoteFederationProbeResult>,
-    pub(in crate::app) remote_federation_sender: Sender<RemoteFederationProbeResult>,
 }
 
 impl NeoNexusApp {

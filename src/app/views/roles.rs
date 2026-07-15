@@ -44,14 +44,14 @@ impl NeoNexusApp {
         );
 
         ui.add_space(theme::MD);
-        let mut index = self.roles_section as usize;
+        let mut index = self.sections.roles as usize;
         let labels = RolesSection::ALL.map(RolesSection::label);
         if segmented_control(ui, &labels, &mut index) {
-            self.roles_section = RolesSection::ALL[index];
+            self.sections.roles = RolesSection::ALL[index];
         }
         ui.add_space(theme::MD);
 
-        match self.roles_section {
+        match self.sections.roles {
             RolesSection::Presets => panel(ui, "Role presets", |ui| {
                 self.render_role_presets(ui);
             }),

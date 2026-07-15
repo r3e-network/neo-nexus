@@ -54,14 +54,14 @@ impl NeoNexusApp {
 
     fn render_snapshot_workspace(&mut self, ui: &mut egui::Ui, snapshots: &[FastSyncSnapshot]) {
         ui.add_space(theme::MD);
-        let mut index = self.snapshots_section as usize;
+        let mut index = self.sections.snapshots as usize;
         let labels = SnapshotsSection::ALL.map(SnapshotsSection::label);
         if segmented_control(ui, &labels, &mut index) {
-            self.snapshots_section = SnapshotsSection::ALL[index];
+            self.sections.snapshots = SnapshotsSection::ALL[index];
         }
         ui.add_space(theme::MD);
 
-        match self.snapshots_section {
+        match self.sections.snapshots {
             SnapshotsSection::Manifest => panel(ui, "Snapshot manifest", |ui| {
                 self.render_snapshot_manifest_form(ui);
             }),

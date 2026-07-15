@@ -20,14 +20,14 @@ impl NeoNexusApp {
         metrics::render_monitor_metrics(self, ui);
 
         ui.add_space(theme::MD);
-        let mut index = self.monitor_section as usize;
+        let mut index = self.sections.monitor as usize;
         let labels = MonitorSection::ALL.map(MonitorSection::label);
         if segmented_control(ui, &labels, &mut index) {
-            self.monitor_section = MonitorSection::ALL[index];
+            self.sections.monitor = MonitorSection::ALL[index];
         }
         ui.add_space(theme::MD);
 
-        match self.monitor_section {
+        match self.sections.monitor {
             MonitorSection::Pressure => panel(ui, "System pressure", |ui| {
                 pressure::render_system_pressure(self, ui);
             }),
