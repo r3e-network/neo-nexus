@@ -154,12 +154,12 @@ fn view_menu_shortcuts_surface_cycle_commands_before_workspace_targets() {
     assert_eq!(shortcuts[0], AppShortcut::PreviousView);
     assert_eq!(shortcuts[1], AppShortcut::NextView);
     assert_eq!(shortcuts[2], AppShortcut::SelectView(View::Summary));
-    assert_eq!(shortcuts[10], AppShortcut::SelectView(View::Nodes));
+    assert_eq!(shortcuts[3], AppShortcut::SelectView(View::Nodes));
     assert_eq!(
         shortcuts[shortcuts.len() - 1],
-        AppShortcut::SelectView(View::Logs)
+        AppShortcut::SelectView(View::Settings)
     );
-    assert_eq!(shortcuts.len(), View::ALL.len() + 2);
+    assert_eq!(shortcuts.len(), View::PRIMARY.len() + 2);
 }
 
 #[test]

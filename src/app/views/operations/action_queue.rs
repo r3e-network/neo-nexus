@@ -7,8 +7,8 @@ use crate::app::domain::FleetDiagnostics;
 
 use super::super::super::{
     paging::page_count,
-    theme::muted_text,
-    widgets::{empty_state, pagination_bar},
+    theme,
+    widgets::{empty_state, empty_state_with_action, pagination_bar, secondary_button},
     NeoNexusApp, ACTION_QUEUE_PAGE_SIZE,
 };
 use filters::render_action_filters;
@@ -21,15 +21,16 @@ impl NeoNexusApp {
         diagnostics: &FleetDiagnostics,
     ) {
         if diagnostics.nodes.is_empty() {
-            empty_state(
+            if empty_state_with_action(
                 ui,
                 "No nodes",
                 "Create a node before running readiness checks.",
-            );
-            ui.add_space(8.0);
-            if ui.button("Export Report").clicked() {
-                self.export_workspace_readiness_report(diagnostics);
+                Some("Create node"),
+            ) {
+                self.open_node_workspace_tab(crate::app::views::NodeWorkspaceTab::Studio);
             }
+            ui.add_space(theme::SM);
+            render_export_action(self, ui, diagnostics);
             return;
         }
 
@@ -46,7 +47,7 @@ impl NeoNexusApp {
         let total_pages = page_count(actions.len(), ACTION_QUEUE_PAGE_SIZE);
         self.action_queue_page = self.action_queue_page.min(total_pages - 1);
         pagination_bar(ui, &mut self.action_queue_page, total_pages, actions.len());
-        ui.separator();
+        ui.add_space(theme::SM);
 
         let start = self.action_queue_page * ACTION_QUEUE_PAGE_SIZE;
         render_action_table(self, ui, &actions, start);
@@ -56,11 +57,11 @@ impl NeoNexusApp {
 }
 
 fn render_export_action(app: &mut NeoNexusApp, ui: &mut egui::Ui, diagnostics: &FleetDiagnostics) {
-    ui.add_space(8.0);
+    ui.add_space(theme::SM);
     ui.horizontal(|ui| {
-        if ui.button("Export Report").clicked() {
+        if secondary_button(ui, "Export Report").clicked() {
             app.export_workspace_readiness_report(diagnostics);
         }
-        ui.label(egui::RichText::new("Writes text and JSON evidence.").color(muted_text()));
+        ui.label(theme::muted_body("Writes text and JSON evidence."));
     });
 }

@@ -62,11 +62,13 @@ pub(in crate::app) fn configure_style(context: &egui::Context, theme: Theme) {
     visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, palette.text);
 
     // Generous, consistent rhythm so views breathe instead of crowding.
+    // Slightly taller interact targets (28pt) and roomier padding give the
+    // workbench a calmer, more product-like density than stock egui.
     style.spacing.item_spacing = egui::vec2(10.0, 8.0);
-    style.spacing.button_padding = egui::vec2(14.0, 7.0);
+    style.spacing.button_padding = egui::vec2(14.0, 8.0);
     style.spacing.menu_margin = egui::Margin::same(6);
     style.spacing.indent = 20.0;
-    style.spacing.interact_size.y = 26.0;
+    style.spacing.interact_size.y = 28.0;
 
     context.set_style(style);
 }

@@ -36,11 +36,11 @@ impl View {
 
     pub(super) fn label(self) -> &'static str {
         match self {
-            Self::Summary => "Summary",
+            Self::Summary => "Home",
             Self::Operations => "Operations",
             Self::Monitor => "Monitor",
             Self::Alerts => "Alerts",
-            Self::Federation => "Federation",
+            Self::Federation => "Network",
             Self::Settings => "Settings",
             Self::Runtimes => "Runtimes",
             Self::Wallets => "Wallets",
@@ -71,15 +71,15 @@ impl View {
 
     pub(super) fn title(self) -> &'static str {
         match self {
-            Self::Summary => "Overview",
+            Self::Summary => "Home",
             Self::Operations => "Operations",
             Self::Monitor => "Resource Monitor",
             Self::Alerts => "Alert Routing",
-            Self::Federation => "Federation",
+            Self::Federation => "Network",
             Self::Settings => "Settings",
             Self::Runtimes => "Runtime Manager",
             Self::Wallets => "Wallet Profiles",
-            Self::Nodes => "Node Studio",
+            Self::Nodes => "Nodes",
             Self::Roles => "Role Planner",
             Self::Snapshots => "Fast Sync",
             Self::Plugins => "Plugin Manager",
@@ -116,21 +116,50 @@ impl View {
 
     pub(super) fn subtitle(self) -> &'static str {
         match self {
-            Self::Summary => "Fleet health, lifecycle posture, and native workspace state.",
+            Self::Summary => "Fleet health, selection context, and operator next steps.",
             Self::Operations => "Readiness checks, port safety, and operator action queue.",
             Self::Monitor => "System pressure and managed node process telemetry.",
             Self::Alerts => "Route critical node and Federation events to operator endpoints.",
-            Self::Federation => "Remote NeoNexus public endpoint profiles and probes.",
-            Self::Settings => "Native runtime policy and local workspace paths.",
-            Self::Runtimes => "Install verified local node runtimes and apply upgrades.",
+            Self::Federation => "Remote endpoints, private networks, and wallet profiles.",
+            Self::Settings => "Native runtime policy, alerts, and local workspace paths.",
+            Self::Runtimes => "Install verified runtimes, upgrades, and fast sync snapshots.",
             Self::Wallets => "Import encrypted Neo wallet metadata for signer operations.",
-            Self::Nodes => "Create and tune local Neo node definitions.",
+            Self::Nodes => "Define, configure, and operate a selected local Neo node.",
             Self::Roles => "Apply runtime roles and plan private-network topology.",
             Self::Snapshots => "Register, verify, and cache fast sync snapshots.",
             Self::Plugins => "Enable runtime capabilities for the selected node.",
             Self::Config => "Inspect generated settings without leaving the application.",
             Self::Logs => "Inspect captured process output in a fixed native workspace.",
         }
+    }
+
+    /// The six primary navigation destinations shown in the sidebar.
+    pub(super) const PRIMARY: [Self; 6] = [
+        Self::Summary,
+        Self::Nodes,
+        Self::Runtimes,
+        Self::Federation,
+        Self::Operations,
+        Self::Settings,
+    ];
+
+    /// Map any view (including legacy top-level tools) onto the primary nav
+    /// item that should appear selected in the sidebar.
+    pub(super) fn primary_nav(self) -> Self {
+        match self {
+            Self::Summary => Self::Summary,
+            Self::Nodes | Self::Config | Self::Logs | Self::Plugins | Self::Monitor => Self::Nodes,
+            Self::Runtimes | Self::Snapshots => Self::Runtimes,
+            Self::Federation | Self::Roles | Self::Wallets => Self::Federation,
+            Self::Operations => Self::Operations,
+            Self::Settings | Self::Alerts => Self::Settings,
+        }
+    }
+
+    /// Whether this view is one of the six primary sidebar destinations.
+    #[allow(dead_code)] // used by unit tests and upcoming command palette filtering
+    pub(super) fn is_primary(self) -> bool {
+        Self::PRIMARY.contains(&self)
     }
 }
 

@@ -8,11 +8,14 @@ impl NeoNexusApp {
         let nodes = self.filtered_inventory_nodes();
 
         if self.nodes.is_empty() {
-            empty_state(
+            if empty_state_with_action(
                 ui,
                 "No nodes",
-                "Use New Node to define the first local runtime.",
-            );
+                "Define the first local Neo runtime to start operating.",
+                Some("New Node"),
+            ) {
+                self.selected_view = crate::app::view::View::Nodes;
+            }
             return;
         }
 
@@ -20,7 +23,7 @@ impl NeoNexusApp {
             empty_state(
                 ui,
                 "No matching nodes",
-                "No local nodes match current filter.",
+                "No local nodes match the current filter.",
             );
             return;
         }
@@ -28,7 +31,7 @@ impl NeoNexusApp {
         let total_pages = page_count(nodes.len(), NODE_PAGE_SIZE);
         self.node_page = self.node_page.min(total_pages - 1);
         pagination_bar(ui, &mut self.node_page, total_pages, nodes.len());
-        ui.separator();
+        ui.add_space(theme::SM);
 
         let start = self.node_page * NODE_PAGE_SIZE;
         let visible: Vec<_> = nodes.iter().skip(start).take(NODE_PAGE_SIZE).collect();
@@ -37,46 +40,17 @@ impl NeoNexusApp {
         for row in 0..NODE_PAGE_SIZE {
             if let Some(node) = visible.get(row) {
                 let selected = next_selection.as_deref() == Some(node.id.as_str());
-                let label = format!(
-                    "{}  {}  :{}",
-                    truncate_middle(&node.name, 18),
-                    node.network,
-                    node.rpc_port
-                );
-                let response = ui.add_sized(
-                    [ui.available_width(), 32.0],
-                    egui::Button::new(label).selected(selected),
-                );
-
-                if response.clicked() {
+                if node_row(ui, node, selected, true) {
                     next_selection = Some(node.id.clone());
                 }
-
-                ui.horizontal(|ui| {
-                    ui.add_space(theme::SM);
-                    ui.label(theme::muted_body(node.node_type.to_string()));
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.add_space(theme::SM);
-                        ui.label(
-                            theme::body(node.status.label())
-                                .color(status_color(node.status))
-                                .strong(),
-                        );
-                    });
-                });
+                ui.add_space(theme::XS);
             } else {
-                // Reserve the two-row node rhythm for an empty slot so the list
-                // stays evenly paced (button row 32pt + detail row).
-                ui.add_space(52.0);
+                // Reserve row height so the list stays evenly paced when a page
+                // is only partially filled.
+                ui.add_space(48.0);
             }
         }
 
-        if self.selected_node != next_selection {
-            self.selected_node = next_selection;
-            self.selected_plugin = None;
-            self.plugin_page = 0;
-            self.config_page = 0;
-            self.log_page = 0;
-        }
+        self.select_fleet_node(next_selection);
     }
 }

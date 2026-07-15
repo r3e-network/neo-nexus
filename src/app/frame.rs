@@ -18,10 +18,15 @@ impl eframe::App for NeoNexusApp {
         self.refresh_metrics_if_due();
         self.schedule_due_rpc_health_checks();
         self.schedule_due_remote_federation_probes();
+        // Mirror operator notices into the toast stack before paint so the same
+        // frame that sets a notice also shows it as a coloured chip.
+        self.toasts.mirror_notice(self.notice.as_deref());
+        self.toasts.expire_due();
         if self.watchdog.has_pending_restart()
             || !self.rpc_health_pending.is_empty()
             || !self.remote_federation_pending.is_empty()
             || self.alert_delivery_pending > 0
+            || !self.toasts.is_empty()
         {
             context.request_repaint_after(Duration::from_millis(500));
         } else {

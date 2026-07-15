@@ -29,6 +29,7 @@ pub(super) fn render_settings(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         SettingsSection::Monitors => panel(ui, "Health monitors", |ui| {
             app.render_rpc_monitor_settings(ui);
         }),
+        SettingsSection::Alerts => app.render_alerts(ui),
         SettingsSection::Storage => panel(ui, "Workspace storage", |ui| {
             app.render_workspace_storage_settings(ui);
         }),

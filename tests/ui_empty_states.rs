@@ -1,12 +1,11 @@
 //! Headless empty-state verification of the native workbench.
 //!
-//! A fresh workspace renders with no nodes, no selection, and an empty fleet.
-//! A professional, user-friendly application must turn each of those into an
-//! actionable guidance message (not a blank panel), drawn at a legible size and
-//! actually visible inside its panel. The same headless `egui::Context` path
-//! used for geometry, contrast, and keyboard verification extracts every
-//! rendered text run from the frame's `TextShape` galley jobs and asserts these
-//! properties without a screenshot.
+//! A fresh workspace renders with no nodes and no selection. A professional,
+//! user-friendly application must turn that into actionable guidance (not a
+//! blank panel), drawn at a legible size and actually visible inside its panel.
+//! The same headless `egui::Context` path used for geometry, contrast, and
+//! keyboard verification extracts every rendered text run from the frame's
+//! `TextShape` galley jobs and asserts these properties without a screenshot.
 
 use std::collections::HashMap;
 
@@ -83,21 +82,28 @@ fn empty_states_render_actionable_guidance_not_blank_panels() {
     let texts = fresh_workbench_text();
     let by_text: HashMap<String, ()> = texts.iter().map(|t| (t.text.clone(), ())).collect();
 
-    // Each empty state must offer an actionable next step, not just a label.
-    for guidance in ["No nodes", "No node selected", "Empty fleet"] {
+    // v3 empty workspace: inventory still says "No nodes", and Home presents a
+    // welcome CTA instead of stacking several empty panels (selection + fleet).
+    for guidance in ["No nodes", "Welcome to NeoNexus"] {
         assert!(
             by_text.contains_key(guidance),
             "missing empty-state heading {guidance:?}",
         );
     }
     for hint in [
-        "Use New Node to define the first local runtime.",
-        "Choose a node from Inventory.",
-        "Use New Node to create the first local runtime.",
+        "Define the first local Neo runtime to start operating.",
+        "Create a local node definition to begin managing neo-cli, neo-go, or neo-rs.",
     ] {
         assert!(
             by_text.contains_key(hint),
             "missing empty-state guidance {hint:?}",
+        );
+    }
+    // Primary CTAs must be present so the empty state is actionable.
+    for cta in ["New Node", "Create node"] {
+        assert!(
+            by_text.contains_key(cta),
+            "missing empty-state CTA {cta:?}",
         );
     }
 }
@@ -126,13 +132,13 @@ fn every_rendered_text_is_legible_and_visible_in_its_panel() {
 
 #[test]
 fn empty_state_heading_is_emphasised_above_body_caption_size() {
-    // Empty-state headings (e.g. "Empty fleet") must read as more than a muted
-    // caption: they should be at least as prominent as a section title.
+    // Empty-state headings must read as more than a muted caption: they should
+    // be at least as prominent as a section title.
     let texts = fresh_workbench_text();
     let heading = texts
         .iter()
-        .find(|t| t.text == "Empty fleet")
-        .expect("Empty fleet heading should render on the empty fleet view");
+        .find(|t| t.text == "Welcome to NeoNexus")
+        .expect("Welcome heading should render on the empty home view");
     assert!(
         heading.size >= 13.0,
         "empty-state heading {:?} is only {}pt; guidance should be emphasised",

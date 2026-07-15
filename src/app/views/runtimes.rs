@@ -48,6 +48,7 @@ impl NeoNexusApp {
             RuntimesSection::Applied => panel(ui, "Selected node runtime", |ui| {
                 self.render_runtime_application(ui, &installations);
             }),
+            RuntimesSection::Sync => self.render_snapshots(ui),
         }
     }
 }
