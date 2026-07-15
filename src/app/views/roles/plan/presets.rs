@@ -20,7 +20,7 @@ impl NeoNexusApp {
             } else {
                 ui.label(" ");
             }
-            ui.add_space(4.0);
+            ui.add_space(theme::XS);
         }
 
         ui.separator();
@@ -53,7 +53,7 @@ impl NeoNexusApp {
         let can_apply = self
             .selected_node()
             .is_some_and(|node| !node.status.is_active());
-        ui.add_space(8.0);
+        ui.add_space(theme::SM);
         if ui
             .add_enabled(can_apply, egui::Button::new("Apply Role"))
             .clicked()

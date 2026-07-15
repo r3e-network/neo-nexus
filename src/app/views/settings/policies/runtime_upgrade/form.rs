@@ -113,7 +113,7 @@ fn render_timing_controls(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
 }
 
 fn render_validation_state(app: &NeoNexusApp, ui: &mut egui::Ui) {
-    ui.add_space(6.0);
+    ui.add_space(theme::SM);
     if let Some(message) = app.runtime_upgrade_policy_draft.validation_message() {
         ui.label(egui::RichText::new(message).color(theme::danger()));
     } else {

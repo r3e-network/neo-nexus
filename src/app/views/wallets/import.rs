@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use super::super::super::{
-    theme::accent,
+    theme::{self, accent},
     widgets::{fact, labeled_text, primary_button},
     NeoNexusApp,
 };
@@ -10,7 +10,7 @@ pub(super) fn render_wallet_profile_import_form(app: &mut NeoNexusApp, ui: &mut 
     labeled_text(ui, "Wallet path", &mut app.wallet_profile_source);
     labeled_text(ui, "Profile ID", &mut app.wallet_profile_id);
     labeled_text(ui, "Label", &mut app.wallet_profile_label);
-    ui.add_space(6.0);
+    ui.add_space(theme::SM);
     ui.horizontal(|ui| {
         if primary_button(ui, "Import").clicked() {
             app.import_neo_wallet_profile_from_form();
@@ -26,7 +26,7 @@ pub(super) fn render_wallet_profile_import_form(app: &mut NeoNexusApp, ui: &mut 
     fact(ui, "Secrets", "not stored");
     fact(ui, "Wallet bytes", "not copied");
     fact(ui, "Hash", "SHA-256 retained");
-    ui.add_space(6.0);
+    ui.add_space(theme::SM);
     ui.label(
         egui::RichText::new("NEP-6 encrypted wallet validation runs before persistence.")
             .color(accent()),

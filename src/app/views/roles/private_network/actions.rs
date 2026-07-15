@@ -1,6 +1,10 @@
 use eframe::egui;
 
-use super::super::super::super::{theme::muted_text, widgets::labeled_text, NeoNexusApp};
+use super::super::super::super::{
+    theme::{self, muted_text},
+    widgets::labeled_text,
+    NeoNexusApp,
+};
 
 mod plan;
 mod signers;

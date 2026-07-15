@@ -57,3 +57,21 @@ fn density_persist_keys_round_trip() {
 fn default_density_is_comfortable() {
     assert_eq!(UiDensity::default(), UiDensity::Comfortable);
 }
+
+/// Geometry proof gate (PR-14-full): Compact list anatomy stays locked to
+/// Comfortable. Future Compact list densification may only change these
+/// three fields after a new proof PR rewrites this assertion with evidence.
+#[test]
+fn compact_list_anatomy_gate_locked_to_comfortable() {
+    let c = DensityMetrics::COMPACT;
+    let k = DensityMetrics::COMFORTABLE;
+    assert_eq!(
+        (c.list_row_compact, c.list_row_expanded, c.journal_slot),
+        (k.list_row_compact, k.list_row_expanded, k.journal_slot),
+        "Compact list heights may only change after a geometry proof PR"
+    );
+    // Document the shipped Comfortable anatomy so a silent drift fails loudly.
+    assert_eq!(k.list_row_compact, 44.0);
+    assert_eq!(k.list_row_expanded, 56.0);
+    assert_eq!(k.journal_slot, 52.0);
+}

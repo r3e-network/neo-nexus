@@ -6,6 +6,15 @@ Shipped as **3.0.0** (breaking UI information architecture). Visual system
 completed as **3.1.0** (`docs/ui-system-redesign-v3.1.md`): density preference,
 page_chrome, list_row matrix, density-invariant chrome 60/28/212.
 
+### Density contracts (3.1.0)
+
+| Mode | Controls | List / journal rows | Chrome |
+|------|----------|---------------------|--------|
+| Comfortable | interact 28, pad 14×8, spacing 10×8, nav 34 | 44 / 56 / 52 | 60 / 28 / 212 |
+| Compact | interact 24, pad 10×6, spacing 8×6, nav 28 | **same as Comfortable** | **same** |
+
+Headless proof: `cargo test --test ui_density_geometry`. List height changes remain gated by the Compact anatomy unit test until a future proof PR.
+
 ## Visual truth
 
 Headless pixel-truth rasterization of a 1280×820 frame (painted fill
