@@ -1,7 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::PathBuf,
-    sync::mpsc::{Receiver, Sender},
     thread,
     time::Instant,
 };
@@ -78,7 +77,9 @@ use workflow::{
 };
 
 pub use state::NeoNexusApp;
-pub(in crate::app) use state::{render_toast_strip, FleetUi, OperationsUi, SessionUi};
+pub(in crate::app) use state::{
+    render_toast_strip, AsyncProbeBus, FleetUi, OperationsUi, SessionUi, WorkspaceSections,
+};
 pub use view::View;
 
 #[cfg(test)]

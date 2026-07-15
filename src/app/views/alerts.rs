@@ -17,8 +17,8 @@ impl NeoNexusApp {
 
         metrics::render_alert_metrics(
             ui,
-            &self.alert_routing_policy,
-            self.alert_delivery_pending,
+            &self.async_bus.alert_routing_policy,
+            self.async_bus.alert_delivery_pending,
             summary,
         );
 

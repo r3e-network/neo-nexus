@@ -28,14 +28,14 @@ impl NeoNexusApp {
         render_runtime_metrics(ui, &installations);
 
         ui.add_space(theme::MD);
-        let mut index = self.runtimes_section as usize;
+        let mut index = self.sections.runtimes as usize;
         let labels = RuntimesSection::ALL.map(RuntimesSection::label);
         if segmented_control(ui, &labels, &mut index) {
-            self.runtimes_section = RuntimesSection::ALL[index];
+            self.sections.runtimes = RuntimesSection::ALL[index];
         }
         ui.add_space(theme::MD);
 
-        match self.runtimes_section {
+        match self.sections.runtimes {
             RuntimesSection::Install => panel(ui, "Install package", |ui| {
                 self.render_runtime_install_form(ui);
             }),

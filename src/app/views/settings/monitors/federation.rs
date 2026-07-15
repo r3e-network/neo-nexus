@@ -5,13 +5,13 @@ use crate::app::{domain::RemoteFederationMonitorPolicy, NeoNexusApp};
 
 pub(super) fn render_federation_monitor_policy(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.checkbox(
-        &mut app.remote_federation_monitor_policy_draft.enabled,
+        &mut app.async_bus.remote_federation_monitor_policy_draft.enabled,
         "Automatically probe enabled remote Federation profiles",
     );
     interval_drag(
         ui,
         "Federation interval",
-        &mut app.remote_federation_monitor_policy_draft.interval_seconds,
+        &mut app.async_bus.remote_federation_monitor_policy_draft.interval_seconds,
         RemoteFederationMonitorPolicy::MIN_INTERVAL_SECONDS
             ..=RemoteFederationMonitorPolicy::MAX_INTERVAL_SECONDS,
         10.0,
@@ -19,7 +19,7 @@ pub(super) fn render_federation_monitor_policy(app: &mut NeoNexusApp, ui: &mut e
 
     validation_error(
         ui,
-        app.remote_federation_monitor_policy_draft
+        app.async_bus.remote_federation_monitor_policy_draft
             .validation_message(),
     );
     render_federation_actions(app, ui);
@@ -27,13 +27,13 @@ pub(super) fn render_federation_monitor_policy(app: &mut NeoNexusApp, ui: &mut e
 
 fn render_federation_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
-        let can_save = app
+        let can_save = app.async_bus
             .remote_federation_monitor_policy_draft
             .validation_message()
             .is_none()
-            && app
+            && app.async_bus
                 .remote_federation_monitor_policy_draft
-                .differs_from(app.remote_federation_monitor_policy);
+                .differs_from(app.async_bus.remote_federation_monitor_policy);
         if ui
             .add_enabled(can_save, egui::Button::new("Save Federation"))
             .clicked()
@@ -42,8 +42,8 @@ fn render_federation_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         }
         if ui
             .add_enabled(
-                app.remote_federation_monitor_policy_draft
-                    .differs_from(app.remote_federation_monitor_policy),
+                app.async_bus.remote_federation_monitor_policy_draft
+                    .differs_from(app.async_bus.remote_federation_monitor_policy),
                 egui::Button::new("Reset Draft"),
             )
             .clicked()

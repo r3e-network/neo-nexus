@@ -26,20 +26,20 @@ pub(super) fn render_policy_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
 }
 
 fn can_save_policy(app: &NeoNexusApp) -> bool {
-    app.alert_routing_policy_draft
+    app.async_bus.alert_routing_policy_draft
         .validation_message()
         .is_none()
         && can_reset_policy(app)
 }
 
 fn can_reset_policy(app: &NeoNexusApp) -> bool {
-    app.alert_routing_policy_draft
-        .differs_from(&app.alert_routing_policy)
+    app.async_bus.alert_routing_policy_draft
+        .differs_from(&app.async_bus.alert_routing_policy)
 }
 
 fn can_preview_policy(app: &NeoNexusApp) -> bool {
-    app.alert_routing_policy_draft
+    app.async_bus.alert_routing_policy_draft
         .validation_message()
         .is_none()
-        && !app.alert_routing_policy_draft.webhook_url.trim().is_empty()
+        && !app.async_bus.alert_routing_policy_draft.webhook_url.trim().is_empty()
 }

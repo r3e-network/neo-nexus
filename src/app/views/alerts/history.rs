@@ -19,8 +19,8 @@ pub(super) fn render_alert_delivery_history(
 ) {
     render_filter_bar(app, ui);
     let filter = AlertDeliveryFilter::new(
-        app.alert_delivery_status_filter,
-        app.alert_delivery_query.as_str(),
+        app.async_bus.alert_delivery_status_filter,
+        app.async_bus.alert_delivery_query.as_str(),
     );
     let filter_active = !filter.is_empty();
     let deliveries = filter_alert_deliveries(deliveries, &filter);
@@ -31,13 +31,13 @@ pub(super) fn render_alert_delivery_history(
     }
 
     let total_pages = page_count(deliveries.len(), ALERT_DELIVERY_PAGE_SIZE);
-    app.alert_delivery_page = app.alert_delivery_page.min(total_pages - 1);
-    let start = app.alert_delivery_page * ALERT_DELIVERY_PAGE_SIZE;
+    app.async_bus.alert_delivery_page = app.async_bus.alert_delivery_page.min(total_pages - 1);
+    let start = app.async_bus.alert_delivery_page * ALERT_DELIVERY_PAGE_SIZE;
     let end = (start + ALERT_DELIVERY_PAGE_SIZE).min(deliveries.len());
 
     pagination_bar(
         ui,
-        &mut app.alert_delivery_page,
+        &mut app.async_bus.alert_delivery_page,
         total_pages,
         deliveries.len(),
     );
@@ -88,10 +88,10 @@ fn render_filter_bar(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     });
     let response = ui.add_sized(
         [ui.available_width(), 24.0],
-        egui::TextEdit::singleline(&mut app.alert_delivery_query).hint_text("Search"),
+        egui::TextEdit::singleline(&mut app.async_bus.alert_delivery_query).hint_text("Search"),
     );
     if response.changed() {
-        app.alert_delivery_page = 0;
+        app.async_bus.alert_delivery_page = 0;
     }
     ui.separator();
 }
@@ -103,11 +103,11 @@ fn filter_button(
     status: Option<AlertDeliveryStatus>,
 ) {
     if ui
-        .selectable_label(app.alert_delivery_status_filter == status, label)
+        .selectable_label(app.async_bus.alert_delivery_status_filter == status, label)
         .clicked()
     {
-        app.alert_delivery_status_filter = status;
-        app.alert_delivery_page = 0;
+        app.async_bus.alert_delivery_status_filter = status;
+        app.async_bus.alert_delivery_page = 0;
     }
 }
 

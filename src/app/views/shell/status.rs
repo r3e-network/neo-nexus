@@ -34,25 +34,25 @@ impl NeoNexusApp {
                 "Database: {}",
                 short_path(self.repository.db_path(), 48)
             )));
-            if !self.rpc_health_pending.is_empty() {
+            if !self.async_bus.rpc_health_pending.is_empty() {
                 ui.separator();
                 ui.label(theme::muted_body(format!(
                     "RPC probes: {}",
-                    self.rpc_health_pending.len()
+                    self.async_bus.rpc_health_pending.len()
                 )));
             }
-            if !self.remote_federation_pending.is_empty() {
+            if !self.async_bus.remote_federation_pending.is_empty() {
                 ui.separator();
                 ui.label(theme::muted_body(format!(
                     "Federation probes: {}",
-                    self.remote_federation_pending.len()
+                    self.async_bus.remote_federation_pending.len()
                 )));
             }
-            if self.alert_delivery_pending > 0 {
+            if self.async_bus.alert_delivery_pending > 0 {
                 ui.separator();
                 ui.label(theme::muted_body(format!(
                     "Alerts: {}",
-                    self.alert_delivery_pending
+                    self.async_bus.alert_delivery_pending
                 )));
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {

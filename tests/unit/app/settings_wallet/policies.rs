@@ -8,14 +8,14 @@ fn remote_federation_monitor_policy_action_persists_and_audits() -> anyhow::Resu
     let repository = Repository::open(temp_dir.path().join("neonexus.db"))?;
     let mut app = NeoNexusApp::new(repository);
 
-    app.remote_federation_monitor_policy_draft = RemoteFederationMonitorPolicyDraft {
+    app.async_bus.remote_federation_monitor_policy_draft = RemoteFederationMonitorPolicyDraft {
         enabled: false,
         interval_seconds: 600,
     };
     app.save_remote_federation_monitor_policy();
 
-    assert!(!app.remote_federation_monitor_policy.enabled);
-    assert_eq!(app.remote_federation_monitor_policy.interval_seconds, 600);
+    assert!(!app.async_bus.remote_federation_monitor_policy.enabled);
+    assert_eq!(app.async_bus.remote_federation_monitor_policy.interval_seconds, 600);
     assert_eq!(
         app.repository
             .load_remote_federation_monitor_policy()?
