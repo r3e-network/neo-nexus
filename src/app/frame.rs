@@ -2,12 +2,12 @@ use std::time::Duration;
 
 use eframe::egui;
 
-use super::{theme, theme::configure_style, NeoNexusApp};
+use super::{theme, theme::configure_style_with_density, NeoNexusApp};
 
 impl eframe::App for NeoNexusApp {
     fn update(&mut self, context: &egui::Context, _frame: &mut eframe::Frame) {
         super::theme::install_icons(context);
-        configure_style(context, self.session.theme);
+        configure_style_with_density(context, self.session.theme, self.session.density);
         self.handle_application_shortcuts(context);
         self.drain_alert_delivery_results();
         self.drain_rpc_health_results();
@@ -107,7 +107,7 @@ impl NeoNexusApp {
     /// macOS screen-capture permission.
     pub fn render_headless_frame(&mut self, context: &egui::Context) {
         super::theme::install_icons(context);
-        configure_style(context, self.session.theme);
+        configure_style_with_density(context, self.session.theme, self.session.density);
         self.render_application_panels(context);
     }
 }

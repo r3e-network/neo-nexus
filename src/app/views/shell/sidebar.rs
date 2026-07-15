@@ -67,12 +67,11 @@ impl NeoNexusApp {
         } else {
             theme::body(label)
         };
+        let nav_height =
+            theme::DensityMetrics::for_density(self.session.density).nav_row_height;
         let mut button = egui::Button::new(text)
             .corner_radius(egui::CornerRadius::same(8))
-            .min_size(egui::vec2(
-                width,
-                theme::DensityMetrics::COMFORTABLE.nav_row_height,
-            ));
+            .min_size(egui::vec2(width, nav_height));
         if selected {
             button = button.fill(theme::accent()).stroke(egui::Stroke::NONE);
         } else {

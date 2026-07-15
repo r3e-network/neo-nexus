@@ -11,9 +11,8 @@ impl NeoNexusApp {
         }
     }
 
-    /// Persists the operator density preference. Style application for Compact
-    /// control metrics is wired in PR-12; this only stores the choice.
-    #[allow(dead_code)] // Settings Storage control in PR-12
+    /// Persists the operator density preference and applies control metrics
+    /// on the next frame via `configure_style_with_density`.
     pub(in crate::app) fn set_ui_density(&mut self, density: UiDensity) {
         self.session.density = density;
         if let Err(error) = self

@@ -4,8 +4,8 @@ use crate::app::domain::format_bytes;
 
 use super::super::super::{
     text::short_path,
-    theme,
-    widgets::{fact, primary_button, secondary_button},
+    theme::{self, UiDensity},
+    widgets::{fact, filter_chip, primary_button, secondary_button},
     NeoNexusApp,
 };
 
@@ -24,6 +24,35 @@ impl NeoNexusApp {
             "Runtimes",
             &short_path(&self.runtime_install_root(), 54),
         );
+
+        ui.add_space(theme::MD);
+        ui.label(theme::label_caption("Appearance"));
+        ui.add_space(theme::SM);
+        fact(
+            ui,
+            "Theme",
+            if self.session.theme.is_dark() {
+                "Dark (toggle in sidebar)"
+            } else {
+                "Light (toggle in sidebar)"
+            },
+        );
+        ui.horizontal(|ui| {
+            ui.label(theme::muted_body("Density"));
+            ui.add_space(theme::SM);
+            for density in [UiDensity::Comfortable, UiDensity::Compact] {
+                if filter_chip(
+                    ui,
+                    density.label(),
+                    self.session.density == density,
+                ) {
+                    self.set_ui_density(density);
+                }
+            }
+        });
+        ui.label(theme::muted_body(
+            "Compact tightens buttons and spacing; list and chrome sizes stay fixed.",
+        ));
     }
 
     pub(super) fn render_release_package_settings(&mut self, ui: &mut egui::Ui) {

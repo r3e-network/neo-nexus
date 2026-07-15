@@ -1,16 +1,7 @@
 use super::*;
 
-/// Apply theme colours and Comfortable density control metrics (current ship
-/// default). PR-12 will pass `session.density` through
-/// [`configure_style_with_density`].
-pub(in crate::app) fn configure_style(context: &egui::Context, theme: Theme) {
-    configure_style_with_density(context, theme, UiDensity::Comfortable);
-}
-
 /// Apply palette + density control metrics. List row heights are read by
 /// widgets from [`DensityMetrics`], not from egui Style.
-/// Callers pass session density starting in PR-12; until then only Comfortable.
-#[allow(dead_code)]
 pub(in crate::app) fn configure_style_with_density(
     context: &egui::Context,
     theme: Theme,

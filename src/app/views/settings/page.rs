@@ -2,7 +2,7 @@ use eframe::egui;
 
 use crate::app::{
     theme,
-    widgets::{panel, segmented_control},
+    widgets::{page_chrome, panel},
     NeoNexusApp,
 };
 
@@ -14,10 +14,9 @@ pub(super) fn render_settings(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.add_space(theme::MD);
     let mut index = app.sections.settings as usize;
     let labels = SettingsSection::ALL.map(SettingsSection::label);
-    if segmented_control(ui, &labels, &mut index) {
+    if page_chrome(ui, None, Some((&labels, &mut index))) {
         app.sections.settings = SettingsSection::ALL[index];
     }
-    ui.add_space(theme::MD);
 
     match app.sections.settings {
         SettingsSection::Watchdog => panel(ui, "Watchdog policy", |ui| {
