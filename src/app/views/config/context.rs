@@ -30,9 +30,9 @@ pub(super) fn render_config_context(
     render_node_fact_sheet(ui, context.node);
     ui.separator();
     render_config_facts(app, ui, context);
-    ui.add_space(8.0);
+    ui.add_space(theme::SM);
     render_validation_summary(ui, context.validation_report);
-    ui.add_space(8.0);
+    ui.add_space(theme::SM);
     render_config_actions(app, ui, context.node);
 }
 

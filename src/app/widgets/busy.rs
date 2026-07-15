@@ -5,7 +5,6 @@ use eframe::egui;
 use crate::app::theme;
 
 /// Compact single-line busy hint (e.g. "Checking RPC…").
-#[allow(dead_code)] // adopted by Health/Network surfaces in PR-08+
 pub(in crate::app) fn busy_inline(ui: &mut egui::Ui, label: &str) {
     ui.horizontal(|ui| {
         ui.spinner();

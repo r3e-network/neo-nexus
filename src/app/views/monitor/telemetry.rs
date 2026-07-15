@@ -3,8 +3,8 @@ use eframe::egui;
 use super::super::super::{
     format_duration,
     text::truncate_middle,
-    theme::muted_text,
-    widgets::{fact, secondary_button, secondary_button_enabled},
+    theme::{self, muted_text},
+    widgets::{busy_inline, fact, secondary_button, secondary_button_enabled},
     NeoNexusApp, METRICS_REFRESH_INTERVAL,
 };
 
@@ -62,6 +62,13 @@ pub(super) fn render_telemetry_health(app: &mut NeoNexusApp, ui: &mut egui::Ui) 
         "Fed Interval",
         &format_duration(app.async_bus.remote_federation_monitor_policy.interval_duration()),
     );
+
+    if let Some(node_id) = app.fleet.selected_node.as_deref() {
+        if app.async_bus.rpc_health_pending.contains(node_id) {
+            ui.add_space(theme::SM);
+            busy_inline(ui, "Checking RPC…");
+        }
+    }
 
     render_actions(app, ui);
     render_missing_processes(app, ui);

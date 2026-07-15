@@ -5,7 +5,7 @@ use crate::app::domain::{NodeConfig, NodeType};
 use super::{
     super::super::{
         text::truncate_middle,
-        theme::section_title,
+        theme::{self, section_title},
         widgets::{empty_state, fact, plugin_enabled},
         NeoNexusApp,
     },
@@ -47,7 +47,7 @@ pub(super) fn render_plugin_details(app: &mut NeoNexusApp, ui: &mut egui::Ui, no
     );
     fact(ui, "Target node", &truncate_middle(&node.name, 34));
 
-    ui.add_space(12.0);
+    ui.add_space(theme::MD);
     ui.checkbox(&mut enabled, "Enabled for selected node");
     if enabled != before {
         app.toggle_plugin(plugin.id, enabled);
