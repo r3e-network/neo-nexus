@@ -61,6 +61,12 @@ cargo test --release --test ui_visual_truth -- --nocapture --ignored
 - README documents six-primary workbench
 - Version **3.0.0**
 
+### v3.1 system design (approved)
+
+Full visual/interaction system redesign (writer–reviewer consensus) lives in
+[ui-system-redesign-v3.1.md](ui-system-redesign-v3.1.md). Implementation tracks
+the PR Plan there (MS-1 cut line through PR-15).
+
 ## Current top-level views (14)
 
 | Persist key | Label | Title | Group today | Inventory |
