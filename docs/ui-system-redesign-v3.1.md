@@ -6,7 +6,7 @@
 | **Product** | NeoNexus 3.0.0 → 3.1.x |
 | **Author** | _TBD_ |
 | **Date** | 2026-07-15 |
-| **Status** | Draft (rev 3 — residual review addressed) |
+| **Status** | Shipped in **3.1.0** (PR-01–15 + PR-14-full geometry gate) |
 | **Stack** | Pure Rust · eframe/egui 0.33 · SQLite · dual GUI+CLI |
 | **Repo** | `/Users/jinghuiliao/git/r3e/neo-nexus` |
 | **Supersedes** | Partial IA + widget kit shipped in 3.0.0 (`docs/ui-v3-baseline.md`) |

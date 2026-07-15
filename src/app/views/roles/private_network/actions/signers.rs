@@ -4,7 +4,7 @@ pub(in crate::app::views::roles::private_network) fn render_signer_inputs(
     app: &mut NeoNexusApp,
     ui: &mut egui::Ui,
 ) {
-    ui.add_space(6.0);
+    ui.add_space(theme::SM);
     labeled_text(ui, "Committee", &mut app.private_network_committee_keys);
     ui.label(
         egui::RichText::new("Compressed public keys, comma or space separated.")

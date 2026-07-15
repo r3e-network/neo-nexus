@@ -40,7 +40,7 @@ pub(in crate::app) fn node_row(
                         status_badge(ui, node.status);
                     }
                 });
-                ui.add_space(2.0);
+                ui.add_space(theme::XS);
                 ui.horizontal(|ui| {
                     text_badge(ui, &node.node_type.to_string(), theme::muted_text());
                     ui.add_space(theme::XS);
