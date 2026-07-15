@@ -3,7 +3,7 @@ use eframe::egui;
 use super::super::{
     text::truncate_middle,
     theme,
-    widgets::{metric_row, panel, segmented_control},
+    widgets::{metric_row, page_chrome, panel},
     NeoNexusApp,
 };
 
@@ -52,10 +52,9 @@ impl NeoNexusApp {
         ui.add_space(theme::MD);
         let mut index = self.sections.federation as usize;
         let labels = FederationSection::ALL.map(FederationSection::label);
-        if segmented_control(ui, &labels, &mut index) {
+        if page_chrome(ui, None, Some((&labels, &mut index))) {
             self.sections.federation = FederationSection::ALL[index];
         }
-        ui.add_space(theme::MD);
 
         match self.sections.federation {
             FederationSection::Profiles => panel(ui, "Remote profiles", |ui| {

@@ -19,10 +19,9 @@ mod toolbar;
 pub(super) use badges::{
     severity_badge, severity_color, status_badge, status_dot, text_badge,
 };
-#[allow(unused_imports)] // surfaces adopt in PR-08+
+#[allow(unused_imports)] // loading_callout reserved for multi-step install UX
 pub(super) use busy::{busy_inline, loading_callout};
 pub(super) use callout::{callout, CalloutKind};
-#[allow(unused_imports)] // PR-03 adopts confirm_bar
 pub(super) use confirm_bar::confirm_bar;
 pub(super) use controls::{
     chip_pill, labeled_combo, labeled_text, pagination_bar, primary_button, secondary_button,
@@ -35,13 +34,12 @@ pub(super) use form::{field_combo, field_text, form_group, form_section};
 pub(super) use layout::{
     card_frame, empty_state, empty_state_with_action, grid_header, metric_row, mini_stat, panel,
 };
-#[allow(unused_imports)] // PR-03 journal / readiness
 pub(super) use list_row::list_row_frame;
 pub(super) use node_row::node_row;
 pub(super) use nodes::{fact, fact_error, render_node_fact_sheet};
 pub(super) use page_chrome::page_chrome;
-#[allow(unused_imports)]
+#[allow(unused_imports)] // superseded by page_chrome on primaries
 pub(super) use page_header::page_header;
 pub(super) use plugins::plugin_enabled;
-pub(super) use segmented::segmented_control;
+// segmented_control is private to page_chrome; surfaces use page_chrome only.
 pub(super) use toolbar::{toolbar, ToolbarAction};
