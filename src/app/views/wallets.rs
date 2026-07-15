@@ -7,14 +7,14 @@ mod registry;
 
 use eframe::egui;
 
-use super::super::{widgets::panel, NeoNexusApp};
+use super::super::{theme, widgets::panel, NeoNexusApp};
 
 impl NeoNexusApp {
     pub(super) fn render_wallets(&mut self, ui: &mut egui::Ui) {
         self.ensure_valid_neo_wallet_profile_selection();
         metrics::render_wallet_metrics(ui, &self.neo_wallet_profiles);
 
-        ui.add_space(10.0);
+        ui.add_space(theme::MD);
         let layout = layout::wallet_pane_layout(ui.available_size());
         ui.horizontal(|ui| {
             ui.allocate_ui_with_layout(

@@ -5,7 +5,7 @@ mod policy;
 
 use eframe::egui;
 
-use super::super::{widgets::panel, NeoNexusApp};
+use super::super::{theme, widgets::panel, NeoNexusApp};
 
 impl NeoNexusApp {
     pub(super) fn render_alerts(&mut self, ui: &mut egui::Ui) {
@@ -22,7 +22,7 @@ impl NeoNexusApp {
             summary,
         );
 
-        ui.add_space(10.0);
+        ui.add_space(theme::MD);
         let layout = layout::alert_pane_layout(ui.available_size());
         ui.horizontal(|ui| {
             ui.allocate_ui_with_layout(

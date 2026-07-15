@@ -35,7 +35,7 @@ fn metric_tile(ui: &mut egui::Ui, title: &str, value: &str, caption: &str) {
         ui.vertical(|ui| {
             ui.label(theme::label_caption(title));
             ui.add_space(theme::XS);
-            ui.label(theme::metric_value(value));
+            ui.label(theme::metric_value(value).color(theme::accent()));
             ui.add_space(theme::XS);
             ui.label(theme::muted_body(caption));
         });
@@ -63,7 +63,7 @@ pub(in crate::app) fn panel(
         ui.label(theme::section_title(title));
         ui.add_space(theme::SM);
         ui.separator();
-        ui.add_space(theme::XS);
+        ui.add_space(theme::SM);
         add_contents(ui);
     });
 }
