@@ -207,6 +207,8 @@ Tests are kept out of `src/` so the source tree reads as production only:
   manager product patterns used to shape the workbench.
 - [UI v3 baseline](docs/ui-v3-baseline.md) records the workbench IA redesign,
   phase status, and visual-truth captures.
+- [UI system redesign v3.1](docs/ui-system-redesign-v3.1.md) is the approved
+  visual system, component kit, surface specs, and PR plan for 3.1.x.
 - [Runtime catalog example](docs/runtime-catalog.example.json) and
   [snapshot catalog example](docs/snapshot-catalog.example.json) are importable
   schema samples for Runtime Manager and Fast Sync workflows.
