@@ -55,7 +55,7 @@ impl NeoNexusApp {
         }
     }
 
-    fn plugin_states_by_node(&self) -> BTreeMap<String, Vec<PluginState>> {
+    pub(in crate::app) fn plugin_states_by_node(&self) -> BTreeMap<String, Vec<PluginState>> {
         self.nodes
             .iter()
             .map(|node| {

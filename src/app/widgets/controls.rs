@@ -7,9 +7,10 @@ use crate::app::theme;
 /// secondary actions as plain bordered buttons.
 pub(in crate::app) fn primary_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
     ui.add(
-        egui::Button::new(egui::RichText::new(text).color(theme::on_accent()))
+        egui::Button::new(egui::RichText::new(text).color(theme::on_accent()).strong())
             .fill(theme::accent())
-            .min_size(egui::vec2(96.0, 28.0)),
+            .corner_radius(egui::CornerRadius::same(8))
+            .min_size(egui::vec2(100.0, 30.0)),
     )
 }
 
@@ -19,7 +20,11 @@ pub(in crate::app) fn primary_button(ui: &mut egui::Ui, text: &str) -> egui::Res
 /// egui-default and accent buttons. Pair with `primary_button` for the
 /// dominant/confirm action.
 pub(in crate::app) fn secondary_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
-    ui.add(egui::Button::new(text).min_size(egui::vec2(72.0, 28.0)))
+    ui.add(
+        egui::Button::new(text)
+            .corner_radius(egui::CornerRadius::same(8))
+            .min_size(egui::vec2(76.0, 30.0)),
+    )
 }
 
 /// Same as `secondary_button` but disabled when `enabled` is false, so a
@@ -32,7 +37,9 @@ pub(in crate::app) fn secondary_button_enabled(
 ) -> egui::Response {
     ui.add_enabled(
         enabled,
-        egui::Button::new(text).min_size(egui::vec2(72.0, 28.0)),
+        egui::Button::new(text)
+            .corner_radius(egui::CornerRadius::same(8))
+            .min_size(egui::vec2(76.0, 30.0)),
     )
 }
 

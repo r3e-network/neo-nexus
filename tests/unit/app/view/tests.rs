@@ -28,3 +28,15 @@ fn only_node_centric_pages_show_the_inventory() {
     assert!(!View::Wallets.shows_inventory());
     assert!(!View::Federation.shows_inventory());
 }
+
+#[test]
+fn primary_nav_maps_legacy_tools_into_six_destinations() {
+    assert_eq!(View::PRIMARY.len(), 6);
+    assert!(View::Summary.is_primary());
+    assert!(!View::Logs.is_primary());
+    assert_eq!(View::Logs.primary_nav(), View::Nodes);
+    assert_eq!(View::Snapshots.primary_nav(), View::Runtimes);
+    assert_eq!(View::Alerts.primary_nav(), View::Settings);
+    assert_eq!(View::Roles.primary_nav(), View::Federation);
+    assert_eq!(View::Wallets.primary_nav(), View::Federation);
+}

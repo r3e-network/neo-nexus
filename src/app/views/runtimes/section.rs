@@ -7,11 +7,17 @@ pub(in crate::app) enum RuntimesSection {
     Catalog,
     Installed,
     Applied,
+    Sync,
 }
 
 impl RuntimesSection {
-    pub(in crate::app) const ALL: [Self; 4] =
-        [Self::Install, Self::Catalog, Self::Installed, Self::Applied];
+    pub(in crate::app) const ALL: [Self; 5] = [
+        Self::Install,
+        Self::Catalog,
+        Self::Installed,
+        Self::Applied,
+        Self::Sync,
+    ];
 
     pub(in crate::app) fn label(self) -> &'static str {
         match self {
@@ -19,6 +25,7 @@ impl RuntimesSection {
             Self::Catalog => "Catalog",
             Self::Installed => "Installed",
             Self::Applied => "Applied",
+            Self::Sync => "Fast Sync",
         }
     }
 
@@ -29,6 +36,7 @@ impl RuntimesSection {
             Self::Catalog => "catalog",
             Self::Installed => "installed",
             Self::Applied => "applied",
+            Self::Sync => "sync",
         }
     }
 

@@ -135,10 +135,11 @@ fn sidebar_navigation_rows_sit_on_a_consistent_baseline_grid() {
             );
         }
     }
-    // The sidebar must render its full set of nav items, not collapse any.
+    // The sidebar must render its full set of primary nav items (v3: six),
+    // not collapse any.
     assert!(
-        baselines.len() >= 10,
-        "expected all navigation rows, got {}",
+        baselines.len() >= 6,
+        "expected all primary navigation rows, got {}",
         baselines.len(),
     );
 }

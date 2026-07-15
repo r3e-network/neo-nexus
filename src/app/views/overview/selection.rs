@@ -3,8 +3,7 @@ use eframe::egui;
 use super::super::super::{
     text::{short_path, truncate_middle},
     theme,
-    view::View,
-    widgets::{self, empty_state, fact, render_node_fact_sheet},
+    widgets::{empty_state, fact, render_node_fact_sheet, status_badge, toolbar, ToolbarAction},
     NeoNexusApp,
 };
 // High-level core read so the view does not reach into the repository during paint.
@@ -16,17 +15,20 @@ pub(super) fn render_summary_selection(app: &mut NeoNexusApp, ui: &mut egui::Ui)
         return;
     };
 
+    ui.horizontal(|ui| {
+        ui.label(theme::section_title(truncate_middle(&node.name, 28)));
+        ui.add_space(theme::SM);
+        status_badge(ui, node.status);
+    });
+    ui.add_space(theme::SM);
+    ui.separator();
+    ui.add_space(theme::SM);
+
     render_node_fact_sheet(ui, &node);
     fact(ui, "Binary", &short_path(&node.binary_path, 42));
-    fact(
-        ui,
-        "Status",
-        &format!(
-            "{}{}",
-            node.status,
-            node.pid.map_or(String::new(), |pid| format!(" ({pid})"))
-        ),
-    );
+    if let Some(pid) = node.pid {
+        fact(ui, "PID", &pid.to_string());
+    }
     match latest_node_rpc_health(&app.repository, &node.id) {
         Ok(Some(health)) => {
             fact(ui, "RPC Health", health.status.label());
@@ -51,22 +53,31 @@ pub(super) fn render_summary_selection(app: &mut NeoNexusApp, ui: &mut egui::Ui)
     }
 
     ui.add_space(theme::MD);
-    ui.horizontal(|ui| {
-        let running = node.status.is_running();
-        if widgets::secondary_button_enabled(ui, "Start", !running).clicked() {
-            app.start_selected_node();
+    let running = node.status.is_running();
+    let actions = [
+        ToolbarAction::primary("start", "Start")
+            .enabled(!running)
+            .hint("Start the selected stopped node"),
+        ToolbarAction::secondary("stop", "Stop")
+            .enabled(running)
+            .hint("Stop the selected running node"),
+        ToolbarAction::secondary("restart", "Restart")
+            .enabled(running)
+            .hint("Restart the selected running node"),
+        ToolbarAction::secondary("edit", "Edit").hint("Open Node Studio with this definition"),
+        ToolbarAction::secondary("logs", "Logs").hint("Open runtime logs for this node"),
+    ];
+    if let Some(id) = toolbar(ui, &actions) {
+        match id {
+            "start" => app.start_selected_node(),
+            "stop" => app.stop_selected_node(),
+            "restart" => app.restart_selected_node(),
+            "edit" => {
+                app.load_selected_node_into_draft();
+                app.open_node_workspace_tab(crate::app::views::NodeWorkspaceTab::Studio);
+            }
+            "logs" => app.open_node_workspace_tab(crate::app::views::NodeWorkspaceTab::Logs),
+            _ => {}
         }
-        if widgets::secondary_button_enabled(ui, "Stop", running).clicked() {
-            app.stop_selected_node();
-        }
-        if widgets::secondary_button_enabled(ui, "Restart", running).clicked() {
-            app.restart_selected_node();
-        }
-        if widgets::secondary_button(ui, "Edit").clicked() {
-            app.load_selected_node_into_draft();
-        }
-        if widgets::secondary_button(ui, "Logs").clicked() {
-            app.selected_view = View::Logs;
-        }
-    });
+    }
 }

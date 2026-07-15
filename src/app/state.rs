@@ -1,9 +1,16 @@
 use super::*;
 
+mod fleet;
+mod toasts;
+
+pub(in crate::app) use toasts::{render_toast_strip, ToastStack};
+
 pub struct NeoNexusApp {
     pub(in crate::app) repository: Repository,
     pub(in crate::app) theme: Theme,
     pub(in crate::app) inspector_visible: bool,
+    /// Mirrored toast history for the status strip. Updated from `notice`.
+    pub(in crate::app) toasts: ToastStack,
     pub(in crate::app) supervisor: ProcessSupervisor,
     pub(in crate::app) watchdog: Watchdog,
     pub(in crate::app) watchdog_policy_draft: WatchdogPolicyDraft,
@@ -44,6 +51,8 @@ pub struct NeoNexusApp {
     pub(in crate::app) last_remote_server_probe: Option<RemoteServerProbeRecord>,
     pub(in crate::app) selected_view: View,
     pub(in crate::app) persisted_view: View,
+    pub(in crate::app) node_workspace_tab: NodeWorkspaceTab,
+    pub(in crate::app) network_hub_section: NetworkHubSection,
     pub(in crate::app) operations_section: OperationsSection,
     pub(in crate::app) persisted_operations_section: OperationsSection,
     pub(in crate::app) settings_section: SettingsSection,

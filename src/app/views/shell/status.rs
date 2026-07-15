@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use super::super::super::{text::short_path, theme, NeoNexusApp};
+use super::super::super::{render_toast_strip, text::short_path, theme, NeoNexusApp};
 
 impl NeoNexusApp {
     pub(in crate::app) fn render_status_bar(&self, ui: &mut egui::Ui) {
@@ -8,6 +8,13 @@ impl NeoNexusApp {
             ui.add_space(theme::SM);
             ui.label(theme::muted_body(format!("Nodes: {}", self.nodes.len())));
             ui.separator();
+            let running = self.running_node_count();
+            if running > 0 {
+                ui.label(
+                    theme::muted_body(format!("Running: {running}")).color(theme::success()),
+                );
+                ui.separator();
+            }
             ui.label(theme::muted_body(format!(
                 "Wallets: {}",
                 self.neo_wallet_profiles.len()
@@ -25,7 +32,7 @@ impl NeoNexusApp {
             ui.separator();
             ui.label(theme::muted_body(format!(
                 "Database: {}",
-                short_path(self.repository.db_path(), 68)
+                short_path(self.repository.db_path(), 48)
             )));
             if !self.rpc_health_pending.is_empty() {
                 ui.separator();
@@ -50,7 +57,7 @@ impl NeoNexusApp {
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.add_space(theme::SM);
-                ui.label(theme::muted_body(self.notice.as_deref().unwrap_or("Ready")));
+                render_toast_strip(ui, &self.toasts);
             });
         });
     }

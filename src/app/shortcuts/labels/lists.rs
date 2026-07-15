@@ -67,9 +67,11 @@ pub(in crate::app) fn node_menu_shortcuts() -> [AppShortcut; 10] {
 }
 
 pub(in crate::app) fn view_menu_shortcuts() -> Vec<AppShortcut> {
-    let mut shortcuts = Vec::with_capacity(View::ALL.len() + 2);
+    // v3: menu lists the six primary destinations only; legacy tools are reached
+    // through in-page sections/tabs rather than top-level SelectView entries.
+    let mut shortcuts = Vec::with_capacity(View::PRIMARY.len() + 2);
     shortcuts.push(AppShortcut::PreviousView);
     shortcuts.push(AppShortcut::NextView);
-    shortcuts.extend(View::ALL.into_iter().map(AppShortcut::SelectView));
+    shortcuts.extend(View::PRIMARY.into_iter().map(AppShortcut::SelectView));
     shortcuts
 }

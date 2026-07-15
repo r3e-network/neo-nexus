@@ -3,37 +3,44 @@ use eframe::egui;
 use crate::app::domain::{Network, NodeType, StorageEngine};
 
 use super::super::super::{
-    theme::muted_text,
+    theme,
     widgets::{
-        labeled_combo, labeled_text, primary_button, secondary_button, secondary_button_enabled,
+        callout, field_combo, field_text, form_group, toolbar, CalloutKind, ToolbarAction,
     },
     NeoNexusApp,
 };
 
 pub(super) fn render_create_form(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     app.draft.ensure_storage_compatible();
-    ui.label(egui::RichText::new("Draft").color(muted_text()));
-    ui.separator();
+
+    ui.label(theme::label_caption("Draft definition"));
+    ui.add_space(theme::SM);
 
     ui.columns(2, |columns| {
-        render_identity_column(app, &mut columns[0]);
-        render_executable_column(app, &mut columns[1]);
+        form_group(&mut columns[0], "Identity", |ui| {
+            render_identity_fields(app, ui);
+        });
+        form_group(&mut columns[1], "Executable & ports", |ui| {
+            render_executable_fields(app, ui);
+        });
     });
 
-    ui.add_space(10.0);
+    ui.add_space(theme::MD);
     action_bar(app, ui);
-    ui.add_space(6.0);
-    ui.label(
-        egui::RichText::new("Running nodes must be stopped before definition changes.")
-            .color(muted_text()),
+    ui.add_space(theme::SM);
+    callout(
+        ui,
+        CalloutKind::Warning,
+        "Running nodes are locked",
+        "Stop a node before updating its definition, ports, or binary path.",
     );
 }
 
-fn render_identity_column(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
-    ui.strong("Identity");
-    labeled_text(ui, "Name", &mut app.draft.name);
+fn render_identity_fields(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
+    field_text(ui, "Name", &mut app.draft.name);
+    ui.add_space(theme::SM);
     let previous_node_type = app.draft.node_type;
-    labeled_combo(
+    field_combo(
         ui,
         "Type",
         "node_type",
@@ -47,7 +54,8 @@ fn render_identity_column(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     if previous_node_type != app.draft.node_type {
         app.draft.ensure_storage_compatible();
     }
-    labeled_combo(
+    ui.add_space(theme::SM);
+    field_combo(
         ui,
         "Network",
         "network",
@@ -58,7 +66,8 @@ fn render_identity_column(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
             }
         },
     );
-    labeled_combo(
+    ui.add_space(theme::SM);
+    field_combo(
         ui,
         "Storage",
         "storage",
@@ -73,43 +82,48 @@ fn render_identity_column(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     );
 }
 
-fn render_executable_column(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
-    ui.strong("Executable");
-    labeled_text(ui, "Binary", &mut app.draft.binary_path);
-    labeled_text(ui, "Version", &mut app.draft.runtime_version);
-    labeled_text(ui, "Args", &mut app.draft.args);
-    ui.separator();
-    ui.strong("Network ports");
-    labeled_text(ui, "RPC", &mut app.draft.rpc_port);
-    labeled_text(ui, "P2P", &mut app.draft.p2p_port);
-    labeled_text(ui, "WS", &mut app.draft.ws_port);
+fn render_executable_fields(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
+    field_text(ui, "Binary", &mut app.draft.binary_path);
+    ui.add_space(theme::SM);
+    field_text(ui, "Version", &mut app.draft.runtime_version);
+    ui.add_space(theme::SM);
+    field_text(ui, "Args", &mut app.draft.args);
+    ui.add_space(theme::MD);
+    ui.label(theme::label_caption("Network ports"));
+    ui.add_space(theme::XS);
+    field_text(ui, "RPC", &mut app.draft.rpc_port);
+    ui.add_space(theme::SM);
+    field_text(ui, "P2P", &mut app.draft.p2p_port);
+    ui.add_space(theme::SM);
+    field_text(ui, "WebSocket", &mut app.draft.ws_port);
 }
 
 fn action_bar(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
-    ui.horizontal(|ui| {
-        if primary_button(ui, "Save New").clicked() {
-            app.create_node();
+    let selected_can_edit = app
+        .selected_node()
+        .is_some_and(|node| !node.status.is_running());
+    let actions = [
+        ToolbarAction::primary("save", "Save New").hint("Create a node from this draft"),
+        ToolbarAction::secondary("probe", "Probe Draft").hint("Inspect the draft binary path"),
+        ToolbarAction::secondary("smoke", "Smoke Draft").hint("Run a short runtime smoke probe"),
+        ToolbarAction::secondary("ports", "Auto Ports").hint("Assign free RPC/P2P/WS ports"),
+        ToolbarAction::secondary("update", "Update Selected")
+            .enabled(selected_can_edit)
+            .hint("Write the draft onto the selected stopped node"),
+        ToolbarAction::secondary("reset", "Reset Draft").hint("Clear the draft form"),
+    ];
+    if let Some(id) = toolbar(ui, &actions) {
+        match id {
+            "save" => app.create_node(),
+            "probe" => app.probe_draft_binary(),
+            "smoke" => app.smoke_draft_runtime(),
+            "ports" => app.auto_assign_draft_ports(),
+            "update" => app.update_selected_node(),
+            "reset" => {
+                app.draft = Default::default();
+                app.notice = Some("Draft reset".to_string());
+            }
+            _ => {}
         }
-        if secondary_button(ui, "Probe Draft").clicked() {
-            app.probe_draft_binary();
-        }
-        if secondary_button(ui, "Smoke Draft").clicked() {
-            app.smoke_draft_runtime();
-        }
-        if secondary_button(ui, "Auto Ports").clicked() {
-            app.auto_assign_draft_ports();
-        }
-
-        let selected_can_edit = app
-            .selected_node()
-            .is_some_and(|node| !node.status.is_running());
-        if secondary_button_enabled(ui, "Update Selected", selected_can_edit).clicked() {
-            app.update_selected_node();
-        }
-
-        if secondary_button(ui, "Reset Draft").clicked() {
-            app.draft = Default::default();
-            app.notice = Some("Draft reset".to_string());
-        }
-    });
+    }
 }

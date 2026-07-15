@@ -6,15 +6,17 @@ pub(in crate::app) enum SettingsSection {
     Watchdog,
     Upgrades,
     Monitors,
+    Alerts,
     Storage,
     Release,
 }
 
 impl SettingsSection {
-    pub(in crate::app) const ALL: [Self; 5] = [
+    pub(in crate::app) const ALL: [Self; 6] = [
         Self::Watchdog,
         Self::Upgrades,
         Self::Monitors,
+        Self::Alerts,
         Self::Storage,
         Self::Release,
     ];
@@ -24,6 +26,7 @@ impl SettingsSection {
             Self::Watchdog => "Watchdog",
             Self::Upgrades => "Upgrades",
             Self::Monitors => "Monitors",
+            Self::Alerts => "Alerts",
             Self::Storage => "Storage",
             Self::Release => "Release",
         }
@@ -35,6 +38,7 @@ impl SettingsSection {
             Self::Watchdog => "watchdog",
             Self::Upgrades => "upgrades",
             Self::Monitors => "monitors",
+            Self::Alerts => "alerts",
             Self::Storage => "storage",
             Self::Release => "release",
         }

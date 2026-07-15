@@ -7,26 +7,12 @@ use super::super::super::{
     NeoNexusApp,
 };
 
-// Pages grouped for a calm, scannable navigation hierarchy.
+// v3 primary navigation: six destinations. Legacy tools (Logs, Config, Plugins,
+// Monitor, Snapshots, Roles, Wallets, Alerts) live as sections inside these.
 const NAV_GROUPS: &[(&str, &[View])] = &[
-    (
-        "Workspace",
-        &[View::Summary, View::Operations, View::Monitor, View::Logs],
-    ),
-    (
-        "Nodes",
-        &[
-            View::Nodes,
-            View::Runtimes,
-            View::Snapshots,
-            View::Plugins,
-            View::Config,
-        ],
-    ),
-    (
-        "Network",
-        &[View::Federation, View::Roles, View::Wallets, View::Alerts],
-    ),
+    ("Workspace", &[View::Summary, View::Operations]),
+    ("Nodes", &[View::Nodes, View::Runtimes]),
+    ("Network", &[View::Federation]),
     ("System", &[View::Settings]),
 ];
 
@@ -75,15 +61,12 @@ impl NeoNexusApp {
     }
 
     fn render_nav_item(&mut self, ui: &mut egui::Ui, view: View) {
-        let selected = self.selected_view == view;
+        // Highlight the primary nav item even when a legacy child view is active
+        // (e.g. Logs → Nodes, Alerts → Settings).
+        let selected = self.selected_view.primary_nav() == view;
         let width = ui.available_width();
-        // Phosphor glyph from the shared icon font, set beside the label so the
-        // sidebar reads like a macOS source-list: pictogram then title.
         let icon = theme::view_icon_glyph(view);
         let label = format!("{icon}   {}", view.label());
-        // The selected page reads as a macOS source-list selection: a solid
-        // accent fill with the label drawn in the on-accent foreground, so the
-        // active page is unmistakable rather than a subtle egui default tint.
         let text = if selected {
             theme::body(label).color(theme::on_accent()).strong()
         } else {

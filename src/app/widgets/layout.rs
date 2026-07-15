@@ -6,7 +6,8 @@ use crate::app::theme::{self, card_shadow, card_surface};
 /// a hairline border and a faint drop shadow so content lifts cleanly off the
 /// workspace background and reads as an elevated macOS card rather than a flat
 /// egui rectangle.
-fn card_frame(style: &egui::Style) -> egui::Frame {
+#[allow(dead_code)] // used by form kit; re-export kept for shared card chrome
+pub(in crate::app) fn card_frame(style: &egui::Style) -> egui::Frame {
     egui::Frame::new()
         .fill(card_surface())
         .stroke(style.visuals.widgets.noninteractive.bg_stroke)
@@ -77,8 +78,20 @@ pub(in crate::app) fn grid_header(ui: &mut egui::Ui, headers: &[&str]) {
 }
 
 pub(in crate::app) fn empty_state(ui: &mut egui::Ui, title: &str, message: &str) {
+    empty_state_with_action(ui, title, message, None);
+}
+
+/// Empty state with an optional primary CTA. Returns `true` when the CTA is
+/// clicked so callers can route to create/import flows.
+pub(in crate::app) fn empty_state_with_action(
+    ui: &mut egui::Ui,
+    title: &str,
+    message: &str,
+    action: Option<&str>,
+) -> bool {
+    let mut clicked = false;
     ui.vertical_centered(|ui| {
-        ui.add_space(ui.available_height() * 0.30);
+        ui.add_space(ui.available_height() * 0.28);
         // A muted tray pictogram anchors the empty state with a focal mark, the
         // way a macOS empty list does, so the guidance reads as intentional
         // rather than as bare placeholder words. Rendered at the metric-value
@@ -89,5 +102,12 @@ pub(in crate::app) fn empty_state(ui: &mut egui::Ui, title: &str, message: &str)
         ui.label(theme::page_title(title));
         ui.add_space(theme::XS);
         ui.label(theme::muted_body(message));
+        if let Some(label) = action {
+            ui.add_space(theme::MD);
+            if super::controls::primary_button(ui, label).clicked() {
+                clicked = true;
+            }
+        }
     });
+    clicked
 }
