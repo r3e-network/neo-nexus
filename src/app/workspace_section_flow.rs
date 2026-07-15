@@ -10,6 +10,7 @@ const KEY_SNAPSHOTS: &str = "workspace.section.snapshots";
 const KEY_MONITOR: &str = "workspace.section.monitor";
 const KEY_FEDERATION: &str = "workspace.section.federation";
 const KEY_ROLES: &str = "workspace.section.roles";
+const KEY_NODES: &str = "workspace.section.nodes";
 
 impl NeoNexusApp {
     /// Persists the active sub-tab of each dense workspace page when it changes,
@@ -17,6 +18,14 @@ impl NeoNexusApp {
     /// per frame; each SQLite write only happens on an actual change, tracked
     /// through the paired `persisted_*_section` shadow fields.
     pub(in crate::app) fn persist_active_sections_if_changed(&mut self) {
+        persist_section(
+            &self.repository,
+            &mut self.session.notice,
+            self.session.node_workspace_tab,
+            &mut self.session.persisted_node_workspace_tab,
+            KEY_NODES,
+            NodeWorkspaceTab::persist_key,
+        );
         persist_section(
             &self.repository,
             &mut self.session.notice,

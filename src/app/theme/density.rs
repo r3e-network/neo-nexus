@@ -14,8 +14,7 @@ pub(in crate::app) enum UiDensity {
 }
 
 impl UiDensity {
-    /// Persist key for `appearance.ui_density` (wired in PR-05).
-    #[allow(dead_code)]
+    /// Persist key for `appearance.ui_density`.
     pub(in crate::app) fn persist_key(self) -> &'static str {
         match self {
             Self::Comfortable => "comfortable",
@@ -23,8 +22,7 @@ impl UiDensity {
         }
     }
 
-    /// Load from `appearance.ui_density` (wired in PR-05).
-    #[allow(dead_code)]
+    /// Load from `appearance.ui_density`.
     pub(in crate::app) fn from_persist_key(key: &str) -> Option<Self> {
         match key {
             "comfortable" => Some(Self::Comfortable),
@@ -33,7 +31,7 @@ impl UiDensity {
         }
     }
 
-    /// Settings control label (wired in PR-12).
+    /// Settings control label (UI in PR-12).
     #[allow(dead_code)]
     pub(in crate::app) fn label(self) -> &'static str {
         match self {

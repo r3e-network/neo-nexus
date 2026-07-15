@@ -1,10 +1,9 @@
-//! Session chrome and navigation state: theme, active view, inspector, and
-//! operator notices/toasts. Separated from fleet and domain services so the
-//! shell can reason about UI session without touching node inventory.
+//! Session chrome and navigation state: theme, density, active view, inspector,
+//! operator notices/toasts, and Nodes workspace tab.
 
 use super::toasts::ToastStack;
 use crate::app::{
-    theme::Theme,
+    theme::{Theme, UiDensity},
     view::View,
     views::{NetworkHubSection, NodeWorkspaceTab},
 };
@@ -12,10 +11,12 @@ use crate::app::{
 #[derive(Debug)]
 pub(in crate::app) struct SessionUi {
     pub(in crate::app) theme: Theme,
+    pub(in crate::app) density: UiDensity,
     pub(in crate::app) inspector_visible: bool,
     pub(in crate::app) selected_view: View,
     pub(in crate::app) persisted_view: View,
     pub(in crate::app) node_workspace_tab: NodeWorkspaceTab,
+    pub(in crate::app) persisted_node_workspace_tab: NodeWorkspaceTab,
     pub(in crate::app) network_hub_section: NetworkHubSection,
     pub(in crate::app) notice: Option<String>,
     pub(in crate::app) toasts: ToastStack,
@@ -24,16 +25,20 @@ pub(in crate::app) struct SessionUi {
 impl SessionUi {
     pub(in crate::app) fn new(
         theme: Theme,
+        density: UiDensity,
         inspector_visible: bool,
         view: View,
+        node_workspace_tab: NodeWorkspaceTab,
         notice: Option<String>,
     ) -> Self {
         Self {
             theme,
+            density,
             inspector_visible,
             selected_view: view,
             persisted_view: view,
-            node_workspace_tab: NodeWorkspaceTab::default(),
+            node_workspace_tab,
+            persisted_node_workspace_tab: node_workspace_tab,
             network_hub_section: NetworkHubSection::default(),
             notice,
             toasts: ToastStack::default(),

@@ -50,6 +50,7 @@ pub(in crate::repository) const SETTING_ALERT_ROUTING_TIMEOUT_SECONDS: &str =
     "alert_routing.timeout_seconds";
 
 pub(in crate::repository) const SETTING_APPEARANCE_DARK_MODE: &str = "appearance.dark_mode";
+pub(in crate::repository) const SETTING_APPEARANCE_UI_DENSITY: &str = "appearance.ui_density";
 
 pub(in crate::repository) const SETTING_WORKSPACE_INSPECTOR_VISIBLE: &str =
     "workspace.inspector_visible";
