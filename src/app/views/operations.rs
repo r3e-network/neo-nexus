@@ -15,7 +15,7 @@ use crate::app::domain::{evaluate_fleet, PluginState};
 
 use super::super::{
     theme,
-    widgets::{panel, segmented_control},
+    widgets::{page_chrome, panel},
     NeoNexusApp,
 };
 
@@ -31,10 +31,9 @@ impl NeoNexusApp {
         ui.add_space(theme::MD);
         let mut index = self.operations_ui.section as usize;
         let labels = OperationsSection::ALL.map(OperationsSection::label);
-        if segmented_control(ui, &labels, &mut index) {
+        if page_chrome(ui, None, Some((&labels, &mut index))) {
             self.operations_ui.section = OperationsSection::ALL[index];
         }
-        ui.add_space(theme::MD);
 
         match self.operations_ui.section {
             OperationsSection::Readiness => panel(ui, "Selected readiness", |ui| {

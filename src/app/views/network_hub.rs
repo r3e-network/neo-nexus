@@ -3,7 +3,7 @@
 
 use eframe::egui;
 
-use crate::app::{theme, view::View, widgets::segmented_control, NeoNexusApp};
+use crate::app::{view::View, widgets::page_chrome, NeoNexusApp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(in crate::app) enum NetworkHubSection {
@@ -43,7 +43,7 @@ impl NeoNexusApp {
 
         let mut index = self.session.network_hub_section as usize;
         let labels = NetworkHubSection::ALL.map(NetworkHubSection::label);
-        if segmented_control(ui, &labels, &mut index) {
+        if page_chrome(ui, None, Some((&labels, &mut index))) {
             self.session.network_hub_section = NetworkHubSection::ALL[index];
             self.session.selected_view = match self.session.network_hub_section {
                 NetworkHubSection::Federation => View::Federation,
@@ -51,7 +51,6 @@ impl NeoNexusApp {
                 NetworkHubSection::Wallets => View::Wallets,
             };
         }
-        ui.add_space(theme::MD);
 
         match self.session.network_hub_section {
             NetworkHubSection::Federation => self.render_federation(ui),
