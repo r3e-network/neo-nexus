@@ -8,7 +8,7 @@ use crate::app::domain::{PrivateNetworkPlanner, RolePlanner};
 
 use super::super::{
     theme,
-    widgets::{metric_row, panel, segmented_control},
+    widgets::{metric_row, page_chrome, panel},
     NeoNexusApp,
 };
 
@@ -46,10 +46,9 @@ impl NeoNexusApp {
         ui.add_space(theme::MD);
         let mut index = self.sections.roles as usize;
         let labels = RolesSection::ALL.map(RolesSection::label);
-        if segmented_control(ui, &labels, &mut index) {
+        if page_chrome(ui, None, Some((&labels, &mut index))) {
             self.sections.roles = RolesSection::ALL[index];
         }
-        ui.add_space(theme::MD);
 
         match self.sections.roles {
             RolesSection::Presets => panel(ui, "Role presets", |ui| {

@@ -56,10 +56,9 @@ impl NeoNexusApp {
         ui.add_space(theme::MD);
         let mut index = self.sections.snapshots as usize;
         let labels = SnapshotsSection::ALL.map(SnapshotsSection::label);
-        if segmented_control(ui, &labels, &mut index) {
+        if page_chrome(ui, None, Some((&labels, &mut index))) {
             self.sections.snapshots = SnapshotsSection::ALL[index];
         }
-        ui.add_space(theme::MD);
 
         match self.sections.snapshots {
             SnapshotsSection::Manifest => panel(ui, "Snapshot manifest", |ui| {
