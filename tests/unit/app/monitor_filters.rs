@@ -71,7 +71,7 @@ fn monitor_process_focus_missing_resets_filters_and_selects_missing_row() -> any
         app.selected_monitor_process.as_deref(),
         Some("validator-gone")
     );
-    assert_eq!(app.selected_node.as_deref(), Some("validator-gone"));
+    assert_eq!(app.fleet.selected_node.as_deref(), Some("validator-gone"));
     assert_eq!(app.filtered_monitor_process_rows().len(), 2);
 
     app.clear_monitor_process_filters();

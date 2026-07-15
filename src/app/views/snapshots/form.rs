@@ -69,7 +69,7 @@ impl NeoNexusApp {
             }
             if ui.button("Reset").clicked() {
                 self.snapshot_draft = Default::default();
-                self.notice = Some("Snapshot draft reset".to_string());
+                self.session.notice = Some("Snapshot draft reset".to_string());
             }
         });
     }

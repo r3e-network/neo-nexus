@@ -2,11 +2,11 @@ use super::*;
 
 impl NeoNexusApp {
     pub(in crate::app) fn restart_node(&mut self, index: usize) {
-        let Some(node) = self.nodes.get(index).cloned() else {
+        let Some(node) = self.fleet.nodes.get(index).cloned() else {
             return;
         };
         if !node.status.is_running() {
-            self.notice = Some(format!("{} must be running before restart", node.name));
+            self.session.notice = Some(format!("{} must be running before restart", node.name));
             return;
         }
 
@@ -17,7 +17,7 @@ impl NeoNexusApp {
             .unwrap_or_default();
         let readiness = evaluate_restart_readiness(
             &node,
-            &self.nodes,
+            &self.fleet.nodes,
             &plugins,
             self.managed_config_path(&node),
             self.node_work_dir(&node),
@@ -59,7 +59,7 @@ impl NeoNexusApp {
                     EventSeverity::Info,
                     message.clone(),
                 );
-                self.notice = Some(message);
+                self.session.notice = Some(message);
                 self.reload_nodes();
             }
             NodeLaunchOutcome::Failed { message } => {

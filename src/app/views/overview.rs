@@ -19,14 +19,14 @@ impl NeoNexusApp {
         // Shell header already shows the Home title/subtitle; keep the workspace
         // free of a second page chrome and go straight to content.
 
-        if self.nodes.is_empty() {
+        if self.fleet.nodes.is_empty() {
             if empty_state_with_action(
                 ui,
                 "Welcome to NeoNexus",
                 "Create a local node definition to begin managing neo-cli, neo-go, or neo-rs.",
                 Some("Create node"),
             ) {
-                self.selected_view = View::Nodes;
+                self.session.selected_view = View::Nodes;
             }
             return;
         }

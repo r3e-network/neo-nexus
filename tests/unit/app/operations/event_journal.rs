@@ -15,12 +15,12 @@ fn event_journal_export_action_writes_reports_and_audit_event() -> anyhow::Resul
         42,
     )?;
     let mut app = NeoNexusApp::new(repository);
-    app.event_severity_filter = Some(EventSeverity::Warning);
-    app.event_query = "restart".to_string();
+    app.operations_ui.event_severity_filter = Some(EventSeverity::Warning);
+    app.operations_ui.event_query = "restart".to_string();
 
     app.export_event_journal_report();
 
-    assert!(app
+    assert!(app.session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("Event journal exported")));
@@ -71,7 +71,7 @@ fn event_journal_selection_tracks_visible_events() -> anyhow::Result<()> {
         20,
     )?;
     let mut app = NeoNexusApp::new(repository);
-    app.selected_event = Some(info.id);
+    app.operations_ui.selected_event = Some(info.id);
     let filtered = app.repository.list_events(RuntimeEventFilter::new(
         Some(EventSeverity::Warning),
         "restart",
@@ -80,14 +80,14 @@ fn event_journal_selection_tracks_visible_events() -> anyhow::Result<()> {
 
     app.ensure_valid_event_selection(&filtered);
 
-    assert_eq!(app.selected_event, Some(warning.id));
+    assert_eq!(app.operations_ui.selected_event, Some(warning.id));
     let Some(selected) = app.selected_event_from(&filtered) else {
         anyhow::bail!("filtered event should be selected");
     };
     assert_eq!(selected.message, "restart after abnormal exit");
 
     app.ensure_valid_event_selection(&[]);
-    assert_eq!(app.selected_event, None);
+    assert_eq!(app.operations_ui.selected_event, None);
 
     Ok(())
 }
@@ -117,16 +117,16 @@ fn event_journal_selection_syncs_node_context_for_node_events() -> anyhow::Resul
         20,
     )?;
     let mut app = NeoNexusApp::new(repository);
-    app.selected_node = Some("node-before".to_string());
+    app.fleet.selected_node = Some("node-before".to_string());
 
     app.select_event(&workspace_event);
-    assert_eq!(app.selected_event, Some(workspace_event.id));
-    assert_eq!(app.selected_node.as_deref(), Some("node-before"));
+    assert_eq!(app.operations_ui.selected_event, Some(workspace_event.id));
+    assert_eq!(app.fleet.selected_node.as_deref(), Some("node-before"));
 
     app.select_event(&node_event);
 
-    assert_eq!(app.selected_event, Some(node_event.id));
-    assert_eq!(app.selected_node.as_deref(), Some("node-a"));
+    assert_eq!(app.operations_ui.selected_event, Some(node_event.id));
+    assert_eq!(app.fleet.selected_node.as_deref(), Some("node-a"));
 
     Ok(())
 }

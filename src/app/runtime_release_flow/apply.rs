@@ -3,21 +3,21 @@ use super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn apply_selected_runtime_to_node(&mut self) {
         let Some(node) = self.selected_node().cloned() else {
-            self.notice = Some("Select a node before applying a runtime".to_string());
+            self.session.notice = Some("Select a node before applying a runtime".to_string());
             return;
         };
         if node.status.is_active() {
-            self.notice = Some("Stop the selected node before applying a runtime".to_string());
+            self.session.notice = Some("Stop the selected node before applying a runtime".to_string());
             return;
         }
 
         let installations = self.runtime_installations();
         let Some(installation) = self.selected_runtime_installation(&installations) else {
-            self.notice = Some("Select an installed runtime first".to_string());
+            self.session.notice = Some("Select an installed runtime first".to_string());
             return;
         };
         if installation.node_type != node.node_type {
-            self.notice = Some(format!(
+            self.session.notice = Some(format!(
                 "{} cannot use a {} runtime",
                 node.name, installation.node_type
             ));
@@ -52,10 +52,10 @@ impl NeoNexusApp {
                     EventSeverity::Info,
                     message.clone(),
                 );
-                self.notice = Some(message);
+                self.session.notice = Some(message);
                 self.reload_nodes();
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

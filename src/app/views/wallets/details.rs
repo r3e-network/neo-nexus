@@ -87,7 +87,7 @@ pub(super) fn render_selected_wallet_profile(app: &mut NeoNexusApp, ui: &mut egu
             app.wallet_profile_source = profile.source_path.clone();
             app.wallet_profile_id = profile.id.clone();
             app.wallet_profile_label = profile.label.clone();
-            app.notice = Some(format!("Wallet profile loaded: {}", profile.label));
+            app.session.notice = Some(format!("Wallet profile loaded: {}", profile.label));
         }
         if secondary_button(ui, "Delete").clicked() {
             app.delete_selected_neo_wallet_profile();

@@ -13,7 +13,7 @@ impl NeoNexusApp {
             Ok(export) => {
                 record_managed_config_applied(self, &node, &export, node_requires_restart(&node));
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

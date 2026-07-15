@@ -18,7 +18,7 @@ const HOME_ACTION_LIMIT: usize = 5;
 
 pub(super) fn render_next_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     let plugin_states = app.plugin_states_by_node();
-    let diagnostics = evaluate_fleet(&app.nodes, &plugin_states);
+    let diagnostics = evaluate_fleet(&app.fleet.nodes, &plugin_states);
     let mut actions = app.filtered_readiness_actions(&diagnostics);
     // Surface the most severe items first so Home is a triage desk, not a log.
     actions.sort_by(|left, right| {
@@ -45,8 +45,8 @@ pub(super) fn render_next_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         )));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if secondary_button(ui, "Open Operations").clicked() {
-                app.selected_view = View::Operations;
-                app.operations_section = OperationsSection::ActionQueue;
+                app.session.selected_view = View::Operations;
+                app.operations_ui.section = OperationsSection::ActionQueue;
             }
         });
     });

@@ -5,9 +5,9 @@ impl NeoNexusApp {
     /// choice so it survives restarts. A persistence failure is surfaced on the
     /// notice line but never blocks the in-session switch.
     pub(in crate::app) fn toggle_theme(&mut self) {
-        self.theme = self.theme.toggled();
-        if let Err(error) = self.repository.save_app_dark_mode(self.theme.is_dark()) {
-            self.notice = Some(format!("Theme preference not saved: {error}"));
+        self.session.theme = self.session.theme.toggled();
+        if let Err(error) = self.repository.save_app_dark_mode(self.session.theme.is_dark()) {
+            self.session.notice = Some(format!("Theme preference not saved: {error}"));
         }
     }
 
@@ -15,12 +15,12 @@ impl NeoNexusApp {
     /// the full width when node detail is not needed. The choice is persisted so
     /// the layout is restored on the next launch.
     pub(in crate::app) fn toggle_inspector(&mut self) {
-        self.inspector_visible = !self.inspector_visible;
+        self.session.inspector_visible = !self.session.inspector_visible;
         if let Err(error) = self
             .repository
-            .save_app_inspector_visible(self.inspector_visible)
+            .save_app_inspector_visible(self.session.inspector_visible)
         {
-            self.notice = Some(format!("Inspector preference not saved: {error}"));
+            self.session.notice = Some(format!("Inspector preference not saved: {error}"));
         }
     }
 
@@ -28,15 +28,15 @@ impl NeoNexusApp {
     /// the page the operator left. Called once per frame; the SQLite write only
     /// happens on an actual change.
     pub(in crate::app) fn persist_active_view_if_changed(&mut self) {
-        if self.selected_view == self.persisted_view {
+        if self.session.selected_view == self.session.persisted_view {
             return;
         }
-        self.persisted_view = self.selected_view;
+        self.session.persisted_view = self.session.selected_view;
         if let Err(error) = self
             .repository
-            .save_workspace_last_view(self.selected_view.persist_key())
+            .save_workspace_last_view(self.session.selected_view.persist_key())
         {
-            self.notice = Some(format!("Workspace view not saved: {error}"));
+            self.session.notice = Some(format!("Workspace view not saved: {error}"));
         }
     }
 
@@ -44,6 +44,6 @@ impl NeoNexusApp {
     /// page in the sidebar, so automation, scripting, and verification harnesses
     /// can drive the workbench to a specific page without simulating a click.
     pub fn select_view(&mut self, view: View) {
-        self.selected_view = view;
+        self.session.selected_view = view;
     }
 }

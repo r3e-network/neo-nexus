@@ -9,7 +9,7 @@ impl NeoNexusApp {
 
         let now = Instant::now();
         let interval = self.rpc_health_monitor_policy.interval_duration();
-        let Some(node) = self.nodes.iter().find_map(|node| {
+        let Some(node) = self.fleet.nodes.iter().find_map(|node| {
             if !node.status.is_running() || self.rpc_health_pending.contains(&node.id) {
                 return None;
             }
@@ -37,7 +37,7 @@ impl NeoNexusApp {
             })
         {
             self.rpc_health_pending.remove(&node.id);
-            self.notice = Some(format!(
+            self.session.notice = Some(format!(
                 "Unable to start RPC health probe for {}: {error}",
                 node.name
             ));
@@ -45,7 +45,7 @@ impl NeoNexusApp {
     }
 
     fn prune_deleted_rpc_health_runtime_state(&mut self) {
-        let live_node_ids = self
+        let live_node_ids = self.fleet
             .nodes
             .iter()
             .map(|node| node.id.clone())

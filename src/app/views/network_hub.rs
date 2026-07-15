@@ -37,15 +37,15 @@ impl NetworkHubSection {
 impl NeoNexusApp {
     /// Render the Network primary: hub tabs then the selected surface.
     pub(super) fn render_network_hub(&mut self, ui: &mut egui::Ui) {
-        if let Some(section) = NetworkHubSection::from_view(self.selected_view) {
-            self.network_hub_section = section;
+        if let Some(section) = NetworkHubSection::from_view(self.session.selected_view) {
+            self.session.network_hub_section = section;
         }
 
-        let mut index = self.network_hub_section as usize;
+        let mut index = self.session.network_hub_section as usize;
         let labels = NetworkHubSection::ALL.map(NetworkHubSection::label);
         if segmented_control(ui, &labels, &mut index) {
-            self.network_hub_section = NetworkHubSection::ALL[index];
-            self.selected_view = match self.network_hub_section {
+            self.session.network_hub_section = NetworkHubSection::ALL[index];
+            self.session.selected_view = match self.session.network_hub_section {
                 NetworkHubSection::Federation => View::Federation,
                 NetworkHubSection::Roles => View::Roles,
                 NetworkHubSection::Wallets => View::Wallets,
@@ -53,7 +53,7 @@ impl NeoNexusApp {
         }
         ui.add_space(theme::MD);
 
-        match self.network_hub_section {
+        match self.session.network_hub_section {
             NetworkHubSection::Federation => self.render_federation(ui),
             NetworkHubSection::Roles => self.render_roles(ui),
             NetworkHubSection::Wallets => self.render_wallets(ui),

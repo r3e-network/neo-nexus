@@ -19,7 +19,7 @@ impl NeoNexusApp {
         let exits = match self.supervisor.reap_finished() {
             Ok(exits) => exits,
             Err(error) => {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return;
             }
         };
@@ -46,7 +46,7 @@ impl NeoNexusApp {
         }
 
         if node_updated > 0 || sidecar_updated > 0 {
-            self.notice = last_notice;
+            self.session.notice = last_notice;
         }
         if node_updated > 0 {
             self.reload_nodes();
@@ -66,7 +66,7 @@ impl NeoNexusApp {
             return self.reconcile_sidecar_exit(exit);
         }
 
-        let Some(node) = self
+        let Some(node) = self.fleet
             .nodes
             .iter()
             .find(|node| node.id == exit.node_id)
@@ -81,7 +81,7 @@ impl NeoNexusApp {
                 self.repository
                     .update_node_status(&exit.node_id, NodeStatus::Stopped, None)
             {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return ReapOutcome::Aborted;
             }
             let message = exit_notice(&node.name, exit);
@@ -95,7 +95,7 @@ impl NeoNexusApp {
         } else {
             let reason = self.exit_notice_with_log_diagnosis(&node, exit);
             self.schedule_watchdog_restart(&node, &reason);
-            ReapOutcome::Node(self.notice.clone())
+            ReapOutcome::Node(self.session.notice.clone())
         }
     }
 
@@ -131,7 +131,7 @@ impl NeoNexusApp {
             ReapOutcome::Sidecar(Some(message))
         } else {
             self.schedule_sidecar_watchdog_restart(&exit.process_id, label, &message);
-            ReapOutcome::Sidecar(self.notice.clone())
+            ReapOutcome::Sidecar(self.session.notice.clone())
         }
     }
 }

@@ -7,7 +7,7 @@ impl NeoNexusApp {
         let Some(fleet_plan) = self.catalog_fleet_upgrade_plan() else {
             let message = "Load a runtime catalog before running fleet upgrades".to_string();
             self.record_fleet_upgrade_run(EventSeverity::Warning, message.clone());
-            self.notice = Some(message);
+            self.session.notice = Some(message);
             return;
         };
         let mut breakdown = FleetUpgradeBreakdown::new(
@@ -21,14 +21,14 @@ impl NeoNexusApp {
                 breakdown.label()
             );
             self.record_fleet_upgrade_run(EventSeverity::Info, message.clone());
-            self.notice = Some(message);
+            self.session.notice = Some(message);
             return;
         }
 
         let mut upgraded = 0usize;
         let mut last_message = String::new();
         for plan in candidates {
-            let Some(node) = self
+            let Some(node) = self.fleet
                 .nodes
                 .iter()
                 .find(|node| node.id == plan.node_id)
@@ -51,7 +51,7 @@ impl NeoNexusApp {
                     );
                     self.record_fleet_upgrade_run(EventSeverity::Warning, message.clone());
                     self.reload_nodes();
-                    self.notice = Some(message);
+                    self.session.notice = Some(message);
                     return;
                 }
             }
@@ -60,7 +60,7 @@ impl NeoNexusApp {
         self.reload_nodes();
         let message = fleet_upgrade_notice(upgraded, &last_message, breakdown);
         self.record_fleet_upgrade_run(EventSeverity::Info, message.clone());
-        self.notice = Some(message);
+        self.session.notice = Some(message);
     }
 
     fn record_fleet_upgrade_run(&mut self, severity: EventSeverity, message: String) {

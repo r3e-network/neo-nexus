@@ -24,14 +24,14 @@ impl NeoNexusApp {
             Ok(now_unix) => {
                 self.run_runtime_upgrade_policy(now_unix, RuntimeUpgradeRunMode::Manual)
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
     fn run_runtime_upgrade_policy(&mut self, now_unix: u64, mode: RuntimeUpgradeRunMode) {
         if !self.runtime_upgrade_policy.enabled {
             if matches!(mode, RuntimeUpgradeRunMode::Manual) {
-                self.notice =
+                self.session.notice =
                     Some("Enable the runtime upgrade policy before running it".to_string());
             }
             return;
@@ -40,7 +40,7 @@ impl NeoNexusApp {
         if let Err(error) = self.persist_runtime_upgrade_policy_state(
             self.runtime_upgrade_policy.with_checked_at(now_unix),
         ) {
-            self.notice = Some(error.to_string());
+            self.session.notice = Some(error.to_string());
             return;
         }
 
@@ -52,7 +52,7 @@ impl NeoNexusApp {
                     self.runtime_upgrade_policy.clone()
                 };
                 if let Err(error) = self.persist_runtime_upgrade_policy_state(updated_policy) {
-                    self.notice = Some(error.to_string());
+                    self.session.notice = Some(error.to_string());
                     return;
                 }
                 let message = summary.message(mode);

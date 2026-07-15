@@ -14,11 +14,11 @@ use super::super::helpers::event_color;
 pub(super) fn render_event_list(app: &mut NeoNexusApp, ui: &mut egui::Ui, events: &[RuntimeEvent]) {
     app.ensure_valid_event_selection(events);
     let total_pages = page_count(events.len(), EVENT_PAGE_SIZE);
-    app.event_page = app.event_page.min(total_pages - 1);
-    let start = app.event_page * EVENT_PAGE_SIZE;
+    app.operations_ui.event_page = app.operations_ui.event_page.min(total_pages - 1);
+    let start = app.operations_ui.event_page * EVENT_PAGE_SIZE;
     let end = (start + EVENT_PAGE_SIZE).min(events.len());
 
-    pagination_bar(ui, &mut app.event_page, total_pages, events.len());
+    pagination_bar(ui, &mut app.operations_ui.event_page, total_pages, events.len());
     ui.separator();
 
     for event in events.iter().take(end).skip(start) {
@@ -40,7 +40,7 @@ fn render_event_row(app: &mut NeoNexusApp, ui: &mut egui::Ui, event: &RuntimeEve
         event.occurred_at_unix,
         truncate_middle(&format!("{} {}", event.kind.label(), event.message), 48),
     );
-    let selected = app.selected_event == Some(event.id);
+    let selected = app.operations_ui.selected_event == Some(event.id);
     if ui
         .add_sized(
             [ui.available_width(), 38.0],

@@ -62,7 +62,7 @@ impl NeoNexusApp {
             .missing_processes
             .first()
             .map(|process| process.node_id.clone());
-        self.selected_node = self.selected_monitor_process.clone();
+        self.fleet.selected_node = self.selected_monitor_process.clone();
         self.ensure_valid_monitor_process_selection();
     }
 }

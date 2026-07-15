@@ -20,7 +20,7 @@ impl NeoNexusApp {
             self.private_network_runtime,
         );
         let source = self.private_network_template_source_node().cloned();
-        let conflicts = plan.conflicts_with(&self.nodes);
+        let conflicts = plan.conflicts_with(&self.fleet.nodes);
         let materialized_count = self.private_network_materialized_count(&plan);
         let launch_pack_ready = self.private_network_launch_pack_ready(&plan, materialized_count);
         let signer_handoff = CommitteeRoster::from_public_keys_and_references(
@@ -81,7 +81,7 @@ impl NeoNexusApp {
         plan.nodes
             .iter()
             .filter(|planned| {
-                self.nodes.iter().any(|node| {
+                self.fleet.nodes.iter().any(|node| {
                     node.name == planned.name
                         && node.node_type == planned.node_type
                         && node.network == planned.network
@@ -97,7 +97,7 @@ impl NeoNexusApp {
     ) -> bool {
         materialized_count == plan.nodes.len()
             && plan.nodes.iter().all(|planned| {
-                self.nodes
+                self.fleet.nodes
                     .iter()
                     .any(|node| node.name == planned.name && !node.status.is_active())
             })

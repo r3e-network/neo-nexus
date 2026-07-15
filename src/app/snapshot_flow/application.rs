@@ -3,17 +3,17 @@ use super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn apply_selected_snapshot_to_node(&mut self) {
         let Some(node) = self.selected_node().cloned() else {
-            self.notice = Some("Select a node before applying a fast sync snapshot".to_string());
+            self.session.notice = Some("Select a node before applying a fast sync snapshot".to_string());
             return;
         };
         if node.status.is_active() {
-            self.notice =
+            self.session.notice =
                 Some("Stop the selected node before applying a fast sync snapshot".to_string());
             return;
         }
 
         let Some(snapshot) = self.selected_fast_sync_snapshot() else {
-            self.notice = Some("Select a fast sync snapshot before applying it".to_string());
+            self.session.notice = Some("Select a fast sync snapshot before applying it".to_string());
             return;
         };
 
@@ -34,9 +34,9 @@ impl NeoNexusApp {
                     EventSeverity::Info,
                     message.clone(),
                 );
-                self.notice = Some(message);
+                self.session.notice = Some(message);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

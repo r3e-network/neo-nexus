@@ -22,7 +22,7 @@ impl NeoNexusApp {
         let input = match self.snapshot_draft.to_new_snapshot() {
             Ok(input) => input,
             Err(error) => {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return;
             }
         };
@@ -33,7 +33,7 @@ impl NeoNexusApp {
                 let message = format!("Fast sync snapshot saved: {}", snapshot.label);
                 self.record_event_notice(EventKind::SnapshotSaved, EventSeverity::Info, message);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
@@ -41,7 +41,7 @@ impl NeoNexusApp {
         let input = match self.snapshot_draft.to_new_snapshot() {
             Ok(input) => input,
             Err(error) => {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return;
             }
         };
@@ -51,8 +51,8 @@ impl NeoNexusApp {
             .upsert_fast_sync_snapshot(input)
             .and_then(|snapshot| self.download_fast_sync_snapshot(&snapshot))
         {
-            Ok(message) => self.notice = Some(message),
-            Err(error) => self.notice = Some(error.to_string()),
+            Ok(message) => self.session.notice = Some(message),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

@@ -24,9 +24,9 @@ impl NeoNexusApp {
                 );
                 self.last_release_verification = None;
                 self.last_release_package = Some(package);
-                self.notice = Some(message);
+                self.session.notice = Some(message);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
@@ -56,7 +56,7 @@ impl NeoNexusApp {
                     ),
                 );
                 self.last_release_verification = Some(verification);
-                self.notice = Some(message);
+                self.session.notice = Some(message);
             }
             Err(error) => {
                 let message = format!("Release verification failed: {error}");

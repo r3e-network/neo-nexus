@@ -12,7 +12,7 @@ impl NeoNexusApp {
             visible_nodes.len(),
             delta,
         ) else {
-            self.notice = Some("No nodes to select".to_string());
+            self.session.notice = Some("No nodes to select".to_string());
             return;
         };
         self.select_node_index_from_visible(&visible_nodes, next_index);
@@ -29,11 +29,11 @@ impl NeoNexusApp {
 
     fn select_node_index_from_visible(&mut self, visible_nodes: &[NodeConfig], index: usize) {
         let Some(node) = visible_nodes.get(index) else {
-            self.notice = Some("No nodes to select".to_string());
+            self.session.notice = Some("No nodes to select".to_string());
             return;
         };
-        self.selected_node = Some(node.id.clone());
-        self.node_page = index / NODE_SHORTCUT_PAGE_SIZE;
+        self.fleet.selected_node = Some(node.id.clone());
+        self.fleet.node_page = index / NODE_SHORTCUT_PAGE_SIZE;
         self.selected_plugin = None;
         self.plugin_page = 0;
         self.config_page = 0;

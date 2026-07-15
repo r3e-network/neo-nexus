@@ -29,7 +29,7 @@ impl NeoNexusApp {
             let record = match self.persist_remote_server_probe(&report) {
                 Ok(record) => record,
                 Err(error) => {
-                    self.notice = Some(error.to_string());
+                    self.session.notice = Some(error.to_string());
                     continue;
                 }
             };

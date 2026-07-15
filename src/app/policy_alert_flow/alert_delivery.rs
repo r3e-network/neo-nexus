@@ -8,18 +8,18 @@ impl NeoNexusApp {
             let failed = report.status != AlertDeliveryStatus::Delivered;
             let message = report.message.clone();
             if let Err(error) = self.repository.record_alert_delivery(&report) {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 continue;
             }
             if let Err(error) = self
                 .repository
                 .prune_alert_deliveries_keep_recent(ALERT_DELIVERY_RETAIN)
             {
-                self.notice = Some(format!("{message}; alert history pruning failed: {error}"));
+                self.session.notice = Some(format!("{message}; alert history pruning failed: {error}"));
                 continue;
             }
             if failed {
-                self.notice = Some(message);
+                self.session.notice = Some(message);
             }
         }
     }
@@ -57,9 +57,9 @@ impl NeoNexusApp {
                 message: format!("Unable to start alert delivery: {error}"),
             };
             if let Err(error) = self.repository.record_alert_delivery(&report) {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
             } else {
-                self.notice = Some(report.message);
+                self.session.notice = Some(report.message);
             }
         }
     }

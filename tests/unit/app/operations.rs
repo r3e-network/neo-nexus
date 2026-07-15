@@ -18,7 +18,7 @@ fn workspace_integrity_action_records_report_and_event() -> anyhow::Result<()> {
         anyhow::bail!("integrity report should be stored after the action");
     };
     assert!(report.is_success());
-    assert!(app
+    assert!(app.session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("Workspace integrity ok")));
@@ -51,7 +51,7 @@ fn support_bundle_action_writes_archive_and_audit_event() -> anyhow::Result<()> 
 
     app.export_support_bundle();
 
-    assert!(app
+    assert!(app.session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("Support bundle exported")));
@@ -97,7 +97,7 @@ fn release_package_actions_write_package_verify_and_audit_events() -> anyhow::Re
 
     app.verify_native_release_package();
     assert!(app.last_release_verification.is_some());
-    assert!(app
+    assert!(app.session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("Release verified")));

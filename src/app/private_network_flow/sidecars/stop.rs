@@ -3,7 +3,7 @@ use super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn stop_private_network_launch_pack_sidecars(&mut self) {
         if self.private_network_sidecar_pids.is_empty() {
-            self.notice = Some("No signer sidecars are currently running".to_string());
+            self.session.notice = Some("No signer sidecars are currently running".to_string());
             return;
         }
 
@@ -38,13 +38,13 @@ impl NeoNexusApp {
                     self.watchdog.clear(&process_id);
                 }
                 Err(error) => {
-                    self.notice = Some(format!("Signer sidecar stop failed: {error}"));
+                    self.session.notice = Some(format!("Signer sidecar stop failed: {error}"));
                     return;
                 }
             }
         }
 
-        self.notice = Some(format!(
+        self.session.notice = Some(format!(
             "{} signer sidecar stopped; {} stale records cleared",
             stopped, stale
         ));

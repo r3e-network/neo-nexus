@@ -21,12 +21,12 @@ impl NeoNexusApp {
                 self.snapshot_catalog_signature_verified = load.signature_verified;
                 self.snapshot_catalog_bytes = load.bytes;
                 self.snapshot_catalog = Some(catalog);
-                self.notice = Some(format!(
+                self.session.notice = Some(format!(
                     "Fast sync catalog loaded: {count} snapshots ({})",
                     format_bytes(load.bytes)
                 ));
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

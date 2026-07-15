@@ -7,7 +7,7 @@ use super::{theme, theme::configure_style, NeoNexusApp};
 impl eframe::App for NeoNexusApp {
     fn update(&mut self, context: &egui::Context, _frame: &mut eframe::Frame) {
         super::theme::install_icons(context);
-        configure_style(context, self.theme);
+        configure_style(context, self.session.theme);
         self.handle_application_shortcuts(context);
         self.drain_alert_delivery_results();
         self.drain_rpc_health_results();
@@ -20,13 +20,13 @@ impl eframe::App for NeoNexusApp {
         self.schedule_due_remote_federation_probes();
         // Mirror operator notices into the toast stack before paint so the same
         // frame that sets a notice also shows it as a coloured chip.
-        self.toasts.mirror_notice(self.notice.as_deref());
-        self.toasts.expire_due();
+        self.session.toasts.mirror_notice(self.session.notice.as_deref());
+        self.session.toasts.expire_due();
         if self.watchdog.has_pending_restart()
             || !self.rpc_health_pending.is_empty()
             || !self.remote_federation_pending.is_empty()
             || self.alert_delivery_pending > 0
-            || !self.toasts.is_empty()
+            || !self.session.toasts.is_empty()
         {
             context.request_repaint_after(Duration::from_millis(500));
         } else {
@@ -74,7 +74,7 @@ impl NeoNexusApp {
             .frame(chrome_frame().inner_margin(egui::Margin::symmetric(12, 14)))
             .show(context, |ui| self.render_navigation_sidebar(ui));
 
-        if self.selected_view.shows_inventory() {
+        if self.session.selected_view.shows_inventory() {
             egui::SidePanel::left("inventory_panel")
                 .resizable(true)
                 .default_width(248.0)
@@ -83,7 +83,7 @@ impl NeoNexusApp {
                 .show(context, |ui| self.render_inventory_panel(ui));
         }
 
-        if self.inspector_visible {
+        if self.session.inspector_visible {
             egui::SidePanel::right("inspector_panel")
                 .resizable(true)
                 .default_width(320.0)
@@ -109,7 +109,7 @@ impl NeoNexusApp {
     /// macOS screen-capture permission.
     pub fn render_headless_frame(&mut self, context: &egui::Context) {
         super::theme::install_icons(context);
-        configure_style(context, self.theme);
+        configure_style(context, self.session.theme);
         self.render_application_panels(context);
     }
 }

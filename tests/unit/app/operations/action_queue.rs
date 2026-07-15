@@ -40,9 +40,9 @@ fn action_queue_filters_readiness_actions_and_clamps_page() -> anyhow::Result<()
         ],
     };
 
-    app.action_queue_severity_filter = Some(CheckSeverity::Warning);
-    app.action_queue_query = "plugin".to_string();
-    app.action_queue_page = 9;
+    app.operations_ui.action_queue_severity_filter = Some(CheckSeverity::Warning);
+    app.operations_ui.action_queue_query = "plugin".to_string();
+    app.operations_ui.action_queue_page = 9;
 
     let visible = app.filtered_readiness_actions(&diagnostics);
     assert_eq!(
@@ -59,7 +59,7 @@ fn action_queue_filters_readiness_actions_and_clamps_page() -> anyhow::Result<()
     );
 
     app.clamp_action_queue_page(&diagnostics);
-    assert_eq!(app.action_queue_page, 0);
+    assert_eq!(app.operations_ui.action_queue_page, 0);
 
     Ok(())
 }
@@ -101,19 +101,19 @@ fn action_queue_focuses_severity_and_selects_highest_risk_action() -> anyhow::Re
         ],
     };
 
-    app.action_queue_severity_filter = Some(CheckSeverity::Warning);
-    app.action_queue_query = "plugin".to_string();
-    app.action_queue_page = 4;
+    app.operations_ui.action_queue_severity_filter = Some(CheckSeverity::Warning);
+    app.operations_ui.action_queue_query = "plugin".to_string();
+    app.operations_ui.action_queue_page = 4;
 
     app.focus_action_queue_severity(&diagnostics, CheckSeverity::Critical);
 
     assert_eq!(
-        app.action_queue_severity_filter,
+        app.operations_ui.action_queue_severity_filter,
         Some(CheckSeverity::Critical)
     );
-    assert!(app.action_queue_query.is_empty());
-    assert_eq!(app.action_queue_page, 0);
-    assert_eq!(app.selected_node.as_deref(), Some("validator-node"));
+    assert!(app.operations_ui.action_queue_query.is_empty());
+    assert_eq!(app.operations_ui.action_queue_page, 0);
+    assert_eq!(app.fleet.selected_node.as_deref(), Some("validator-node"));
     let critical_actions = app.filtered_readiness_actions(&diagnostics);
     let selected = app
         .selected_visible_readiness_action(&critical_actions)
@@ -126,7 +126,7 @@ fn action_queue_focuses_severity_and_selects_highest_risk_action() -> anyhow::Re
 
     assert!(!app.has_active_action_queue_filter());
     assert_eq!(app.filtered_readiness_actions(&diagnostics).len(), 3);
-    assert_eq!(app.selected_node.as_deref(), Some("validator-node"));
+    assert_eq!(app.fleet.selected_node.as_deref(), Some("validator-node"));
 
     Ok(())
 }

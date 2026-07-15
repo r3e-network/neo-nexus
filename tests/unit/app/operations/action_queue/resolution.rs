@@ -23,13 +23,13 @@ fn action_queue_resolution_opens_target_workspace_and_preserves_node() -> anyhow
 
         app.open_readiness_action_resolution(&action);
 
-        assert_eq!(app.selected_view, view);
-        assert_eq!(app.selected_node.as_deref(), Some("node-a"));
-        assert!(app
+        assert_eq!(app.session.selected_view, view);
+        assert_eq!(app.fleet.selected_node.as_deref(), Some("node-a"));
+        assert!(app.session
             .notice
             .as_deref()
             .is_some_and(|notice| notice.contains(resolution.label())));
-        assert!(app
+        assert!(app.operations_ui
             .selected_readiness_action
             .as_ref()
             .is_some_and(|key| key.matches(&action)));
@@ -59,10 +59,10 @@ fn action_queue_sets_resolution_filter_without_clearing_other_facets() -> anyhow
         )],
     };
 
-    app.action_queue_severity_filter = Some(CheckSeverity::Warning);
-    app.action_queue_resolution_filter = Some(DiagnosticResolution::PluginManager);
-    app.action_queue_query = "plugin".to_string();
-    app.action_queue_page = 4;
+    app.operations_ui.action_queue_severity_filter = Some(CheckSeverity::Warning);
+    app.operations_ui.action_queue_resolution_filter = Some(DiagnosticResolution::PluginManager);
+    app.operations_ui.action_queue_query = "plugin".to_string();
+    app.operations_ui.action_queue_page = 4;
 
     app.set_action_queue_resolution_filter(
         &diagnostics,
@@ -70,15 +70,15 @@ fn action_queue_sets_resolution_filter_without_clearing_other_facets() -> anyhow
     );
 
     assert_eq!(
-        app.action_queue_resolution_filter,
+        app.operations_ui.action_queue_resolution_filter,
         Some(DiagnosticResolution::RuntimeManager)
     );
     assert_eq!(
-        app.action_queue_severity_filter,
+        app.operations_ui.action_queue_severity_filter,
         Some(CheckSeverity::Warning)
     );
-    assert_eq!(app.action_queue_query, "plugin");
-    assert_eq!(app.action_queue_page, 0);
+    assert_eq!(app.operations_ui.action_queue_query, "plugin");
+    assert_eq!(app.operations_ui.action_queue_page, 0);
     let actions = app.filtered_readiness_actions(&diagnostics);
     assert!(app.selected_visible_readiness_action(&actions).is_none());
 

@@ -63,7 +63,7 @@ impl NeoNexusApp {
     fn render_nav_item(&mut self, ui: &mut egui::Ui, view: View) {
         // Highlight the primary nav item even when a legacy child view is active
         // (e.g. Logs → Nodes, Alerts → Settings).
-        let selected = self.selected_view.primary_nav() == view;
+        let selected = self.session.selected_view.primary_nav() == view;
         let width = ui.available_width();
         let icon = theme::view_icon_glyph(view);
         let label = format!("{icon}   {}", view.label());
@@ -80,12 +80,12 @@ impl NeoNexusApp {
             .add_sized([width, 32.0], button)
             .on_hover_text(view.subtitle());
         if response.clicked() {
-            self.selected_view = view;
+            self.session.selected_view = view;
         }
     }
 
     fn render_sidebar_controls(&mut self, ui: &mut egui::Ui) {
-        let theme_label = self.theme.toggle_label();
+        let theme_label = self.session.theme.toggle_label();
         let theme_hint = shortcut_hint(AppShortcut::ToggleTheme).map_or_else(
             || "Switch the workbench colour theme".to_string(),
             |keys| format!("Switch the workbench colour theme ({keys})"),
@@ -94,7 +94,7 @@ impl NeoNexusApp {
             self.toggle_theme();
         }
         if ui
-            .selectable_label(self.inspector_visible, "Inspector")
+            .selectable_label(self.session.inspector_visible, "Inspector")
             .on_hover_text("Show or hide the node inspector panel")
             .clicked()
         {

@@ -8,7 +8,7 @@ impl NeoNexusApp {
         let manifest = match self.runtime_package_draft.to_manifest() {
             Ok(manifest) => manifest,
             Err(error) => {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return;
             }
         };
@@ -16,7 +16,7 @@ impl NeoNexusApp {
         match RuntimePackageManager::install(&manifest, self.runtime_install_root()) {
             Ok(installation) => {
                 if let Err(error) = self.repository.upsert_runtime_installation(&installation) {
-                    self.notice = Some(error.to_string());
+                    self.session.notice = Some(error.to_string());
                     return;
                 }
                 self.selected_runtime_installation = Some(installation.package_id.clone());
@@ -34,7 +34,7 @@ impl NeoNexusApp {
                 );
                 self.record_event_notice(EventKind::RuntimeInstalled, EventSeverity::Info, message);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

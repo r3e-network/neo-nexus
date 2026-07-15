@@ -20,8 +20,8 @@ pub(super) struct EventJournalCounts {
 impl NeoNexusApp {
     pub(super) fn render_event_journal(&mut self, ui: &mut egui::Ui) {
         let filter = RuntimeEventFilter::new(
-            self.event_severity_filter,
-            self.event_query.clone(),
+            self.operations_ui.event_severity_filter,
+            self.operations_ui.event_query.clone(),
             EVENT_JOURNAL_LIMIT,
         );
         let total_matches = match count_workspace_events(&self.repository, &filter) {

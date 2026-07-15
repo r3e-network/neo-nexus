@@ -5,7 +5,7 @@ use super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn refresh_private_network_launch_pack_sidecars(&mut self) {
         let Some(root_path) = self.private_network_last_export_root.clone() else {
-            self.notice = Some("Export a private launch pack before loading sidecars".to_string());
+            self.session.notice = Some("Export a private launch pack before loading sidecars".to_string());
             return;
         };
 
@@ -30,7 +30,7 @@ impl NeoNexusApp {
 
                 let count = report.sidecar_count;
                 self.private_network_sidecar_report = Some(report);
-                self.notice = Some(format!(
+                self.session.notice = Some(format!(
                     "{} signer sidecar spec loaded from {}",
                     count,
                     short_path(&root_path, 54)
@@ -38,7 +38,7 @@ impl NeoNexusApp {
             }
             Err(error) => {
                 self.private_network_sidecar_report = None;
-                self.notice = Some(format!("Signer sidecar spec load failed: {error}"));
+                self.session.notice = Some(format!("Signer sidecar spec load failed: {error}"));
             }
         }
     }

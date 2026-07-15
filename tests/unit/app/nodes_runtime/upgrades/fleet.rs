@@ -56,9 +56,9 @@ fn fleet_catalog_upgrade_rolls_running_nodes_with_restart() -> anyhow::Result<()
         ws_port: None,
     })?;
     let mut app = NeoNexusApp::new(repository);
-    app.selected_node = Some(running.id.clone());
+    app.fleet.selected_node = Some(running.id.clone());
     app.start_selected_node();
-    let active_blocked = app
+    let active_blocked = app.fleet
         .nodes
         .iter_mut()
         .find(|node| node.id == starting.id)
@@ -105,12 +105,12 @@ fn fleet_catalog_upgrade_rolls_running_nodes_with_restart() -> anyhow::Result<()
 
     app.upgrade_fleet_nodes_from_catalog();
 
-    let running_after = app
+    let running_after = app.fleet
         .nodes
         .iter()
         .find(|node| node.id == running.id)
         .ok_or_else(|| anyhow::anyhow!("running node should remain present"))?;
-    let stopped_after = app
+    let stopped_after = app.fleet
         .nodes
         .iter()
         .find(|node| node.id == stopped.id)
@@ -123,7 +123,7 @@ fn fleet_catalog_upgrade_rolls_running_nodes_with_restart() -> anyhow::Result<()
     assert_ne!(first_pid, second_pid);
     assert_eq!(running_after.runtime_version, "v1.2.0");
     assert_eq!(stopped_after.runtime_version, "v1.2.0");
-    let notice = app
+    let notice = app.session
         .notice
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("fleet upgrade should report a notice"))?;
@@ -148,13 +148,13 @@ fn fleet_catalog_upgrade_rolls_running_nodes_with_restart() -> anyhow::Result<()
             && event.message.contains("1 blocked active")
             && event.message.contains("1 current/unavailable")
     }));
-    assert!(app
+    assert!(app.fleet
         .nodes
         .iter()
         .find(|node| node.id == current.id)
         .is_some_and(|node| node.runtime_version == "v1.2.0"));
 
-    app.selected_node = Some(running.id);
+    app.fleet.selected_node = Some(running.id);
     app.stop_selected_node();
 
     Ok(())

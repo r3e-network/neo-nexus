@@ -61,7 +61,7 @@ pub(super) fn render_selected_port_summary(
 }
 
 fn render_port_row(app: &mut NeoNexusApp, ui: &mut egui::Ui, row: &PortMatrixRow) {
-    let selected = app.selected_node.as_deref() == Some(row.node_id.as_str());
+    let selected = app.fleet.selected_node.as_deref() == Some(row.node_id.as_str());
     if ui
         .selectable_label(selected, truncate_middle(&row.node_name, 22))
         .on_hover_text(row.node_name.as_str())

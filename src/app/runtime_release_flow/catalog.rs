@@ -13,7 +13,7 @@ impl NeoNexusApp {
         let selected_profile_id = self.selected_runtime_catalog_profile.clone();
         match RuntimePackageManager::load_release_catalog(&request) {
             Ok(load) => self.apply_loaded_runtime_catalog(load, request, selected_profile_id),
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
@@ -28,7 +28,7 @@ impl NeoNexusApp {
                 .repository
                 .mark_runtime_catalog_profile_loaded(profile_id, &load)
             {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return;
             }
         }
@@ -54,7 +54,7 @@ impl NeoNexusApp {
         let signer_suffix = trusted_signer
             .as_ref()
             .map_or(String::new(), |label| format!("; signer {label}"));
-        self.notice = Some(format!(
+        self.session.notice = Some(format!(
             "Runtime catalog loaded: {count} releases ({}){}",
             format_bytes(load.bytes),
             signer_suffix

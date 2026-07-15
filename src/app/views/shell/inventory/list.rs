@@ -7,14 +7,14 @@ impl NeoNexusApp {
     ) {
         let nodes = self.filtered_inventory_nodes();
 
-        if self.nodes.is_empty() {
+        if self.fleet.nodes.is_empty() {
             if empty_state_with_action(
                 ui,
                 "No nodes",
                 "Define the first local Neo runtime to start operating.",
                 Some("New Node"),
             ) {
-                self.selected_view = crate::app::view::View::Nodes;
+                self.session.selected_view = crate::app::view::View::Nodes;
             }
             return;
         }
@@ -29,13 +29,13 @@ impl NeoNexusApp {
         }
 
         let total_pages = page_count(nodes.len(), NODE_PAGE_SIZE);
-        self.node_page = self.node_page.min(total_pages - 1);
-        pagination_bar(ui, &mut self.node_page, total_pages, nodes.len());
+        self.fleet.node_page = self.fleet.node_page.min(total_pages - 1);
+        pagination_bar(ui, &mut self.fleet.node_page, total_pages, nodes.len());
         ui.add_space(theme::SM);
 
-        let start = self.node_page * NODE_PAGE_SIZE;
+        let start = self.fleet.node_page * NODE_PAGE_SIZE;
         let visible: Vec<_> = nodes.iter().skip(start).take(NODE_PAGE_SIZE).collect();
-        let mut next_selection = self.selected_node.clone();
+        let mut next_selection = self.fleet.selected_node.clone();
 
         for row in 0..NODE_PAGE_SIZE {
             if let Some(node) = visible.get(row) {

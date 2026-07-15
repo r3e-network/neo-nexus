@@ -3,11 +3,11 @@ use super::super::super::NeoNexusApp;
 impl NeoNexusApp {
     pub(in crate::app) fn upgrade_selected_node_from_catalog(&mut self) {
         let Some(node) = self.selected_node().cloned() else {
-            self.notice = Some("Select a node before running a catalog upgrade".to_string());
+            self.session.notice = Some("Select a node before running a catalog upgrade".to_string());
             return;
         };
         if node.status.is_starting() {
-            self.notice = Some(
+            self.session.notice = Some(
                 "Wait for the selected node to finish starting before running a catalog upgrade"
                     .to_string(),
             );
@@ -15,7 +15,7 @@ impl NeoNexusApp {
         }
 
         let Some(plan) = self.catalog_upgrade_plan_for_node(&node) else {
-            self.notice =
+            self.session.notice =
                 Some("No newer compatible catalog release for the selected node".to_string());
             return;
         };
@@ -35,10 +35,10 @@ impl NeoNexusApp {
 
         match result {
             Ok(message) => {
-                self.notice = Some(message);
+                self.session.notice = Some(message);
                 self.reload_nodes();
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

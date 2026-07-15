@@ -16,12 +16,12 @@ impl NeoNexusApp {
         {
             Ok(value) => value,
             Err(error) => {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return;
             }
         };
         let Some(public_key) = self.runtime_signer_key_candidate() else {
-            self.notice =
+            self.session.notice =
                 Some("Enter a signer public key before saving a trusted signer".to_string());
             return;
         };
@@ -41,9 +41,9 @@ impl NeoNexusApp {
                 self.selected_runtime_signer_profile = Some(id);
                 self.runtime_signer_public_key = profile.ed25519_public_key.clone();
                 self.reload_runtime_signer_profiles();
-                self.notice = Some(format!("Trusted signer saved: {}", profile.label));
+                self.session.notice = Some(format!("Trusted signer saved: {}", profile.label));
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 

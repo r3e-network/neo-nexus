@@ -7,7 +7,7 @@ impl NeoNexusApp {
                 self.remote_servers = profiles;
                 self.ensure_valid_remote_server_selection();
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 

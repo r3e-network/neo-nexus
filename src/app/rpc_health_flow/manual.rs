@@ -3,14 +3,14 @@ use super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn check_selected_rpc_health(&mut self) {
         let Some(node) = self.selected_node().cloned() else {
-            self.notice = Some("Select a node before checking RPC health".to_string());
+            self.session.notice = Some("Select a node before checking RPC health".to_string());
             return;
         };
 
         let report = probe_node_rpc(&node, RPC_HEALTH_TIMEOUT);
         let message = rpc_health_notice(&report);
         if let Err(error) = self.repository.record_rpc_health(&node, &report) {
-            self.notice = Some(error.to_string());
+            self.session.notice = Some(error.to_string());
             return;
         }
         let pruned = match self
@@ -19,7 +19,7 @@ impl NeoNexusApp {
         {
             Ok(pruned) => pruned,
             Err(error) => {
-                self.notice = Some(format!("{message}; RPC health pruning failed: {error}"));
+                self.session.notice = Some(format!("{message}; RPC health pruning failed: {error}"));
                 return;
             }
         };
@@ -34,6 +34,6 @@ impl NeoNexusApp {
             rpc_health_event_severity(report.status),
             event_message.clone(),
         );
-        self.notice = Some(event_message);
+        self.session.notice = Some(event_message);
     }
 }

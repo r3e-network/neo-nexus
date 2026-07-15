@@ -10,7 +10,7 @@ impl NeoNexusApp {
         let plugins = plugin_states_for(self, &node);
         match ConfigExporter::write_node_config(self.config_export_dir(), &node, &plugins) {
             Ok(export) => {
-                self.notice = Some(format!(
+                self.session.notice = Some(format!(
                     "Config exported: {} ({} bytes)",
                     short_path(&export.path, 54),
                     export.bytes_written
@@ -22,7 +22,7 @@ impl NeoNexusApp {
                     format!("Config exported to {}", export.path.display()),
                 );
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

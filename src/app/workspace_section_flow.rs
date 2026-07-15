@@ -19,15 +19,15 @@ impl NeoNexusApp {
     pub(in crate::app) fn persist_active_sections_if_changed(&mut self) {
         persist_section(
             &self.repository,
-            &mut self.notice,
-            self.operations_section,
-            &mut self.persisted_operations_section,
+            &mut self.session.notice,
+            self.operations_ui.section,
+            &mut self.operations_ui.persisted_section,
             KEY_OPERATIONS,
             OperationsSection::persist_key,
         );
         persist_section(
             &self.repository,
-            &mut self.notice,
+            &mut self.session.notice,
             self.settings_section,
             &mut self.persisted_settings_section,
             KEY_SETTINGS,
@@ -35,7 +35,7 @@ impl NeoNexusApp {
         );
         persist_section(
             &self.repository,
-            &mut self.notice,
+            &mut self.session.notice,
             self.runtimes_section,
             &mut self.persisted_runtimes_section,
             KEY_RUNTIMES,
@@ -43,7 +43,7 @@ impl NeoNexusApp {
         );
         persist_section(
             &self.repository,
-            &mut self.notice,
+            &mut self.session.notice,
             self.snapshots_section,
             &mut self.persisted_snapshots_section,
             KEY_SNAPSHOTS,
@@ -51,7 +51,7 @@ impl NeoNexusApp {
         );
         persist_section(
             &self.repository,
-            &mut self.notice,
+            &mut self.session.notice,
             self.monitor_section,
             &mut self.persisted_monitor_section,
             KEY_MONITOR,
@@ -59,7 +59,7 @@ impl NeoNexusApp {
         );
         persist_section(
             &self.repository,
-            &mut self.notice,
+            &mut self.session.notice,
             self.federation_section,
             &mut self.persisted_federation_section,
             KEY_FEDERATION,
@@ -67,7 +67,7 @@ impl NeoNexusApp {
         );
         persist_section(
             &self.repository,
-            &mut self.notice,
+            &mut self.session.notice,
             self.roles_section,
             &mut self.persisted_roles_section,
             KEY_ROLES,

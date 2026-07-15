@@ -38,10 +38,10 @@ pub(super) fn render_check_filters(
         if resolution_filter_combo(
             ui,
             "readiness_check_resolution_filter",
-            &mut app.readiness_check_resolution_filter,
+            &mut app.operations_ui.readiness_check_resolution_filter,
             &resolution_counts,
         ) {
-            app.set_readiness_check_resolution_filter(node, app.readiness_check_resolution_filter);
+            app.set_readiness_check_resolution_filter(node, app.operations_ui.readiness_check_resolution_filter);
         }
         ui.separator();
         if secondary_button_enabled(ui, "Focus Critical", node.critical_count() > 0)
@@ -65,10 +65,10 @@ pub(super) fn render_check_filters(
     });
     let response = ui.add_sized(
         [ui.available_width(), 24.0],
-        egui::TextEdit::singleline(&mut app.readiness_check_query).hint_text("Search"),
+        egui::TextEdit::singleline(&mut app.operations_ui.readiness_check_query).hint_text("Search"),
     );
     if response.changed() {
-        app.readiness_check_page = 0;
+        app.operations_ui.readiness_check_page = 0;
     }
     ui.separator();
 }
@@ -82,12 +82,12 @@ fn severity_button(
 ) {
     if ui
         .selectable_label(
-            app.readiness_check_severity_filter == severity,
+            app.operations_ui.readiness_check_severity_filter == severity,
             severity_filter_label(label, severity, counts),
         )
         .clicked()
     {
-        app.readiness_check_severity_filter = severity;
-        app.readiness_check_page = 0;
+        app.operations_ui.readiness_check_severity_filter = severity;
+        app.operations_ui.readiness_check_page = 0;
     }
 }

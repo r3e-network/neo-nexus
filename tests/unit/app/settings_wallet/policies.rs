@@ -50,7 +50,7 @@ fn sidecar_execution_policy_action_persists_audits_and_reloads() -> anyhow::Resu
     assert!(app
         .repository
         .load_private_network_allow_external_sidecars()?);
-    assert!(app.notice.as_deref().is_some_and(|notice| {
+    assert!(app.session.notice.as_deref().is_some_and(|notice| {
         notice.contains("Sidecar execution policy saved") && notice.contains("external allowed")
     }));
     let events = app.repository.list_events(RuntimeEventFilter::new(
@@ -91,7 +91,7 @@ fn runtime_upgrade_policy_manual_run_records_missing_catalog_profile_failure() -
 
     app.run_runtime_upgrade_policy_now();
 
-    assert!(app.notice.as_deref().is_some_and(|notice| {
+    assert!(app.session.notice.as_deref().is_some_and(|notice| {
         notice.contains("Runtime upgrade policy manual run failed")
             && notice.contains("missing-profile")
     }));

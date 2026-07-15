@@ -24,19 +24,19 @@ pub(in crate::app) use section::OperationsSection;
 impl NeoNexusApp {
     pub(super) fn render_operations(&mut self, ui: &mut egui::Ui) {
         let plugin_states = self.plugin_states_by_node();
-        let diagnostics = evaluate_fleet(&self.nodes, &plugin_states);
+        let diagnostics = evaluate_fleet(&self.fleet.nodes, &plugin_states);
 
-        metrics::render_operations_metrics(ui, &diagnostics, self.nodes.len());
+        metrics::render_operations_metrics(ui, &diagnostics, self.fleet.nodes.len());
 
         ui.add_space(theme::MD);
-        let mut index = self.operations_section as usize;
+        let mut index = self.operations_ui.section as usize;
         let labels = OperationsSection::ALL.map(OperationsSection::label);
         if segmented_control(ui, &labels, &mut index) {
-            self.operations_section = OperationsSection::ALL[index];
+            self.operations_ui.section = OperationsSection::ALL[index];
         }
         ui.add_space(theme::MD);
 
-        match self.operations_section {
+        match self.operations_ui.section {
             OperationsSection::Readiness => panel(ui, "Selected readiness", |ui| {
                 self.render_selected_readiness(ui, &diagnostics);
             }),
@@ -56,7 +56,7 @@ impl NeoNexusApp {
     }
 
     pub(in crate::app) fn plugin_states_by_node(&self) -> BTreeMap<String, Vec<PluginState>> {
-        self.nodes
+        self.fleet.nodes
             .iter()
             .map(|node| {
                 (

@@ -11,7 +11,7 @@ use super::super::super::{
 };
 
 pub(super) fn render_create_form(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
-    app.draft.ensure_storage_compatible();
+    app.fleet.draft.ensure_storage_compatible();
 
     ui.label(theme::label_caption("Draft definition"));
     ui.add_space(theme::SM);
@@ -37,32 +37,32 @@ pub(super) fn render_create_form(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
 }
 
 fn render_identity_fields(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
-    field_text(ui, "Name", &mut app.draft.name);
+    field_text(ui, "Name", &mut app.fleet.draft.name);
     ui.add_space(theme::SM);
-    let previous_node_type = app.draft.node_type;
+    let previous_node_type = app.fleet.draft.node_type;
     field_combo(
         ui,
         "Type",
         "node_type",
-        app.draft.node_type.to_string(),
+        app.fleet.draft.node_type.to_string(),
         |ui| {
             for node_type in NodeType::ALL {
-                ui.selectable_value(&mut app.draft.node_type, node_type, node_type.to_string());
+                ui.selectable_value(&mut app.fleet.draft.node_type, node_type, node_type.to_string());
             }
         },
     );
-    if previous_node_type != app.draft.node_type {
-        app.draft.ensure_storage_compatible();
+    if previous_node_type != app.fleet.draft.node_type {
+        app.fleet.draft.ensure_storage_compatible();
     }
     ui.add_space(theme::SM);
     field_combo(
         ui,
         "Network",
         "network",
-        app.draft.network.to_string(),
+        app.fleet.draft.network.to_string(),
         |ui| {
             for network in Network::ALL {
-                ui.selectable_value(&mut app.draft.network, network, network.to_string());
+                ui.selectable_value(&mut app.fleet.draft.network, network, network.to_string());
             }
         },
     );
@@ -71,11 +71,11 @@ fn render_identity_fields(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         ui,
         "Storage",
         "storage",
-        app.draft.storage_engine.to_string(),
+        app.fleet.draft.storage_engine.to_string(),
         |ui| {
             for engine in StorageEngine::ALL {
-                if app.draft.node_type.supports_storage_engine(engine) {
-                    ui.selectable_value(&mut app.draft.storage_engine, engine, engine.to_string());
+                if app.fleet.draft.node_type.supports_storage_engine(engine) {
+                    ui.selectable_value(&mut app.fleet.draft.storage_engine, engine, engine.to_string());
                 }
             }
         },
@@ -83,19 +83,19 @@ fn render_identity_fields(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
 }
 
 fn render_executable_fields(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
-    field_text(ui, "Binary", &mut app.draft.binary_path);
+    field_text(ui, "Binary", &mut app.fleet.draft.binary_path);
     ui.add_space(theme::SM);
-    field_text(ui, "Version", &mut app.draft.runtime_version);
+    field_text(ui, "Version", &mut app.fleet.draft.runtime_version);
     ui.add_space(theme::SM);
-    field_text(ui, "Args", &mut app.draft.args);
+    field_text(ui, "Args", &mut app.fleet.draft.args);
     ui.add_space(theme::MD);
     ui.label(theme::label_caption("Network ports"));
     ui.add_space(theme::XS);
-    field_text(ui, "RPC", &mut app.draft.rpc_port);
+    field_text(ui, "RPC", &mut app.fleet.draft.rpc_port);
     ui.add_space(theme::SM);
-    field_text(ui, "P2P", &mut app.draft.p2p_port);
+    field_text(ui, "P2P", &mut app.fleet.draft.p2p_port);
     ui.add_space(theme::SM);
-    field_text(ui, "WebSocket", &mut app.draft.ws_port);
+    field_text(ui, "WebSocket", &mut app.fleet.draft.ws_port);
 }
 
 fn action_bar(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
@@ -120,8 +120,8 @@ fn action_bar(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
             "ports" => app.auto_assign_draft_ports(),
             "update" => app.update_selected_node(),
             "reset" => {
-                app.draft = Default::default();
-                app.notice = Some("Draft reset".to_string());
+                app.fleet.draft = Default::default();
+                app.session.notice = Some("Draft reset".to_string());
             }
             _ => {}
         }

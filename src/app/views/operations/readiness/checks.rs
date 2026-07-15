@@ -27,11 +27,11 @@ pub(super) fn render_checks(
 
     app.ensure_visible_readiness_check_selection(checks);
     let total_pages = page_count(checks.len(), READINESS_CHECK_PAGE_SIZE);
-    app.readiness_check_page = app.readiness_check_page.min(total_pages - 1);
-    pagination_bar(ui, &mut app.readiness_check_page, total_pages, checks.len());
+    app.operations_ui.readiness_check_page = app.operations_ui.readiness_check_page.min(total_pages - 1);
+    pagination_bar(ui, &mut app.operations_ui.readiness_check_page, total_pages, checks.len());
     ui.add_space(theme::SM);
 
-    let start = app.readiness_check_page * READINESS_CHECK_PAGE_SIZE;
+    let start = app.operations_ui.readiness_check_page * READINESS_CHECK_PAGE_SIZE;
     for check in checks.iter().skip(start).take(READINESS_CHECK_PAGE_SIZE) {
         render_check_row(app, ui, check);
         ui.add_space(theme::XS);
@@ -40,7 +40,7 @@ pub(super) fn render_checks(
 }
 
 fn render_check_row(app: &mut NeoNexusApp, ui: &mut egui::Ui, check: &DiagnosticCheck) {
-    let selected = app
+    let selected = app.operations_ui
         .selected_readiness_check
         .as_ref()
         .is_some_and(|key| key.matches(check));

@@ -60,7 +60,7 @@ fn render_process_row(app: &mut NeoNexusApp, ui: &mut egui::Ui, row: &ProcessRow
                 .clicked()
             {
                 app.selected_monitor_process = Some(process.node_id.clone());
-                app.selected_node = Some(process.node_id.clone());
+                app.fleet.selected_node = Some(process.node_id.clone());
             }
             ui.label(process.pid.to_string());
             ui.label(cpu_label(process.cpu_usage_percent));
@@ -80,7 +80,7 @@ fn render_process_row(app: &mut NeoNexusApp, ui: &mut egui::Ui, row: &ProcessRow
                 .clicked()
             {
                 app.selected_monitor_process = Some(process.node_id.clone());
-                app.selected_node = Some(process.node_id.clone());
+                app.fleet.selected_node = Some(process.node_id.clone());
             }
             ui.label(process.pid.to_string());
             ui.label(egui::RichText::new("-").color(muted_text()));

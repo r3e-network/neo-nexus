@@ -65,8 +65,8 @@ use snapshot_draft::SnapshotDraft;
 use text::short_path;
 use theme::Theme;
 use views::{
-    FederationSection, MonitorSection, NetworkHubSection, NodeWorkspaceTab, OperationsSection,
-    RolesSection, RuntimesSection, SettingsSection, SnapshotsSection,
+    FederationSection, MonitorSection, OperationsSection, RolesSection, RuntimesSection,
+    SettingsSection, SnapshotsSection,
 };
 use workflow::{
     committee_keys_with_wallet_profile, current_unix_time, data_dir, exit_notice, format_duration,
@@ -78,7 +78,7 @@ use workflow::{
 };
 
 pub use state::NeoNexusApp;
-pub(in crate::app) use state::{render_toast_strip, ToastStack};
+pub(in crate::app) use state::{render_toast_strip, FleetUi, OperationsUi, SessionUi};
 pub use view::View;
 
 #[cfg(test)]

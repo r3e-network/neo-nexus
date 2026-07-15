@@ -1,16 +1,20 @@
 use super::*;
 
 mod fleet;
+mod operations_ui;
+mod session;
 mod toasts;
 
-pub(in crate::app) use toasts::{render_toast_strip, ToastStack};
+pub(in crate::app) use fleet::FleetUi;
+pub(in crate::app) use operations_ui::OperationsUi;
+pub(in crate::app) use session::SessionUi;
+pub(in crate::app) use toasts::render_toast_strip;
 
 pub struct NeoNexusApp {
     pub(in crate::app) repository: Repository,
-    pub(in crate::app) theme: Theme,
-    pub(in crate::app) inspector_visible: bool,
-    /// Mirrored toast history for the status strip. Updated from `notice`.
-    pub(in crate::app) toasts: ToastStack,
+    pub(in crate::app) session: SessionUi,
+    pub(in crate::app) fleet: FleetUi,
+    pub(in crate::app) operations_ui: OperationsUi,
     pub(in crate::app) supervisor: ProcessSupervisor,
     pub(in crate::app) watchdog: Watchdog,
     pub(in crate::app) watchdog_policy_draft: WatchdogPolicyDraft,
@@ -18,8 +22,6 @@ pub struct NeoNexusApp {
     pub(in crate::app) runtime_upgrade_policy_draft: RuntimeUpgradePolicyDraft,
     pub(in crate::app) metrics: MetricsCollector,
     pub(in crate::app) metrics_snapshot: MetricsSnapshot,
-    pub(in crate::app) nodes: Vec<NodeConfig>,
-    pub(in crate::app) draft: NodeDraft,
     pub(in crate::app) snapshot_draft: SnapshotDraft,
     pub(in crate::app) snapshot_catalog_source: String,
     pub(in crate::app) snapshot_catalog_signature_source: String,
@@ -49,12 +51,6 @@ pub struct NeoNexusApp {
     pub(in crate::app) remote_server_description: String,
     pub(in crate::app) remote_server_enabled: bool,
     pub(in crate::app) last_remote_server_probe: Option<RemoteServerProbeRecord>,
-    pub(in crate::app) selected_view: View,
-    pub(in crate::app) persisted_view: View,
-    pub(in crate::app) node_workspace_tab: NodeWorkspaceTab,
-    pub(in crate::app) network_hub_section: NetworkHubSection,
-    pub(in crate::app) operations_section: OperationsSection,
-    pub(in crate::app) persisted_operations_section: OperationsSection,
     pub(in crate::app) settings_section: SettingsSection,
     pub(in crate::app) persisted_settings_section: SettingsSection,
     pub(in crate::app) runtimes_section: RuntimesSection,
@@ -67,7 +63,6 @@ pub struct NeoNexusApp {
     pub(in crate::app) persisted_federation_section: FederationSection,
     pub(in crate::app) roles_section: RolesSection,
     pub(in crate::app) persisted_roles_section: RolesSection,
-    pub(in crate::app) selected_node: Option<String>,
     pub(in crate::app) selected_plugin: Option<PluginId>,
     pub(in crate::app) plugin_package_source: String,
     pub(in crate::app) plugin_package_expected_sha256: String,
@@ -96,12 +91,6 @@ pub struct NeoNexusApp {
     pub(in crate::app) last_backup_validation: Option<WorkspaceBackupValidation>,
     pub(in crate::app) last_release_package: Option<ReleasePackage>,
     pub(in crate::app) last_release_verification: Option<ReleasePackageVerification>,
-    pub(in crate::app) notice: Option<String>,
-    pub(in crate::app) pending_delete_node: Option<String>,
-    pub(in crate::app) overview_fleet_page: usize,
-    pub(in crate::app) node_page: usize,
-    pub(in crate::app) node_query: String,
-    pub(in crate::app) node_status_filter: Option<NodeStatus>,
     pub(in crate::app) plugin_page: usize,
     pub(in crate::app) plugin_query: String,
     pub(in crate::app) plugin_enabled_filter: Option<bool>,
@@ -110,23 +99,6 @@ pub struct NeoNexusApp {
     pub(in crate::app) log_page: usize,
     pub(in crate::app) log_query: String,
     pub(in crate::app) log_follow_tail: bool,
-    pub(in crate::app) event_page: usize,
-    pub(in crate::app) selected_event: Option<i64>,
-    pub(in crate::app) action_queue_page: usize,
-    pub(in crate::app) action_queue_query: String,
-    pub(in crate::app) action_queue_severity_filter: Option<CheckSeverity>,
-    pub(in crate::app) action_queue_resolution_filter: Option<DiagnosticResolution>,
-    pub(in crate::app) selected_readiness_action: Option<ReadinessActionKey>,
-    pub(in crate::app) port_matrix_page: usize,
-    pub(in crate::app) port_matrix_query: String,
-    pub(in crate::app) port_matrix_status_filter: Option<NodeStatus>,
-    pub(in crate::app) port_matrix_network_filter: Option<Network>,
-    pub(in crate::app) port_matrix_health_filter: Option<CheckSeverity>,
-    pub(in crate::app) readiness_check_page: usize,
-    pub(in crate::app) readiness_check_query: String,
-    pub(in crate::app) readiness_check_severity_filter: Option<CheckSeverity>,
-    pub(in crate::app) readiness_check_resolution_filter: Option<DiagnosticResolution>,
-    pub(in crate::app) selected_readiness_check: Option<DiagnosticCheckKey>,
     pub(in crate::app) snapshot_page: usize,
     pub(in crate::app) snapshot_query: String,
     pub(in crate::app) snapshot_network_filter: Option<Network>,
@@ -171,8 +143,6 @@ pub struct NeoNexusApp {
     pub(in crate::app) alert_delivery_pending: usize,
     pub(in crate::app) alert_delivery_results: Receiver<AlertDeliveryReport>,
     pub(in crate::app) alert_delivery_sender: Sender<AlertDeliveryReport>,
-    pub(in crate::app) event_query: String,
-    pub(in crate::app) event_severity_filter: Option<EventSeverity>,
     pub(in crate::app) rpc_health_monitor_policy: RpcHealthMonitorPolicy,
     pub(in crate::app) rpc_health_monitor_policy_draft: RpcHealthMonitorPolicyDraft,
     pub(in crate::app) rpc_health_last_started: BTreeMap<String, Instant>,
@@ -185,4 +155,30 @@ pub struct NeoNexusApp {
     pub(in crate::app) remote_federation_pending: BTreeSet<String>,
     pub(in crate::app) remote_federation_results: Receiver<RemoteFederationProbeResult>,
     pub(in crate::app) remote_federation_sender: Sender<RemoteFederationProbeResult>,
+}
+
+impl NeoNexusApp {
+    /// Reset fleet list paging when a fleet-wide filter changes.
+    pub(in crate::app) fn reset_fleet_paging(&mut self) {
+        self.fleet.reset_paging();
+    }
+
+    pub(in crate::app) fn set_fleet_status_filter(&mut self, status: Option<NodeStatus>) {
+        self.fleet.set_status_filter(status);
+    }
+
+    pub(in crate::app) fn select_fleet_node(&mut self, id: Option<String>) {
+        if self.fleet.selected_node == id {
+            return;
+        }
+        self.fleet.select_node(id);
+        self.selected_plugin = None;
+        self.plugin_page = 0;
+        self.config_page = 0;
+        self.log_page = 0;
+    }
+
+    pub(in crate::app) fn running_node_count(&self) -> usize {
+        self.fleet.running_count()
+    }
 }

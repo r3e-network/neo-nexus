@@ -2,42 +2,42 @@ use super::*;
 
 impl NeoNexusApp {
     pub(in crate::app) fn auto_assign_draft_ports(&mut self) {
-        let preferred_rpc = self
+        let preferred_rpc = self.fleet
             .draft
             .rpc_port
             .trim()
             .parse::<u16>()
             .unwrap_or(DEFAULT_RPC_PORT);
-        let include_ws = !self.draft.ws_port.trim().is_empty();
+        let include_ws = !self.fleet.draft.ws_port.trim().is_empty();
 
-        match plan_available_node_ports(&self.nodes, None, preferred_rpc, include_ws) {
+        match plan_available_node_ports(&self.fleet.nodes, None, preferred_rpc, include_ws) {
             Ok(assignment) => {
                 self.apply_port_assignment_to_draft(assignment);
-                self.notice = Some(format!("Draft ports assigned: {}", assignment.summary()));
+                self.session.notice = Some(format!("Draft ports assigned: {}", assignment.summary()));
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
     pub(in crate::app) fn assign_available_ports_to_selected_node(&mut self) {
         let Some(node) = self.selected_node().cloned() else {
-            self.notice = Some("Select a node before assigning ports".to_string());
+            self.session.notice = Some("Select a node before assigning ports".to_string());
             return;
         };
 
         if node.status.is_active() {
-            self.notice = Some("Stop the selected node before assigning ports".to_string());
+            self.session.notice = Some("Stop the selected node before assigning ports".to_string());
             return;
         }
 
         let include_ws = node.ws_port.is_some();
-        match plan_available_node_ports(&self.nodes, Some(&node.id), node.rpc_port, include_ws) {
+        match plan_available_node_ports(&self.fleet.nodes, Some(&node.id), node.rpc_port, include_ws) {
             Ok(assignment) => {
                 if node.rpc_port == assignment.rpc_port
                     && node.p2p_port == assignment.p2p_port
                     && node.ws_port == assignment.ws_port
                 {
-                    self.notice = Some(format!(
+                    self.session.notice = Some(format!(
                         "{} already uses an available port block: {}",
                         node.name,
                         assignment.summary()
@@ -68,21 +68,21 @@ impl NeoNexusApp {
                             EventSeverity::Info,
                             message.clone(),
                         );
-                        self.selected_node = Some(updated.id.clone());
-                        self.notice = Some(message);
+                        self.fleet.selected_node = Some(updated.id.clone());
+                        self.session.notice = Some(message);
                         self.reload_nodes();
                     }
-                    Err(error) => self.notice = Some(error.to_string()),
+                    Err(error) => self.session.notice = Some(error.to_string()),
                 }
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
     pub(in crate::app) fn apply_port_assignment_to_draft(&mut self, assignment: PortAssignment) {
-        self.draft.rpc_port = assignment.rpc_port.to_string();
-        self.draft.p2p_port = assignment.p2p_port.to_string();
-        self.draft.ws_port = assignment
+        self.fleet.draft.rpc_port = assignment.rpc_port.to_string();
+        self.fleet.draft.p2p_port = assignment.p2p_port.to_string();
+        self.fleet.draft.ws_port = assignment
             .ws_port
             .map_or_else(String::new, |port| port.to_string());
     }

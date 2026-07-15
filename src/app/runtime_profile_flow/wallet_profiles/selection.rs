@@ -7,7 +7,7 @@ impl NeoNexusApp {
                 self.neo_wallet_profiles = profiles;
                 self.ensure_valid_neo_wallet_profile_selection();
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 

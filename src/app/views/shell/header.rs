@@ -17,8 +17,8 @@ impl NeoNexusApp {
             ui.add_space(theme::XS);
             ui.vertical(|ui| {
                 ui.add_space(1.0);
-                ui.label(theme::page_title(self.selected_view.title()));
-                ui.label(theme::muted_body(self.selected_view.subtitle()));
+                ui.label(theme::page_title(self.session.selected_view.title()));
+                ui.label(theme::muted_body(self.session.selected_view.subtitle()));
             });
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {

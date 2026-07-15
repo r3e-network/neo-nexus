@@ -18,7 +18,7 @@ impl NeoNexusApp {
             self.selected_runtime_release = Some(id);
             self.load_selected_runtime_release_into_draft();
         } else {
-            self.notice = Some("No compatible catalog release for this runtime".to_string());
+            self.session.notice = Some("No compatible catalog release for this runtime".to_string());
         }
     }
 }

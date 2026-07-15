@@ -8,14 +8,14 @@ impl NeoNexusApp {
             .prune_events_keep_recent(keep_before_audit_event)
         {
             Ok(deleted) => {
-                self.event_page = 0;
-                self.selected_event = None;
+                self.operations_ui.event_page = 0;
+                self.operations_ui.selected_event = None;
                 let message = format!(
                     "Event journal pruned: {deleted} removed, retaining {EVENT_RETAIN_AFTER_PRUNE}"
                 );
                 self.record_event_notice(EventKind::EventsPruned, EventSeverity::Warning, message);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
@@ -30,7 +30,7 @@ impl NeoNexusApp {
                 );
                 self.record_event_notice(EventKind::EventsPruned, EventSeverity::Info, message);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
@@ -45,7 +45,7 @@ impl NeoNexusApp {
                 );
                 self.record_event_notice(EventKind::EventsPruned, EventSeverity::Info, message);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

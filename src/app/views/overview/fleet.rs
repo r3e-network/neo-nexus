@@ -13,7 +13,7 @@ use super::super::super::{
 };
 
 pub(super) fn render_fleet_snapshot(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
-    if app.nodes.is_empty() {
+    if app.fleet.nodes.is_empty() {
         empty_state(
             ui,
             "Empty fleet",
@@ -30,11 +30,11 @@ pub(super) fn render_fleet_snapshot(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     }
 
     let total_pages = page_count(nodes.len(), OVERVIEW_FLEET_PAGE_SIZE);
-    app.overview_fleet_page = app.overview_fleet_page.min(total_pages - 1);
-    pagination_bar(ui, &mut app.overview_fleet_page, total_pages, nodes.len());
+    app.fleet.overview_fleet_page = app.fleet.overview_fleet_page.min(total_pages - 1);
+    pagination_bar(ui, &mut app.fleet.overview_fleet_page, total_pages, nodes.len());
     ui.add_space(theme::SM);
 
-    let start = app.overview_fleet_page * OVERVIEW_FLEET_PAGE_SIZE;
+    let start = app.fleet.overview_fleet_page * OVERVIEW_FLEET_PAGE_SIZE;
     let rows = nodes
         .iter()
         .skip(start)
@@ -54,14 +54,14 @@ fn render_fleet_filter(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
         ui.label(theme::muted_body("Status"));
         chip_pill(ui, |ui| {
-            if filter_chip(ui, "All", app.node_status_filter.is_none()) {
+            if filter_chip(ui, "All", app.fleet.node_status_filter.is_none()) {
                 app.set_fleet_status_filter(None);
             }
             for status in NodeStatus::ALL {
                 if filter_chip(
                     ui,
                     status.label(),
-                    app.node_status_filter == Some(status),
+                    app.fleet.node_status_filter == Some(status),
                 ) {
                     app.set_fleet_status_filter(Some(status));
                 }
@@ -70,7 +70,7 @@ fn render_fleet_filter(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     });
     let response = ui.add_sized(
         [ui.available_width(), 28.0],
-        egui::TextEdit::singleline(&mut app.node_query).hint_text("Search fleet"),
+        egui::TextEdit::singleline(&mut app.fleet.node_query).hint_text("Search fleet"),
     );
     if response.changed() {
         app.reset_fleet_paging();
@@ -80,7 +80,7 @@ fn render_fleet_filter(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
 
 fn render_fleet_cards(app: &mut NeoNexusApp, ui: &mut egui::Ui, rows: &[&NodeConfig]) {
     for node in rows {
-        let selected = app.selected_node.as_deref() == Some(node.id.as_str());
+        let selected = app.fleet.selected_node.as_deref() == Some(node.id.as_str());
         if node_row(ui, node, selected, false) {
             select_fleet_node(app, node.id.clone());
         }
@@ -96,7 +96,7 @@ fn render_fleet_table(app: &mut NeoNexusApp, ui: &mut egui::Ui, rows: &[&NodeCon
             grid_header(ui, &["Name", "Type", "Network", "RPC", "Status"]);
 
             for node in rows {
-                let selected = app.selected_node.as_deref() == Some(node.id.as_str());
+                let selected = app.fleet.selected_node.as_deref() == Some(node.id.as_str());
                 if ui
                     .selectable_label(selected, truncate_middle(&node.name, 22))
                     .clicked()

@@ -11,12 +11,12 @@ impl NeoNexusApp {
         let nodes = match self.private_network_materialized_nodes(&plan) {
             Ok(nodes) => nodes,
             Err(error) => {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return;
             }
         };
         if let Some(message) = launch_pack_running_node_notice(&nodes) {
-            self.notice = Some(message);
+            self.session.notice = Some(message);
             return;
         }
 
@@ -26,7 +26,7 @@ impl NeoNexusApp {
         ) {
             Ok(committee) => committee,
             Err(error) => {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return;
             }
         };
@@ -42,7 +42,7 @@ impl NeoNexusApp {
 
         match PrivateNetworkDeploymentExporter::write(request) {
             Ok(export) => self.record_private_launch_pack_export(export),
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
@@ -78,7 +78,7 @@ impl NeoNexusApp {
             export_message.clone(),
         );
         let validation_message = self.validate_private_network_launch_pack(&export.root_path);
-        self.notice = Some(format!("{export_message}; {validation_message}"));
+        self.session.notice = Some(format!("{export_message}; {validation_message}"));
     }
 }
 

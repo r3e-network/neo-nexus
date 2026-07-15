@@ -11,7 +11,7 @@ use super::super::super::{
 const MISSING_ROWS: usize = 4;
 
 pub(super) fn render_telemetry_health(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
-    let running_nodes = app
+    let running_nodes = app.fleet
         .nodes
         .iter()
         .filter(|node| node.status.is_running())
@@ -72,7 +72,7 @@ fn render_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
         if secondary_button(ui, "Refresh").clicked() {
             app.refresh_metrics_now();
-            app.notice = Some("Telemetry refreshed".to_string());
+            app.session.notice = Some("Telemetry refreshed".to_string());
         }
         if secondary_button_enabled(ui, "Focus Missing", can_reconcile)
             .on_hover_text("Show missing running-node PIDs in the process table")

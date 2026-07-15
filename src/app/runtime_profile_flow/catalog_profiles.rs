@@ -13,7 +13,7 @@ impl NeoNexusApp {
                     }
                 }
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
@@ -55,11 +55,11 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn load_selected_runtime_catalog_profile_into_form(&mut self) {
         let Some(profile) = self.selected_runtime_catalog_profile() else {
-            self.notice = Some("Select a runtime catalog profile first".to_string());
+            self.session.notice = Some("Select a runtime catalog profile first".to_string());
             return;
         };
         self.apply_runtime_catalog_profile_to_form(&profile);
-        self.notice = Some(format!("Runtime catalog profile loaded: {}", profile.label));
+        self.session.notice = Some(format!("Runtime catalog profile loaded: {}", profile.label));
     }
 
     pub(in crate::app) fn save_runtime_catalog_profile(&mut self) {
@@ -92,27 +92,27 @@ impl NeoNexusApp {
             Ok(()) => {
                 self.selected_runtime_catalog_profile = Some(id);
                 self.reload_runtime_catalog_profiles();
-                self.notice = Some(format!("Runtime catalog profile saved: {}", profile.label));
+                self.session.notice = Some(format!("Runtime catalog profile saved: {}", profile.label));
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
     pub(in crate::app) fn delete_selected_runtime_catalog_profile(&mut self) {
         let Some(profile) = self.selected_runtime_catalog_profile() else {
-            self.notice = Some("Select a runtime catalog profile first".to_string());
+            self.session.notice = Some("Select a runtime catalog profile first".to_string());
             return;
         };
         match self.repository.delete_runtime_catalog_profile(&profile.id) {
             Ok(()) => {
                 self.selected_runtime_catalog_profile = None;
                 self.reload_runtime_catalog_profiles();
-                self.notice = Some(format!(
+                self.session.notice = Some(format!(
                     "Runtime catalog profile deleted: {}",
                     profile.label
                 ));
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

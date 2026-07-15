@@ -3,7 +3,7 @@ use super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn save_rpc_health_monitor_policy(&mut self) {
         if let Some(message) = self.rpc_health_monitor_policy_draft.validation_message() {
-            self.notice = Some(message.to_string());
+            self.session.notice = Some(message.to_string());
             return;
         }
 
@@ -24,14 +24,14 @@ impl NeoNexusApp {
                     message,
                 );
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
     pub(in crate::app) fn reset_rpc_health_monitor_policy_draft(&mut self) {
         self.rpc_health_monitor_policy_draft =
             RpcHealthMonitorPolicyDraft::from_policy(self.rpc_health_monitor_policy);
-        self.notice = Some("RPC health monitor policy draft reset".to_string());
+        self.session.notice = Some("RPC health monitor policy draft reset".to_string());
     }
 
     pub(in crate::app) fn save_remote_federation_monitor_policy(&mut self) {
@@ -39,7 +39,7 @@ impl NeoNexusApp {
             .remote_federation_monitor_policy_draft
             .validation_message()
         {
-            self.notice = Some(message.to_string());
+            self.session.notice = Some(message.to_string());
             return;
         }
 
@@ -65,13 +65,13 @@ impl NeoNexusApp {
                     message,
                 );
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
     pub(in crate::app) fn reset_remote_federation_monitor_policy_draft(&mut self) {
         self.remote_federation_monitor_policy_draft =
             RemoteFederationMonitorPolicyDraft::from_policy(self.remote_federation_monitor_policy);
-        self.notice = Some("Remote Federation monitor policy draft reset".to_string());
+        self.session.notice = Some("Remote Federation monitor policy draft reset".to_string());
     }
 }
