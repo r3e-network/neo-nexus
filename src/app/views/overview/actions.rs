@@ -81,7 +81,7 @@ fn render_action_card(
                         ui.add_space(theme::XS);
                         text_badge(ui, &format!("score {}", action.node_score), theme::muted_text());
                     });
-                    ui.add_space(2.0);
+                    ui.add_space(theme::XS);
                     ui.label(theme::body(truncate_middle(&action.title, 42)));
                     ui.label(theme::muted_body(truncate_middle(&action.detail, 64)));
                 });
