@@ -1,14 +1,11 @@
 use eframe::egui;
 
-use crate::app::domain::{NodeConfig, NodeStatus};
+use crate::app::domain::NodeStatus;
 
 use super::super::super::{
     paging::page_count,
-    text::truncate_middle,
     theme,
-    widgets::{
-        chip_pill, empty_state, filter_chip, grid_header, node_row, pagination_bar, status_badge,
-    },
+    widgets::{chip_pill, empty_state, filter_chip, node_row, pagination_bar},
     NeoNexusApp, OVERVIEW_FLEET_PAGE_SIZE,
 };
 
@@ -41,12 +38,13 @@ pub(super) fn render_fleet_snapshot(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         .take(OVERVIEW_FLEET_PAGE_SIZE)
         .collect::<Vec<_>>();
 
-    // Card-style rows when the pane is narrow enough; fall back to a compact
-    // grid when many columns still fit comfortably.
-    if ui.available_width() < 420.0 {
-        render_fleet_cards(app, ui, &rows);
-    } else {
-        render_fleet_table(app, ui, &rows);
+    // Always use the shared node_row matrix (×0.16) — no second selection geometry.
+    for node in rows {
+        let selected = app.fleet.selected_node.as_deref() == Some(node.id.as_str());
+        if node_row(ui, node, selected, false) {
+            app.select_fleet_node(Some(node.id.clone()));
+        }
+        ui.add_space(theme::XS);
     }
 }
 
@@ -69,49 +67,14 @@ fn render_fleet_filter(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         });
     });
     let response = ui.add_sized(
-        [ui.available_width(), 28.0],
+        [
+            ui.available_width(),
+            theme::DensityMetrics::COMFORTABLE.interact_y,
+        ],
         egui::TextEdit::singleline(&mut app.fleet.node_query).hint_text("Search fleet"),
     );
     if response.changed() {
         app.reset_fleet_paging();
     }
     ui.add_space(theme::SM);
-}
-
-fn render_fleet_cards(app: &mut NeoNexusApp, ui: &mut egui::Ui, rows: &[&NodeConfig]) {
-    for node in rows {
-        let selected = app.fleet.selected_node.as_deref() == Some(node.id.as_str());
-        if node_row(ui, node, selected, false) {
-            select_fleet_node(app, node.id.clone());
-        }
-        ui.add_space(theme::XS);
-    }
-}
-
-fn render_fleet_table(app: &mut NeoNexusApp, ui: &mut egui::Ui, rows: &[&NodeConfig]) {
-    egui::Grid::new("fleet_snapshot")
-        .striped(true)
-        .min_col_width(74.0)
-        .show(ui, |ui| {
-            grid_header(ui, &["Name", "Type", "Network", "RPC", "Status"]);
-
-            for node in rows {
-                let selected = app.fleet.selected_node.as_deref() == Some(node.id.as_str());
-                if ui
-                    .selectable_label(selected, truncate_middle(&node.name, 22))
-                    .clicked()
-                {
-                    select_fleet_node(app, node.id.clone());
-                }
-                ui.label(node.node_type.to_string());
-                ui.label(node.network.to_string());
-                ui.label(node.rpc_port.to_string());
-                status_badge(ui, node.status);
-                ui.end_row();
-            }
-        });
-}
-
-fn select_fleet_node(app: &mut NeoNexusApp, id: String) {
-    app.select_fleet_node(Some(id));
 }
