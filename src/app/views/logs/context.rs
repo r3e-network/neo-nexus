@@ -7,7 +7,7 @@ use crate::app::domain::{LogReader, LogSnapshot, NodeConfig, NodeStatus};
 use super::{
     super::super::{
         text::{short_path, truncate_middle},
-        theme::{section_title, status_color},
+        theme::{self, section_title, status_color},
         widgets::{fact, render_node_fact_sheet, secondary_button, secondary_button_enabled},
         NeoNexusApp,
     },
@@ -27,7 +27,7 @@ pub(super) fn render_log_context(
     ui.separator();
     fact(ui, "File", &short_path(path, 42));
     render_snapshot_facts(app, ui, snapshot);
-    ui.add_space(8.0);
+    ui.add_space(theme::SM);
     render_log_controls(app, ui);
 }
 

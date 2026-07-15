@@ -9,7 +9,7 @@ use eframe::egui;
 
 use super::super::{
     theme,
-    widgets::{panel, segmented_control},
+    widgets::{page_chrome, panel},
     NeoNexusApp,
 };
 
@@ -22,10 +22,9 @@ impl NeoNexusApp {
         ui.add_space(theme::MD);
         let mut index = self.sections.monitor as usize;
         let labels = MonitorSection::ALL.map(MonitorSection::label);
-        if segmented_control(ui, &labels, &mut index) {
+        if page_chrome(ui, None, Some((&labels, &mut index))) {
             self.sections.monitor = MonitorSection::ALL[index];
         }
-        ui.add_space(theme::MD);
 
         match self.sections.monitor {
             MonitorSection::Pressure => panel(ui, "System pressure", |ui| {

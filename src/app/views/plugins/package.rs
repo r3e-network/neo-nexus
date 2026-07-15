@@ -4,7 +4,7 @@ use crate::app::domain::{format_bytes, NodeConfig, PluginDefinition};
 
 use super::super::super::{
     text::truncate_middle,
-    theme::muted_text,
+    theme::{self, muted_text},
     widgets::{fact, labeled_text},
     NeoNexusApp,
 };
@@ -44,7 +44,7 @@ pub(super) fn render_plugin_package_installer(
         fact(ui, "SHA-256", &truncate_middle(&installation.sha256, 42));
     }
 
-    ui.add_space(8.0);
+    ui.add_space(theme::SM);
     labeled_text(ui, "ZIP", &mut app.plugin_package_source);
     labeled_text(ui, "SHA-256", &mut app.plugin_package_expected_sha256);
 
