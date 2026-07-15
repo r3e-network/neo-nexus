@@ -6,7 +6,7 @@ use crate::app::domain::FleetDiagnostics;
 
 use super::super::super::{
     text::short_path,
-    theme::muted_text,
+    theme::{self, muted_text},
     widgets::{fact, secondary_button, secondary_button_enabled},
     NeoNexusApp,
 };
@@ -62,7 +62,7 @@ impl NeoNexusApp {
             });
         });
         fact(ui, "Validated", &safety.backup_validation.counts_label);
-        ui.add_space(8.0);
+        ui.add_space(theme::SM);
 
         ui.horizontal(|ui| {
             if secondary_button_enabled(ui, "Export", safety.can_export())
@@ -97,7 +97,7 @@ impl NeoNexusApp {
             }
         });
 
-        ui.add_space(4.0);
+        ui.add_space(theme::XS);
         ui.label(egui::RichText::new(&safety.integrity.hint).color(muted_text()));
         ui.label(egui::RichText::new(&safety.backup_validation.hint).color(muted_text()));
 

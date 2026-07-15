@@ -57,7 +57,7 @@ impl NeoNexusApp {
         let checks = self.filtered_readiness_checks(&node);
         render_checks(self, ui, &node, &checks);
 
-        ui.add_space(6.0);
+        ui.add_space(theme::SM);
         ui.horizontal(|ui| {
             if ui.button("Node Studio").clicked() {
                 self.session.selected_view = View::Nodes;

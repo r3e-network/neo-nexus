@@ -15,7 +15,7 @@ fn comfortable_matches_shipped_style_baseline() {
 }
 
 #[test]
-fn compact_densifies_controls_only() {
+fn compact_densifies_controls_and_single_line_lists() {
     let c = DensityMetrics::COMPACT;
     let k = DensityMetrics::COMFORTABLE;
     assert!(c.interact_y < k.interact_y);
@@ -24,9 +24,12 @@ fn compact_densifies_controls_only() {
     assert!(c.item_spacing_x < k.item_spacing_x);
     assert!(c.item_spacing_y < k.item_spacing_y);
     assert!(c.nav_row_height < k.nav_row_height);
-    // List heights stay Comfortable until geometry proof.
-    assert_eq!(c.list_row_compact, k.list_row_compact);
-    assert_eq!(c.list_row_expanded, k.list_row_expanded);
+    // Single-line inventory/fleet anatomy after geometry proof.
+    assert_eq!(c.list_row_compact, 40.0);
+    assert_eq!(c.list_row_expanded, 40.0);
+    assert!(c.list_row_compact < k.list_row_compact);
+    assert!(c.list_row_expanded < k.list_row_expanded);
+    // Journal multi-line event rows stay Comfortable-height.
     assert_eq!(c.journal_slot, k.journal_slot);
 }
 
@@ -58,20 +61,26 @@ fn default_density_is_comfortable() {
     assert_eq!(UiDensity::default(), UiDensity::Comfortable);
 }
 
-/// Geometry proof gate (PR-14-full): Compact list anatomy stays locked to
-/// Comfortable. Future Compact list densification may only change these
-/// three fields after a new proof PR rewrites this assertion with evidence.
+/// Geometry proof: Compact inventory page of 7×40 + gaps fits the workbench
+/// content column (design math in ui-system-redesign-v3.1.md §1.6).
 #[test]
-fn compact_list_anatomy_gate_locked_to_comfortable() {
-    let c = DensityMetrics::COMPACT;
-    let k = DensityMetrics::COMFORTABLE;
-    assert_eq!(
-        (c.list_row_compact, c.list_row_expanded, c.journal_slot),
-        (k.list_row_compact, k.list_row_expanded, k.journal_slot),
-        "Compact list heights may only change after a geometry proof PR"
+fn compact_inventory_page_fits_workbench_content_column() {
+    const NODE_PAGE_SIZE: usize = 7;
+    const WORKBENCH_H: f32 = 820.0 - 60.0 - 28.0; // screen − header − status
+    // Inventory: filter + mini-stats + pagination leave ~620 usable; use 500 as
+    // a conservative lower bound for the list region alone.
+    const LIST_REGION_MIN: f32 = 500.0;
+    let row = DensityMetrics::COMPACT.list_row_compact;
+    let gap = 4.0; // theme::XS
+    let page_h = NODE_PAGE_SIZE as f32 * (row + gap);
+    assert!(
+        page_h < LIST_REGION_MIN,
+        "7 compact rows need {page_h}pt; list region ≥ {LIST_REGION_MIN}"
     );
-    // Document the shipped Comfortable anatomy so a silent drift fails loudly.
-    assert_eq!(k.list_row_compact, 44.0);
-    assert_eq!(k.list_row_expanded, 56.0);
-    assert_eq!(k.journal_slot, 52.0);
+    assert!(
+        page_h < WORKBENCH_H,
+        "compact inventory page must fit workbench height {WORKBENCH_H}"
+    );
+    // Single-line anatomy requires ≥ ~40pt (design floor).
+    assert!(row >= 40.0);
 }

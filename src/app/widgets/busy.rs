@@ -14,7 +14,6 @@ pub(in crate::app) fn busy_inline(ui: &mut egui::Ui, label: &str) {
 }
 
 /// Stronger busy strip for multi-step work (install/download).
-#[allow(dead_code)] // surfaces adopt in later PRs
 pub(in crate::app) fn loading_callout(ui: &mut egui::Ui, title: &str, detail: &str) {
     egui::Frame::new()
         .fill(theme::card_surface())

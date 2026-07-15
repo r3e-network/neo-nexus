@@ -41,7 +41,7 @@ pub(super) fn render_fleet_snapshot(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     // Always use the shared node_row matrix (×0.16) — no second selection geometry.
     for node in rows {
         let selected = app.fleet.selected_node.as_deref() == Some(node.id.as_str());
-        if node_row(ui, node, selected, false) {
+        if node_row(ui, node, selected, false, app.session.density) {
             app.select_fleet_node(Some(node.id.clone()));
         }
         ui.add_space(theme::XS);

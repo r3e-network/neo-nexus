@@ -3,7 +3,7 @@ use eframe::egui;
 use crate::app::domain::{Network, NodeType};
 
 use super::super::super::{
-    theme::muted_text,
+    theme::{self, muted_text},
     widgets::{labeled_combo, labeled_text, primary_button},
     NeoNexusApp,
 };
@@ -59,7 +59,7 @@ impl NeoNexusApp {
         });
         labeled_text(ui, "SHA-256", &mut self.snapshot_draft.expected_sha256);
 
-        ui.add_space(8.0);
+        ui.add_space(theme::SM);
         ui.horizontal(|ui| {
             if primary_button(ui, "Save Manifest").clicked() {
                 self.save_snapshot_manifest();

@@ -19,7 +19,6 @@ mod toolbar;
 pub(super) use badges::{
     severity_badge, severity_color, status_badge, status_dot, text_badge,
 };
-#[allow(unused_imports)] // loading_callout reserved for multi-step install UX
 pub(super) use busy::{busy_inline, loading_callout};
 pub(super) use callout::{callout, CalloutKind};
 pub(super) use confirm_bar::confirm_bar;
