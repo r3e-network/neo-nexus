@@ -51,7 +51,7 @@ impl NeoNexusApp {
             }
         });
         ui.label(theme::muted_body(
-            "Compact tightens buttons and spacing; list and chrome sizes stay fixed.",
+            "Compact tightens buttons/spacing and uses single-line inventory rows; chrome stays fixed.",
         ));
     }
 

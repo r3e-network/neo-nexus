@@ -5,15 +5,18 @@ UI phases; shell, widgets, view presentation, and navigation IA change.
 Shipped as **3.0.0** (breaking UI information architecture). Visual system
 completed as **3.1.0** (`docs/ui-system-redesign-v3.1.md`): density preference,
 page_chrome, list_row matrix, density-invariant chrome 60/28/212.
+**3.2.0** unlocks Compact single-line inventory/fleet densification and adds
+`tests/ui_operator_walkthrough.rs` regression coverage.
 
-### Density contracts (3.1.0+)
+### Density contracts (3.2.0)
 
 | Mode | Controls | Inventory / fleet rows | Journal | Chrome |
 |------|----------|------------------------|---------|--------|
 | Comfortable | interact 28, pad 14×8, spacing 10×8, nav 34 | two-line 44 / 56 | 52 | 60 / 28 / 212 |
 | Compact | interact 24, pad 10×6, spacing 8×6, nav 28 | **single-line 40 / 40** | 52 | **same** |
 
-Headless proof: `cargo test --test ui_density_geometry` and unit
+Headless proof: `cargo test --test ui_density_geometry`,
+`cargo test --test ui_operator_walkthrough`, and unit
 `compact_inventory_page_fits_workbench_content_column`. Compact `node_row`
 uses single-line anatomy (dot + name + type + net + port + status).
 
