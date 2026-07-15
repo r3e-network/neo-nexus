@@ -2,7 +2,9 @@
 
 Started from app version 2.5.3. Domain and CLI behaviour stay frozen across
 UI phases; shell, widgets, view presentation, and navigation IA change.
-Shipped as **3.0.0** (breaking UI information architecture).
+Shipped as **3.0.0** (breaking UI information architecture). Visual system
+completed as **3.1.0** (`docs/ui-system-redesign-v3.1.md`): density preference,
+page_chrome, list_row matrix, density-invariant chrome 60/28/212.
 
 ## Visual truth
 
