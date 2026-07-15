@@ -39,7 +39,6 @@ pub(super) use layout::{
 pub(super) use list_row::list_row_frame;
 pub(super) use node_row::node_row;
 pub(super) use nodes::{fact, fact_error, render_node_fact_sheet};
-#[allow(unused_imports)] // surfaces adopt page_chrome in PR-07+
 pub(super) use page_chrome::page_chrome;
 #[allow(unused_imports)]
 pub(super) use page_header::page_header;

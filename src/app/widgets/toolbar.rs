@@ -46,12 +46,13 @@ impl ToolbarAction {
     }
 }
 
-/// Renders a left-to-right toolbar of primary then secondary actions.
+/// Renders a wrapping toolbar of primary then secondary actions.
 /// Returns the `id` of the action clicked this frame, if any.
 pub(in crate::app) fn toolbar(ui: &mut egui::Ui, actions: &[ToolbarAction]) -> Option<&'static str> {
     let mut clicked = None;
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing.x = theme::SM;
+        ui.spacing_mut().item_spacing.y = theme::XS;
         for action in actions {
             let response = if action.primary {
                 ui.add_enabled_ui(action.enabled, |ui| primary_button(ui, action.label))
