@@ -56,19 +56,19 @@ impl NeoNexusApp {
     pub(in crate::app) fn render_application_panels(&mut self, context: &egui::Context) {
         egui::TopBottomPanel::top("application_header")
             .resizable(false)
-            .exact_height(60.0)
+            .exact_height(theme::CHROME_HEADER_HEIGHT)
             .frame(chrome_frame().inner_margin(egui::Margin::symmetric(16, 10)))
             .show(context, |ui| self.render_application_header(ui));
 
         egui::TopBottomPanel::bottom("status_bar")
             .resizable(false)
-            .exact_height(28.0)
+            .exact_height(theme::CHROME_STATUS_HEIGHT)
             .frame(chrome_frame().inner_margin(egui::Margin::symmetric(12, 4)))
             .show(context, |ui| self.render_status_bar(ui));
 
         egui::SidePanel::left("navigation_panel")
             .resizable(false)
-            .exact_width(212.0)
+            .exact_width(theme::CHROME_SIDEBAR_WIDTH)
             .frame(chrome_frame().inner_margin(egui::Margin::symmetric(12, 14)))
             .show(context, |ui| self.render_navigation_sidebar(ui));
 

@@ -19,8 +19,8 @@ pub(in crate::app) use style::configure_style_with_density;
 #[allow(unused_imports)] // PR-02/05/12 adopt density metrics and XL spacing
 pub(in crate::app) use density::{DensityMetrics, UiDensity};
 pub(in crate::app) use tokens::{
-    body, column_header, label_caption, metric_value, muted_body, page_title, section_title, LG,
-    MD, SM, XS,
+    body, column_header, label_caption, metric_value, muted_body, page_title, section_title,
+    CHROME_HEADER_HEIGHT, CHROME_SIDEBAR_WIDTH, CHROME_STATUS_HEIGHT, LG, MD, SM, XS,
 };
 #[allow(unused_imports)]
 pub(in crate::app) use tokens::XL;

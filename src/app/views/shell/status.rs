@@ -82,7 +82,7 @@ impl NeoNexusApp {
 
 fn status_chip(ui: &mut egui::Ui, label: &str, value: &str, color: Option<egui::Color32>) {
     ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 4.0;
+        ui.spacing_mut().item_spacing.x = theme::XS;
         ui.label(theme::muted_body(label));
         let text = theme::body(value).strong();
         ui.label(match color {
