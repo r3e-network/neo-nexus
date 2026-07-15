@@ -9,6 +9,11 @@ workbench with fixed inventory, workspace, inspector, toolbar, menu, and status
 regions. Long operational data is handled with filters, paging, and focused
 detail panels instead of a scroll-first web page layout.
 
+**3.1.0** completes the visual system: shared `page_chrome` / `list_row` kit,
+Comfortable/Compact density (controls only; list and chrome sizes stay fixed at
+header 60 / status 28 / sidebar 212), and consistent empty/busy/confirm patterns.
+See `docs/ui-system-redesign-v3.1.md`.
+
 ## What Operators Can Do
 
 - Manage neo-cli, neo-go, and neo-rs node definitions from one native app.
