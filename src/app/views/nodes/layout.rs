@@ -1,5 +1,7 @@
 use eframe::egui;
 
+use crate::app::theme;
+
 pub(super) struct NodePaneLayout {
     pub(super) definition_width: f32,
     pub(super) selected_width: f32,
@@ -8,7 +10,7 @@ pub(super) struct NodePaneLayout {
 }
 
 pub(super) fn node_pane_layout(available: egui::Vec2) -> NodePaneLayout {
-    let gap = 8.0;
+    let gap = theme::SM;
     // The definition form is the dominant pane (62% share); the selected-node
     // summary takes the remainder. Both are derived from the available width so
     // they always fit the CentralPanel — floors are a fraction of the available

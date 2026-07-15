@@ -1,5 +1,7 @@
 use eframe::egui;
 
+use crate::app::theme;
+
 pub(super) struct WalletPaneLayout {
     pub(super) import_width: f32,
     pub(super) registry_width: f32,
@@ -9,7 +11,7 @@ pub(super) struct WalletPaneLayout {
 }
 
 pub(super) fn wallet_pane_layout(available: egui::Vec2) -> WalletPaneLayout {
-    let gap = 8.0;
+    let gap = theme::SM;
     let import_width = (available.x * 0.38)
         .clamp(320.0, 440.0)
         .min((available.x - gap - 340.0).max(320.0));

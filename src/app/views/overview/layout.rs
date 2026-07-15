@@ -1,5 +1,7 @@
 use eframe::egui;
 
+use crate::app::theme;
+
 pub(super) struct OverviewLayout {
     pub(super) left_width: f32,
     pub(super) right_width: f32,
@@ -10,7 +12,7 @@ pub(super) struct OverviewLayout {
 }
 
 pub(super) fn overview_layout(available: egui::Vec2) -> OverviewLayout {
-    let gap = 8.0;
+    let gap = theme::SM;
     // Left selection column + right triage column (next actions over fleet).
     // Widths are fractional so three chrome panels never force overflow.
     let left_width = (available.x * 0.38).clamp(available.x * 0.28, available.x * 0.50);
