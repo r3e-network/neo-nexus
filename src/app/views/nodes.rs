@@ -6,8 +6,7 @@ mod workspace;
 use eframe::egui;
 
 use super::super::{
-    theme,
-    widgets::{panel, segmented_control},
+    widgets::{page_chrome, panel},
     NeoNexusApp,
 };
 
@@ -17,10 +16,10 @@ impl NeoNexusApp {
     pub(super) fn render_nodes(&mut self, ui: &mut egui::Ui) {
         let mut index = self.session.node_workspace_tab as usize;
         let labels = NodeWorkspaceTab::ALL.map(NodeWorkspaceTab::label);
-        if segmented_control(ui, &labels, &mut index) {
+        // Shell owns title; segments-only chrome per v3.1 contract.
+        if page_chrome(ui, None, Some((&labels, &mut index))) {
             self.session.node_workspace_tab = NodeWorkspaceTab::ALL[index];
         }
-        ui.add_space(theme::MD);
 
         match self.session.node_workspace_tab {
             NodeWorkspaceTab::Studio => self.render_node_studio(ui),
