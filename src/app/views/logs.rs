@@ -8,18 +8,27 @@ use eframe::egui;
 use crate::app::domain::LogReader;
 
 use super::super::{
-    widgets::{empty_state, panel},
+    view::View,
+    widgets::{empty_state_with_action, panel},
     NeoNexusApp, LOG_MAX_BYTES,
 };
 
 impl NeoNexusApp {
     pub(super) fn render_logs(&mut self, ui: &mut egui::Ui) {
         let Some(node) = self.selected_node().cloned() else {
-            empty_state(
+            let cta = if self.fleet.nodes.is_empty() {
+                Some("Create node")
+            } else {
+                None
+            };
+            if empty_state_with_action(
                 ui,
                 "No node selected",
-                "Choose a node from Inventory to inspect logs.",
-            );
+                "Choose a node from Inventory to inspect runtime logs.",
+                cta,
+            ) {
+                self.session.selected_view = View::Nodes;
+            }
             return;
         };
 
@@ -44,7 +53,7 @@ impl NeoNexusApp {
                 egui::vec2(layout.output_width, layout.height),
                 egui::Layout::top_down(egui::Align::Min),
                 |ui| {
-                    panel(ui, "Paged log output", |ui| {
+                    panel(ui, "Log output", |ui| {
                         output::render_log_output(self, ui, &snapshot);
                     });
                 },

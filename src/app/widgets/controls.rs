@@ -66,27 +66,20 @@ pub(in crate::app) fn pagination_bar(
     item_count: usize,
 ) {
     ui.horizontal(|ui| {
-        ui.label(theme::muted_body(format!("Items: {item_count}")));
+        ui.label(theme::muted_body(format!("{item_count} items")));
         ui.separator();
         ui.label(theme::muted_body(format!(
-            "Page {} / {}",
+            "{}/{}",
             *page + 1,
-            total_pages
+            total_pages.max(1)
         )));
-        chip_pill(ui, |ui| {
-            if ui
-                .add_enabled(*page > 0, egui::Button::new("Previous"))
-                .clicked()
-            {
-                *page -= 1;
-            }
-            if ui
-                .add_enabled(*page + 1 < total_pages, egui::Button::new("Next"))
-                .clicked()
-            {
-                *page += 1;
-            }
-        });
+        ui.add_space(theme::SM);
+        if secondary_button_enabled(ui, "Previous", *page > 0).clicked() {
+            *page -= 1;
+        }
+        if secondary_button_enabled(ui, "Next", *page + 1 < total_pages).clicked() {
+            *page += 1;
+        }
     });
 }
 

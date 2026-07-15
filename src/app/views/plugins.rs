@@ -7,18 +7,27 @@ mod package;
 use eframe::egui;
 
 use super::super::{
-    widgets::{empty_state, panel},
+    view::View,
+    widgets::{empty_state_with_action, panel},
     NeoNexusApp,
 };
 
 impl NeoNexusApp {
     pub(super) fn render_plugins(&mut self, ui: &mut egui::Ui) {
         let Some(node) = self.selected_node().cloned() else {
-            empty_state(
+            let cta = if self.fleet.nodes.is_empty() {
+                Some("Create node")
+            } else {
+                None
+            };
+            if empty_state_with_action(
                 ui,
                 "No node selected",
                 "Choose a node from Inventory before configuring plugins.",
-            );
+                cta,
+            ) {
+                self.session.selected_view = View::Nodes;
+            }
             return;
         };
 

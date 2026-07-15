@@ -3,7 +3,7 @@ use eframe::egui::{self, Color32};
 use crate::app::theme::{self, card_surface};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)] // Success/Danger reserved for later surfaces
+#[allow(dead_code)] // Success reserved for later surfaces
 pub(in crate::app) enum CalloutKind {
     Info,
     Success,

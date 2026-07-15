@@ -7,19 +7,28 @@ use eframe::egui;
 use crate::app::domain::{ConfigGenerator, ConfigValidator};
 
 use super::super::{
-    theme::muted_text,
-    widgets::{empty_state, panel},
+    theme,
+    view::View,
+    widgets::{empty_state_with_action, panel},
     NeoNexusApp,
 };
 
 impl NeoNexusApp {
     pub(super) fn render_config(&mut self, ui: &mut egui::Ui) {
         let Some(node) = self.selected_node().cloned() else {
-            empty_state(
+            let cta = if self.fleet.nodes.is_empty() {
+                Some("Create node")
+            } else {
+                None
+            };
+            if empty_state_with_action(
                 ui,
                 "No node selected",
                 "Choose a node from Inventory to preview configuration.",
-            );
+                cta,
+            ) {
+                self.session.selected_view = View::Nodes;
+            }
             return;
         };
 
@@ -44,11 +53,12 @@ impl NeoNexusApp {
                 egui::Layout::top_down(egui::Align::Min),
                 |ui| {
                     panel(ui, "Context", |ui| {
-                        ui.label(
-                            egui::RichText::new("Generated from selected Inventory node.")
-                                .color(muted_text()),
-                        );
+                        ui.label(theme::muted_body(
+                            "Generated from the selected Inventory node.",
+                        ));
+                        ui.add_space(theme::SM);
                         ui.separator();
+                        ui.add_space(theme::SM);
                         let context = context::ConfigContext {
                             node: &node,
                             rendered_config: &rendered_config,
@@ -63,10 +73,13 @@ impl NeoNexusApp {
                 },
             );
 
-            ui.add_space(8.0);
+            ui.add_space(theme::SM);
 
             ui.allocate_ui_with_layout(
-                egui::vec2((available.x - left_width - 8.0).max(420.0), available.y),
+                egui::vec2(
+                    (available.x - left_width - theme::SM).max(420.0),
+                    available.y,
+                ),
                 egui::Layout::top_down(egui::Align::Min),
                 |ui| {
                     preview::render_config_preview(ui, &mut self.config_page, &rendered_config);
