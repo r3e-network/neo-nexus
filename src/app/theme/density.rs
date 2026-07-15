@@ -31,8 +31,7 @@ impl UiDensity {
         }
     }
 
-    /// Settings control label (UI in PR-12).
-    #[allow(dead_code)]
+    /// Settings control label.
     pub(in crate::app) fn label(self) -> &'static str {
         match self {
             Self::Comfortable => "Comfortable",

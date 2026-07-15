@@ -12,11 +12,7 @@ pub(super) use icons::{
     brand_glyph, empty_glyph, glyph as view_icon_glyph, install as install_icons,
 };
 use palette::{active_theme, palette, set_active_theme};
-pub(super) use style::configure_style;
-// PR-12 will re-export configure_style_with_density for frame.rs.
-#[allow(unused_imports)]
 pub(in crate::app) use style::configure_style_with_density;
-#[allow(unused_imports)] // PR-02/05/12 adopt density metrics and XL spacing
 pub(in crate::app) use density::{DensityMetrics, UiDensity};
 pub(in crate::app) use tokens::{
     body, column_header, label_caption, metric_value, muted_body, page_title, section_title,
