@@ -15,6 +15,7 @@ pub(super) fn score_color(score: usize) -> egui::Color32 {
     }
 }
 
+#[allow(dead_code)] // used by readiness rows when not using severity_badge
 pub(super) fn severity_color(severity: CheckSeverity) -> egui::Color32 {
     match severity {
         CheckSeverity::Pass => theme::success(),

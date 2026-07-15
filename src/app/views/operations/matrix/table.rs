@@ -5,11 +5,10 @@ use crate::app::domain::PortMatrixRow;
 use super::super::{
     super::super::{
         text::truncate_middle,
-        theme::{muted_text, status_color},
-        widgets::grid_header,
+        theme,
+        widgets::{grid_header, severity_badge, status_badge},
         NeoNexusApp, PORT_MATRIX_PAGE_SIZE,
     },
-    helpers::severity_color,
 };
 
 pub(super) fn render_port_table(
@@ -43,21 +42,31 @@ pub(super) fn render_selected_port_summary(
         return;
     };
 
-    ui.separator();
-    ui.horizontal_wrapped(|ui| {
-        ui.label(egui::RichText::new("Selected").color(muted_text()));
-        ui.label(truncate_middle(&row.node_name, 22))
-            .on_hover_text(row.node_name.as_str());
-        ui.label(row.network.to_string());
-        ui.label(format!("RPC {}", row.rpc_port));
-        ui.label(format!("P2P {}", row.p2p_port));
-        ui.label(format!("WS {}", optional_port(row.ws_port)));
-        ui.label(
-            egui::RichText::new(row.health.label())
-                .strong()
-                .color(severity_color(row.health)),
-        );
-    });
+    ui.add_space(theme::SM);
+    egui::Frame::new()
+        .fill(theme::card_surface())
+        .stroke(theme::hairline())
+        .corner_radius(egui::CornerRadius::same(10))
+        .inner_margin(egui::Margin::symmetric(12, 10))
+        .show(ui, |ui| {
+            ui.set_min_width(ui.available_width());
+            ui.horizontal(|ui| {
+                ui.label(theme::label_caption("Selected port row"));
+                ui.add_space(theme::SM);
+                status_badge(ui, row.status);
+                ui.add_space(theme::XS);
+                severity_badge(ui, row.health);
+            });
+            ui.add_space(theme::SM);
+            ui.label(theme::body(truncate_middle(&row.node_name, 36)).strong());
+            ui.label(theme::muted_body(format!(
+                "{} · RPC {} · P2P {} · WS {}",
+                row.network,
+                row.rpc_port,
+                row.p2p_port,
+                optional_port(row.ws_port)
+            )));
+        });
 }
 
 fn render_port_row(app: &mut NeoNexusApp, ui: &mut egui::Ui, row: &PortMatrixRow) {
@@ -73,18 +82,10 @@ fn render_port_row(app: &mut NeoNexusApp, ui: &mut egui::Ui, row: &PortMatrixRow
     ui.label(row.rpc_port.to_string());
     ui.label(row.p2p_port.to_string());
     ui.label(optional_port(row.ws_port));
-    ui.label(
-        egui::RichText::new(row.status.label())
-            .color(status_color(row.status))
-            .strong(),
-    );
-    ui.label(
-        egui::RichText::new(row.health.label())
-            .color(severity_color(row.health))
-            .strong(),
-    );
+    status_badge(ui, row.status);
+    severity_badge(ui, row.health);
 }
 
 fn optional_port(port: Option<u16>) -> String {
-    port.map_or_else(|| "-".to_string(), |port| port.to_string())
+    port.map_or_else(|| "—".to_string(), |value| value.to_string())
 }
