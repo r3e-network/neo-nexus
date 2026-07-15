@@ -11,7 +11,7 @@ use crate::app::domain::{RuntimeInstallation, RuntimePlatform};
 
 use super::super::{
     theme,
-    widgets::{metric_row, panel, segmented_control},
+    widgets::{metric_row, page_chrome, panel},
     NeoNexusApp,
 };
 
@@ -30,10 +30,9 @@ impl NeoNexusApp {
         ui.add_space(theme::MD);
         let mut index = self.sections.runtimes as usize;
         let labels = RuntimesSection::ALL.map(RuntimesSection::label);
-        if segmented_control(ui, &labels, &mut index) {
+        if page_chrome(ui, None, Some((&labels, &mut index))) {
             self.sections.runtimes = RuntimesSection::ALL[index];
         }
-        ui.add_space(theme::MD);
 
         match self.sections.runtimes {
             RuntimesSection::Install => panel(ui, "Install package", |ui| {

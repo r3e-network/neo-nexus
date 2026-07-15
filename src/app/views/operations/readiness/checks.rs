@@ -8,7 +8,7 @@ use super::super::{
         paging::page_count,
         text::truncate_middle,
         theme,
-        widgets::{pagination_bar, primary_button, severity_badge, text_badge},
+        widgets::{list_row_frame, pagination_bar, primary_button, severity_badge, text_badge},
         NeoNexusApp, READINESS_CHECK_PAGE_SIZE,
     },
     helpers::score_color,
@@ -40,39 +40,22 @@ pub(super) fn render_checks(
 }
 
 fn render_check_row(app: &mut NeoNexusApp, ui: &mut egui::Ui, check: &DiagnosticCheck) {
-    let selected = app.operations_ui
+    let selected = app
+        .operations_ui
         .selected_readiness_check
         .as_ref()
         .is_some_and(|key| key.matches(check));
-    let fill = if selected {
-        theme::accent().gamma_multiply(0.14)
-    } else {
-        theme::card_surface()
-    };
-    let stroke = if selected {
-        egui::Stroke::new(1.0, theme::accent())
-    } else {
-        theme::hairline()
-    };
-    let response = egui::Frame::new()
-        .fill(fill)
-        .stroke(stroke)
-        .corner_radius(egui::CornerRadius::same(8))
-        .inner_margin(egui::Margin::symmetric(10, 6))
-        .show(ui, |ui| {
-            ui.set_min_width(ui.available_width());
-            ui.horizontal(|ui| {
-                severity_badge(ui, check.severity);
-                ui.add_space(theme::SM);
-                ui.vertical(|ui| {
-                    ui.label(theme::body(check.title).strong());
-                    ui.label(theme::muted_body(truncate_middle(&check.detail, 72)));
-                });
+    // Content-height list row — no fixed min height (v3.1 readiness contract).
+    if list_row_frame(ui, selected, None, |ui| {
+        ui.horizontal(|ui| {
+            severity_badge(ui, check.severity);
+            ui.add_space(theme::SM);
+            ui.vertical(|ui| {
+                ui.label(theme::body(check.title).strong());
+                ui.label(theme::muted_body(truncate_middle(&check.detail, 72)));
             });
-        })
-        .response
-        .interact(egui::Sense::click());
-    if response.clicked() {
+        });
+    }) {
         app.select_readiness_check(check);
     }
 }
