@@ -84,7 +84,7 @@ fn runtime_upgrade_policy_rolls_running_fleet_nodes() -> anyhow::Result<()> {
     })?;
 
     let mut app = NeoNexusApp::new(repository);
-    app.selected_node = Some(node.id.clone());
+    app.fleet.selected_node = Some(node.id.clone());
     app.start_selected_node();
     let first_pid = app
         .selected_node()
@@ -115,7 +115,7 @@ fn runtime_upgrade_policy_rolls_running_fleet_nodes() -> anyhow::Result<()> {
     assert_eq!(upgraded.status, NodeStatus::Running);
     assert_ne!(first_pid, second_pid);
     assert_eq!(upgraded.runtime_version, "v1.3.0");
-    assert!(app.notice.as_deref().is_some_and(|notice| {
+    assert!(app.session.notice.as_deref().is_some_and(|notice| {
         notice.contains("Runtime upgrade policy manual run")
             && notice.contains("1 upgraded")
             && notice.contains("1 ready")

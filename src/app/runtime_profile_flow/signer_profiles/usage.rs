@@ -3,11 +3,11 @@ use super::super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn use_selected_runtime_signer_for_catalog(&mut self) {
         let Some(profile) = self.selected_runtime_signer_profile() else {
-            self.notice = Some("Select a trusted signer first".to_string());
+            self.session.notice = Some("Select a trusted signer first".to_string());
             return;
         };
         let Some(public_key) = profile.public_key_if_enabled().map(str::to_string) else {
-            self.notice = Some(format!("Trusted signer is disabled: {}", profile.label));
+            self.session.notice = Some(format!("Trusted signer is disabled: {}", profile.label));
             return;
         };
 
@@ -15,22 +15,22 @@ impl NeoNexusApp {
         self.runtime_catalog_public_key = public_key;
         match self.mark_runtime_signer_profile_used(&profile.id) {
             Ok(()) => {
-                self.notice = Some(format!(
+                self.session.notice = Some(format!(
                     "Trusted signer applied to runtime catalog: {}",
                     profile.label
                 ));
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
     pub(in crate::app) fn use_selected_runtime_signer_for_package(&mut self) {
         let Some(profile) = self.selected_runtime_signer_profile() else {
-            self.notice = Some("Select a trusted signer first".to_string());
+            self.session.notice = Some("Select a trusted signer first".to_string());
             return;
         };
         let Some(public_key) = profile.public_key_if_enabled().map(str::to_string) else {
-            self.notice = Some(format!("Trusted signer is disabled: {}", profile.label));
+            self.session.notice = Some(format!("Trusted signer is disabled: {}", profile.label));
             return;
         };
 
@@ -38,12 +38,12 @@ impl NeoNexusApp {
         self.runtime_package_draft.ed25519_public_key = public_key;
         match self.mark_runtime_signer_profile_used(&profile.id) {
             Ok(()) => {
-                self.notice = Some(format!(
+                self.session.notice = Some(format!(
                     "Trusted signer applied to runtime package: {}",
                     profile.label
                 ));
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 

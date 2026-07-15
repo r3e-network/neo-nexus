@@ -29,7 +29,7 @@ impl NeoNexusApp {
         message: String,
     ) {
         self.record_event(None, None, kind, severity, message.clone());
-        self.notice = Some(message);
+        self.session.notice = Some(message);
     }
 
     pub(super) fn record_event(
@@ -48,7 +48,7 @@ impl NeoNexusApp {
             message,
         }) {
             Ok(event) => self.route_alert_for_event(event),
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

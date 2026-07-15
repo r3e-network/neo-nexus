@@ -71,7 +71,7 @@ fn render_shortcut_button(
 }
 
 fn render_view_shortcut(app: &mut NeoNexusApp, ui: &mut egui::Ui, shortcut: AppShortcut) {
-    let selected = matches!(shortcut, AppShortcut::SelectView(view) if app.selected_view == view);
+    let selected = matches!(shortcut, AppShortcut::SelectView(view) if app.session.selected_view == view);
     if ui
         .selectable_label(selected, shortcut_command_label(shortcut))
         .on_hover_text(shortcut_menu_label(shortcut))

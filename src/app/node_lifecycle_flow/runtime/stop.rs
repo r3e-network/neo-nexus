@@ -2,7 +2,7 @@ use super::*;
 
 impl NeoNexusApp {
     pub(in crate::app) fn stop_node(&mut self, index: usize) {
-        let Some(node) = self.nodes.get(index).cloned() else {
+        let Some(node) = self.fleet.nodes.get(index).cloned() else {
             return;
         };
 
@@ -13,14 +13,14 @@ impl NeoNexusApp {
                     self.repository
                         .update_node_status(&node.id, NodeStatus::Stopped, None)
                 {
-                    self.notice = Some(error.to_string());
+                    self.session.notice = Some(error.to_string());
                 } else {
                     let detail = stop.map_or_else(
                         || "no supervised process was active".to_string(),
                         |stop| stop.operator_summary(),
                     );
                     let message = format!("{} stopped ({detail})", node.name);
-                    self.notice = Some(message.clone());
+                    self.session.notice = Some(message.clone());
                     self.record_node_event(
                         &node,
                         EventKind::NodeStopped,
@@ -30,7 +30,7 @@ impl NeoNexusApp {
                 }
                 self.reload_nodes();
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

@@ -15,14 +15,14 @@ pub(in crate::app) use workspace::NodeWorkspaceTab;
 
 impl NeoNexusApp {
     pub(super) fn render_nodes(&mut self, ui: &mut egui::Ui) {
-        let mut index = self.node_workspace_tab as usize;
+        let mut index = self.session.node_workspace_tab as usize;
         let labels = NodeWorkspaceTab::ALL.map(NodeWorkspaceTab::label);
         if segmented_control(ui, &labels, &mut index) {
-            self.node_workspace_tab = NodeWorkspaceTab::ALL[index];
+            self.session.node_workspace_tab = NodeWorkspaceTab::ALL[index];
         }
         ui.add_space(theme::MD);
 
-        match self.node_workspace_tab {
+        match self.session.node_workspace_tab {
             NodeWorkspaceTab::Studio => self.render_node_studio(ui),
             NodeWorkspaceTab::Config => self.render_config(ui),
             NodeWorkspaceTab::Logs => self.render_logs(ui),
@@ -61,7 +61,7 @@ impl NeoNexusApp {
 
     /// Open Nodes on a specific workspace tab (used by Home CTAs and legacy deep links).
     pub(in crate::app) fn open_node_workspace_tab(&mut self, tab: NodeWorkspaceTab) {
-        self.node_workspace_tab = tab;
-        self.selected_view = crate::app::view::View::Nodes;
+        self.session.node_workspace_tab = tab;
+        self.session.selected_view = crate::app::view::View::Nodes;
     }
 }

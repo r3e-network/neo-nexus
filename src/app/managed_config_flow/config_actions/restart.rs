@@ -14,7 +14,7 @@ impl NeoNexusApp {
         let export = match ConfigExporter::write_node_config_to_path(&path, &node, &plugins) {
             Ok(export) => export,
             Err(error) => {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return;
             }
         };
@@ -65,7 +65,7 @@ impl NeoNexusApp {
             EventSeverity::Info,
             message.clone(),
         );
-        self.notice = Some(message);
+        self.session.notice = Some(message);
         self.reload_nodes();
     }
 
@@ -80,7 +80,7 @@ impl NeoNexusApp {
             EventSeverity::Critical,
             message.clone(),
         );
-        self.notice = Some(message);
+        self.session.notice = Some(message);
         self.reload_nodes();
     }
 }

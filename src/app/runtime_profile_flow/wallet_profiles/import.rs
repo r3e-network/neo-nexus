@@ -4,22 +4,22 @@ impl NeoNexusApp {
     pub(in crate::app) fn import_neo_wallet_profile_from_form(&mut self) {
         let source = self.wallet_profile_source.trim();
         if source.is_empty() {
-            self.notice = Some("Enter a Neo wallet path before importing".to_string());
+            self.session.notice = Some("Enter a Neo wallet path before importing".to_string());
             return;
         }
         if self.wallet_profile_id.trim().is_empty() {
-            self.notice = Some("Enter a wallet profile ID before importing".to_string());
+            self.session.notice = Some("Enter a wallet profile ID before importing".to_string());
             return;
         }
         if self.wallet_profile_label.trim().is_empty() {
-            self.notice = Some("Enter a wallet profile label before importing".to_string());
+            self.session.notice = Some("Enter a wallet profile label before importing".to_string());
             return;
         }
 
         let validated_at_unix = match current_unix_time() {
             Ok(value) => value,
             Err(error) => {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return;
             }
         };
@@ -31,7 +31,7 @@ impl NeoNexusApp {
         ) {
             Ok(profile) => profile,
             Err(error) => {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return;
             }
         };
@@ -53,9 +53,9 @@ impl NeoNexusApp {
                         profile.id, profile.source_path
                     ),
                 );
-                self.notice = Some(message);
+                self.session.notice = Some(message);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

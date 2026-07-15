@@ -23,7 +23,7 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn clear_selected_log(&mut self) {
         let Some(node) = self.selected_node().cloned() else {
-            self.notice = Some("Select a node before clearing its log".to_string());
+            self.session.notice = Some("Select a node before clearing its log".to_string());
             return;
         };
 
@@ -31,7 +31,7 @@ impl NeoNexusApp {
         match LogReader::clear(&path) {
             Ok(()) => {
                 self.log_page = 0;
-                self.notice = Some(format!("Log cleared: {}", short_path(&path, 48)));
+                self.session.notice = Some(format!("Log cleared: {}", short_path(&path, 48)));
                 self.record_node_event(
                     &node,
                     EventKind::LogCleared,
@@ -39,7 +39,7 @@ impl NeoNexusApp {
                     format!("Log cleared at {}", path.display()),
                 );
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

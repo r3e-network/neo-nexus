@@ -7,11 +7,11 @@ impl NeoNexusApp {
             .repository
             .update_node_status(&node.id, NodeStatus::Error, None)
         {
-            self.notice = Some(error.to_string());
+            self.session.notice = Some(error.to_string());
             return;
         }
 
-        self.notice = Some(match outcome {
+        self.session.notice = Some(match outcome {
             RestartOutcome::Disabled => {
                 let message = format!("{reason}; watchdog disabled by policy");
                 self.record_node_event(
@@ -57,7 +57,7 @@ impl NeoNexusApp {
         reason: &str,
     ) {
         let outcome = self.watchdog.record_failure(process_id, Instant::now());
-        self.notice = Some(match outcome {
+        self.session.notice = Some(match outcome {
             RestartOutcome::Disabled => {
                 let message = format!("{reason}; watchdog disabled by policy");
                 self.record_event(
@@ -104,7 +104,7 @@ impl NeoNexusApp {
                 .iter()
                 .any(|sidecar| sidecar.process.id == process_id)
             {
-                self.notice = Some(format!(
+                self.session.notice = Some(format!(
                     "signer-sidecar:{label} exited but is no longer present in loaded sidecar specs"
                 ));
             }

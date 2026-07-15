@@ -77,7 +77,7 @@ pub(super) fn render_selected_action_summary(
 
 fn render_action_row(app: &mut NeoNexusApp, ui: &mut egui::Ui, action: &ReadinessAction) {
     severity_badge(ui, action.severity);
-    let selected = app
+    let selected = app.operations_ui
         .selected_readiness_action
         .as_ref()
         .is_some_and(|key| key.matches(action));

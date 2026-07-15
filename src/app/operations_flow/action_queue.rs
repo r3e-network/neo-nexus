@@ -5,10 +5,10 @@ use crate::app::domain::{readiness_action_resolution_counts, readiness_action_se
 impl NeoNexusApp {
     pub(in crate::app) fn action_queue_filter(&self) -> ReadinessActionFilter {
         ReadinessActionFilter::new(
-            self.action_queue_severity_filter,
-            self.action_queue_query.as_str(),
+            self.operations_ui.action_queue_severity_filter,
+            self.operations_ui.action_queue_query.as_str(),
         )
-        .with_resolution(self.action_queue_resolution_filter)
+        .with_resolution(self.operations_ui.action_queue_resolution_filter)
     }
 
     pub(in crate::app) fn filtered_readiness_actions(
@@ -33,16 +33,16 @@ impl NeoNexusApp {
     }
 
     pub(in crate::app) fn has_active_action_queue_filter(&self) -> bool {
-        self.action_queue_severity_filter.is_some()
-            || self.action_queue_resolution_filter.is_some()
-            || !self.action_queue_query.trim().is_empty()
+        self.operations_ui.action_queue_severity_filter.is_some()
+            || self.operations_ui.action_queue_resolution_filter.is_some()
+            || !self.operations_ui.action_queue_query.trim().is_empty()
     }
 
     pub(in crate::app) fn clear_action_queue_filters(&mut self, diagnostics: &FleetDiagnostics) {
-        self.action_queue_severity_filter = None;
-        self.action_queue_resolution_filter = None;
-        self.action_queue_query.clear();
-        self.action_queue_page = 0;
+        self.operations_ui.action_queue_severity_filter = None;
+        self.operations_ui.action_queue_resolution_filter = None;
+        self.operations_ui.action_queue_query.clear();
+        self.operations_ui.action_queue_page = 0;
         let actions = self.filtered_readiness_actions(diagnostics);
         self.ensure_visible_readiness_action_selection(&actions);
     }
@@ -52,10 +52,10 @@ impl NeoNexusApp {
         diagnostics: &FleetDiagnostics,
         severity: CheckSeverity,
     ) {
-        self.action_queue_severity_filter = Some(severity);
-        self.action_queue_resolution_filter = None;
-        self.action_queue_query.clear();
-        self.action_queue_page = 0;
+        self.operations_ui.action_queue_severity_filter = Some(severity);
+        self.operations_ui.action_queue_resolution_filter = None;
+        self.operations_ui.action_queue_query.clear();
+        self.operations_ui.action_queue_page = 0;
         let actions = self.filtered_readiness_actions(diagnostics);
         self.ensure_visible_readiness_action_selection(&actions);
     }
@@ -65,21 +65,21 @@ impl NeoNexusApp {
         diagnostics: &FleetDiagnostics,
         resolution: Option<DiagnosticResolution>,
     ) {
-        self.action_queue_resolution_filter = resolution;
-        self.action_queue_page = 0;
+        self.operations_ui.action_queue_resolution_filter = resolution;
+        self.operations_ui.action_queue_page = 0;
         let actions = self.filtered_readiness_actions(diagnostics);
         self.ensure_visible_readiness_action_selection(&actions);
     }
 
     pub(in crate::app) fn select_readiness_action(&mut self, action: &ReadinessAction) {
-        self.selected_readiness_action = Some(action.key());
-        self.selected_node = Some(action.node_id.clone());
+        self.operations_ui.selected_readiness_action = Some(action.key());
+        self.fleet.selected_node = Some(action.node_id.clone());
     }
 
     pub(in crate::app) fn open_readiness_action_resolution(&mut self, action: &ReadinessAction) {
         self.select_readiness_action(action);
-        self.selected_view = view_for_resolution(action.resolution);
-        self.notice = Some(format!(
+        self.session.selected_view = view_for_resolution(action.resolution);
+        self.session.notice = Some(format!(
             "Opened {} for {}",
             action.resolution.label(),
             action.node_name
@@ -90,7 +90,7 @@ impl NeoNexusApp {
         &self,
         actions: &'a [ReadinessAction],
     ) -> Option<&'a ReadinessAction> {
-        self.selected_readiness_action
+        self.operations_ui.selected_readiness_action
             .as_ref()
             .and_then(|key| actions.iter().find(|action| key.matches(action)))
     }
@@ -100,7 +100,7 @@ impl NeoNexusApp {
         actions: &[ReadinessAction],
     ) {
         if actions.is_empty() {
-            self.selected_readiness_action = None;
+            self.operations_ui.selected_readiness_action = None;
             return;
         }
 
@@ -113,8 +113,8 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn clamp_action_queue_page(&mut self, diagnostics: &FleetDiagnostics) {
         let actions = self.filtered_readiness_actions(diagnostics);
-        self.action_queue_page = clamp_page(
-            self.action_queue_page,
+        self.operations_ui.action_queue_page = clamp_page(
+            self.operations_ui.action_queue_page,
             actions.len(),
             ACTION_QUEUE_PAGE_SIZE,
         );

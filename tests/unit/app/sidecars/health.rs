@@ -30,7 +30,7 @@ fn launch_pack_sidecar_health_action_probes_signer_endpoints_and_audits() -> any
         report.results[0].status,
         SidecarEndpointHealthStatus::Reachable
     );
-    assert!(app.notice.as_deref().is_some_and(|notice| {
+    assert!(app.session.notice.as_deref().is_some_and(|notice| {
         notice.contains("1/1 signer endpoints reachable") && notice.contains("committee-signer-1")
     }));
     let events = app

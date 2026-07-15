@@ -3,21 +3,21 @@ use super::super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn export_event_journal_report(&mut self) {
         let filter = RuntimeEventFilter::new(
-            self.event_severity_filter,
-            self.event_query.clone(),
+            self.operations_ui.event_severity_filter,
+            self.operations_ui.event_query.clone(),
             DEFAULT_EVENT_EXPORT_LIMIT,
         );
         let matched_event_count = match self.repository.count_events(&filter) {
             Ok(count) => count,
             Err(error) => {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return;
             }
         };
         let events = match self.repository.list_events(filter.clone()) {
             Ok(events) => events,
             Err(error) => {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return;
             }
         };
@@ -43,9 +43,9 @@ impl NeoNexusApp {
                         export.json_path.display()
                     ),
                 );
-                self.notice = Some(message);
+                self.session.notice = Some(message);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

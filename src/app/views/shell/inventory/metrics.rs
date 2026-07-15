@@ -5,19 +5,19 @@ impl NeoNexusApp {
         &self,
         ui: &mut egui::Ui,
     ) {
-        let running = self
+        let running = self.fleet
             .nodes
             .iter()
             .filter(|node| node.status.is_running())
             .count();
-        let stopped = self
+        let stopped = self.fleet
             .nodes
             .iter()
             .filter(|node| node.status.is_stopped())
             .count();
         let filter = self.node_inventory_filter();
         let visible = if filter.is_empty() {
-            self.nodes.len()
+            self.fleet.nodes.len()
         } else {
             self.filtered_inventory_nodes().len()
         };
@@ -28,7 +28,7 @@ impl NeoNexusApp {
             // with presence (caption over value) instead of four flat text rows.
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
-                    mini_stat(ui, "Total", &self.nodes.len().to_string());
+                    mini_stat(ui, "Total", &self.fleet.nodes.len().to_string());
                     ui.add_space(theme::LG);
                     mini_stat(ui, "Running", &running.to_string());
                 });

@@ -34,7 +34,7 @@ impl NeoNexusApp {
         ui.add_space(2.0);
         self.normalize_navigation_for_v3();
 
-        match self.selected_view {
+        match self.session.selected_view {
             View::Summary => self.render_overview(ui),
             View::Operations => self.render_operations(ui),
             // Legacy top-level tools: normalize_navigation maps them into
@@ -51,19 +51,19 @@ impl NeoNexusApp {
     /// Collapse legacy top-level destinations into the v3 primary surfaces so
     /// deep links and restored prefs keep working without a 14-item sidebar.
     fn normalize_navigation_for_v3(&mut self) {
-        if let Some(tab) = NodeWorkspaceTab::from_legacy_view(self.selected_view) {
-            if self.selected_view != View::Nodes {
-                self.node_workspace_tab = tab;
-                self.selected_view = View::Nodes;
+        if let Some(tab) = NodeWorkspaceTab::from_legacy_view(self.session.selected_view) {
+            if self.session.selected_view != View::Nodes {
+                self.session.node_workspace_tab = tab;
+                self.session.selected_view = View::Nodes;
             }
         }
-        if self.selected_view == View::Snapshots {
+        if self.session.selected_view == View::Snapshots {
             self.runtimes_section = RuntimesSection::Sync;
-            self.selected_view = View::Runtimes;
+            self.session.selected_view = View::Runtimes;
         }
-        if self.selected_view == View::Alerts {
+        if self.session.selected_view == View::Alerts {
             self.settings_section = SettingsSection::Alerts;
-            self.selected_view = View::Settings;
+            self.session.selected_view = View::Settings;
         }
     }
 }

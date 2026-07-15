@@ -40,7 +40,7 @@ fn abnormal_launch_pack_sidecar_exit_is_restarted_by_watchdog() -> anyhow::Resul
             log_text
         );
     }
-    assert!(app.notice.as_deref().is_some_and(|notice| {
+    assert!(app.session.notice.as_deref().is_some_and(|notice| {
         notice.contains("watchdog restart attempt 1")
             && notice.contains("signer-sidecar:committee-signer-1")
     }));
@@ -59,7 +59,7 @@ fn abnormal_launch_pack_sidecar_exit_is_restarted_by_watchdog() -> anyhow::Resul
     assert!(app
         .private_network_sidecar_pids
         .contains_key("signer:committee-signer-1"));
-    assert!(app.notice.as_deref().is_some_and(|notice| {
+    assert!(app.session.notice.as_deref().is_some_and(|notice| {
         notice.contains("signer-sidecar:committee-signer-1 restarted by watchdog attempt 1")
     }));
     let restarted =

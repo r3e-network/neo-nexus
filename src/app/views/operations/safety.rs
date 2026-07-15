@@ -20,7 +20,7 @@ impl NeoNexusApp {
         diagnostics: &FleetDiagnostics,
     ) {
         let safety = WorkspaceSafetySummary::new(
-            &self.nodes,
+            &self.fleet.nodes,
             &self.backup_export_dir(),
             self.workspace_integrity_report.as_ref(),
             self.last_backup_validation.as_ref(),
@@ -29,7 +29,7 @@ impl NeoNexusApp {
         fact(
             ui,
             "Fleet",
-            &format!("{} nodes / {}%", self.nodes.len(), diagnostics.score),
+            &format!("{} nodes / {}%", self.fleet.nodes.len(), diagnostics.score),
         );
         ui.horizontal(|ui| {
             ui.label(egui::RichText::new("Integrity").color(muted_text()));

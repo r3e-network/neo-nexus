@@ -29,16 +29,16 @@ impl NeoNexusApp {
     fn render_workspace_jump_actions(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             if widgets::secondary_button(ui, "Roles").clicked() {
-                self.selected_view = View::Roles;
+                self.session.selected_view = View::Roles;
             }
             if widgets::secondary_button(ui, "Plugins").clicked() {
-                self.selected_view = View::Plugins;
+                self.session.selected_view = View::Plugins;
             }
             if widgets::secondary_button(ui, "Config").clicked() {
-                self.selected_view = View::Config;
+                self.session.selected_view = View::Config;
             }
             if widgets::secondary_button(ui, "Logs").clicked() {
-                self.selected_view = View::Logs;
+                self.session.selected_view = View::Logs;
             }
         });
     }

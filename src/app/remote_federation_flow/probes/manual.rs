@@ -3,7 +3,7 @@ use super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn probe_selected_remote_server(&mut self) {
         let Some(profile) = self.selected_remote_server_profile() else {
-            self.notice = Some("Select a remote server profile before probing it".to_string());
+            self.session.notice = Some("Select a remote server profile before probing it".to_string());
             return;
         };
         match RemoteFederationClient::probe(&profile, REMOTE_FEDERATION_TIMEOUT) {
@@ -20,7 +20,7 @@ impl NeoNexusApp {
         let record = match self.persist_remote_server_probe(report) {
             Ok(record) => record,
             Err(error) => {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return;
             }
         };
@@ -34,7 +34,7 @@ impl NeoNexusApp {
             severity,
             message.clone(),
         );
-        self.notice = Some(message);
+        self.session.notice = Some(message);
     }
 
     fn record_failed_manual_probe(&mut self, profile: &RemoteServerProfile, error: &str) {
@@ -50,6 +50,6 @@ impl NeoNexusApp {
             EventSeverity::Critical,
             message.clone(),
         );
-        self.notice = Some(message);
+        self.session.notice = Some(message);
     }
 }

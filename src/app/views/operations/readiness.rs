@@ -24,7 +24,7 @@ impl NeoNexusApp {
         ui: &mut egui::Ui,
         diagnostics: &FleetDiagnostics,
     ) {
-        let Some(selected_id) = self.selected_node.as_deref() else {
+        let Some(selected_id) = self.fleet.selected_node.as_deref() else {
             empty_state(ui, "No selection", "Select a node from Inventory.");
             return;
         };
@@ -60,10 +60,10 @@ impl NeoNexusApp {
         ui.add_space(6.0);
         ui.horizontal(|ui| {
             if ui.button("Node Studio").clicked() {
-                self.selected_view = View::Nodes;
+                self.session.selected_view = View::Nodes;
             }
             if ui.button("Plugins").clicked() {
-                self.selected_view = View::Plugins;
+                self.session.selected_view = View::Plugins;
             }
         });
     }

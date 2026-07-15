@@ -7,7 +7,7 @@ mod stop;
 impl NeoNexusApp {
     pub(in crate::app) fn start_selected_node(&mut self) {
         let Some(index) = self.selected_node_index() else {
-            self.notice = Some("Select a node before starting it".to_string());
+            self.session.notice = Some("Select a node before starting it".to_string());
             return;
         };
         self.start_node(index);
@@ -15,7 +15,7 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn stop_selected_node(&mut self) {
         let Some(index) = self.selected_node_index() else {
-            self.notice = Some("Select a node before stopping it".to_string());
+            self.session.notice = Some("Select a node before stopping it".to_string());
             return;
         };
         self.stop_node(index);
@@ -23,7 +23,7 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn restart_selected_node(&mut self) {
         let Some(index) = self.selected_node_index() else {
-            self.notice = Some("Select a running node before restarting it".to_string());
+            self.session.notice = Some("Select a running node before restarting it".to_string());
             return;
         };
         self.restart_node(index);
@@ -43,7 +43,7 @@ impl NeoNexusApp {
             EventSeverity::Critical,
             message.clone(),
         );
-        self.notice = Some(message);
+        self.session.notice = Some(message);
     }
 
     /// Handles a start failure for either start mode: manual starts record a

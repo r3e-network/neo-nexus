@@ -5,7 +5,7 @@ impl NeoNexusApp {
         if let Some(message) = self.alert_routing_policy_draft.validation_message() {
             self.last_alert_preview = None;
             self.last_alert_preview_policy = None;
-            self.notice = Some(message);
+            self.session.notice = Some(message);
             return;
         }
 
@@ -13,7 +13,7 @@ impl NeoNexusApp {
         let Some(target_url) = policy.webhook_url.as_deref() else {
             self.last_alert_preview = None;
             self.last_alert_preview_policy = None;
-            self.notice = Some("Alert preview requires a target URL".to_string());
+            self.session.notice = Some("Alert preview requires a target URL".to_string());
             return;
         };
         let event = RuntimeEvent {
@@ -23,7 +23,7 @@ impl NeoNexusApp {
                 Err(error) => {
                     self.last_alert_preview = None;
                     self.last_alert_preview_policy = None;
-                    self.notice = Some(error.to_string());
+                    self.session.notice = Some(error.to_string());
                     return;
                 }
             },
@@ -41,7 +41,7 @@ impl NeoNexusApp {
             env!("CARGO_PKG_VERSION"),
         ) {
             Ok(report) => {
-                self.notice = Some(format!(
+                self.session.notice = Some(format!(
                     "Alert preview ready: {} route to {}",
                     report.provider, report.endpoint
                 ));
@@ -51,7 +51,7 @@ impl NeoNexusApp {
             Err(error) => {
                 self.last_alert_preview = None;
                 self.last_alert_preview_policy = None;
-                self.notice = Some(format!("Alert preview failed: {error}"));
+                self.session.notice = Some(format!("Alert preview failed: {error}"));
             }
         }
     }
@@ -69,7 +69,7 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn save_alert_routing_policy(&mut self) {
         if let Some(message) = self.alert_routing_policy_draft.validation_message() {
-            self.notice = Some(message);
+            self.session.notice = Some(message);
             return;
         }
 
@@ -89,14 +89,14 @@ impl NeoNexusApp {
                     message,
                 );
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
     pub(in crate::app) fn reset_alert_routing_policy_draft(&mut self) {
         self.alert_routing_policy_draft =
             AlertRoutingPolicyDraft::from_policy(&self.alert_routing_policy);
-        self.notice = Some("Alert routing policy draft reset".to_string());
+        self.session.notice = Some("Alert routing policy draft reset".to_string());
     }
 
     pub(in crate::app) fn prune_alert_delivery_history(&mut self) {
@@ -110,7 +110,7 @@ impl NeoNexusApp {
                 );
                 self.record_event_notice(EventKind::EventsPruned, EventSeverity::Info, message);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

@@ -19,9 +19,9 @@ impl NeoNexusApp {
                     message.clone(),
                 );
                 self.workspace_integrity_report = Some(report);
-                self.notice = Some(message);
+                self.session.notice = Some(message);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

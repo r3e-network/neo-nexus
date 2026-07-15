@@ -20,7 +20,7 @@ pub(super) fn render_install_summary(app: &NeoNexusApp, ui: &mut egui::Ui) {
 fn upgrade_candidates_label(app: &NeoNexusApp) -> String {
     let installations = app.runtime_installations();
     let platform = RuntimePlatform::current();
-    app.nodes
+    app.fleet.nodes
         .iter()
         .filter(|node| {
             RuntimePackageManager::plan_node_upgrade(node, &installations, &platform).is_some()

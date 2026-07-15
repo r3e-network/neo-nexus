@@ -13,17 +13,17 @@ fn draft_auto_ports_skip_existing_node_ports() -> anyhow::Result<()> {
         Some(30_334),
     ))?;
     app.reload_nodes();
-    app.draft.rpc_port = "30332".to_string();
-    app.draft.p2p_port = "30333".to_string();
-    app.draft.ws_port = "30334".to_string();
+    app.fleet.draft.rpc_port = "30332".to_string();
+    app.fleet.draft.p2p_port = "30333".to_string();
+    app.fleet.draft.ws_port = "30334".to_string();
 
     app.auto_assign_draft_ports();
 
-    let rpc_port = app.draft.rpc_port.parse::<u16>()?;
+    let rpc_port = app.fleet.draft.rpc_port.parse::<u16>()?;
     assert_ne!(rpc_port, 30_332);
-    assert_eq!(app.draft.p2p_port.parse::<u16>()?, rpc_port + 1);
-    assert_eq!(app.draft.ws_port.parse::<u16>()?, rpc_port + 2);
-    assert!(app
+    assert_eq!(app.fleet.draft.p2p_port.parse::<u16>()?, rpc_port + 1);
+    assert_eq!(app.fleet.draft.ws_port.parse::<u16>()?, rpc_port + 2);
+    assert!(app.session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("Draft ports assigned")));
@@ -42,7 +42,7 @@ fn selected_node_fix_ports_persists_available_block_and_audits() -> anyhow::Resu
         app.repository
             .create_node(neo_rs_app_node("needs ports", 31_332, 31_333, Some(31_334)))?;
     app.reload_nodes();
-    app.selected_node = Some(target.id.clone());
+    app.fleet.selected_node = Some(target.id.clone());
 
     app.assign_available_ports_to_selected_node();
 
@@ -55,7 +55,7 @@ fn selected_node_fix_ports_persists_available_block_and_audits() -> anyhow::Resu
     assert_ne!(updated.rpc_port, 31_332);
     assert_eq!(updated.p2p_port, updated.rpc_port + 1);
     assert_eq!(updated.ws_port, Some(updated.rpc_port + 2));
-    assert!(app
+    assert!(app.session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("ports assigned")));

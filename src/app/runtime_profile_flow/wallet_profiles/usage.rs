@@ -3,7 +3,7 @@ use super::super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn mark_selected_neo_wallet_profile_used(&mut self) {
         let Some(profile) = self.selected_neo_wallet_profile() else {
-            self.notice = Some("Select a wallet profile first".to_string());
+            self.session.notice = Some("Select a wallet profile first".to_string());
             return;
         };
         match self.mark_neo_wallet_profile_used_and_reselect(&profile) {
@@ -18,9 +18,9 @@ impl NeoNexusApp {
                         profile.id
                     ),
                 );
-                self.notice = Some(format!("Wallet profile marked used: {}", profile.label));
+                self.session.notice = Some(format!("Wallet profile marked used: {}", profile.label));
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
@@ -28,11 +28,11 @@ impl NeoNexusApp {
         &mut self,
     ) {
         let Some(profile) = self.selected_neo_wallet_profile() else {
-            self.notice = Some("Select a wallet profile first".to_string());
+            self.session.notice = Some("Select a wallet profile first".to_string());
             return;
         };
         let Some(public_key) = profile.contract_public_keys.first().cloned() else {
-            self.notice = Some(format!(
+            self.session.notice = Some(format!(
                 "Wallet profile has no contract public key: {}",
                 profile.label
             ));
@@ -46,7 +46,7 @@ impl NeoNexusApp {
         if let Err(error) =
             CommitteeRoster::from_public_keys_and_references(&committee_keys, &signer_refs)
         {
-            self.notice = Some(format!("Wallet profile signer reference rejected: {error}"));
+            self.session.notice = Some(format!("Wallet profile signer reference rejected: {error}"));
             return;
         }
 
@@ -54,7 +54,7 @@ impl NeoNexusApp {
             signer_refs_has_public_key(&self.private_network_signer_refs, &public_key);
         self.private_network_committee_keys = committee_keys;
         self.private_network_signer_refs = signer_refs;
-        self.selected_view = View::Roles;
+        self.session.selected_view = View::Roles;
 
         match self.mark_neo_wallet_profile_used_and_reselect(&profile) {
             Ok(()) => {
@@ -68,7 +68,7 @@ impl NeoNexusApp {
                         profile.id
                     ),
                 );
-                self.notice = if signer_reference_already_exists {
+                self.session.notice = if signer_reference_already_exists {
                     Some(format!(
                         "Wallet profile signer reference already exists: {}",
                         profile.label
@@ -80,7 +80,7 @@ impl NeoNexusApp {
                     ))
                 };
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 

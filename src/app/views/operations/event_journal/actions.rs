@@ -32,14 +32,14 @@ pub(super) fn render_event_actions(
 }
 
 fn has_active_filter(app: &NeoNexusApp) -> bool {
-    !app.event_query.trim().is_empty() || app.event_severity_filter.is_some()
+    !app.operations_ui.event_query.trim().is_empty() || app.operations_ui.event_severity_filter.is_some()
 }
 
 fn clear_event_filters(app: &mut NeoNexusApp) {
-    app.event_query.clear();
-    app.event_severity_filter = None;
-    app.event_page = 0;
-    app.selected_event = None;
+    app.operations_ui.event_query.clear();
+    app.operations_ui.event_severity_filter = None;
+    app.operations_ui.event_page = 0;
+    app.operations_ui.selected_event = None;
 }
 
 fn can_prune_events(counts: EventJournalCounts) -> bool {

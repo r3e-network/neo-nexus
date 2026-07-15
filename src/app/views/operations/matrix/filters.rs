@@ -59,10 +59,10 @@ pub(super) fn render_port_filters(
     });
     let response = ui.add_sized(
         [ui.available_width(), 24.0],
-        egui::TextEdit::singleline(&mut app.port_matrix_query).hint_text("Search"),
+        egui::TextEdit::singleline(&mut app.operations_ui.port_matrix_query).hint_text("Search"),
     );
     if response.changed() {
-        app.port_matrix_page = 0;
+        app.operations_ui.port_matrix_page = 0;
     }
     ui.separator();
 }
@@ -74,21 +74,21 @@ fn status_button(
     status: Option<NodeStatus>,
 ) {
     if ui
-        .selectable_label(app.port_matrix_status_filter == status, label)
+        .selectable_label(app.operations_ui.port_matrix_status_filter == status, label)
         .clicked()
     {
-        app.port_matrix_status_filter = status;
-        app.port_matrix_page = 0;
+        app.operations_ui.port_matrix_status_filter = status;
+        app.operations_ui.port_matrix_page = 0;
     }
 }
 
 fn network_button(app: &mut NeoNexusApp, ui: &mut egui::Ui, label: &str, network: Option<Network>) {
     if ui
-        .selectable_label(app.port_matrix_network_filter == network, label)
+        .selectable_label(app.operations_ui.port_matrix_network_filter == network, label)
         .clicked()
     {
-        app.port_matrix_network_filter = network;
-        app.port_matrix_page = 0;
+        app.operations_ui.port_matrix_network_filter = network;
+        app.operations_ui.port_matrix_page = 0;
     }
 }
 
@@ -99,10 +99,10 @@ fn health_button(
     health: Option<CheckSeverity>,
 ) {
     if ui
-        .selectable_label(app.port_matrix_health_filter == health, label)
+        .selectable_label(app.operations_ui.port_matrix_health_filter == health, label)
         .clicked()
     {
-        app.port_matrix_health_filter = health;
-        app.port_matrix_page = 0;
+        app.operations_ui.port_matrix_health_filter = health;
+        app.operations_ui.port_matrix_page = 0;
     }
 }

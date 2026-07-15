@@ -72,7 +72,7 @@ fn missing_process_reconciliation_marks_stale_running_nodes_stopped() -> anyhow:
     assert_eq!(reconciled.status, NodeStatus::Stopped);
     assert_eq!(reconciled.pid, None);
     assert!(app.metrics_snapshot.missing_processes.is_empty());
-    assert!(app
+    assert!(app.session
         .notice
         .as_deref()
         .is_some_and(|notice| { notice.contains("Runtime state reconciled: 1 missing process") }));
@@ -110,7 +110,7 @@ fn restart_selected_node_replaces_running_process_and_audits() -> anyhow::Result
         ws_port: None,
     })?;
     let mut app = NeoNexusApp::new(repository);
-    app.selected_node = Some(node.id.clone());
+    app.fleet.selected_node = Some(node.id.clone());
 
     app.start_selected_node();
     let first_pid = app
@@ -129,7 +129,7 @@ fn restart_selected_node_replaces_running_process_and_audits() -> anyhow::Result
 
     assert_eq!(restarted.status, NodeStatus::Running);
     assert_ne!(first_pid, second_pid);
-    assert!(app
+    assert!(app.session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("restarted with PID")));

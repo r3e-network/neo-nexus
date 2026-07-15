@@ -9,7 +9,7 @@ impl NeoNexusApp {
         ) {
             Ok(export) => {
                 self.last_backup_validation = None;
-                self.notice = Some(format!(
+                self.session.notice = Some(format!(
                     "Backup exported: {} nodes, {} plugin states, {} plugin packages, {} settings, {} runtime catalogs, {} signers, {} snapshots, {} events, {}",
                     export.node_count,
                     export.plugin_state_count,
@@ -29,7 +29,7 @@ impl NeoNexusApp {
                     format!("Workspace backup exported to {}", export.path.display()),
                 );
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
@@ -38,12 +38,12 @@ impl NeoNexusApp {
             match WorkspaceBackupImporter::latest_backup_path(self.backup_export_dir()) {
                 Ok(Some(path)) => path,
                 Ok(None) => {
-                    self.notice =
+                    self.session.notice =
                         Some("No NeoNexus backup found in the backup directory".to_string());
                     return;
                 }
                 Err(error) => {
-                    self.notice = Some(error.to_string());
+                    self.session.notice = Some(error.to_string());
                     return;
                 }
             };
@@ -51,7 +51,7 @@ impl NeoNexusApp {
         match WorkspaceBackupImporter::validate_path(&latest_path) {
             Ok(validation) => {
                 self.last_backup_validation = Some(validation.clone());
-                self.notice = Some(format!(
+                self.session.notice = Some(format!(
                     "Backup validated: {} nodes, {} plugin states, {} plugin packages, {} settings, {} runtime catalogs, {} signers, {} snapshots, {} events, {}",
                     validation.node_count,
                     validation.plugin_state_count,
@@ -78,14 +78,14 @@ impl NeoNexusApp {
             }
             Err(error) => {
                 self.last_backup_validation = None;
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
             }
         }
     }
 
     pub(in crate::app) fn import_latest_workspace_backup(&mut self) {
-        if self.nodes.iter().any(|node| node.status.is_running()) {
-            self.notice =
+        if self.fleet.nodes.iter().any(|node| node.status.is_running()) {
+            self.session.notice =
                 Some("Stop running nodes before importing a workspace backup".to_string());
             return;
         }
@@ -94,25 +94,25 @@ impl NeoNexusApp {
             match WorkspaceBackupImporter::latest_backup_path(self.backup_export_dir()) {
                 Ok(Some(path)) => path,
                 Ok(None) => {
-                    self.notice =
+                    self.session.notice =
                         Some("No NeoNexus backup found in the backup directory".to_string());
                     return;
                 }
                 Err(error) => {
-                    self.notice = Some(error.to_string());
+                    self.session.notice = Some(error.to_string());
                     return;
                 }
             };
 
         if !self.latest_backup_validation_matches(&latest_path) {
-            self.notice = Some("Validate latest workspace backup before importing".to_string());
+            self.session.notice = Some("Validate latest workspace backup before importing".to_string());
             return;
         }
 
         match WorkspaceBackupImporter::import_path(&self.repository, &latest_path) {
             Ok(import) => {
                 self.last_backup_validation = None;
-                self.notice = Some(format!(
+                self.session.notice = Some(format!(
                     "Backup imported: {} created, {} updated, {} plugin states, {} plugin packages, {} settings, {} runtime catalogs, {} signers, {} snapshots, {} events",
                     import.created_nodes,
                     import.updated_nodes,
@@ -141,7 +141,7 @@ impl NeoNexusApp {
                 self.reload_runtime_catalog_profiles();
                 self.reload_runtime_signer_profiles();
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 

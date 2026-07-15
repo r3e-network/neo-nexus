@@ -3,17 +3,17 @@ use super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn load_selected_snapshot_catalog_entry_into_draft(&mut self) {
         let Some(entry) = self.selected_snapshot_catalog_entry() else {
-            self.notice = Some("Select a fast sync catalog entry first".to_string());
+            self.session.notice = Some("Select a fast sync catalog entry first".to_string());
             return;
         };
 
         self.load_snapshot_catalog_entry_into_draft(&entry);
-        self.notice = Some(format!("Catalog snapshot loaded: {}", entry.label));
+        self.session.notice = Some(format!("Catalog snapshot loaded: {}", entry.label));
     }
 
     pub(in crate::app) fn save_selected_snapshot_catalog_entry_manifest(&mut self) {
         let Some(entry) = self.selected_snapshot_catalog_entry() else {
-            self.notice = Some("Select a fast sync catalog entry first".to_string());
+            self.session.notice = Some("Select a fast sync catalog entry first".to_string());
             return;
         };
 
@@ -27,13 +27,13 @@ impl NeoNexusApp {
                 let message = format!("Fast sync catalog snapshot saved: {}", snapshot.label);
                 self.record_event_notice(EventKind::SnapshotSaved, EventSeverity::Info, message);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
     pub(in crate::app) fn download_selected_snapshot_catalog_entry(&mut self) {
         let Some(entry) = self.selected_snapshot_catalog_entry() else {
-            self.notice = Some("Select a fast sync catalog entry first".to_string());
+            self.session.notice = Some("Select a fast sync catalog entry first".to_string());
             return;
         };
 
@@ -44,9 +44,9 @@ impl NeoNexusApp {
         {
             Ok(message) => {
                 self.load_snapshot_catalog_entry_into_draft(&entry);
-                self.notice = Some(message);
+                self.session.notice = Some(message);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

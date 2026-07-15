@@ -5,13 +5,13 @@ impl NeoNexusApp {
         self.refresh_metrics_now();
         let missing_processes = self.metrics_snapshot.missing_processes.clone();
         if missing_processes.is_empty() {
-            self.notice = Some("No missing running processes to reconcile".to_string());
+            self.session.notice = Some("No missing running processes to reconcile".to_string());
             return;
         }
 
         let mut reconciled = 0usize;
         for missing in missing_processes {
-            let Some(node) = self
+            let Some(node) = self.fleet
                 .nodes
                 .iter()
                 .find(|node| node.id == missing.node_id)
@@ -40,7 +40,7 @@ impl NeoNexusApp {
                     );
                 }
                 Err(error) => {
-                    self.notice = Some(error.to_string());
+                    self.session.notice = Some(error.to_string());
                     return;
                 }
             }
@@ -48,7 +48,7 @@ impl NeoNexusApp {
 
         self.reload_nodes();
         self.refresh_metrics_now();
-        self.notice = Some(format!(
+        self.session.notice = Some(format!(
             "Runtime state reconciled: {reconciled} missing process record(s) stopped"
         ));
     }

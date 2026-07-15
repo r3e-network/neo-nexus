@@ -3,7 +3,7 @@ use super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn verify_selected_snapshot(&mut self) {
         let Some(snapshot) = self.selected_fast_sync_snapshot() else {
-            self.notice = Some("Select a fast sync snapshot before verification".to_string());
+            self.session.notice = Some("Select a fast sync snapshot before verification".to_string());
             return;
         };
 
@@ -14,7 +14,7 @@ impl NeoNexusApp {
                     .repository
                     .mark_fast_sync_snapshot_verified(&snapshot.id, &verification)
                 {
-                    self.notice = Some(error.to_string());
+                    self.session.notice = Some(error.to_string());
                     return;
                 }
 
@@ -40,9 +40,9 @@ impl NeoNexusApp {
                     },
                     message.clone(),
                 );
-                self.notice = Some(message);
+                self.session.notice = Some(message);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

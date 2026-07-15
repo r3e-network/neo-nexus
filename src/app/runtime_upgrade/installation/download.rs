@@ -8,7 +8,7 @@ impl NeoNexusApp {
         let request = match self.runtime_package_draft.to_download_request() {
             Ok(request) => request,
             Err(error) => {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return;
             }
         };
@@ -27,7 +27,7 @@ impl NeoNexusApp {
                     message,
                 );
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

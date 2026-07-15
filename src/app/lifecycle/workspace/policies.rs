@@ -16,7 +16,7 @@ impl NeoNexusApp {
                 self.watchdog.update_policy(policy);
                 self.watchdog_policy_draft = WatchdogPolicyDraft::from_policy(policy);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
@@ -27,7 +27,7 @@ impl NeoNexusApp {
                 self.runtime_upgrade_policy_draft =
                     RuntimeUpgradePolicyDraft::from_policy(&self.runtime_upgrade_policy);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
@@ -39,7 +39,7 @@ impl NeoNexusApp {
                     RpcHealthMonitorPolicyDraft::from_policy(self.rpc_health_monitor_policy);
                 self.rpc_health_last_started.clear();
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
@@ -53,7 +53,7 @@ impl NeoNexusApp {
                     );
                 self.remote_federation_last_started.clear();
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
@@ -64,7 +64,7 @@ impl NeoNexusApp {
                 self.alert_routing_policy_draft =
                     AlertRoutingPolicyDraft::from_policy(&self.alert_routing_policy);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
@@ -74,7 +74,7 @@ impl NeoNexusApp {
             .load_private_network_allow_external_sidecars()
         {
             Ok(allow_external) => self.private_network_allow_external_sidecars = allow_external,
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

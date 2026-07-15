@@ -69,7 +69,7 @@ fn alert_routing_policy_preview_uses_draft_without_sending() -> anyhow::Result<(
     assert_eq!(preview.headers[0].value, "<redacted>");
     assert!(!preview.payload_json.contains("dd123"));
     assert!(app.alert_preview_matches_draft());
-    assert!(app
+    assert!(app.session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("Alert preview ready")));
@@ -84,7 +84,7 @@ fn alert_routing_policy_preview_uses_draft_without_sending() -> anyhow::Result<(
 
     assert!(app.last_alert_preview.is_none());
     assert!(app.last_alert_preview_policy.is_none());
-    assert!(app
+    assert!(app.session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("api_key")));

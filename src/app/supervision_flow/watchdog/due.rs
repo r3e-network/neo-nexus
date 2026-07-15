@@ -9,7 +9,7 @@ impl NeoNexusApp {
                 continue;
             }
 
-            let Some(index) = self
+            let Some(index) = self.fleet
                 .nodes
                 .iter()
                 .position(|node| node.id == restart.node_id)
@@ -18,7 +18,7 @@ impl NeoNexusApp {
                 continue;
             };
 
-            if self.nodes[index].status.is_running() {
+            if self.fleet.nodes[index].status.is_running() {
                 continue;
             }
 

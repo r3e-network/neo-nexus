@@ -37,5 +37,5 @@ fn reset_wallet_profile_form(app: &mut NeoNexusApp) {
     app.wallet_profile_source.clear();
     app.wallet_profile_id = "validator-wallet".to_string();
     app.wallet_profile_label = "Validator wallet".to_string();
-    app.notice = Some("Wallet profile form reset".to_string());
+    app.session.notice = Some("Wallet profile form reset".to_string());
 }

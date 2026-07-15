@@ -15,7 +15,7 @@ pub(super) fn render_readiness(app: &NeoNexusApp, ui: &mut egui::Ui, node: &Node
     let readiness = if node.status.is_running() {
         evaluate_restart_readiness(
             node,
-            &app.nodes,
+            &app.fleet.nodes,
             &plugins,
             app.managed_config_path(node),
             app.node_work_dir(node),
@@ -23,7 +23,7 @@ pub(super) fn render_readiness(app: &NeoNexusApp, ui: &mut egui::Ui, node: &Node
     } else {
         evaluate_launch_readiness(
             node,
-            &app.nodes,
+            &app.fleet.nodes,
             &plugins,
             app.managed_config_path(node),
             app.node_work_dir(node),

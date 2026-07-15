@@ -5,11 +5,11 @@ impl NeoNexusApp {
         match shortcut {
             AppShortcut::ReloadWorkspace => {
                 self.reload_workspace_data();
-                self.notice = Some("Workspace reloaded".to_string());
+                self.session.notice = Some("Workspace reloaded".to_string());
             }
             AppShortcut::NewNode => {
-                self.selected_view = View::Nodes;
-                self.notice = Some("Node studio ready".to_string());
+                self.session.selected_view = View::Nodes;
+                self.session.notice = Some("Node studio ready".to_string());
             }
             AppShortcut::StartSelectedNode => self.start_selected_node(),
             AppShortcut::StopSelectedNode => self.stop_selected_node(),
@@ -28,21 +28,21 @@ impl NeoNexusApp {
                 if let Some(index) = self.visible_node_count().checked_sub(1) {
                     self.select_node_index(index);
                 } else {
-                    self.notice = Some("No nodes to select".to_string());
+                    self.session.notice = Some("No nodes to select".to_string());
                 }
             }
-            AppShortcut::NextView => self.selected_view = views::next_view(self.selected_view),
+            AppShortcut::NextView => self.session.selected_view = views::next_view(self.session.selected_view),
             AppShortcut::PreviousView => {
-                self.selected_view = views::previous_view(self.selected_view);
+                self.session.selected_view = views::previous_view(self.session.selected_view);
             }
             AppShortcut::ToggleTheme => self.toggle_theme(),
-            AppShortcut::SelectView(view) => self.selected_view = view,
+            AppShortcut::SelectView(view) => self.session.selected_view = view,
         }
     }
 
     pub(super) fn toggle_selected_node_lifecycle(&mut self) {
         let Some(status) = self.selected_node().map(|node| node.status) else {
-            self.notice = Some("Select a node before changing lifecycle state".to_string());
+            self.session.notice = Some("Select a node before changing lifecycle state".to_string());
             return;
         };
 

@@ -16,16 +16,16 @@ impl NeoNexusApp {
                     EventSeverity::Info,
                     message.clone(),
                 );
-                self.notice = Some(message);
+                self.session.notice = Some(message);
                 self.reload_remote_servers();
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
     pub(in crate::app) fn update_selected_remote_server_profile(&mut self) {
         let Some(profile) = self.selected_remote_server_profile() else {
-            self.notice = Some("Select a remote server profile before updating".to_string());
+            self.session.notice = Some("Select a remote server profile before updating".to_string());
             return;
         };
         match self
@@ -42,16 +42,16 @@ impl NeoNexusApp {
                     EventSeverity::Info,
                     message.clone(),
                 );
-                self.notice = Some(message);
+                self.session.notice = Some(message);
                 self.reload_remote_servers();
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
     pub(in crate::app) fn toggle_selected_remote_server_enabled(&mut self) {
         let Some(profile) = self.selected_remote_server_profile() else {
-            self.notice = Some("Select a remote server profile before toggling it".to_string());
+            self.session.notice = Some("Select a remote server profile before toggling it".to_string());
             return;
         };
         match self
@@ -76,10 +76,10 @@ impl NeoNexusApp {
                     EventSeverity::Info,
                     message.clone(),
                 );
-                self.notice = Some(message);
+                self.session.notice = Some(message);
                 self.reload_remote_servers();
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

@@ -31,21 +31,21 @@ fn node_inventory_filter_limits_visible_selection_set() -> anyhow::Result<()> {
     app.repository
         .update_node_status(&seed.id, NodeStatus::Running, Some(44))?;
     app.reload_nodes();
-    app.node_query = "beta".to_string();
-    app.node_status_filter = Some(NodeStatus::Running);
+    app.fleet.node_query = "beta".to_string();
+    app.fleet.node_status_filter = Some(NodeStatus::Running);
 
     let visible = app.filtered_inventory_nodes();
     assert_eq!(visible.len(), 1);
     assert_eq!(visible[0].id, seed.id);
 
-    app.selected_node = Some(alpha.id);
+    app.fleet.selected_node = Some(alpha.id);
     assert_eq!(app.selected_filtered_node_index(&visible), None);
-    app.selected_node = Some(seed.id);
+    app.fleet.selected_node = Some(seed.id);
     assert_eq!(app.selected_filtered_node_index(&visible), Some(0));
 
-    app.node_page = 9;
+    app.fleet.node_page = 9;
     app.ensure_valid_selection();
-    assert_eq!(app.node_page, 0);
+    assert_eq!(app.fleet.node_page, 0);
 
     Ok(())
 }
@@ -61,16 +61,16 @@ fn overview_fleet_page_clamps_with_inventory_filter() -> anyhow::Result<()> {
         .update_node_status(&beta.id, NodeStatus::Running, Some(45))?;
     app.reload_nodes();
 
-    app.node_query = "beta".to_string();
-    app.node_status_filter = Some(NodeStatus::Running);
-    app.overview_fleet_page = 12;
+    app.fleet.node_query = "beta".to_string();
+    app.fleet.node_status_filter = Some(NodeStatus::Running);
+    app.fleet.overview_fleet_page = 12;
 
     let visible = app.filtered_inventory_nodes();
     assert_eq!(visible.len(), 1);
     assert_eq!(visible[0].id, beta.id);
 
     app.ensure_valid_selection();
-    assert_eq!(app.overview_fleet_page, 0);
+    assert_eq!(app.fleet.overview_fleet_page, 0);
 
     Ok(())
 }

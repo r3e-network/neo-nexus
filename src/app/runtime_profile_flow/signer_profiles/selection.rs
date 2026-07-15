@@ -13,7 +13,7 @@ impl NeoNexusApp {
                     }
                 }
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 

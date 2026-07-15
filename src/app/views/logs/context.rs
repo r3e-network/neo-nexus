@@ -92,7 +92,7 @@ fn render_log_controls(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     });
     ui.horizontal(|ui| {
         if secondary_button(ui, "Refresh").clicked() {
-            app.notice = Some("Log refreshed".to_string());
+            app.session.notice = Some("Log refreshed".to_string());
         }
         if secondary_button(ui, "Latest").clicked() {
             app.log_follow_tail = true;

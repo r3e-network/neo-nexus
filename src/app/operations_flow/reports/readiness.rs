@@ -32,9 +32,9 @@ impl NeoNexusApp {
                         export.json_path.display()
                     ),
                 );
-                self.notice = Some(message);
+                self.session.notice = Some(message);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

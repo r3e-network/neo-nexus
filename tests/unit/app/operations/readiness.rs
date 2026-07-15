@@ -20,9 +20,9 @@ fn readiness_check_filters_selected_node_checks_and_clamps_page() -> anyhow::Res
         ],
     };
 
-    app.readiness_check_severity_filter = Some(CheckSeverity::Critical);
-    app.readiness_check_query = "rpc".to_string();
-    app.readiness_check_page = 12;
+    app.operations_ui.readiness_check_severity_filter = Some(CheckSeverity::Critical);
+    app.operations_ui.readiness_check_query = "rpc".to_string();
+    app.operations_ui.readiness_check_page = 12;
 
     let visible = app.filtered_readiness_checks(&diagnostics);
     assert_eq!(visible.len(), 1);
@@ -30,7 +30,7 @@ fn readiness_check_filters_selected_node_checks_and_clamps_page() -> anyhow::Res
     assert_eq!(visible[0].severity, CheckSeverity::Critical);
 
     app.clamp_readiness_check_page(&diagnostics);
-    assert_eq!(app.readiness_check_page, 0);
+    assert_eq!(app.operations_ui.readiness_check_page, 0);
 
     Ok(())
 }
@@ -52,18 +52,18 @@ fn readiness_checks_focus_severity_and_select_first_visible_check() -> anyhow::R
         ],
     };
 
-    app.readiness_check_severity_filter = Some(CheckSeverity::Warning);
-    app.readiness_check_query = "plugin".to_string();
-    app.readiness_check_page = 5;
+    app.operations_ui.readiness_check_severity_filter = Some(CheckSeverity::Warning);
+    app.operations_ui.readiness_check_query = "plugin".to_string();
+    app.operations_ui.readiness_check_page = 5;
 
     app.focus_readiness_check_severity(&diagnostics, CheckSeverity::Critical);
 
     assert_eq!(
-        app.readiness_check_severity_filter,
+        app.operations_ui.readiness_check_severity_filter,
         Some(CheckSeverity::Critical)
     );
-    assert!(app.readiness_check_query.is_empty());
-    assert_eq!(app.readiness_check_page, 0);
+    assert!(app.operations_ui.readiness_check_query.is_empty());
+    assert_eq!(app.operations_ui.readiness_check_page, 0);
     let critical_checks = app.filtered_readiness_checks(&diagnostics);
     let selected = app
         .selected_visible_readiness_check(&critical_checks)

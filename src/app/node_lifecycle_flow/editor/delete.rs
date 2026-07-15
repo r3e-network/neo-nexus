@@ -3,24 +3,24 @@ use super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn request_delete_selected_node(&mut self) {
         let Some(node) = self.selected_node().cloned() else {
-            self.notice = Some("Select a node before deleting it".to_string());
+            self.session.notice = Some("Select a node before deleting it".to_string());
             return;
         };
 
         if node.status.is_running() {
-            self.notice = Some("Stop the selected node before deleting it".to_string());
+            self.session.notice = Some("Stop the selected node before deleting it".to_string());
             return;
         }
 
-        self.pending_delete_node = Some(node.id);
+        self.fleet.pending_delete_node = Some(node.id);
     }
 
     pub(in crate::app) fn confirm_delete_node(&mut self) {
-        let Some(node_id) = self.pending_delete_node.clone() else {
+        let Some(node_id) = self.fleet.pending_delete_node.clone() else {
             return;
         };
 
-        let node_name = self
+        let node_name = self.fleet
             .nodes
             .iter()
             .find(|node| node.id == node_id)
@@ -35,18 +35,18 @@ impl NeoNexusApp {
                     EventSeverity::Warning,
                     format!("{node_name} deleted"),
                 );
-                self.notice = Some(format!("{node_name} deleted"));
-                self.pending_delete_node = None;
-                if self.selected_node.as_deref() == Some(node_id.as_str()) {
-                    self.selected_node = None;
+                self.session.notice = Some(format!("{node_name} deleted"));
+                self.fleet.pending_delete_node = None;
+                if self.fleet.selected_node.as_deref() == Some(node_id.as_str()) {
+                    self.fleet.selected_node = None;
                 }
                 self.reload_nodes();
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
     pub(in crate::app) fn cancel_delete_node(&mut self) {
-        self.pending_delete_node = None;
+        self.fleet.pending_delete_node = None;
     }
 }

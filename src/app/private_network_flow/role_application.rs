@@ -3,12 +3,12 @@ use super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn apply_selected_role(&mut self) {
         let Some(node) = self.selected_node().cloned() else {
-            self.notice = Some("Select a node before applying a role".to_string());
+            self.session.notice = Some("Select a node before applying a role".to_string());
             return;
         };
 
         if node.status.is_active() {
-            self.notice = Some("Stop the selected node before applying a role".to_string());
+            self.session.notice = Some("Stop the selected node before applying a role".to_string());
             return;
         }
 
@@ -18,7 +18,7 @@ impl NeoNexusApp {
                 self.repository
                     .set_plugin_enabled(&node.id, change.plugin_id, change.enabled)
             {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return;
             }
         }
@@ -42,6 +42,6 @@ impl NeoNexusApp {
             EventSeverity::Info,
             message.clone(),
         );
-        self.notice = Some(message);
+        self.session.notice = Some(message);
     }
 }

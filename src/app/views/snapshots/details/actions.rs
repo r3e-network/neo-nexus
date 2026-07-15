@@ -67,5 +67,5 @@ fn load_snapshot_into_draft(app: &mut NeoNexusApp, snapshot: &FastSyncSnapshot) 
         .saturating_add(BYTES_PER_MIB - 1)
         / BYTES_PER_MIB;
     app.snapshot_draft.expected_sha256 = snapshot.expected_sha256.clone();
-    app.notice = Some(format!("{} loaded into snapshot draft", snapshot.label));
+    app.session.notice = Some(format!("{} loaded into snapshot draft", snapshot.label));
 }

@@ -12,7 +12,7 @@ impl NeoNexusApp {
         let policy = self.runtime_upgrade_policy.clone();
         let context = self.load_runtime_upgrade_catalog(&policy)?;
         let fleet_plan = RuntimePackageManager::plan_catalog_fleet_upgrades(
-            &self.nodes,
+            &self.fleet.nodes,
             &context.catalog,
             &RuntimePlatform::current(),
         );
@@ -74,7 +74,7 @@ impl NeoNexusApp {
     ) -> anyhow::Result<usize> {
         let mut upgraded = 0usize;
         for plan in candidates {
-            let Some(node) = self
+            let Some(node) = self.fleet
                 .nodes
                 .iter()
                 .find(|node| node.id == plan.node_id)

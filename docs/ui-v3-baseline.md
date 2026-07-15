@@ -42,8 +42,11 @@ cargo test --release --test ui_visual_truth -- --nocapture --ignored
 ### Phase 3 state foundations (landed)
 
 - `ToastStack` mirrors `notice` changes; status bar shows coloured toast chips (auto-expire, sticky errors)
+- God-state composition on `NeoNexusApp`:
+  - `session: SessionUi` — theme, view, inspector, notice, toasts, node workspace tab, network hub
+  - `fleet: FleetUi` — nodes, selection, draft, inventory filters/paging
+  - `operations_ui: OperationsUi` — operations section + action queue / readiness / ports / journal list UI
 - Fleet helpers: `reset_fleet_paging` / `set_fleet_status_filter` / `select_fleet_node` / `running_node_count`
-- `notice: Option<String>` retained for unit-test compatibility (dual-write mirror)
 
 ### Phase 4 surface polish (landed)
 

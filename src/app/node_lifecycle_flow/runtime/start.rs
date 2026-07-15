@@ -2,7 +2,7 @@ use super::*;
 
 impl NeoNexusApp {
     pub(in crate::app) fn start_node_with_mode(&mut self, index: usize, mode: StartMode) {
-        let Some(node) = self.nodes.get(index).cloned() else {
+        let Some(node) = self.fleet.nodes.get(index).cloned() else {
             return;
         };
         let plan = self.launch_plan_for(&node);
@@ -12,7 +12,7 @@ impl NeoNexusApp {
             .unwrap_or_default();
         let readiness = evaluate_launch_readiness(
             &node,
-            &self.nodes,
+            &self.fleet.nodes,
             &plugins,
             self.managed_config_path(&node),
             self.node_work_dir(&node),
@@ -44,7 +44,7 @@ impl NeoNexusApp {
                 match mode {
                     StartMode::Manual => {
                         self.watchdog.clear(&node.id);
-                        self.notice = Some(format!(
+                        self.session.notice = Some(format!(
                             "{} started; log {}",
                             node.name,
                             short_path(&log_path, 42)
@@ -57,7 +57,7 @@ impl NeoNexusApp {
                         );
                     }
                     StartMode::Watchdog { attempt } => {
-                        self.notice = Some(format!(
+                        self.session.notice = Some(format!(
                             "{} restarted by watchdog attempt {}; log {}",
                             node.name,
                             attempt,

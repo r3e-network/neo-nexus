@@ -61,7 +61,7 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn catalog_fleet_upgrade_plan(&self) -> Option<RuntimeCatalogFleetPlan> {
         Some(RuntimePackageManager::plan_catalog_fleet_upgrades(
-            &self.nodes,
+            &self.fleet.nodes,
             self.runtime_catalog.as_ref()?,
             &RuntimePlatform::current(),
         ))
@@ -69,12 +69,12 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn load_selected_runtime_release_into_draft(&mut self) {
         let Some(release) = self.selected_runtime_release() else {
-            self.notice = Some("Select a runtime release first".to_string());
+            self.session.notice = Some("Select a runtime release first".to_string());
             return;
         };
 
         self.runtime_package_draft.load_release(&release);
-        self.notice = Some(format!(
+        self.session.notice = Some(format!(
             "Runtime draft loaded from catalog: {} {}",
             release.node_type, release.version
         ));

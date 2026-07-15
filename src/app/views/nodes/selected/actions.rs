@@ -31,7 +31,7 @@ pub(super) fn render_action_bar(app: &mut NeoNexusApp, ui: &mut egui::Ui, status
 }
 
 pub(super) fn render_delete_confirmation(app: &mut NeoNexusApp, ui: &mut egui::Ui, node_id: &str) {
-    if app.pending_delete_node.as_deref() != Some(node_id) {
+    if app.fleet.pending_delete_node.as_deref() != Some(node_id) {
         return;
     }
 

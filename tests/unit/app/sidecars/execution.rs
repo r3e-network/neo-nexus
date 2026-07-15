@@ -19,7 +19,7 @@ fn launch_pack_sidecar_start_blocks_external_binary_until_operator_allows_it() -
     app.start_private_network_launch_pack_sidecars();
 
     assert!(app.private_network_sidecar_pids.is_empty());
-    assert!(app.notice.as_deref().is_some_and(|notice| {
+    assert!(app.session.notice.as_deref().is_some_and(|notice| {
         notice.contains("blocked by sidecar execution policy")
             && notice.contains("committee-signer-1")
     }));
@@ -35,7 +35,7 @@ fn launch_pack_sidecar_start_blocks_external_binary_until_operator_allows_it() -
     app.start_private_network_launch_pack_sidecars();
 
     assert_eq!(app.private_network_sidecar_pids.len(), 1);
-    assert!(app
+    assert!(app.session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("1 signer sidecar started")));
@@ -63,7 +63,7 @@ fn launch_pack_sidecar_actions_start_stop_and_audit_signer_processes() -> anyhow
     assert_eq!(sidecar_report.manifest_path, manifest_path);
     assert_eq!(sidecar_report.sidecar_count, 1);
     assert!(app.private_network_sidecar_pids.is_empty());
-    assert!(app
+    assert!(app.session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("signer sidecar spec loaded")));
@@ -74,7 +74,7 @@ fn launch_pack_sidecar_actions_start_stop_and_audit_signer_processes() -> anyhow
     assert!(app
         .private_network_sidecar_pids
         .contains_key("signer:committee-signer-1"));
-    assert!(app
+    assert!(app.session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("1 signer sidecar started")));
@@ -90,7 +90,7 @@ fn launch_pack_sidecar_actions_start_stop_and_audit_signer_processes() -> anyhow
     app.stop_private_network_launch_pack_sidecars();
 
     assert!(app.private_network_sidecar_pids.is_empty());
-    assert!(app
+    assert!(app.session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("1 signer sidecar stopped")));

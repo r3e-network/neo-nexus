@@ -44,7 +44,7 @@ impl NeoNexusApp {
             })
         {
             self.remote_federation_pending.remove(&profile.id);
-            self.notice = Some(format!(
+            self.session.notice = Some(format!(
                 "Unable to start remote Federation probe for {}: {error}",
                 profile.name
             ));

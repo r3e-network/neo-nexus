@@ -20,7 +20,7 @@ fn wallet_profile_actions_import_use_delete_and_audit_events() -> anyhow::Result
         app.selected_neo_wallet_profile.as_deref(),
         Some("validator-wallet-1")
     );
-    assert!(app
+    assert!(app.session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("Wallet profile imported")));
@@ -77,7 +77,7 @@ fn wallet_profile_action_adds_private_network_signer_reference() -> anyhow::Resu
 
     app.use_selected_neo_wallet_profile_for_private_network_signer_refs();
 
-    assert_eq!(app.selected_view, View::Roles);
+    assert_eq!(app.session.selected_view, View::Roles);
     assert_eq!(
         app.private_network_committee_keys.trim(),
         VALID_NEP6_CONTRACT_PUBLIC_KEY
@@ -112,7 +112,7 @@ fn wallet_profile_action_adds_private_network_signer_reference() -> anyhow::Resu
         .selected_neo_wallet_profile()
         .and_then(|profile| profile.last_used_at_unix)
         .is_some());
-    assert!(app.notice.as_deref().is_some_and(|notice| {
+    assert!(app.session.notice.as_deref().is_some_and(|notice| {
         notice.contains("Wallet profile added to signer references")
             || notice.contains("already exists")
     }));

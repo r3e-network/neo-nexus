@@ -8,7 +8,7 @@ use super::*;
 
 fn selected_node_or_notice(app: &mut NeoNexusApp, notice: &str) -> Option<NodeConfig> {
     let Some(node) = app.selected_node().cloned() else {
-        app.notice = Some(notice.to_string());
+        app.session.notice = Some(notice.to_string());
         return None;
     };
     Some(node)
@@ -41,7 +41,7 @@ fn record_managed_config_applied(
         },
         message.clone(),
     );
-    app.notice = Some(message);
+    app.session.notice = Some(message);
 }
 
 fn managed_config_applied_message(

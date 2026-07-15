@@ -20,7 +20,7 @@ fn running_catalog_upgrade_applies_runtime_and_restarts_selected_node() -> anyho
         ws_port: None,
     })?;
     let mut app = NeoNexusApp::new(repository);
-    app.selected_node = Some(node.id.clone());
+    app.fleet.selected_node = Some(node.id.clone());
 
     app.start_selected_node();
     let first_pid = app
@@ -75,7 +75,7 @@ fn running_catalog_upgrade_applies_runtime_and_restarts_selected_node() -> anyho
     assert_ne!(first_pid, second_pid);
     assert_eq!(upgraded.runtime_version, "v1.1.0");
     assert_eq!(upgraded.binary_path, PathBuf::from("/bin/sh"));
-    assert!(app.notice.as_deref().is_some_and(|notice| {
+    assert!(app.session.notice.as_deref().is_some_and(|notice| {
         notice.contains("upgraded from v1.0.0 to v1.1.0") && notice.contains("restarted")
     }));
     let runtime_events =

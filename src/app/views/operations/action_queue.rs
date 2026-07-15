@@ -45,11 +45,11 @@ impl NeoNexusApp {
         self.ensure_visible_readiness_action_selection(&actions);
 
         let total_pages = page_count(actions.len(), ACTION_QUEUE_PAGE_SIZE);
-        self.action_queue_page = self.action_queue_page.min(total_pages - 1);
-        pagination_bar(ui, &mut self.action_queue_page, total_pages, actions.len());
+        self.operations_ui.action_queue_page = self.operations_ui.action_queue_page.min(total_pages - 1);
+        pagination_bar(ui, &mut self.operations_ui.action_queue_page, total_pages, actions.len());
         ui.add_space(theme::SM);
 
-        let start = self.action_queue_page * ACTION_QUEUE_PAGE_SIZE;
+        let start = self.operations_ui.action_queue_page * ACTION_QUEUE_PAGE_SIZE;
         render_action_table(self, ui, &actions, start);
         render_selected_action_summary(self, ui, &actions);
         render_export_action(self, ui, diagnostics);

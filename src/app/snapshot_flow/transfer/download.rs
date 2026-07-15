@@ -3,13 +3,13 @@ use super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn download_selected_snapshot(&mut self) {
         let Some(snapshot) = self.selected_fast_sync_snapshot() else {
-            self.notice = Some("Select a fast sync snapshot before downloading it".to_string());
+            self.session.notice = Some("Select a fast sync snapshot before downloading it".to_string());
             return;
         };
 
         match self.download_fast_sync_snapshot(&snapshot) {
-            Ok(message) => self.notice = Some(message),
-            Err(error) => self.notice = Some(error.to_string()),
+            Ok(message) => self.session.notice = Some(message),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 

@@ -39,7 +39,7 @@ impl NeoNexusApp {
 
     pub(super) fn toggle_plugin(&mut self, plugin_id: PluginId, enabled: bool) {
         let Some(node_id) = self.selected_node().map(|node| node.id.clone()) else {
-            self.notice = Some("Create a node before changing plugins".to_string());
+            self.session.notice = Some("Create a node before changing plugins".to_string());
             return;
         };
 
@@ -59,12 +59,12 @@ impl NeoNexusApp {
                         ),
                     );
                 }
-                self.notice = Some(format!(
+                self.session.notice = Some(format!(
                     "{plugin_id} {}",
                     if enabled { "enabled" } else { "disabled" }
                 ));
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
@@ -73,28 +73,28 @@ impl NeoNexusApp {
         match sha256_file(&source_path) {
             Ok((sha256, bytes)) => {
                 self.plugin_package_expected_sha256 = sha256;
-                self.notice = Some(format!("Plugin package hashed: {}", format_bytes(bytes)));
+                self.session.notice = Some(format!("Plugin package hashed: {}", format_bytes(bytes)));
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
     pub(super) fn install_selected_plugin_package(&mut self) {
         let Some(node) = self.selected_node().cloned() else {
-            self.notice = Some("Select a node before installing a plugin package".to_string());
+            self.session.notice = Some("Select a node before installing a plugin package".to_string());
             return;
         };
         if node.node_type != NodeType::NeoCli {
-            self.notice = Some("Plugin packages are supported for neo-cli nodes only".to_string());
+            self.session.notice = Some("Plugin packages are supported for neo-cli nodes only".to_string());
             return;
         }
         if node.status.is_active() {
-            self.notice =
+            self.session.notice =
                 Some("Stop the selected node before installing a plugin package".to_string());
             return;
         }
         let Some(plugin_id) = self.selected_plugin else {
-            self.notice = Some("Select a plugin before installing a package".to_string());
+            self.session.notice = Some("Select a plugin before installing a package".to_string());
             return;
         };
 
@@ -112,7 +112,7 @@ impl NeoNexusApp {
         match PluginPackageManager::install(&manifest, &node, self.node_work_dir(&node)) {
             Ok(installation) => {
                 if let Err(error) = self.repository.upsert_plugin_installation(&installation) {
-                    self.notice = Some(error.to_string());
+                    self.session.notice = Some(error.to_string());
                     return;
                 }
                 let message = format!(
@@ -129,9 +129,9 @@ impl NeoNexusApp {
                     EventSeverity::Info,
                     message.clone(),
                 );
-                self.notice = Some(message);
+                self.session.notice = Some(message);
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 }

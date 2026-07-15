@@ -9,7 +9,7 @@ impl NeoNexusApp {
             return Some(node);
         }
 
-        self.nodes
+        self.fleet.nodes
             .iter()
             .find(|node| node.node_type == self.private_network_runtime)
     }
@@ -20,16 +20,16 @@ impl NeoNexusApp {
             self.private_network_runtime,
         );
         let Some(template_node) = self.private_network_template_source_node().cloned() else {
-            self.notice = Some(format!(
+            self.session.notice = Some(format!(
                 "Create a {} node first so NeoNexus can reuse its binary and version",
                 self.private_network_runtime
             ));
             return;
         };
 
-        let conflicts = plan.conflicts_with(&self.nodes);
+        let conflicts = plan.conflicts_with(&self.fleet.nodes);
         if let Some(conflict) = conflicts.first() {
-            self.notice = Some(format!(
+            self.session.notice = Some(format!(
                 "Private network plan has a conflict: {}",
                 conflict.detail
             ));
@@ -39,7 +39,7 @@ impl NeoNexusApp {
         let inputs = match plan.to_new_nodes(&template_node) {
             Ok(inputs) => inputs,
             Err(error) => {
-                self.notice = Some(error.to_string());
+                self.session.notice = Some(error.to_string());
                 return;
             }
         };
@@ -69,7 +69,7 @@ impl NeoNexusApp {
         {
             Ok(created) => {
                 if let Some(first) = created.first() {
-                    self.selected_node = Some(first.id.clone());
+                    self.fleet.selected_node = Some(first.id.clone());
                 }
                 self.private_network_last_export_root = None;
                 self.private_network_last_validation = None;
@@ -85,10 +85,10 @@ impl NeoNexusApp {
                     EventSeverity::Info,
                     message,
                 );
-                self.node_page = 0;
+                self.fleet.node_page = 0;
                 self.reload_nodes();
             }
-            Err(error) => self.notice = Some(error.to_string()),
+            Err(error) => self.session.notice = Some(error.to_string()),
         }
     }
 
@@ -98,7 +98,7 @@ impl NeoNexusApp {
     ) -> anyhow::Result<Vec<NodeConfig>> {
         let mut nodes = Vec::with_capacity(plan.nodes.len());
         for planned in &plan.nodes {
-            let node = self
+            let node = self.fleet
                 .nodes
                 .iter()
                 .find(|node| {

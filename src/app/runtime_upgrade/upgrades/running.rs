@@ -20,7 +20,7 @@ impl NeoNexusApp {
             .unwrap_or_default();
         let readiness = evaluate_restart_readiness(
             &candidate,
-            &self.nodes,
+            &self.fleet.nodes,
             &plugins,
             self.managed_config_path(&candidate),
             self.node_work_dir(&candidate),
@@ -32,17 +32,17 @@ impl NeoNexusApp {
         let upgrade_message =
             self.apply_runtime_installation_to_node(node, &installation, &plan.from_version)?;
         self.reload_nodes();
-        let index = self
+        let index = self.fleet
             .nodes
             .iter()
             .position(|candidate| candidate.id == node.id)
             .ok_or_else(|| anyhow::anyhow!("upgraded node {} was not found", node.name))?;
         self.restart_node(index);
-        let restart_message = self
+        let restart_message = self.session
             .notice
             .clone()
             .unwrap_or_else(|| format!("{} restarted", node.name));
-        let upgraded = self
+        let upgraded = self.fleet
             .nodes
             .iter()
             .find(|candidate| candidate.id == node.id)
