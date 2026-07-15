@@ -1,10 +1,8 @@
-//! Headless Compact density geometry proof (v3.1 PR-14-full).
+//! Headless Compact density geometry proof (v3.1 PR-14-full + single-line list).
 //!
-//! Compact must densify **controls** (interact size, button pad, spacing)
-//! while chrome panel sizes (header 60 / status 28 / sidebar 212) and
-//! list-row metrics stay identical to Comfortable. This gate is the only
-//! path allowed to unlock Compact list-height changes later — until then
-//! Compact list heights equal Comfortable.
+//! Compact densifies **controls** (interact size, button pad, spacing) and uses
+//! single-line inventory/fleet rows at 40pt. Chrome panel sizes
+//! (header 60 / status 28 / sidebar 212) stay density-invariant.
 
 use std::collections::HashSet;
 
