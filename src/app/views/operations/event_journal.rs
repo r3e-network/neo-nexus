@@ -7,9 +7,10 @@ use eframe::egui;
 use crate::app::{
     domain::{count_workspace_events, list_workspace_events, RuntimeEventFilter},
     theme,
+    widgets::empty_state,
 };
 
-use super::super::super::{widgets::empty_state, NeoNexusApp, EVENT_JOURNAL_LIMIT};
+use super::super::super::{NeoNexusApp, EVENT_JOURNAL_LIMIT};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct EventJournalCounts {
@@ -27,7 +28,9 @@ impl NeoNexusApp {
         let total_matches = match count_workspace_events(&self.repository, &filter) {
             Ok(count) => count,
             Err(error) => {
-                ui.label(egui::RichText::new(error.to_string()).color(theme::danger()));
+                ui.label(
+                    egui::RichText::new(error.to_string()).color(theme::danger()),
+                );
                 return;
             }
         };
@@ -35,14 +38,18 @@ impl NeoNexusApp {
             match count_workspace_events(&self.repository, &RuntimeEventFilter::default()) {
                 Ok(count) => count,
                 Err(error) => {
-                    ui.label(egui::RichText::new(error.to_string()).color(theme::danger()));
+                    ui.label(
+                        egui::RichText::new(error.to_string()).color(theme::danger()),
+                    );
                     return;
                 }
             };
         let events = match list_workspace_events(&self.repository, filter) {
             Ok(events) => events,
             Err(error) => {
-                ui.label(egui::RichText::new(error.to_string()).color(theme::danger()));
+                ui.label(
+                    egui::RichText::new(error.to_string()).color(theme::danger()),
+                );
                 return;
             }
         };
@@ -52,15 +59,22 @@ impl NeoNexusApp {
             total_events,
         };
 
+        ui.horizontal(|ui| {
+            ui.label(theme::muted_body(format!(
+                "Showing {total_matches} of {total_events} recorded events"
+            )));
+        });
+        ui.add_space(theme::SM);
+
         filters::render_event_filters(self, ui, counts);
         actions::render_event_actions(self, ui, counts);
-        ui.separator();
+        ui.add_space(theme::SM);
 
         if events.is_empty() {
             empty_state(
                 ui,
                 "No events",
-                "Adjust the filter or operate the workspace.",
+                "Operate nodes or clear filters to populate the journal.",
             );
             return;
         }

@@ -1,42 +1,40 @@
 use eframe::egui;
 
 use crate::app::domain::ProcessStateFilter;
-use crate::app::widgets::chip_pill;
-
-use super::super::super::{theme::muted_text, NeoNexusApp};
+use crate::app::{
+    theme,
+    widgets::{chip_pill, filter_bar, filter_chip},
+    NeoNexusApp,
+};
 
 pub(super) fn render_process_filter(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("State").color(muted_text()));
+        ui.label(theme::muted_body("State"));
         chip_pill(ui, |ui| {
             state_button(app, ui, "All", None);
             state_button(app, ui, "Observed", Some(ProcessStateFilter::Observed));
             state_button(app, ui, "Missing", Some(ProcessStateFilter::Missing));
         });
     });
+    ui.add_space(theme::XS);
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Pressure").color(muted_text()));
-        pressure_toggle(
-            ui,
-            &mut app.monitor_process_high_cpu_filter,
-            "High CPU",
-            &mut app.monitor_process_page,
-        );
-        pressure_toggle(
-            ui,
-            &mut app.monitor_process_high_memory_filter,
-            "High RSS",
-            &mut app.monitor_process_page,
-        );
+        ui.label(theme::muted_body("Pressure"));
+        chip_pill(ui, |ui| {
+            if filter_chip(ui, "High CPU", app.monitor_process_high_cpu_filter) {
+                app.monitor_process_high_cpu_filter = !app.monitor_process_high_cpu_filter;
+                app.monitor_process_page = 0;
+            }
+            if filter_chip(ui, "High RSS", app.monitor_process_high_memory_filter) {
+                app.monitor_process_high_memory_filter = !app.monitor_process_high_memory_filter;
+                app.monitor_process_page = 0;
+            }
+        });
     });
-    let response = ui.add_sized(
-        [ui.available_width(), 24.0],
-        egui::TextEdit::singleline(&mut app.monitor_process_query).hint_text("Search"),
-    );
-    if response.changed() {
+    ui.add_space(theme::XS);
+    if filter_bar(ui, &mut app.monitor_process_query, "Search processes") {
         app.monitor_process_page = 0;
     }
-    ui.separator();
+    ui.add_space(theme::SM);
 }
 
 fn state_button(
@@ -45,18 +43,8 @@ fn state_button(
     label: &str,
     state: Option<ProcessStateFilter>,
 ) {
-    if ui
-        .selectable_label(app.monitor_process_state_filter == state, label)
-        .clicked()
-    {
+    if filter_chip(ui, label, app.monitor_process_state_filter == state) {
         app.monitor_process_state_filter = state;
         app.monitor_process_page = 0;
-    }
-}
-
-fn pressure_toggle(ui: &mut egui::Ui, value: &mut bool, label: &str, page: &mut usize) {
-    let changed = ui.checkbox(value, label).changed();
-    if changed {
-        *page = 0;
     }
 }

@@ -6,8 +6,8 @@ use super::super::{
     super::super::{
         text::truncate_middle,
         theme,
-        widgets::{grid_header, severity_badge, status_badge},
-        NeoNexusApp, PORT_MATRIX_PAGE_SIZE,
+        widgets::{grid_header, primary_button, severity_badge, status_badge},
+        NeoNexusApp, PORT_MATRIX_PAGE_SIZE, views::NodeWorkspaceTab,
     },
 };
 
@@ -34,11 +34,11 @@ pub(super) fn render_port_table(
 }
 
 pub(super) fn render_selected_port_summary(
-    app: &NeoNexusApp,
+    app: &mut NeoNexusApp,
     ui: &mut egui::Ui,
     rows: &[PortMatrixRow],
 ) {
-    let Some(row) = app.selected_visible_port_matrix_row(rows) else {
+    let Some(row) = app.selected_visible_port_matrix_row(rows).cloned() else {
         return;
     };
 
@@ -66,6 +66,15 @@ pub(super) fn render_selected_port_summary(
                 row.p2p_port,
                 optional_port(row.ws_port)
             )));
+            ui.add_space(theme::SM);
+            if primary_button(ui, "Edit ports in Studio")
+                .on_hover_text("Load this node into Node Studio to reassign ports")
+                .clicked()
+            {
+                app.fleet.selected_node = Some(row.node_id.clone());
+                app.load_selected_node_into_draft();
+                app.open_node_workspace_tab(NodeWorkspaceTab::Studio);
+            }
         });
 }
 
