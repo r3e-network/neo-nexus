@@ -46,8 +46,8 @@ impl NeoNexusApp {
                 ui.add_space(theme::XS);
             } else {
                 // Reserve row height so the list stays evenly paced when a page
-                // is only partially filled.
-                ui.add_space(48.0);
+                // is only partially filled (matches compact node_row height).
+                ui.add_space(theme::DensityMetrics::COMFORTABLE.list_row_compact);
             }
         }
 

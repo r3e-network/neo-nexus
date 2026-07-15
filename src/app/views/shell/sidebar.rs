@@ -69,7 +69,10 @@ impl NeoNexusApp {
         };
         let mut button = egui::Button::new(text)
             .corner_radius(egui::CornerRadius::same(8))
-            .min_size(egui::vec2(width, 34.0));
+            .min_size(egui::vec2(
+                width,
+                theme::DensityMetrics::COMFORTABLE.nav_row_height,
+            ));
         if selected {
             button = button.fill(theme::accent()).stroke(egui::Stroke::NONE);
         } else {

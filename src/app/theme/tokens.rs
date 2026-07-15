@@ -16,6 +16,11 @@ pub(in crate::app) const LG: f32 = 16.0;
 #[allow(dead_code)] // exported for surfaces that need a major section break
 pub(in crate::app) const XL: f32 = 20.0;
 
+// Shell chrome geometry — density-invariant (ui_geometry contracts).
+pub(in crate::app) const CHROME_HEADER_HEIGHT: f32 = 60.0;
+pub(in crate::app) const CHROME_STATUS_HEIGHT: f32 = 28.0;
+pub(in crate::app) const CHROME_SIDEBAR_WIDTH: f32 = 212.0;
+
 // Type scale. Sizes live here as the single tuning knob; colour is pulled from
 // the live theme inside each constructor so typography stays theme-correct.
 const SIZE_PAGE_TITLE: f32 = 17.0;
