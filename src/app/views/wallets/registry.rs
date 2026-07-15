@@ -5,7 +5,7 @@ use crate::app::domain::NeoWalletProfile;
 use super::super::super::{
     paging::page_count,
     text::truncate_middle,
-    theme::muted_text,
+    theme::{self, muted_text},
     widgets::{empty_state, pagination_bar},
     NeoNexusApp, WALLET_PROFILE_PAGE_SIZE,
 };
@@ -63,7 +63,7 @@ pub(super) fn render_wallet_profile_registry(app: &mut NeoNexusApp, ui: &mut egu
                 next_selection = Some(profile.id.clone());
             }
         } else {
-            ui.add_space(42.0);
+            ui.add_space(theme::DensityMetrics::COMFORTABLE.list_row_compact);
         }
     }
 
@@ -87,7 +87,7 @@ fn render_wallet_profile_row(
         egui::Button::new(label).selected(selected),
     );
     ui.horizontal(|ui| {
-        ui.add_space(8.0);
+        ui.add_space(theme::SM);
         ui.label(
             egui::RichText::new(format!(
                 "{} encrypted / {} key(s)",
@@ -97,7 +97,7 @@ fn render_wallet_profile_row(
             .color(muted_text()),
         );
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.add_space(6.0);
+            ui.add_space(theme::SM);
             ui.label(truncate_middle(&profile.wallet_sha256, 18));
         });
     });

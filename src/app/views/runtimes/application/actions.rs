@@ -2,6 +2,7 @@ use eframe::egui;
 
 use crate::app::{
     domain::{NodeConfig, RuntimeCatalogUpgradePlan},
+    theme,
     NeoNexusApp,
 };
 
@@ -16,7 +17,7 @@ pub(super) fn render_runtime_actions(
     catalog_plan: Option<&RuntimeCatalogUpgradePlan>,
 ) {
     let stopped = node.status.is_stopped();
-    ui.add_space(8.0);
+    ui.add_space(theme::SM);
     ui.horizontal(|ui| {
         if ui
             .add_enabled(

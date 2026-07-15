@@ -74,8 +74,9 @@ impl DensityMetrics {
         journal_slot: 52.0,
     };
 
-    /// Compact densifies **controls only**. List row heights match Comfortable
-    /// so inventory geometry stays proven until PR-14-full.
+    /// Compact densifies controls **and** uses single-line list anatomy
+    /// (`node_row` drops the secondary badge line). Inventory/fleet rows
+    /// target 40pt; journal empty slots stay 52 (multi-line event content).
     pub(in crate::app) const COMPACT: Self = Self {
         interact_y: 24.0,
         button_pad_x: 10.0,
@@ -83,8 +84,8 @@ impl DensityMetrics {
         item_spacing_x: 8.0,
         item_spacing_y: 6.0,
         nav_row_height: 28.0,
-        list_row_compact: 44.0,
-        list_row_expanded: 56.0,
+        list_row_compact: 40.0,
+        list_row_expanded: 40.0,
         journal_slot: 52.0,
     };
 

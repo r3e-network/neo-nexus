@@ -252,21 +252,23 @@ Design window content column (Summary with inventory + inspector, approx):
 - `NODE_PAGE_SIZE = 7`, row height 44 + gap XS(4) ≈ 48 → 7×48 = **336** for rows + pagination bar ~36 → fits with margin
 - If Compact inventory were **36** + 4 gap = 40 → 7×40 = 280 (fits) **but** two-line anatomy (name + badge row, inner_margin 10×8, body 13) **clips below ~40–42** without redesigning to single-line
 
-**Conclusion:** Compact inventory at 36 is **infeasible** with current two-line `node_row`. v3.1 **does not** reduce list heights. Future Compact single-line anatomy (dot + name + status pill only, secondary line dropped) may target 40pt after an explicit proof PR with headless layout asserts.
+**Conclusion (v3.1.0 ship):** Comfortable keeps two-line 44/56.  
+**Post-ship geometry proof (landed):** Compact switches to **single-line** anatomy at **40pt** (inventory + fleet). Journal slots remain 52. Chrome stays density-invariant.
 
-##### Compact inventory ASCII (future / not v3.1 list height)
+##### Compact inventory ASCII (shipped after geometry proof)
 
 ```
-Comfortable two-line (shipped heights 44/56):
+Comfortable two-line (heights 44/56):
 ┌────────────────────────────────────┐
 │ ●  node-name            [Running]  │
-│    [neo-go] [TestNet]        :10332│
+│    [neo-go] [testnet]        :10332│
 └────────────────────────────────────┘
 
-Future Compact single-line (proof PR only; not v3.1 default apply):
+Compact single-line (height 40):
 ┌────────────────────────────────────┐
-│ ● node-name [neo-go] [TN] :10332 ● │
-└────────────────────────────────────┘  height ≥ 40
+│ ● node-name [neo-go] [test] :10332 │
+│                            [Running]│
+└────────────────────────────────────┘
 ```
 
 ##### Implementation sketch

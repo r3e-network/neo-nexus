@@ -11,8 +11,8 @@ pub(in crate::app) const LIST_SELECTED_MULTIPLY: f32 = 0.16;
 pub(in crate::app) const LIST_CORNER_RADIUS: u8 = 10;
 
 /// Draw a clickable list row frame. `fixed_height` reserves a slot when the
-/// page pads empty cells (inventory 44/56, journal 52); pass `None` for
-/// content-height rows (readiness / action queue).
+/// page pads empty cells (inventory Comfortable 44 / Compact 40, fleet 52);
+/// pass `None` for content-height rows (readiness / action queue).
 ///
 /// Returns whether the row was clicked this frame.
 pub(in crate::app) fn list_row_frame(
@@ -33,14 +33,23 @@ pub(in crate::app) fn list_row_frame(
         theme::hairline()
     };
 
+    // Compact single-line slots (≤40) need tighter vertical padding so the
+    // outer frame lands on the design height without clipping badges.
+    let v_margin: i8 = match fixed_height {
+        Some(h) if h <= 40.0 => 4,
+        _ => 8,
+    };
+    let h_margin: i8 = 10;
+
     let response = egui::Frame::new()
         .fill(fill)
         .stroke(stroke)
         .corner_radius(egui::CornerRadius::same(LIST_CORNER_RADIUS))
-        .inner_margin(egui::Margin::symmetric(10, 8))
+        .inner_margin(egui::Margin::symmetric(h_margin, v_margin))
         .show(ui, |ui| {
             if let Some(height) = fixed_height {
-                ui.set_min_size(egui::vec2(width - 4.0, (height - 8.0).max(1.0)));
+                let content_h = (height - f32::from(v_margin) * 2.0).max(1.0);
+                ui.set_min_size(egui::vec2(width - 4.0, content_h));
             } else {
                 ui.set_min_width(width - 4.0);
             }

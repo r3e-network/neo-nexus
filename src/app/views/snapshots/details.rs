@@ -5,7 +5,7 @@ mod target;
 
 use eframe::egui;
 
-use crate::app::{domain::FastSyncSnapshot, NeoNexusApp};
+use crate::app::{domain::FastSyncSnapshot, theme, NeoNexusApp};
 
 use super::super::super::widgets::empty_state;
 
@@ -34,7 +34,7 @@ impl NeoNexusApp {
         facts::render_snapshot_facts(ui, &snapshot);
         ui.separator();
         target::render_target_node(self, ui);
-        ui.add_space(8.0);
+        ui.add_space(theme::SM);
         actions::render_snapshot_actions(self, ui, &snapshot);
     }
 }

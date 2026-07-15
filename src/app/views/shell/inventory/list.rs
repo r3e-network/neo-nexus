@@ -40,14 +40,16 @@ impl NeoNexusApp {
         for row in 0..NODE_PAGE_SIZE {
             if let Some(node) = visible.get(row) {
                 let selected = next_selection.as_deref() == Some(node.id.as_str());
-                if node_row(ui, node, selected, true) {
+                if node_row(ui, node, selected, true, self.session.density) {
                     next_selection = Some(node.id.clone());
                 }
                 ui.add_space(theme::XS);
             } else {
                 // Reserve row height so the list stays evenly paced when a page
-                // is only partially filled (matches compact node_row height).
-                ui.add_space(theme::DensityMetrics::COMFORTABLE.list_row_compact);
+                // is only partially filled (matches inventory node_row height).
+                let slot = theme::DensityMetrics::for_density(self.session.density)
+                    .list_row_compact;
+                ui.add_space(slot);
             }
         }
 
