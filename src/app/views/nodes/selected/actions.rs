@@ -3,7 +3,7 @@ use eframe::egui;
 use crate::app::{
     domain::NodeStatus,
     theme,
-    widgets::{callout, primary_button, secondary_button, secondary_button_enabled, CalloutKind},
+    widgets::{confirm_bar, secondary_button, secondary_button_enabled},
     NeoNexusApp,
 };
 
@@ -56,20 +56,16 @@ pub(super) fn render_delete_confirmation(app: &mut NeoNexusApp, ui: &mut egui::U
         return;
     }
 
-    ui.add_space(theme::MD);
-    callout(
+    match confirm_bar(
         ui,
-        CalloutKind::Danger,
         "Delete this node?",
         "Removes the definition and plugin state. Running nodes must be stopped first.",
-    );
-    ui.add_space(theme::SM);
-    ui.horizontal(|ui| {
-        if primary_button(ui, "Confirm Delete").clicked() {
-            app.confirm_delete_node();
-        }
-        if secondary_button(ui, "Cancel").clicked() {
-            app.cancel_delete_node();
-        }
-    });
+        "Confirm Delete",
+        "Cancel",
+        true,
+    ) {
+        Some(true) => app.confirm_delete_node(),
+        Some(false) => app.cancel_delete_node(),
+        None => {}
+    }
 }
