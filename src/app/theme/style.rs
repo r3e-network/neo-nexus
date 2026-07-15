@@ -1,8 +1,24 @@
 use super::*;
 
+/// Apply theme colours and Comfortable density control metrics (current ship
+/// default). PR-12 will pass `session.density` through
+/// [`configure_style_with_density`].
 pub(in crate::app) fn configure_style(context: &egui::Context, theme: Theme) {
+    configure_style_with_density(context, theme, UiDensity::Comfortable);
+}
+
+/// Apply palette + density control metrics. List row heights are read by
+/// widgets from [`DensityMetrics`], not from egui Style.
+/// Callers pass session density starting in PR-12; until then only Comfortable.
+#[allow(dead_code)]
+pub(in crate::app) fn configure_style_with_density(
+    context: &egui::Context,
+    theme: Theme,
+    density: UiDensity,
+) {
     set_active_theme(theme);
     let palette = palette(theme);
+    let metrics = DensityMetrics::for_density(density);
     let mut style = (*context.style()).clone();
 
     style.visuals = if theme.is_dark() {
@@ -61,14 +77,11 @@ pub(in crate::app) fn configure_style(context: &egui::Context, theme: Theme) {
     visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0, palette.border);
     visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, palette.text);
 
-    // Generous, consistent rhythm so views breathe instead of crowding.
-    // Slightly taller interact targets (28pt) and roomier padding give the
-    // workbench a calmer, more product-like density than stock egui.
-    style.spacing.item_spacing = egui::vec2(10.0, 8.0);
-    style.spacing.button_padding = egui::vec2(14.0, 8.0);
+    style.spacing.item_spacing = egui::vec2(metrics.item_spacing_x, metrics.item_spacing_y);
+    style.spacing.button_padding = egui::vec2(metrics.button_pad_x, metrics.button_pad_y);
     style.spacing.menu_margin = egui::Margin::same(6);
     style.spacing.indent = 20.0;
-    style.spacing.interact_size.y = 28.0;
+    style.spacing.interact_size.y = metrics.interact_y;
 
     context.set_style(style);
 }

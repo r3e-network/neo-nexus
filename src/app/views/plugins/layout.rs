@@ -1,5 +1,7 @@
 use eframe::egui;
 
+use crate::app::theme;
+
 pub(super) struct PluginPaneLayout {
     pub(super) catalog_width: f32,
     pub(super) activation_width: f32,
@@ -8,7 +10,7 @@ pub(super) struct PluginPaneLayout {
 }
 
 pub(super) fn plugin_pane_layout(available: egui::Vec2) -> PluginPaneLayout {
-    let gap = 8.0;
+    let gap = theme::SM;
     let catalog_width = (available.x * 0.48).clamp(340.0, 520.0);
     let activation_width = (available.x - catalog_width - gap).max(320.0);
 

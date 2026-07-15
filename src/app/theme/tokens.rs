@@ -12,7 +12,8 @@ pub(in crate::app) const XS: f32 = 4.0;
 pub(in crate::app) const SM: f32 = 8.0;
 pub(in crate::app) const MD: f32 = 12.0;
 pub(in crate::app) const LG: f32 = 16.0;
-#[allow(dead_code)]
+/// Extra-large spacing tier (20pt on the 4pt grid). Used for major section breaks.
+#[allow(dead_code)] // exported for surfaces that need a major section break
 pub(in crate::app) const XL: f32 = 20.0;
 
 // Type scale. Sizes live here as the single tuning knob; colour is pulled from

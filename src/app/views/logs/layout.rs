@@ -1,5 +1,7 @@
 use eframe::egui;
 
+use crate::app::theme;
+
 pub(super) struct LogLayout {
     pub(super) context_width: f32,
     pub(super) output_width: f32,
@@ -8,7 +10,7 @@ pub(super) struct LogLayout {
 }
 
 pub(super) fn log_layout(available: egui::Vec2) -> LogLayout {
-    let gap = 8.0;
+    let gap = theme::SM;
     let context_width = (available.x * 0.34).clamp(300.0, 430.0);
     let output_width = (available.x - context_width - gap).max(420.0);
 
