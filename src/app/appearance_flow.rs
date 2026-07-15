@@ -11,6 +11,19 @@ impl NeoNexusApp {
         }
     }
 
+    /// Persists the operator density preference. Style application for Compact
+    /// control metrics is wired in PR-12; this only stores the choice.
+    #[allow(dead_code)] // Settings Storage control in PR-12
+    pub(in crate::app) fn set_ui_density(&mut self, density: UiDensity) {
+        self.session.density = density;
+        if let Err(error) = self
+            .repository
+            .save_app_ui_density(density.persist_key())
+        {
+            self.session.notice = Some(format!("Density preference not saved: {error}"));
+        }
+    }
+
     /// Shows or hides the right-hand inspector panel so the workspace can use
     /// the full width when node detail is not needed. The choice is persisted so
     /// the layout is restored on the next launch.

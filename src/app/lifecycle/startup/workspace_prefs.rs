@@ -10,15 +10,17 @@ const KEY_SNAPSHOTS: &str = "workspace.section.snapshots";
 const KEY_MONITOR: &str = "workspace.section.monitor";
 const KEY_FEDERATION: &str = "workspace.section.federation";
 const KEY_ROLES: &str = "workspace.section.roles";
+const KEY_NODES: &str = "workspace.section.nodes";
 
 /// Host-level workspace preferences that an operator tunes once and expects to
-/// survive a restart: theme, inspector layout, the active workspace view, and
-/// the active sub-tab of each dense page. These are UI state, not workspace
-/// content, so their keys are excluded from workspace backups.
+/// survive a restart: theme, density, inspector layout, the active workspace
+/// view, and the active sub-tab of each dense page.
 pub(super) struct StartupWorkspacePrefs {
     pub(super) theme: Theme,
+    pub(super) density: UiDensity,
     pub(super) inspector_visible: bool,
     pub(super) view: View,
+    pub(super) nodes_tab: NodeWorkspaceTab,
     pub(super) operations: OperationsSection,
     pub(super) settings: SettingsSection,
     pub(super) runtimes: RuntimesSection,
@@ -32,8 +34,15 @@ pub(super) struct StartupWorkspacePrefs {
 impl StartupWorkspacePrefs {
     pub(super) fn load(repository: &Repository) -> Self {
         let (theme, theme_notice) = load_theme(repository);
+        let (density, density_notice) = load_density(repository);
         let (inspector_visible, inspector_notice) = load_inspector_visible(repository);
         let (view, view_notice) = load_view(repository);
+        let (nodes_tab, nodes_notice) = load_section(
+            repository,
+            KEY_NODES,
+            NodeWorkspaceTab::from_persist_key,
+            NodeWorkspaceTab::Studio,
+        );
         let (operations, operations_notice) = load_section(
             repository,
             KEY_OPERATIONS,
@@ -79,8 +88,10 @@ impl StartupWorkspacePrefs {
 
         Self {
             theme,
+            density,
             inspector_visible,
             view,
+            nodes_tab,
             operations,
             settings,
             runtimes,
@@ -90,8 +101,10 @@ impl StartupWorkspacePrefs {
             roles,
             notice: first_notice([
                 theme_notice,
+                density_notice,
                 inspector_notice,
                 view_notice,
+                nodes_notice,
                 operations_notice,
                 settings_notice,
                 runtimes_notice,
@@ -110,6 +123,25 @@ fn load_theme(repository: &Repository) -> (Theme, Option<String>) {
         Err(error) => (
             Theme::default(),
             Some(format!("Using default theme: {error}")),
+        ),
+    }
+}
+
+fn load_density(repository: &Repository) -> (UiDensity, Option<String>) {
+    match repository.load_app_ui_density() {
+        Ok(Some(stored)) => match UiDensity::from_persist_key(&stored) {
+            Some(density) => (density, None),
+            None => (
+                UiDensity::default(),
+                Some(format!(
+                    "Ignoring unknown appearance.ui_density value {stored:?}; using comfortable"
+                )),
+            ),
+        },
+        Ok(None) => (UiDensity::default(), None),
+        Err(error) => (
+            UiDensity::default(),
+            Some(format!("Using default density: {error}")),
         ),
     }
 }
@@ -166,6 +198,6 @@ fn load_section<T>(
     }
 }
 
-fn first_notice(notices: [Option<String>; 10]) -> Option<String> {
+fn first_notice(notices: [Option<String>; 12]) -> Option<String> {
     notices.into_iter().flatten().next()
 }

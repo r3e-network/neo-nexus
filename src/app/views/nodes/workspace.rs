@@ -30,7 +30,6 @@ impl NodeWorkspaceTab {
         }
     }
 
-    #[allow(dead_code)] // reserved for workspace-tab persistence (Phase 3)
     pub(in crate::app) fn persist_key(self) -> &'static str {
         match self {
             Self::Studio => "studio",
@@ -41,7 +40,6 @@ impl NodeWorkspaceTab {
         }
     }
 
-    #[allow(dead_code)] // reserved for workspace-tab persistence (Phase 3)
     pub(in crate::app) fn from_persist_key(key: &str) -> Option<Self> {
         Self::ALL
             .into_iter()

@@ -15,8 +15,10 @@ pub(super) fn build_initial_app(
         repository,
         session: SessionUi::new(
             prefs.theme,
+            prefs.density,
             prefs.inspector_visible,
             prefs.view,
+            prefs.nodes_tab,
             prefs.notice.or(policies.notice),
         ),
         fleet: FleetUi::default(),

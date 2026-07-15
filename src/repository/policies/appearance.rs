@@ -60,6 +60,21 @@ impl Repository {
         Ok(())
     }
 
+    /// Loads the UI density preference key (`comfortable` / `compact`), or
+    /// `None` for a fresh workspace so the caller falls back to Comfortable.
+    pub fn load_app_ui_density(&self) -> Result<Option<String>> {
+        let connection = self.connection()?;
+        load_setting(&connection, SETTING_APPEARANCE_UI_DENSITY)
+    }
+
+    pub fn save_app_ui_density(&self, density_key: &str) -> Result<()> {
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        save_setting(&transaction, SETTING_APPEARANCE_UI_DENSITY, density_key)?;
+        transaction.commit()?;
+        Ok(())
+    }
+
     /// Loads the persist key of the active sub-tab for a dense workspace page,
     /// or `None` for a fresh workspace so the caller can fall back to the page
     /// default.

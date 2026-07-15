@@ -62,10 +62,10 @@ use sidecar_health::{
 };
 use snapshot_draft::SnapshotDraft;
 use text::short_path;
-use theme::Theme;
+use theme::{Theme, UiDensity};
 use views::{
-    FederationSection, MonitorSection, OperationsSection, RolesSection, RuntimesSection,
-    SettingsSection, SnapshotsSection,
+    FederationSection, MonitorSection, NodeWorkspaceTab, OperationsSection, RolesSection,
+    RuntimesSection, SettingsSection, SnapshotsSection,
 };
 use workflow::{
     committee_keys_with_wallet_profile, current_unix_time, data_dir, exit_notice, format_duration,
