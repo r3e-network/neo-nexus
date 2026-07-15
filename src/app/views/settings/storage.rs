@@ -2,10 +2,17 @@ use eframe::egui;
 
 use crate::app::domain::format_bytes;
 
-use super::super::super::{text::short_path, widgets::fact, NeoNexusApp};
+use super::super::super::{
+    text::short_path,
+    theme,
+    widgets::{fact, primary_button, secondary_button},
+    NeoNexusApp,
+};
 
 impl NeoNexusApp {
     pub(super) fn render_workspace_storage_settings(&mut self, ui: &mut egui::Ui) {
+        ui.label(theme::label_caption("Workspace paths"));
+        ui.add_space(theme::SM);
         fact(ui, "Database", &short_path(self.repository.db_path(), 54));
         fact(ui, "Nodes", &short_path(&self.node_root_dir(), 54));
         fact(ui, "Reports", &short_path(&self.readiness_report_dir(), 54));
@@ -20,32 +27,33 @@ impl NeoNexusApp {
     }
 
     pub(super) fn render_release_package_settings(&mut self, ui: &mut egui::Ui) {
+        ui.label(theme::label_caption("Latest package"));
+        ui.add_space(theme::SM);
         let package_label = self
             .last_release_package
             .as_ref()
-            .map_or_else(|| "-".to_string(), |package| package.package_id.clone());
+            .map_or_else(|| "—".to_string(), |package| package.package_id.clone());
         let package_size = self.last_release_package.as_ref().map_or_else(
-            || "-".to_string(),
+            || "—".to_string(),
             |package| format_bytes(package.archive_bytes),
         );
         let verification_label = self.last_release_verification.as_ref().map_or_else(
-            || "-".to_string(),
+            || "—".to_string(),
             |verification| verification.package_id.clone(),
         );
 
         fact(ui, "Release", &package_label);
         fact(ui, "Archive", &package_size);
         fact(ui, "Verified", &verification_label);
+        ui.add_space(theme::MD);
         ui.horizontal(|ui| {
-            if ui
-                .button("Package")
+            if primary_button(ui, "Package")
                 .on_hover_text("Package the currently running NeoNexus executable")
                 .clicked()
             {
                 self.package_native_release();
             }
-            if ui
-                .button("Verify")
+            if secondary_button(ui, "Verify")
                 .on_hover_text("Verify the latest package manifest, ZIP, and checksum")
                 .clicked()
             {

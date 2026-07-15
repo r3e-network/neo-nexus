@@ -6,8 +6,8 @@ use super::super::super::{
     format_duration,
     paging::page_count,
     text::truncate_middle,
-    theme::{muted_text, status_color},
-    widgets::{empty_state, grid_header, pagination_bar},
+    theme,
+    widgets::{empty_state, grid_header, pagination_bar, status_badge},
     NeoNexusApp, MONITOR_PROCESS_PAGE_SIZE,
 };
 use super::filter::render_process_filter;
@@ -35,7 +35,7 @@ pub(super) fn render_process_metrics(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     let total_pages = page_count(rows.len(), MONITOR_PROCESS_PAGE_SIZE);
     app.monitor_process_page = app.monitor_process_page.min(total_pages - 1);
     pagination_bar(ui, &mut app.monitor_process_page, total_pages, rows.len());
-    ui.separator();
+    ui.add_space(theme::SM);
 
     let start = app.monitor_process_page * MONITOR_PROCESS_PAGE_SIZE;
     egui::Grid::new("monitor_process_metrics")
@@ -68,11 +68,7 @@ fn render_process_row(app: &mut NeoNexusApp, ui: &mut egui::Ui, row: &ProcessRow
             ui.label(format_duration(std::time::Duration::from_secs(
                 process.run_time_seconds,
             )));
-            ui.label(
-                egui::RichText::new(truncate_middle(&process.status, 14))
-                    .color(status_color(NodeStatus::Running))
-                    .strong(),
-            );
+            status_badge(ui, NodeStatus::Running);
         }
         ProcessRow::Missing(process) => {
             if ui
@@ -82,30 +78,15 @@ fn render_process_row(app: &mut NeoNexusApp, ui: &mut egui::Ui, row: &ProcessRow
                 app.selected_monitor_process = Some(process.node_id.clone());
                 app.fleet.selected_node = Some(process.node_id.clone());
             }
-            ui.label(process.pid.to_string());
-            ui.label(egui::RichText::new("-").color(muted_text()));
-            ui.label(egui::RichText::new("-").color(muted_text()));
-            ui.label(egui::RichText::new("-").color(muted_text()));
-            ui.label(
-                egui::RichText::new("missing")
-                    .color(status_color(NodeStatus::Error))
-                    .strong(),
-            );
+            ui.label("—");
+            ui.label("—");
+            ui.label("—");
+            ui.label("—");
+            status_badge(ui, NodeStatus::Error);
         }
     }
 }
 
-fn cpu_label(value: f32) -> egui::RichText {
-    let label = format!("{value:.1}%");
-    if value >= 80.0 {
-        egui::RichText::new(label)
-            .color(status_color(NodeStatus::Error))
-            .strong()
-    } else if value >= 50.0 {
-        egui::RichText::new(label)
-            .color(status_color(NodeStatus::Starting))
-            .strong()
-    } else {
-        egui::RichText::new(label)
-    }
+fn cpu_label(percent: f32) -> String {
+    format!("{percent:.1}%")
 }
