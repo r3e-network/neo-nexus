@@ -28,7 +28,8 @@ impl NeoNexusApp {
         let mut upgraded = 0usize;
         let mut last_message = String::new();
         for plan in candidates {
-            let Some(node) = self.fleet
+            let Some(node) = self
+                .fleet
                 .nodes
                 .iter()
                 .find(|node| node.id == plan.node_id)

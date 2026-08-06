@@ -48,7 +48,10 @@ impl ToolbarAction {
 
 /// Renders a wrapping toolbar of primary then secondary actions.
 /// Returns the `id` of the action clicked this frame, if any.
-pub(in crate::app) fn toolbar(ui: &mut egui::Ui, actions: &[ToolbarAction]) -> Option<&'static str> {
+pub(in crate::app) fn toolbar(
+    ui: &mut egui::Ui,
+    actions: &[ToolbarAction],
+) -> Option<&'static str> {
     let mut clicked = None;
     ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing.x = theme::SM;

@@ -11,7 +11,10 @@ pub(super) fn render_federation_monitor_policy(app: &mut NeoNexusApp, ui: &mut e
     interval_drag(
         ui,
         "Federation interval",
-        &mut app.async_bus.remote_federation_monitor_policy_draft.interval_seconds,
+        &mut app
+            .async_bus
+            .remote_federation_monitor_policy_draft
+            .interval_seconds,
         RemoteFederationMonitorPolicy::MIN_INTERVAL_SECONDS
             ..=RemoteFederationMonitorPolicy::MAX_INTERVAL_SECONDS,
         10.0,
@@ -19,7 +22,8 @@ pub(super) fn render_federation_monitor_policy(app: &mut NeoNexusApp, ui: &mut e
 
     validation_error(
         ui,
-        app.async_bus.remote_federation_monitor_policy_draft
+        app.async_bus
+            .remote_federation_monitor_policy_draft
             .validation_message(),
     );
     render_federation_actions(app, ui);
@@ -27,11 +31,13 @@ pub(super) fn render_federation_monitor_policy(app: &mut NeoNexusApp, ui: &mut e
 
 fn render_federation_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
-        let can_save = app.async_bus
+        let can_save = app
+            .async_bus
             .remote_federation_monitor_policy_draft
             .validation_message()
             .is_none()
-            && app.async_bus
+            && app
+                .async_bus
                 .remote_federation_monitor_policy_draft
                 .differs_from(app.async_bus.remote_federation_monitor_policy);
         if ui
@@ -42,7 +48,8 @@ fn render_federation_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         }
         if ui
             .add_enabled(
-                app.async_bus.remote_federation_monitor_policy_draft
+                app.async_bus
+                    .remote_federation_monitor_policy_draft
                     .differs_from(app.async_bus.remote_federation_monitor_policy),
                 egui::Button::new("Reset Draft"),
             )

@@ -11,22 +11,32 @@ pub(super) fn render_rpc_monitor_policy(app: &mut NeoNexusApp, ui: &mut egui::Ui
     interval_drag(
         ui,
         "RPC interval",
-        &mut app.async_bus.rpc_health_monitor_policy_draft.interval_seconds,
+        &mut app
+            .async_bus
+            .rpc_health_monitor_policy_draft
+            .interval_seconds,
         RpcHealthMonitorPolicy::MIN_INTERVAL_SECONDS..=RpcHealthMonitorPolicy::MAX_INTERVAL_SECONDS,
         5.0,
     );
 
-    validation_error(ui, app.async_bus.rpc_health_monitor_policy_draft.validation_message());
+    validation_error(
+        ui,
+        app.async_bus
+            .rpc_health_monitor_policy_draft
+            .validation_message(),
+    );
     render_rpc_actions(app, ui);
 }
 
 fn render_rpc_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
-        let can_save = app.async_bus
+        let can_save = app
+            .async_bus
             .rpc_health_monitor_policy_draft
             .validation_message()
             .is_none()
-            && app.async_bus
+            && app
+                .async_bus
                 .rpc_health_monitor_policy_draft
                 .differs_from(app.async_bus.rpc_health_monitor_policy);
         if ui
@@ -37,7 +47,8 @@ fn render_rpc_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         }
         if ui
             .add_enabled(
-                app.async_bus.rpc_health_monitor_policy_draft
+                app.async_bus
+                    .rpc_health_monitor_policy_draft
                     .differs_from(app.async_bus.rpc_health_monitor_policy),
                 egui::Button::new("Reset Draft"),
             )

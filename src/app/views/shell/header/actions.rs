@@ -53,9 +53,11 @@ fn render_action_button(
     let enabled = primary_action_enabled(shortcut, action_state);
     let label = shortcut_toolbar_label(shortcut);
     let response = match shortcut {
-        // Dominant create action always uses the accent fill.
+        // Exactly one accent-filled button per region. In the header that is the
+        // create action; the lifecycle group stays a set of equal-weight
+        // secondaries, and Start gets its accent treatment in the inspector's
+        // Actions card, where it *is* the single dominant action.
         AppShortcut::NewNode => primary_button(ui, label),
-        AppShortcut::StartSelectedNode if enabled => primary_button(ui, label),
         _ => secondary_button_enabled(ui, label, enabled),
     };
     response

@@ -3,7 +3,8 @@ use super::super::super::NeoNexusApp;
 impl NeoNexusApp {
     pub(in crate::app) fn upgrade_selected_node_from_catalog(&mut self) {
         let Some(node) = self.selected_node().cloned() else {
-            self.session.notice = Some("Select a node before running a catalog upgrade".to_string());
+            self.session.notice =
+                Some("Select a node before running a catalog upgrade".to_string());
             return;
         };
         if node.status.is_starting() {

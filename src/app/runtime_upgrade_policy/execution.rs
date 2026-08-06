@@ -74,7 +74,8 @@ impl NeoNexusApp {
     ) -> anyhow::Result<usize> {
         let mut upgraded = 0usize;
         for plan in candidates {
-            let Some(node) = self.fleet
+            let Some(node) = self
+                .fleet
                 .nodes
                 .iter()
                 .find(|node| node.id == plan.node_id)
