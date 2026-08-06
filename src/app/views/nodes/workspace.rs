@@ -41,9 +41,7 @@ impl NodeWorkspaceTab {
     }
 
     pub(in crate::app) fn from_persist_key(key: &str) -> Option<Self> {
-        Self::ALL
-            .into_iter()
-            .find(|tab| tab.persist_key() == key)
+        Self::ALL.into_iter().find(|tab| tab.persist_key() == key)
     }
 
     /// Map a legacy top-level view into the node workspace tab it now owns.

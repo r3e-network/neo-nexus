@@ -15,8 +15,7 @@ pub(super) fn render_action_bar(app: &mut NeoNexusApp, ui: &mut egui::Ui, status
         ToolbarAction::secondary("load", "Load Into Draft")
             .hint("Copy this definition into the Studio draft"),
         ToolbarAction::secondary("probe", "Probe Binary").hint("Inspect the node binary path"),
-        ToolbarAction::secondary("smoke", "Smoke Runtime")
-            .hint("Run a short runtime smoke probe"),
+        ToolbarAction::secondary("smoke", "Smoke Runtime").hint("Run a short runtime smoke probe"),
         ToolbarAction::secondary("rpc", "RPC Health").hint("Probe the node RPC endpoint"),
         ToolbarAction::secondary("ports", "Fix Ports")
             .enabled(!status.is_active())
