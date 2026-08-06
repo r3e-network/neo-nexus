@@ -1,21 +1,23 @@
-/// Focused regions of the Roles page, surfaced one at a time through a
-/// segmented control so the role planner and the private-network planner each
-/// get the full workspace instead of sharing a cramped split.
+/// The two halves of applying a role to the selected node: choosing a preset,
+/// and reviewing the plugin changes it implies. Surfaced one at a time through
+/// a segmented control so each gets the full workspace.
+///
+/// Private-network planning used to be a third section here. It is a *topology*
+/// — how many validators, which committee — not a property of one node, so it
+/// lives under Network with the remote endpoints instead.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::app) enum RolesSection {
     Presets,
     Plan,
-    PrivateNetwork,
 }
 
 impl RolesSection {
-    pub(in crate::app) const ALL: [Self; 3] = [Self::Presets, Self::Plan, Self::PrivateNetwork];
+    pub(in crate::app) const ALL: [Self; 2] = [Self::Presets, Self::Plan];
 
     pub(in crate::app) fn label(self) -> &'static str {
         match self {
             Self::Presets => "Presets",
             Self::Plan => "Role Plan",
-            Self::PrivateNetwork => "Private Network",
         }
     }
 
@@ -24,7 +26,6 @@ impl RolesSection {
         match self {
             Self::Presets => "presets",
             Self::Plan => "plan",
-            Self::PrivateNetwork => "private_network",
         }
     }
 

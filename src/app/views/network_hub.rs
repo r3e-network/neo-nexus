@@ -1,5 +1,10 @@
-//! Network primary surface: Federation, private-network roles, and wallets
-//! share one top-level destination with an in-page hub control.
+//! Network primary surface: remote endpoints, private-network topology, and
+//! the wallets that sign for them share one top-level destination with an
+//! in-page hub control.
+//!
+//! Role presets are deliberately *not* here. A role is applied to one node, so
+//! it lives in that node's workspace; what belongs on Network is the topology a
+//! set of nodes forms.
 
 use eframe::egui;
 
@@ -9,17 +14,18 @@ use crate::app::{view::View, widgets::page_chrome, NeoNexusApp};
 pub(in crate::app) enum NetworkHubSection {
     #[default]
     Federation,
-    Roles,
+    PrivateNetwork,
     Wallets,
 }
 
 impl NetworkHubSection {
-    pub(in crate::app) const ALL: [Self; 3] = [Self::Federation, Self::Roles, Self::Wallets];
+    pub(in crate::app) const ALL: [Self; 3] =
+        [Self::Federation, Self::PrivateNetwork, Self::Wallets];
 
     pub(in crate::app) fn label(self) -> &'static str {
         match self {
-            Self::Federation => "Federation",
-            Self::Roles => "Private Net",
+            Self::Federation => "Remote",
+            Self::PrivateNetwork => "Private Net",
             Self::Wallets => "Wallets",
         }
     }
@@ -27,7 +33,7 @@ impl NetworkHubSection {
     pub(in crate::app) fn from_view(view: View) -> Option<Self> {
         match view {
             View::Federation => Some(Self::Federation),
-            View::Roles => Some(Self::Roles),
+            View::Roles => Some(Self::PrivateNetwork),
             View::Wallets => Some(Self::Wallets),
             _ => None,
         }
@@ -47,15 +53,19 @@ impl NeoNexusApp {
             self.session.network_hub_section = NetworkHubSection::ALL[index];
             self.session.selected_view = match self.session.network_hub_section {
                 NetworkHubSection::Federation => View::Federation,
-                NetworkHubSection::Roles => View::Roles,
+                NetworkHubSection::PrivateNetwork => View::Roles,
                 NetworkHubSection::Wallets => View::Wallets,
             };
         }
 
         match self.session.network_hub_section {
             NetworkHubSection::Federation => self.render_federation(ui),
-            NetworkHubSection::Roles => self.render_roles(ui),
+            NetworkHubSection::PrivateNetwork => self.render_private_network(ui),
             NetworkHubSection::Wallets => self.render_wallets(ui),
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/app/views/network_hub/tests.rs"]
+mod tests;

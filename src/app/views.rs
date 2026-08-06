@@ -32,7 +32,6 @@ pub(in crate::app) use snapshots::SnapshotsSection;
 
 impl NeoNexusApp {
     pub(super) fn render_workspace(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(2.0);
         self.normalize_navigation_for_v3();
 
         match self.session.selected_view {

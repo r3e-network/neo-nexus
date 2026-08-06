@@ -24,6 +24,7 @@ impl NeoNexusApp {
         match self.session.node_workspace_tab {
             NodeWorkspaceTab::Studio => self.render_node_studio(ui),
             NodeWorkspaceTab::Config => self.render_config(ui),
+            NodeWorkspaceTab::Roles => self.render_roles(ui),
             NodeWorkspaceTab::Logs => self.render_logs(ui),
             NodeWorkspaceTab::Plugins => self.render_plugins(ui),
             NodeWorkspaceTab::Health => self.render_monitor(ui),
