@@ -39,6 +39,16 @@ impl eframe::App for NeoNexusApp {
     }
 }
 
+/// Padding around the central workspace. Tighter vertically than horizontally:
+/// the workbench is wider than it is tall, does not scroll, and every point of
+/// vertical padding is a point of content that falls off the bottom.
+const WORKSPACE_MARGIN: egui::Margin = egui::Margin {
+    left: 22,
+    right: 22,
+    top: 12,
+    bottom: 12,
+};
+
 /// A chrome panel frame (sidebar, header, status bar, inspector): a raised
 /// surface that lifts off the workspace canvas with the mid-tier panel fill and
 /// a hairline border so the chrome reads as distinct from the content area.
@@ -87,7 +97,7 @@ impl NeoNexusApp {
                 .show(context, |ui| self.render_inventory_panel(ui));
         }
 
-        if self.session.inspector_visible {
+        if self.session.inspector_visible && self.session.selected_view.shows_inspector() {
             egui::SidePanel::right("inspector_panel")
                 .resizable(true)
                 .default_width(304.0)
@@ -98,7 +108,7 @@ impl NeoNexusApp {
 
         let style = context.style();
         egui::CentralPanel::default()
-            .frame(egui::Frame::central_panel(&style).inner_margin(egui::Margin::symmetric(22, 18)))
+            .frame(egui::Frame::central_panel(&style).inner_margin(WORKSPACE_MARGIN))
             .show(context, |ui| {
                 self.render_workspace(ui);
             });
