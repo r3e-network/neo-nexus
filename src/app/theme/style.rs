@@ -27,17 +27,25 @@ pub(in crate::app) fn configure_style_with_density(
     visuals.extreme_bg_color = palette.field_fill;
     visuals.faint_bg_color = palette.faint_fill;
     visuals.override_text_color = Some(palette.text);
-    visuals.hyperlink_color = palette.accent;
-    visuals.selection.bg_fill = palette.accent.gamma_multiply(0.30);
-    visuals.selection.stroke = egui::Stroke::new(1.0, palette.accent);
+    visuals.hyperlink_color = palette.accent_text;
+    // `selection` backs both text ranges and every `selectable_label`. At 30%
+    // the coral composited into a hot block behind ordinary table text; the
+    // pre-blended wash is the same tint the sidebar and list rows use, so all
+    // selection in the workbench now reads as one quiet highlight.
+    visuals.selection.bg_fill = palette.accent_wash;
+    visuals.selection.stroke = egui::Stroke::new(1.0, palette.border_strong);
     visuals.window_stroke = egui::Stroke::new(1.0, palette.border);
 
-    let rounding = egui::CornerRadius::same(8);
-    visuals.window_corner_radius = egui::CornerRadius::same(12);
+    let rounding = egui::CornerRadius::same(9);
+    visuals.window_corner_radius = egui::CornerRadius::same(14);
     visuals.menu_corner_radius = egui::CornerRadius::same(10);
+    // Flat surfaces: elevation is carried by fill tiers and hairlines, so no
+    // surface in the workbench casts a shadow.
+    visuals.window_shadow = egui::Shadow::NONE;
+    visuals.popup_shadow = egui::Shadow::NONE;
 
     // Quiet, flat surfaces: cards/buttons read as the same family with hairline
-    // borders, and only hover/active states pick up the accent.
+    // borders, and interaction is a tint rather than a solid accent block.
     visuals.widgets.noninteractive.corner_radius = rounding;
     visuals.widgets.noninteractive.bg_fill = palette.card_fill;
     visuals.widgets.noninteractive.weak_bg_fill = palette.card_fill;
@@ -53,19 +61,25 @@ pub(in crate::app) fn configure_style_with_density(
     visuals.widgets.hovered.corner_radius = rounding;
     visuals.widgets.hovered.bg_fill = palette.faint_fill;
     visuals.widgets.hovered.weak_bg_fill = palette.faint_fill;
-    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, palette.accent);
+    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, palette.border_strong);
     visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, palette.text);
 
+    // `active` is the pressed state — and, critically, the source egui reads for
+    // `Visuals::strong_text_color()`. Filling it with the accent used to make
+    // every `.strong()` run (page titles, section titles, metric values, status
+    // values) render in `on_accent` white and vanish on the light theme. The
+    // pressed state is therefore a coral *wash* with normal-strength text, which
+    // both looks right and keeps bold copy readable.
     visuals.widgets.active.corner_radius = rounding;
-    visuals.widgets.active.bg_fill = palette.accent;
-    visuals.widgets.active.weak_bg_fill = palette.accent;
-    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, palette.accent_hover);
-    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, palette.on_accent);
+    visuals.widgets.active.bg_fill = palette.accent_wash;
+    visuals.widgets.active.weak_bg_fill = palette.accent_wash;
+    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, palette.accent);
+    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, palette.text);
 
     visuals.widgets.open.corner_radius = rounding;
     visuals.widgets.open.bg_fill = palette.faint_fill;
     visuals.widgets.open.weak_bg_fill = palette.faint_fill;
-    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0, palette.border);
+    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0, palette.border_strong);
     visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, palette.text);
 
     style.spacing.item_spacing = egui::vec2(metrics.item_spacing_x, metrics.item_spacing_y);
