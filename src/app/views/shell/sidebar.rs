@@ -7,6 +7,10 @@ use super::super::super::{
     NeoNexusApp,
 };
 
+/// Width of the selected-destination marker. Shares the callout's rail width so
+/// the workbench has exactly one left-bar measure.
+const MARKER_WIDTH: f32 = super::super::super::widgets::RAIL_WIDTH;
+
 // v3 primary navigation: six destinations.
 const NAV_GROUPS: &[(&str, &[View])] = &[
     ("Workspace", &[View::Summary, View::Operations]),
@@ -57,29 +61,34 @@ impl NeoNexusApp {
         }
     }
 
+    /// One navigation row. The selected destination is a coral **wash** with an
+    /// accent label, not a solid accent block: the sidebar stays a calm, quiet
+    /// column and the selection reads as a highlight rather than a slab.
     fn render_nav_item(&mut self, ui: &mut egui::Ui, view: View) {
         let selected = self.session.selected_view.primary_nav() == view;
         let width = ui.available_width();
         let icon = theme::view_icon_glyph(view);
         let label = format!("{icon}   {}", view.label());
         let text = if selected {
-            theme::body(label).color(theme::on_accent()).strong()
+            theme::body(label).color(theme::accent_text()).strong()
         } else {
             theme::body(label)
         };
-        let nav_height =
-            theme::DensityMetrics::for_density(self.session.density).nav_row_height;
-        let mut button = egui::Button::new(text)
-            .corner_radius(egui::CornerRadius::same(8))
-            .min_size(egui::vec2(width, nav_height));
-        if selected {
-            button = button.fill(theme::accent()).stroke(egui::Stroke::NONE);
+        let nav_height = theme::DensityMetrics::for_density(self.session.density).nav_row_height;
+        let fill = if selected {
+            theme::accent_wash()
         } else {
-            button = button
-                .fill(egui::Color32::TRANSPARENT)
-                .stroke(egui::Stroke::NONE);
-        }
+            egui::Color32::TRANSPARENT
+        };
+        let button = egui::Button::new(text)
+            .corner_radius(egui::CornerRadius::same(8))
+            .min_size(egui::vec2(width, nav_height))
+            .fill(fill)
+            .stroke(egui::Stroke::NONE);
         let response = ui.add(button).on_hover_text(view.subtitle());
+        if selected {
+            paint_selected_marker(ui, response.rect);
+        }
         if response.clicked() {
             self.session.selected_view = view;
         }
@@ -116,4 +125,17 @@ impl NeoNexusApp {
             self.toggle_inspector();
         }
     }
+}
+
+/// Paints the selected destination's leading marker *inside* the row rect.
+/// Allocating it as a sibling widget would widen the row and shift the sidebar
+/// off the baseline grid that `tests/ui_typography.rs` pins.
+fn paint_selected_marker(ui: &egui::Ui, rect: egui::Rect) {
+    let inset = 5.0;
+    let bar = egui::Rect::from_min_size(
+        egui::pos2(rect.min.x, rect.min.y + inset),
+        egui::vec2(MARKER_WIDTH, (rect.height() - inset * 2.0).max(1.0)),
+    );
+    ui.painter()
+        .rect_filled(bar, egui::CornerRadius::same(2), theme::accent());
 }

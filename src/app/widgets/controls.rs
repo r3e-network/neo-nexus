@@ -2,16 +2,33 @@ use eframe::egui;
 
 use crate::app::theme;
 
-/// macOS-style "default button": the primary, accent-filled confirm action of a
-/// form. Use for the single dominant action (Save / Create / Import); leave
-/// secondary actions as plain bordered buttons.
+/// The primary, accent-filled confirm action of a form. Use for the single
+/// dominant action (Save / Create / Import); leave secondary actions as plain
+/// bordered buttons.
+///
+/// The accent is applied through the widget visuals rather than `Button::fill`
+/// so the button actually responds to the pointer: `accent` at rest, the deeper
+/// `accent_hover` on hover and while pressed. A hard `fill` would freeze it in
+/// one colour and leave the app's most important control feeling dead.
 pub(in crate::app) fn primary_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
-    ui.add(
-        egui::Button::new(egui::RichText::new(text).color(theme::on_accent()).strong())
-            .fill(theme::accent())
-            .corner_radius(egui::CornerRadius::same(8))
-            .min_size(egui::vec2(100.0, 30.0)),
-    )
+    ui.scope(|ui| {
+        let widgets = &mut ui.style_mut().visuals.widgets;
+        for (state, fill) in [
+            (&mut widgets.inactive, theme::accent()),
+            (&mut widgets.hovered, theme::accent_hover()),
+            (&mut widgets.active, theme::accent_hover()),
+        ] {
+            state.bg_fill = fill;
+            state.weak_bg_fill = fill;
+            state.bg_stroke = egui::Stroke::NONE;
+        }
+        ui.add(
+            egui::Button::new(egui::RichText::new(text).color(theme::on_accent()).strong())
+                .corner_radius(egui::CornerRadius::same(9))
+                .min_size(egui::vec2(100.0, 30.0)),
+        )
+    })
+    .inner
 }
 
 /// A secondary action button: a plain bordered button that shares the
@@ -43,19 +60,23 @@ pub(in crate::app) fn secondary_button_enabled(
     )
 }
 
-/// Wraps a row of mutually-exclusive filter chips in a hairline-bordered pill so
-/// single-select filters read as one macOS-style segmented control rather than a
-/// loose row of toggles. The chips and their behaviour are unchanged.
+/// Wraps a row of mutually-exclusive filter chips in a recessed track so
+/// single-select filters read as one segmented control rather than a loose row
+/// of toggles. The track must be *darker* than the surrounding surface, because
+/// the selected chip is now a card-coloured pill — on a card-coloured track it
+/// would be white on white and the selection would vanish.
 pub(in crate::app) fn chip_pill(ui: &mut egui::Ui, add_chips: impl FnOnce(&mut egui::Ui)) {
-    let stroke = ui.style().visuals.widgets.noninteractive.bg_stroke;
     egui::Frame::new()
-        .fill(theme::card_surface())
-        .stroke(stroke)
-        .corner_radius(egui::CornerRadius::same(8))
+        .fill(theme::track_surface())
+        .stroke(egui::Stroke::NONE)
+        .corner_radius(egui::CornerRadius::same(10))
         .inner_margin(egui::Margin::symmetric(3, 2))
         .show(ui, |ui| {
             ui.spacing_mut().item_spacing.x = 2.0;
-            ui.horizontal(add_chips);
+            // Wrapped, not fixed: a five-way status filter is wider than the
+            // narrow inventory column, and an unwrapped row silently widened
+            // the whole panel to fit — squeezing the central workspace.
+            ui.horizontal_wrapped(add_chips);
         });
 }
 
