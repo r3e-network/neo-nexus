@@ -109,17 +109,24 @@ impl NeoNexusApp {
             self.toggle_theme();
         }
         ui.add_space(theme::XS);
+        let relevant = self.session.selected_view.shows_inspector();
         let inspector_label = if self.session.inspector_visible {
             "Hide inspector"
         } else {
             "Show inspector"
         };
+        let hint = if relevant {
+            "Show or hide the node inspector panel"
+        } else {
+            "The node inspector applies to node surfaces; this page has no node selection"
+        };
         if ui
-            .add_sized(
-                [width, 30.0],
-                egui::Button::selectable(self.session.inspector_visible, inspector_label),
+            .add_enabled(
+                relevant,
+                egui::Button::selectable(self.session.inspector_visible, inspector_label)
+                    .min_size(egui::vec2(width, 30.0)),
             )
-            .on_hover_text("Show or hide the node inspector panel")
+            .on_hover_text(hint)
             .clicked()
         {
             self.toggle_inspector();

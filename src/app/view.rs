@@ -56,6 +56,22 @@ impl View {
     /// Whether the node inventory column is relevant to this page. Workspace-
     /// level pages (wallets, settings, alerts, …) hide it so they get the full
     /// width instead of an irrelevant node list.
+    /// Whether the right-hand node inspector is relevant here.
+    ///
+    /// The inspector reports on the *selected node* — its definition, paths and
+    /// process. On Runtimes, Network and Settings there is no node in question,
+    /// so it is 332pt of chrome that says nothing while starving the surface
+    /// the operator came for: with it open the Runtime install form has no room
+    /// to lay its field groups side by side and runs off the bottom of the
+    /// panel. It follows the same rule as the inventory column, one step
+    /// narrower.
+    pub(super) fn shows_inspector(self) -> bool {
+        matches!(
+            self,
+            Self::Summary | Self::Operations | Self::Monitor | Self::Nodes | Self::Logs
+        )
+    }
+
     pub(super) fn shows_inventory(self) -> bool {
         matches!(
             self,
