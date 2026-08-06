@@ -1,41 +1,80 @@
 use eframe::egui;
 
-use crate::app::theme::{self, card_shadow, card_surface};
+use crate::app::theme::{self, card_surface};
+
+/// Corner radius shared by every card-class surface, so cards, panels, and the
+/// containers built on top of them round identically.
+pub(in crate::app) const CARD_CORNER_RADIUS: u8 = 12;
 
 /// Shared surface for cards and panels: a filled, softly rounded container with
-/// a hairline border and a faint drop shadow so content lifts cleanly off the
-/// workspace background and reads as an elevated macOS card rather than a flat
-/// egui rectangle.
+/// a hairline border and **no** drop shadow. Elevation in this workbench is
+/// carried by the fill tiers (`window_fill` < `panel_fill` < `card_fill`) plus
+/// the hairline edge, which reads as a crisp, calm document surface rather than
+/// a floating chip.
 #[allow(dead_code)] // used by form kit; re-export kept for shared card chrome
-pub(in crate::app) fn card_frame(style: &egui::Style) -> egui::Frame {
+pub(in crate::app) fn card_frame(_style: &egui::Style) -> egui::Frame {
     egui::Frame::new()
         .fill(card_surface())
-        .stroke(style.visuals.widgets.noninteractive.bg_stroke)
-        .corner_radius(egui::CornerRadius::same(12))
-        .shadow(card_shadow())
+        .stroke(theme::hairline())
+        .corner_radius(egui::CornerRadius::same(CARD_CORNER_RADIUS))
         .inner_margin(egui::Margin::symmetric(14, 12))
 }
 
+/// Narrowest a metric tile may become before its eyebrow and caption stop being
+/// readable words and start being ellipses.
+const MIN_TILE_WIDTH: f32 = 118.0;
+
 /// Render a row of equal-width metric cards. Columns share the available width
 /// evenly, so a four-up summary stays aligned regardless of value lengths.
+///
+/// The row reflows: when the workspace is too narrow to give every tile
+/// [`MIN_TILE_WIDTH`], the tiles wrap onto as many rows as needed rather than
+/// shrinking into a strip of truncated stubs.
 pub(in crate::app) fn metric_row(ui: &mut egui::Ui, tiles: &[(&str, &str, &str)]) {
     if tiles.is_empty() {
         return;
     }
-    ui.columns(tiles.len(), |columns| {
-        for (column, &(title, value, caption)) in columns.iter_mut().zip(tiles) {
-            metric_tile(column, title, value, caption);
+    let per_row = tiles_per_row(ui.available_width(), tiles.len());
+    for (index, chunk) in tiles.chunks(per_row).enumerate() {
+        if index > 0 {
+            ui.add_space(theme::SM);
         }
-    });
+        // Every row is laid out on the same column count so tiles stay aligned
+        // in a grid even when the last row is short.
+        ui.columns(per_row, |columns| {
+            for (column, &(title, value, caption)) in columns.iter_mut().zip(chunk) {
+                metric_tile(column, title, value, caption);
+            }
+        });
+    }
 }
+
+/// How many tiles fit on one row at `available` width, never fewer than one and
+/// never more than there are tiles. The count is then balanced across the rows
+/// it needs, so four tiles in a three-wide space become 2 + 2 rather than a
+/// crowded 3 beside a lonely 1.
+fn tiles_per_row(available: f32, count: usize) -> usize {
+    let fits = ((available / MIN_TILE_WIDTH).floor().max(1.0) as usize).clamp(1, count.max(1));
+    let rows = count.div_ceil(fits.max(1)).max(1);
+    count.div_ceil(rows).max(1)
+}
+
+#[cfg(test)]
+#[path = "../../../tests/unit/app/widgets/layout/tests.rs"]
+mod tests;
 
 fn metric_tile(ui: &mut egui::Ui, title: &str, value: &str, caption: &str) {
     card_frame(ui.style()).show(ui, |ui| {
         ui.set_min_width(ui.available_width());
+        // A metric tile is a fixed-width cell in a column row. Without this the
+        // eyebrow and caption wrap one character per line the moment the tile
+        // is narrower than their longest word, which turns a summary strip into
+        // a column of single letters.
+        ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
         ui.vertical(|ui| {
             ui.label(theme::label_caption(title));
             ui.add_space(theme::XS);
-            ui.label(theme::metric_value(value).color(theme::accent()));
+            ui.label(theme::metric_value(value));
             ui.add_space(theme::XS);
             ui.label(theme::muted_body(caption));
         });
@@ -48,24 +87,21 @@ fn metric_tile(ui: &mut egui::Ui, title: &str, value: &str, caption: &str) {
 /// inventory's Total/Running/Stopped/Visible counts.
 pub(in crate::app) fn mini_stat(ui: &mut egui::Ui, label: &str, value: &str) {
     ui.vertical(|ui| {
+        ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
         ui.label(theme::label_caption(label));
-        ui.label(theme::section_title(value).strong());
+        ui.label(theme::section_title(value));
     });
 }
 
+/// A titled card that claims the full remaining height, for surfaces that own
+/// their region. Thin wrapper over the shared card chrome so `panel` and `card`
+/// cannot drift apart visually.
 pub(in crate::app) fn panel(
     ui: &mut egui::Ui,
     title: &str,
     add_contents: impl FnOnce(&mut egui::Ui),
 ) {
-    card_frame(ui.style()).show(ui, |ui| {
-        ui.set_min_size(ui.available_size());
-        ui.label(theme::section_title(title));
-        ui.add_space(theme::SM);
-        ui.separator();
-        ui.add_space(theme::SM);
-        add_contents(ui);
-    });
+    super::card::stretch_card(ui, title, add_contents);
 }
 
 /// Header row for an `egui::Grid` data table: renders each column label with the
