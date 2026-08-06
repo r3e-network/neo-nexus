@@ -2,7 +2,7 @@
 
 use eframe::egui;
 
-use crate::app::theme::{self, card_surface};
+use crate::app::theme;
 
 use super::layout::card_frame;
 
@@ -54,12 +54,19 @@ pub(in crate::app) fn form_section(
     });
 }
 
-/// Soft inset surface for nested form groups without full card chrome.
-pub(in crate::app) fn form_group(ui: &mut egui::Ui, title: &str, add_contents: impl FnOnce(&mut egui::Ui)) {
+/// Soft inset surface for nested form groups without full card chrome. Filled
+/// with the recessed track tone, not the card tone: a form group always sits
+/// *inside* a card, so a card-coloured fill would be invisible now that cards
+/// no longer cast a shadow to separate the layers.
+pub(in crate::app) fn form_group(
+    ui: &mut egui::Ui,
+    title: &str,
+    add_contents: impl FnOnce(&mut egui::Ui),
+) {
     ui.label(theme::label_caption(title));
     ui.add_space(theme::XS);
     egui::Frame::new()
-        .fill(card_surface())
+        .fill(theme::track_surface())
         .stroke(theme::hairline())
         .corner_radius(egui::CornerRadius::same(10))
         .inner_margin(egui::Margin::symmetric(12, 10))

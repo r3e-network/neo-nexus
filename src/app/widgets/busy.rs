@@ -16,7 +16,9 @@ pub(in crate::app) fn busy_inline(ui: &mut egui::Ui, label: &str) {
 /// Stronger busy strip for multi-step work (install/download).
 pub(in crate::app) fn loading_callout(ui: &mut egui::Ui, title: &str, detail: &str) {
     egui::Frame::new()
-        .fill(theme::card_surface())
+        // Recessed, not raised: a busy strip is nested inside a card, and a
+        // card-coloured fill would disappear against its flat parent.
+        .fill(theme::track_surface())
         .stroke(theme::hairline())
         .corner_radius(egui::CornerRadius::same(10))
         .inner_margin(egui::Margin::symmetric(12, 10))

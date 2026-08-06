@@ -26,7 +26,10 @@ fn badge_pill(ui: &mut egui::Ui, text: &str, fg: Color32, bg: Color32) {
     let label = egui::RichText::new(text).size(11.0).color(fg).strong();
     egui::Frame::new()
         .fill(bg)
-        .corner_radius(egui::CornerRadius::same(6))
+        // A hairline in the chip's own hue gives it a definite edge on every
+        // surface tier, now that no shadow separates nested surfaces.
+        .stroke(egui::Stroke::new(1.0, badge_edge(fg)))
+        .corner_radius(egui::CornerRadius::same(8))
         .inner_margin(egui::Margin::symmetric(8, 3))
         .show(ui, |ui| {
             ui.label(label);
@@ -35,7 +38,13 @@ fn badge_pill(ui: &mut egui::Ui, text: &str, fg: Color32, bg: Color32) {
 
 fn status_fill(color: Color32) -> Color32 {
     // Soft tint of the status hue so badges read as chips, not solid blocks.
-    Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 36)
+    // Chips now also sit on the recessed track tone, which is darker than the
+    // card they used to sit on, so the wash is a little stronger than before.
+    Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 44)
+}
+
+fn badge_edge(color: Color32) -> Color32 {
+    Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 90)
 }
 
 pub(in crate::app) fn severity_color(severity: CheckSeverity) -> Color32 {
