@@ -40,6 +40,11 @@ pub(in crate::app) fn segmented_control(
         .inner_margin(egui::Margin::same(3))
         .show(ui, |ui| {
             ui.spacing_mut().item_spacing.x = 2.0;
+            // A segment label is a single word sized to fit by `equal_columns`.
+            // Letting it wrap instead would silently split it mid-word
+            // ("Plugin/s"); extending makes a bad fit fail the containment
+            // contract loudly instead of shipping a broken tab strip.
+            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
             if equal_columns {
                 ui.columns(segments.len(), |columns| {
                     for (index, (column, label)) in columns.iter_mut().zip(segments).enumerate() {
@@ -71,15 +76,18 @@ fn fits_equal_columns(ui: &egui::Ui, segments: &[&str]) -> bool {
         .iter()
         .map(|label| label_width(ui, label))
         .fold(0.0_f32, f32::max);
-    let track = ui.available_width() - 6.0;
+    // Account for the frame margin and the gap egui puts between columns, then
+    // require the widest label to clear its padding outright. A segment that is
+    // one point short does not shrink its text, it wraps it mid-word.
+    let gaps = 2.0 * (segments.len().saturating_sub(1)) as f32;
+    let track = ui.available_width() - 6.0 - gaps;
     let per_column = track / segments.len() as f32;
     per_column >= widest + SEGMENT_PAD_X * 2.0
 }
 
 fn label_width(ui: &egui::Ui, label: &str) -> f32 {
-    let font = egui::TextStyle::Body.resolve(ui.style());
     ui.painter()
-        .layout_no_wrap(label.to_string(), font, theme::text())
+        .layout_no_wrap(label.to_string(), theme::body_font(), theme::text())
         .size()
         .x
 }

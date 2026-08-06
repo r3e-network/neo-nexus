@@ -86,6 +86,14 @@ pub(in crate::app) fn muted_body(text: impl Into<String>) -> RichText {
     RichText::new(text).size(SIZE_BODY).color(muted_text())
 }
 
+/// The font body text is actually rendered with. Exposed so a widget that has
+/// to *measure* a label before laying it out measures the same type it will
+/// draw — egui's `TextStyle::Body` is a different size, and guessing with it
+/// made the segmented control believe labels fit when they did not.
+pub(in crate::app) fn body_font() -> eframe::egui::FontId {
+    eframe::egui::FontId::proportional(SIZE_BODY)
+}
+
 /// Primary body text at the default foreground colour (navigation labels, list
 /// rows, default-strength body copy).
 pub(in crate::app) fn body(text: impl Into<String>) -> RichText {
