@@ -15,7 +15,12 @@ fn remote_federation_monitor_policy_action_persists_and_audits() -> anyhow::Resu
     app.save_remote_federation_monitor_policy();
 
     assert!(!app.async_bus.remote_federation_monitor_policy.enabled);
-    assert_eq!(app.async_bus.remote_federation_monitor_policy.interval_seconds, 600);
+    assert_eq!(
+        app.async_bus
+            .remote_federation_monitor_policy
+            .interval_seconds,
+        600
+    );
     assert_eq!(
         app.repository
             .load_remote_federation_monitor_policy()?

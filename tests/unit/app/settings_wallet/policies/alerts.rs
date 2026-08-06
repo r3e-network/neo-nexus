@@ -20,7 +20,10 @@ fn alert_routing_policy_action_persists_and_audits() -> anyhow::Result<()> {
         app.async_bus.alert_routing_policy.min_severity,
         EventSeverity::Critical
     );
-    assert_eq!(app.async_bus.alert_routing_policy.provider, AlertProvider::Telegram);
+    assert_eq!(
+        app.async_bus.alert_routing_policy.provider,
+        AlertProvider::Telegram
+    );
     assert_eq!(
         app.repository
             .load_alert_routing_policy()?
@@ -54,7 +57,8 @@ fn alert_routing_policy_preview_uses_draft_without_sending() -> anyhow::Result<(
     };
     app.preview_alert_routing_policy_draft();
 
-    let preview = app.async_bus
+    let preview = app
+        .async_bus
         .last_alert_preview
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("expected alert preview report"))?;
@@ -69,7 +73,8 @@ fn alert_routing_policy_preview_uses_draft_without_sending() -> anyhow::Result<(
     assert_eq!(preview.headers[0].value, "<redacted>");
     assert!(!preview.payload_json.contains("dd123"));
     assert!(app.alert_preview_matches_draft());
-    assert!(app.session
+    assert!(app
+        .session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("Alert preview ready")));
@@ -84,7 +89,8 @@ fn alert_routing_policy_preview_uses_draft_without_sending() -> anyhow::Result<(
 
     assert!(app.async_bus.last_alert_preview.is_none());
     assert!(app.async_bus.last_alert_preview_policy.is_none());
-    assert!(app.session
+    assert!(app
+        .session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("api_key")));

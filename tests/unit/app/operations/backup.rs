@@ -21,7 +21,8 @@ fn backup_validate_latest_action_records_audit_event() -> anyhow::Result<()> {
     app.export_workspace_backup();
     app.validate_latest_workspace_backup();
 
-    assert!(app.session
+    assert!(app
+        .session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("Backup validated: 1 nodes")));
@@ -73,7 +74,8 @@ fn backup_import_requires_current_latest_validation() -> anyhow::Result<()> {
     app.validate_latest_workspace_backup();
     app.import_latest_workspace_backup();
 
-    assert!(app.session
+    assert!(app
+        .session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("Backup imported")));

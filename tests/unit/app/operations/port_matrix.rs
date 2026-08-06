@@ -14,13 +14,15 @@ fn port_matrix_filters_rows_and_clamps_page() -> anyhow::Result<()> {
     app.repository
         .update_node_status(&main.id, NodeStatus::Running, Some(42))?;
     app.reload_nodes();
-    let main_id = app.fleet
+    let main_id = app
+        .fleet
         .nodes
         .iter()
         .find(|node| node.name == "main-rpc")
         .map(|node| node.id.clone())
         .ok_or_else(|| anyhow::anyhow!("main node should exist"))?;
-    let test_id = app.fleet
+    let test_id = app
+        .fleet
         .nodes
         .iter()
         .find(|node| node.name == "test-rpc")
@@ -75,13 +77,15 @@ fn port_matrix_focuses_blocked_ports_and_clears_filters() -> anyhow::Result<()> 
     app.repository
         .update_node_status(&main.id, NodeStatus::Running, Some(42))?;
     app.reload_nodes();
-    let main_id = app.fleet
+    let main_id = app
+        .fleet
         .nodes
         .iter()
         .find(|node| node.name == "main-rpc")
         .map(|node| node.id.clone())
         .ok_or_else(|| anyhow::anyhow!("main node should exist"))?;
-    let test_id = app.fleet
+    let test_id = app
+        .fleet
         .nodes
         .iter()
         .find(|node| node.name == "test-rpc")
@@ -108,7 +112,10 @@ fn port_matrix_focuses_blocked_ports_and_clears_filters() -> anyhow::Result<()> 
 
     assert_eq!(app.operations_ui.port_matrix_status_filter, None);
     assert_eq!(app.operations_ui.port_matrix_network_filter, None);
-    assert_eq!(app.operations_ui.port_matrix_health_filter, Some(CheckSeverity::Critical));
+    assert_eq!(
+        app.operations_ui.port_matrix_health_filter,
+        Some(CheckSeverity::Critical)
+    );
     assert!(app.operations_ui.port_matrix_query.is_empty());
     assert_eq!(app.operations_ui.port_matrix_page, 0);
     assert_eq!(app.fleet.selected_node.as_deref(), Some(main_id.as_str()));
