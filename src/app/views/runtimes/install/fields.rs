@@ -14,10 +14,11 @@ pub(super) const FIELD_COLUMN_MIN_WIDTH: f32 = 176.0;
 /// columns rather than stacking them is what keeps the install form inside a
 /// non-scrolling panel: eleven fields in one column do not fit.
 type FieldGroup = (&'static str, fn(&mut NeoNexusApp, &mut egui::Ui));
-const PACKAGE_GROUPS: [FieldGroup; 3] = [
+const PACKAGE_GROUPS: [FieldGroup; 4] = [
     ("Package identity", identity),
     ("Platform & source", platform),
     ("Integrity", integrity),
+    ("HTTPS download", download),
 ];
 
 pub(super) fn render_package_fields(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
@@ -106,23 +107,21 @@ fn integrity(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     );
 }
 
-pub(super) fn render_download_fields(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
-    form_group(ui, "HTTPS download", |ui| {
-        field_text(ui, "URL", &mut app.runtime_package_draft.download_url);
-        ui.add_space(theme::SM);
-        field_text(
-            ui,
-            "File name",
-            &mut app.runtime_package_draft.download_file_name,
-        );
-        ui.add_space(theme::SM);
-        ui.label(theme::label_caption("Max size"));
-        ui.add_space(theme::XS);
-        ui.add(
-            egui::DragValue::new(&mut app.runtime_package_draft.download_max_mib)
-                .range(1..=4096)
-                .suffix(" MiB")
-                .speed(16.0),
-        );
-    });
+fn download(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
+    field_text(ui, "URL", &mut app.runtime_package_draft.download_url);
+    ui.add_space(theme::SM);
+    field_text(
+        ui,
+        "File name",
+        &mut app.runtime_package_draft.download_file_name,
+    );
+    ui.add_space(theme::SM);
+    ui.label(theme::label_caption("Max size"));
+    ui.add_space(theme::XS);
+    ui.add(
+        egui::DragValue::new(&mut app.runtime_package_draft.download_max_mib)
+            .range(1..=4096)
+            .suffix(" MiB")
+            .speed(16.0),
+    );
 }
