@@ -33,11 +33,15 @@ struct Overflow {
 }
 
 fn overflows(view_key: &str, dark: bool) -> Vec<Overflow> {
+    overflows_with(view_key, dark, true)
+}
+
+fn overflows_with(view_key: &str, dark: bool, inspector: bool) -> Vec<Overflow> {
     let temp_dir = tempfile::tempdir().unwrap();
     let path = temp_dir.path().join("neonexus.db");
     let repository = Repository::open(&path).unwrap();
     repository.save_app_dark_mode(dark).unwrap();
-    repository.save_app_inspector_visible(true).unwrap();
+    repository.save_app_inspector_visible(inspector).unwrap();
     repository.save_workspace_last_view(view_key).unwrap();
     drop(repository);
     let mut app = NeoNexusApp::new(Repository::open(&path).unwrap());
@@ -65,6 +69,7 @@ fn overflows(view_key: &str, dark: bool) -> Vec<Overflow> {
         for (axis, amount) in [
             ("right", rect.rect.max.x - clip.max.x),
             ("left", clip.min.x - rect.rect.min.x),
+            ("bottom", rect.rect.max.y - clip.max.y),
         ] {
             if amount > TOLERANCE {
                 found.push(Overflow {
@@ -80,33 +85,82 @@ fn overflows(view_key: &str, dark: bool) -> Vec<Overflow> {
 }
 
 fn report(view: &str, found: &[Overflow]) -> String {
-    found
+    let mut worst: Vec<&Overflow> = found.iter().collect();
+    worst.sort_by(|a, b| b.amount.total_cmp(&a.amount));
+    worst
         .iter()
+        .take(3)
         .map(|overflow| {
+            let (painted, clip) = if overflow.axis == "bottom" {
+                (
+                    (overflow.painted.min.y, overflow.painted.max.y),
+                    (overflow.clip.min.y, overflow.clip.max.y),
+                )
+            } else {
+                (
+                    (overflow.painted.min.x, overflow.painted.max.x),
+                    (overflow.clip.min.x, overflow.clip.max.x),
+                )
+            };
             format!(
-                "\n  {view}: {:.1}pt past the {} edge — painted {:.0}..{:.0}, clip {:.0}..{:.0}",
-                overflow.amount,
-                overflow.axis,
-                overflow.painted.min.x,
-                overflow.painted.max.x,
-                overflow.clip.min.x,
-                overflow.clip.max.x,
+                "\n  {view}: {:.0}pt past the {} edge — painted {:.0}..{:.0}, clip {:.0}..{:.0}",
+                overflow.amount, overflow.axis, painted.0, painted.1, clip.0, clip.1,
             )
         })
         .collect()
 }
 
+/// Every primary destination, with the inspector column both open and closed —
+/// the two layouts an operator actually switches between.
+const VIEWS: [&str; 6] = [
+    "summary",
+    "nodes",
+    "runtimes",
+    "federation",
+    "operations",
+    "settings",
+];
+
 #[test]
 fn no_surface_paints_outside_its_own_column() {
     let mut failures = String::new();
-    for view in ["summary", "nodes", "runtimes", "federation", "operations"] {
-        let found = overflows(view, false);
-        failures.push_str(&report(view, &found));
+    for view in VIEWS {
+        for inspector in [true, false] {
+            let found: Vec<Overflow> = overflows_with(view, false, inspector)
+                .into_iter()
+                .filter(|overflow| overflow.axis != "bottom")
+                .collect();
+            failures.push_str(&report(view, &found));
+        }
     }
     assert!(
         failures.is_empty(),
         "surfaces paint outside the column that will clip them, so their \
          content is silently truncated:{failures}",
+    );
+}
+
+/// The workbench does not scroll. Anything laid out below the bottom of its
+/// panel is not reachable by any means: egui culls the widgets that fall
+/// entirely outside, so the content is silently dropped rather than shown.
+/// A surface that does not fit must page, section, or shed content — never
+/// simply run off the end.
+#[test]
+fn no_surface_paints_below_the_panel_that_holds_it() {
+    let mut failures = String::new();
+    for view in VIEWS {
+        for inspector in [true, false] {
+            let found: Vec<Overflow> = overflows_with(view, false, inspector)
+                .into_iter()
+                .filter(|overflow| overflow.axis == "bottom")
+                .collect();
+            failures.push_str(&report(view, &found));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "surfaces lay out content below the bottom of a panel that does not \
+         scroll, so that content can never be seen or clicked:{failures}",
     );
 }
 
