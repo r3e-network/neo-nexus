@@ -17,7 +17,7 @@ pub(in crate::app) use style::configure_style_with_density;
 #[allow(unused_imports)]
 pub(in crate::app) use tokens::XL;
 pub(in crate::app) use tokens::{
-    body, caption, column_header, label_caption, metric_value, muted_body, page_title,
+    body, body_font, caption, column_header, label_caption, metric_value, muted_body, page_title,
     section_title, CHROME_HEADER_HEIGHT, CHROME_SIDEBAR_WIDTH, CHROME_STATUS_HEIGHT, LG, MD, SM,
     XS,
 };
