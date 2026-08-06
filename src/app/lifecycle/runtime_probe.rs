@@ -69,7 +69,8 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn smoke_selected_runtime(&mut self) {
         let Some(node) = self.selected_node().cloned() else {
-            self.session.notice = Some("Select a node before smoke testing its runtime".to_string());
+            self.session.notice =
+                Some("Select a node before smoke testing its runtime".to_string());
             return;
         };
 

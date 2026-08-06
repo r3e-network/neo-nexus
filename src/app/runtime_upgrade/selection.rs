@@ -4,7 +4,7 @@ use crate::app::domain::{
     RuntimePackageManager, RuntimePlatform, RuntimeRelease, RuntimeReleaseFilter,
 };
 
-use super::super::{clamp_page, NeoNexusApp, RUNTIME_PAGE_SIZE};
+use super::super::{clamp_page, NeoNexusApp};
 
 impl NeoNexusApp {
     pub(in crate::app) fn selected_runtime_release(&self) -> Option<RuntimeRelease> {
@@ -94,7 +94,7 @@ impl NeoNexusApp {
                 visible.first().map(|item| item.package_id.clone());
             self.runtime_page = 0;
         }
-        self.runtime_page = clamp_page(self.runtime_page, visible.len(), RUNTIME_PAGE_SIZE);
+        self.runtime_page = clamp_page(self.runtime_page, visible.len());
     }
 
     pub(in crate::app) fn selected_runtime_installation(

@@ -41,11 +41,7 @@ impl NeoNexusApp {
             ui.label(theme::muted_body("Density"));
             ui.add_space(theme::SM);
             for density in [UiDensity::Comfortable, UiDensity::Compact] {
-                if filter_chip(
-                    ui,
-                    density.label(),
-                    self.session.density == density,
-                ) {
+                if filter_chip(ui, density.label(), self.session.density == density) {
                     self.set_ui_density(density);
                 }
             }

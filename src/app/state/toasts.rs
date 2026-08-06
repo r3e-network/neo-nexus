@@ -129,7 +129,12 @@ pub(in crate::app) fn render_toast_strip(ui: &mut egui::Ui, stack: &ToastStack) 
         for toast in stack.iter().rev().take(2) {
             let color = toast.kind.color();
             egui::Frame::new()
-                .fill(Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 28))
+                .fill(Color32::from_rgba_unmultiplied(
+                    color.r(),
+                    color.g(),
+                    color.b(),
+                    28,
+                ))
                 .stroke(egui::Stroke::new(1.0, color.gamma_multiply(0.55)))
                 .corner_radius(egui::CornerRadius::same(6))
                 .inner_margin(egui::Margin::symmetric(8, 2))
