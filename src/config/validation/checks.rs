@@ -5,7 +5,7 @@ mod yaml;
 
 pub(super) use json::{
     check_json_array_len_at_least, check_json_bool, check_json_string, check_json_u16,
-    check_json_u32, check_json_u8, check_neo_cli_plugins,
+    check_json_u32, check_json_u8, check_neo_cli_plugin_source,
 };
 pub(super) use toml::{
     check_toml_array_len_at_least, check_toml_bool, check_toml_string,

@@ -37,9 +37,12 @@ fn config_exporter_writes_safe_json_file() {
     assert!(export
         .path
         .ends_with("neo-cli-validator-1-neo-cli-config.json"));
-    assert_eq!(export.bytes_written, text.len());
+    // `bytes_written` now spans the primary config and every plugin file, so
+    // an operator sees the real size of what was exported.
+    assert!(export.bytes_written >= text.len());
     assert!(text.contains("\"Network\": 1230000"));
-    assert!(text.contains("\"RpcServer\""));
+    assert!(!export.sidecar_paths.is_empty());
+    assert!(export.sidecar_paths.iter().all(|path| path.is_file()));
 }
 
 #[test]

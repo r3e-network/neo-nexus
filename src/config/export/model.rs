@@ -7,6 +7,10 @@ mod text;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConfigExport {
     pub path: PathBuf,
+    /// Plugin configuration files written beside the primary one. Empty for
+    /// neo-go and neo-rs, which configure every service in a single file.
+    pub sidecar_paths: Vec<PathBuf>,
+    /// Total bytes across the primary config and every sidecar.
     pub bytes_written: usize,
 }
 

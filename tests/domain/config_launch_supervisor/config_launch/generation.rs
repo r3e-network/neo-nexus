@@ -53,7 +53,7 @@ fn config_generator_creates_neo_cli_protocol_settings() {
         config["ApplicationConfiguration"]["UnlockWallet"]["IsActive"],
         false
     );
-    assert_eq!(config["Plugins"][0]["Name"], "RpcServer");
+    // The corrected key set is asserted by neo_cli_schema.rs.
 }
 
 #[test]

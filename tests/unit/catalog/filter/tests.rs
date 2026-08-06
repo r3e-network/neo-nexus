@@ -39,6 +39,7 @@ fn plugin_filter_matches_operator_fields() {
             PluginId::RestServer,
             PluginId::ApplicationLogs,
             PluginId::StateService,
+            PluginId::OracleService,
             PluginId::DBFTPlugin,
             PluginId::TokensTracker,
             PluginId::LevelDbStore,

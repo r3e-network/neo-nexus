@@ -62,6 +62,7 @@ fn category_label(category: PluginCategory) -> &'static str {
     match category {
         PluginCategory::Api => "API",
         PluginCategory::Core => "Core",
+        PluginCategory::Governance => "Chain",
         PluginCategory::Indexing => "Indexing",
         PluginCategory::Storage => "Storage",
     }

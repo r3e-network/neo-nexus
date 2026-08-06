@@ -122,7 +122,18 @@ fn node_config_export_cli_writes_multi_runtime_configs_and_reports() -> Result<(
 
     let cli_config: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(cli_path)?)?;
     assert_eq!(cli_config["ProtocolConfiguration"]["Network"], 894_710_606);
-    assert_eq!(cli_config["Plugins"][0]["Name"], "RpcServer");
+    // neo-cli has no config key that enables a plugin — enablement is the
+    // presence of the assembly. What the export must carry is the plugin's own
+    // configuration file, which is where its settings actually take effect.
+    let rpc_sidecar = std::path::Path::new(cli_path)
+        .parent()
+        .context("missing neo-cli config directory")?
+        .join("Plugins/RpcServer/RpcServer.json");
+    assert!(rpc_sidecar.is_file(), "{rpc_sidecar:?} was not written");
+    let rpc_config: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&rpc_sidecar)?)?;
+    assert!(rpc_config["PluginConfiguration"]["Servers"][0]["Port"].is_number());
+    assert!(cli_config["Plugins"].is_null());
     let go_text = std::fs::read_to_string(go_path)?;
     assert!(go_text.contains("ProtocolConfiguration"));
     assert!(go_text.contains("Magic: 894710606"));
