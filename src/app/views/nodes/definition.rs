@@ -1,29 +1,31 @@
 use eframe::egui;
 
-use crate::app::domain::{Network, NodeType, StorageEngine};
-
 use super::super::super::{
     theme,
-    widgets::{
-        callout, field_combo, field_text, form_group, toolbar, CalloutKind, ToolbarAction,
-    },
+    widgets::{callout, columns_that_fit, form_group, toolbar, CalloutKind, ToolbarAction},
     NeoNexusApp,
 };
+
+mod fields;
+
+/// Narrowest a labelled form field column may become. Below this the eyebrow
+/// label wraps and the combo boxes clip their own selected text.
+const FIELD_COLUMN_MIN_WIDTH: f32 = 176.0;
+
+/// The definition's field groups, in the order an operator fills them.
+type FieldGroup = (&'static str, fn(&mut NeoNexusApp, &mut egui::Ui));
+const GROUPS: [FieldGroup; 3] = [
+    ("Identity", fields::identity),
+    ("Runtime", fields::runtime),
+    ("Ports", fields::ports),
+];
 
 pub(super) fn render_create_form(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     app.fleet.draft.ensure_storage_compatible();
 
     ui.label(theme::label_caption("Draft definition"));
     ui.add_space(theme::SM);
-
-    ui.columns(2, |columns| {
-        form_group(&mut columns[0], "Identity", |ui| {
-            render_identity_fields(app, ui);
-        });
-        form_group(&mut columns[1], "Executable & ports", |ui| {
-            render_executable_fields(app, ui);
-        });
-    });
+    render_field_groups(app, ui);
 
     ui.add_space(theme::MD);
     action_bar(app, ui);
@@ -36,66 +38,30 @@ pub(super) fn render_create_form(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     );
 }
 
-fn render_identity_fields(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
-    field_text(ui, "Name", &mut app.fleet.draft.name);
-    ui.add_space(theme::SM);
-    let previous_node_type = app.fleet.draft.node_type;
-    field_combo(
-        ui,
-        "Type",
-        "node_type",
-        app.fleet.draft.node_type.to_string(),
-        |ui| {
-            for node_type in NodeType::ALL {
-                ui.selectable_value(&mut app.fleet.draft.node_type, node_type, node_type.to_string());
+/// Lays the three groups across as many columns as the pane can hold at
+/// [`FIELD_COLUMN_MIN_WIDTH`], wrapping onto further rows below that.
+///
+/// The column count matters for more than looks: the workspace does not
+/// scroll, so one stacked column of all eleven fields paints its last rows
+/// below the panel edge, where they cannot be read or clicked.
+fn render_field_groups(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
+    let per_row = columns_that_fit(ui.available_width(), FIELD_COLUMN_MIN_WIDTH, GROUPS.len());
+    for (row_index, row) in GROUPS.chunks(per_row).enumerate() {
+        if row_index > 0 {
+            ui.add_space(theme::MD);
+        }
+        if per_row == 1 {
+            for (title, render) in row {
+                form_group(ui, title, |ui| render(app, ui));
             }
-        },
-    );
-    if previous_node_type != app.fleet.draft.node_type {
-        app.fleet.draft.ensure_storage_compatible();
+            continue;
+        }
+        ui.columns(per_row, |columns| {
+            for (column, (title, render)) in columns.iter_mut().zip(row) {
+                form_group(column, title, |ui| render(app, ui));
+            }
+        });
     }
-    ui.add_space(theme::SM);
-    field_combo(
-        ui,
-        "Network",
-        "network",
-        app.fleet.draft.network.to_string(),
-        |ui| {
-            for network in Network::ALL {
-                ui.selectable_value(&mut app.fleet.draft.network, network, network.to_string());
-            }
-        },
-    );
-    ui.add_space(theme::SM);
-    field_combo(
-        ui,
-        "Storage",
-        "storage",
-        app.fleet.draft.storage_engine.to_string(),
-        |ui| {
-            for engine in StorageEngine::ALL {
-                if app.fleet.draft.node_type.supports_storage_engine(engine) {
-                    ui.selectable_value(&mut app.fleet.draft.storage_engine, engine, engine.to_string());
-                }
-            }
-        },
-    );
-}
-
-fn render_executable_fields(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
-    field_text(ui, "Binary", &mut app.fleet.draft.binary_path);
-    ui.add_space(theme::SM);
-    field_text(ui, "Version", &mut app.fleet.draft.runtime_version);
-    ui.add_space(theme::SM);
-    field_text(ui, "Args", &mut app.fleet.draft.args);
-    ui.add_space(theme::MD);
-    ui.label(theme::label_caption("Network ports"));
-    ui.add_space(theme::XS);
-    field_text(ui, "RPC", &mut app.fleet.draft.rpc_port);
-    ui.add_space(theme::SM);
-    field_text(ui, "P2P", &mut app.fleet.draft.p2p_port);
-    ui.add_space(theme::SM);
-    field_text(ui, "WebSocket", &mut app.fleet.draft.ws_port);
 }
 
 fn action_bar(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
@@ -127,3 +93,7 @@ fn action_bar(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/app/views/nodes/definition/tests.rs"]
+mod tests;

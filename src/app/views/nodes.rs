@@ -6,7 +6,7 @@ mod workspace;
 use eframe::egui;
 
 use super::super::{
-    widgets::{page_chrome, panel},
+    widgets::{fits_side_by_side, page_chrome, panel},
     NeoNexusApp,
 };
 
@@ -30,10 +30,26 @@ impl NeoNexusApp {
         }
     }
 
+    /// The Studio tab. The definition form is the work surface; the
+    /// selected-node summary is a companion pane that only appears when the
+    /// workspace can hold two real columns *and* the inspector is not already
+    /// showing the same node — otherwise the two panes shrink below a usable
+    /// width and paint over each other.
     fn render_node_studio(&mut self, ui: &mut egui::Ui) {
-        let layout = layout::node_pane_layout(ui.available_size());
+        let available = ui.available_size();
+        if self.session.inspector_visible || !fits_side_by_side(available.x) {
+            panel(ui, "Node definition", |ui| {
+                definition::render_create_form(self, ui);
+            });
+            return;
+        }
 
+        let layout = layout::node_pane_layout(available);
         ui.horizontal(|ui| {
+            // The explicit gap is the whole gap: egui would otherwise add its
+            // own item spacing around each allocated pane *and* around the
+            // spacer, pushing the pair past the width they were sized to.
+            ui.spacing_mut().item_spacing.x = 0.0;
             ui.allocate_ui_with_layout(
                 egui::vec2(layout.definition_width, layout.height),
                 egui::Layout::top_down(egui::Align::Min),

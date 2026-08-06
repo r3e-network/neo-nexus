@@ -16,7 +16,11 @@ pub(super) fn render_install_summary(app: &NeoNexusApp, ui: &mut egui::Ui) {
         "Downloads",
         &short_path(&app.runtime_download_dir(), 46),
     );
-    fact(ui, "Install root", &short_path(&app.runtime_install_root(), 46));
+    fact(
+        ui,
+        "Install root",
+        &short_path(&app.runtime_install_root(), 46),
+    );
     fact(ui, "Upgrade candidates", &upgrade_candidates_label(app));
 }
 

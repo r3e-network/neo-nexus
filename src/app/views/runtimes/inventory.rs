@@ -3,7 +3,7 @@ use eframe::egui;
 use crate::app::domain::{format_bytes, RuntimeInstallation};
 
 use super::super::super::{
-    paging::page_count,
+    paging::{page_count, rows_that_fit},
     text::truncate_middle,
     theme,
     widgets::{empty_state, empty_state_with_action, grid_header, pagination_bar, text_badge},
@@ -11,6 +11,15 @@ use super::super::super::{
 };
 use super::filter::render_runtime_inventory_filter;
 use super::section::RuntimesSection;
+
+/// One inventory grid row: a `selectable_label` plus the grid's row gap.
+/// Measured at Comfortable density; Compact rows are shorter, so the derived
+/// page size stays on the safe side of the panel edge there.
+const ROW_HEIGHT: f32 = 39.0;
+
+/// Drawn between the height probe and the first data row: the pagination bar,
+/// the gap under it, and the grid's own column header row.
+const CHROME_HEIGHT: f32 = 83.0;
 
 impl NeoNexusApp {
     pub(super) fn render_runtime_inventory(
@@ -38,12 +47,16 @@ impl NeoNexusApp {
             return;
         }
 
-        let total_pages = page_count(filtered.len(), RUNTIME_PAGE_SIZE);
+        // Probed after the filter block so its height is already spent; the
+        // chrome still to come below the probe is subtracted instead.
+        let page_size =
+            rows_that_fit(ui.available_height(), ROW_HEIGHT, CHROME_HEIGHT).min(RUNTIME_PAGE_SIZE);
+        let total_pages = page_count(filtered.len(), page_size);
         self.runtime_page = self.runtime_page.min(total_pages - 1);
         pagination_bar(ui, &mut self.runtime_page, total_pages, filtered.len());
         ui.add_space(theme::SM);
 
-        let start = self.runtime_page * RUNTIME_PAGE_SIZE;
+        let start = self.runtime_page * page_size;
         egui::Grid::new("runtime_inventory")
             .striped(true)
             .min_col_width(74.0)
@@ -53,7 +66,7 @@ impl NeoNexusApp {
                     &["Package", "Runtime", "Version", "Platform", "Trust", "Size"],
                 );
 
-                for installation in filtered.iter().skip(start).take(RUNTIME_PAGE_SIZE) {
+                for installation in filtered.iter().skip(start).take(page_size) {
                     let selected = self.selected_runtime_installation.as_deref()
                         == Some(installation.package_id.as_str());
                     if ui
