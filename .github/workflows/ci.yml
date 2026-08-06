@@ -54,6 +54,18 @@ jobs:
           cargo test --test domain
           cargo test --test repository
 
+      - name: UI contracts
+        run: |
+          cargo test --test ui_geometry
+          cargo test --test ui_overflow
+          cargo test --test ui_typography
+          cargo test --test ui_visual_contract
+          cargo test --test ui_density_geometry
+          cargo test --test ui_empty_states
+          cargo test --test ui_error_states
+          cargo test --test ui_keyboard
+          cargo test --test ui_operator_walkthrough
+
       - name: Debug binary smoke
         run: cargo run -- --self-check
 
