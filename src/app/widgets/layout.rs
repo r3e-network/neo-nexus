@@ -66,18 +66,20 @@ mod tests;
 fn metric_tile(ui: &mut egui::Ui, title: &str, value: &str, caption: &str) {
     card_frame(ui.style()).show(ui, |ui| {
         ui.set_min_width(ui.available_width());
-        // A metric tile is a fixed-width cell in a column row. Without this the
-        // eyebrow and caption wrap one character per line the moment the tile
-        // is narrower than their longest word, which turns a summary strip into
-        // a column of single letters.
+        // A fixed-width cell in a column row. Without this the eyebrow wraps one
+        // character per line the moment the tile is narrower than its longest
+        // word, which turns a summary strip into a column of single letters.
         ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
+        ui.spacing_mut().item_spacing.y = 2.0;
         ui.vertical(|ui| {
             ui.label(theme::label_caption(title));
-            ui.add_space(theme::XS);
             ui.label(theme::metric_value(value));
-            ui.add_space(theme::XS);
-            ui.label(theme::muted_body(caption));
-        });
+        })
+        // The caption said the same thing as the eyebrow — "HEALTH / 0% /
+        // running nodes" labels one number twice. It becomes hover text, and
+        // the strip loses a third of its height on every page that carries one.
+        .response
+        .on_hover_text(caption);
     });
 }
 

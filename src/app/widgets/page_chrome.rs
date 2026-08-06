@@ -28,7 +28,10 @@ pub(in crate::app) fn page_chrome(
             *selected = index;
             changed = true;
         }
-        ui.add_space(theme::MD);
+        // A section switcher sits directly above the surface it switches; one
+        // spacing step is enough separation, and the workspace has no vertical
+        // room to spare on a page that does not scroll.
+        ui.add_space(theme::SM);
     }
 
     changed

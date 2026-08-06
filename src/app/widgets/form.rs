@@ -6,14 +6,24 @@ use crate::app::theme;
 
 use super::layout::card_frame;
 
+/// Height of a form editor. Two points shorter than a standalone control: a
+/// form group stacks four of these, and the surfaces they live on do not
+/// scroll, so every point of vertical rhythm is a point of content that either
+/// fits inside the panel or is never seen.
+const FIELD_HEIGHT: f32 = 26.0;
+
+/// Gap between a field's label and its editor.
+const LABEL_GAP: f32 = 2.0;
+
 /// Label-above text field (form rows that need more breathing room than the
 /// compact horizontal `labeled_text` helper).
 pub(in crate::app) fn field_text(ui: &mut egui::Ui, label: &str, value: &mut String) {
     ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing.y = 0.0;
         ui.label(theme::label_caption(label));
-        ui.add_space(theme::XS);
+        ui.add_space(LABEL_GAP);
         ui.add_sized(
-            [ui.available_width().max(120.0), 28.0],
+            [ui.available_width().max(120.0), FIELD_HEIGHT],
             egui::TextEdit::singleline(value),
         );
     });
@@ -28,8 +38,9 @@ pub(in crate::app) fn field_combo(
     add_items: impl FnOnce(&mut egui::Ui),
 ) {
     ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing.y = 0.0;
         ui.label(theme::label_caption(label));
-        ui.add_space(theme::XS);
+        ui.add_space(LABEL_GAP);
         egui::ComboBox::from_id_salt(id)
             .selected_text(selected)
             .width(ui.available_width().max(120.0))
@@ -69,7 +80,7 @@ pub(in crate::app) fn form_group(
         .fill(theme::track_surface())
         .stroke(theme::hairline())
         .corner_radius(egui::CornerRadius::same(10))
-        .inner_margin(egui::Margin::symmetric(12, 10))
+        .inner_margin(egui::Margin::symmetric(10, 8))
         .show(ui, |ui| {
             ui.set_min_width(ui.available_width());
             add_contents(ui);
