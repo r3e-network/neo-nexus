@@ -43,6 +43,8 @@ impl NeoNexusApp {
             }),
             RuntimesSection::Installed => panel(ui, "Installed runtimes", |ui| {
                 self.render_runtime_inventory(ui, &installations);
+                ui.add_space(theme::MD);
+                install::render_install_summary(self, ui);
             }),
             RuntimesSection::Applied => panel(ui, "Selected node runtime", |ui| {
                 self.render_runtime_application(ui, &installations);

@@ -4,24 +4,25 @@ use crate::app::{
     domain::{RuntimePackageManager, RuntimePlatform},
     text::short_path,
     theme,
-    widgets::fact,
+    widgets::metric_grid,
     NeoNexusApp,
 };
 
-pub(super) fn render_install_summary(app: &NeoNexusApp, ui: &mut egui::Ui) {
+/// Where runtime packages are downloaded to and installed into, plus how many
+/// nodes could move to a newer runtime. Rendered as one row rather than three
+/// stacked facts: this is reference detail under a list, not the subject of the
+/// page, and three full-width rows is more height than it earns.
+pub(in crate::app) fn render_install_summary(app: &NeoNexusApp, ui: &mut egui::Ui) {
     ui.label(theme::label_caption("Workspace paths"));
     ui.add_space(theme::XS);
-    fact(
+    metric_grid(
         ui,
-        "Downloads",
-        &short_path(&app.runtime_download_dir(), 46),
+        &[
+            ("Downloads", short_path(&app.runtime_download_dir(), 30)),
+            ("Install root", short_path(&app.runtime_install_root(), 30)),
+            ("Upgrade candidates", upgrade_candidates_label(app)),
+        ],
     );
-    fact(
-        ui,
-        "Install root",
-        &short_path(&app.runtime_install_root(), 46),
-    );
-    fact(ui, "Upgrade candidates", &upgrade_candidates_label(app));
 }
 
 fn upgrade_candidates_label(app: &NeoNexusApp) -> String {

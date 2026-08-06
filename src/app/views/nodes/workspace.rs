@@ -6,17 +6,21 @@ pub(in crate::app) enum NodeWorkspaceTab {
     #[default]
     Studio,
     Config,
-    Logs,
+    Roles,
     Plugins,
+    Logs,
     Health,
 }
 
 impl NodeWorkspaceTab {
-    pub(in crate::app) const ALL: [Self; 5] = [
+    /// Ordered as an operator works: define it, see its generated config, give
+    /// it a role, enable the plugins that role needs, then watch it run.
+    pub(in crate::app) const ALL: [Self; 6] = [
         Self::Studio,
         Self::Config,
-        Self::Logs,
+        Self::Roles,
         Self::Plugins,
+        Self::Logs,
         Self::Health,
     ];
 
@@ -24,6 +28,7 @@ impl NodeWorkspaceTab {
         match self {
             Self::Studio => "Studio",
             Self::Config => "Config",
+            Self::Roles => "Roles",
             Self::Logs => "Logs",
             Self::Plugins => "Plugins",
             Self::Health => "Health",
@@ -32,6 +37,7 @@ impl NodeWorkspaceTab {
 
     pub(in crate::app) fn persist_key(self) -> &'static str {
         match self {
+            Self::Roles => "roles",
             Self::Studio => "studio",
             Self::Config => "config",
             Self::Logs => "logs",

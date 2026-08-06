@@ -23,19 +23,29 @@ const GROUPS: [FieldGroup; 3] = [
 pub(super) fn render_create_form(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     app.fleet.draft.ensure_storage_compatible();
 
-    ui.label(theme::label_caption("Draft definition"));
-    ui.add_space(theme::SM);
+    // No "Draft definition" eyebrow: the card is already titled "Node
+    // definition" and the groups name themselves.
     render_field_groups(app, ui);
 
     ui.add_space(theme::MD);
     action_bar(app, ui);
-    ui.add_space(theme::SM);
-    callout(
-        ui,
-        CalloutKind::Warning,
-        "Running nodes are locked",
-        "Stop a node before updating its definition, ports, or binary path.",
-    );
+
+    // Only warn about the lock while something is actually locked. Shown
+    // unconditionally it was 90pt of standing text that pushed the action bar
+    // itself off the bottom of a panel that does not scroll — the warning
+    // hiding the buttons it was warning about.
+    if app
+        .selected_node()
+        .is_some_and(|node| node.status.is_running())
+    {
+        ui.add_space(theme::SM);
+        callout(
+            ui,
+            CalloutKind::Warning,
+            "Running nodes are locked",
+            "Stop this node before updating its definition, ports, or binary path.",
+        );
+    }
 }
 
 /// Lays the three groups across as many columns as the pane can hold at

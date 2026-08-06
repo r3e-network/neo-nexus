@@ -58,22 +58,19 @@ impl NeoNexusApp {
             });
         });
 
-        ui.add_space(theme::MD);
+        // A callout only when there is something to say. "In sync" spent 90pt
+        // of a panel that does not scroll to report that nothing is wrong, and
+        // pushed the Save button it was reporting on off the bottom.
         if let Some(message) = validation {
+            ui.add_space(theme::MD);
             callout(ui, CalloutKind::Danger, "Invalid draft", message);
         } else if draft_differs {
+            ui.add_space(theme::MD);
             callout(
                 ui,
                 CalloutKind::Info,
                 "Unsaved changes",
                 "Save to apply this draft to the supervisor.",
-            );
-        } else {
-            callout(
-                ui,
-                CalloutKind::Success,
-                "In sync",
-                "Draft matches the active watchdog policy.",
             );
         }
 
