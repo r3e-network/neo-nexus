@@ -36,7 +36,9 @@ impl NeoNexusApp {
             Ok(policy) => {
                 self.async_bus.rpc_health_monitor_policy = policy;
                 self.async_bus.rpc_health_monitor_policy_draft =
-                    RpcHealthMonitorPolicyDraft::from_policy(self.async_bus.rpc_health_monitor_policy);
+                    RpcHealthMonitorPolicyDraft::from_policy(
+                        self.async_bus.rpc_health_monitor_policy,
+                    );
                 self.async_bus.rpc_health_last_started.clear();
             }
             Err(error) => self.session.notice = Some(error.to_string()),

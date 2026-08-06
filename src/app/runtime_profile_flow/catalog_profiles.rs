@@ -92,7 +92,8 @@ impl NeoNexusApp {
             Ok(()) => {
                 self.selected_runtime_catalog_profile = Some(id);
                 self.reload_runtime_catalog_profiles();
-                self.session.notice = Some(format!("Runtime catalog profile saved: {}", profile.label));
+                self.session.notice =
+                    Some(format!("Runtime catalog profile saved: {}", profile.label));
             }
             Err(error) => self.session.notice = Some(error.to_string()),
         }

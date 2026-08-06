@@ -12,7 +12,8 @@ impl NeoNexusApp {
     }
 
     pub(in crate::app) fn ensure_valid_selection(&mut self) {
-        let selected_exists = self.fleet
+        let selected_exists = self
+            .fleet
             .selected_node
             .as_ref()
             .is_some_and(|id| self.fleet.nodes.iter().any(|node| &node.id == id));
@@ -27,15 +28,11 @@ impl NeoNexusApp {
             self.operations_ui.selected_event = None;
         }
 
-        self.fleet.node_page = clamp_page(
-            self.fleet.node_page,
-            self.filtered_inventory_nodes().len(),
-            NODE_PAGE_SIZE,
-        );
+        self.fleet.node_page =
+            clamp_page(self.fleet.node_page, self.filtered_inventory_nodes().len());
         self.fleet.overview_fleet_page = clamp_page(
             self.fleet.overview_fleet_page,
             self.filtered_inventory_nodes().len(),
-            OVERVIEW_FLEET_PAGE_SIZE,
         );
     }
 }

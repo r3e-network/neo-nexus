@@ -3,12 +3,21 @@ use eframe::egui;
 use crate::app::domain::format_bytes;
 
 use super::super::super::{
-    paging::page_count,
+    paging::{page_count, rows_that_fit},
     text::truncate_middle,
     widgets::{empty_state, fact, grid_header, labeled_text, pagination_bar, secondary_button},
     NeoNexusApp, SNAPSHOT_CATALOG_PAGE_SIZE,
 };
 use super::filter::render_snapshot_catalog_filter;
+
+/// One catalog grid row: a `selectable_label` plus the grid's row gap.
+/// Measured at Comfortable density; Compact rows are shorter, so the derived
+/// page size stays on the safe side of the panel edge there.
+const ROW_HEIGHT: f32 = 39.0;
+
+/// Drawn between the height probe and the first data row: the pagination bar,
+/// the separator under it, and the grid's own column header row.
+const CHROME_HEIGHT: f32 = 89.0;
 
 impl NeoNexusApp {
     pub(super) fn render_snapshot_catalog(&mut self, ui: &mut egui::Ui) {
@@ -80,7 +89,11 @@ impl NeoNexusApp {
             return;
         }
 
-        let total_pages = page_count(filtered.len(), SNAPSHOT_CATALOG_PAGE_SIZE);
+        // Probed after the catalog filter so its height is already spent; the
+        // chrome still to come below the probe is subtracted instead.
+        let page_size = rows_that_fit(ui.available_height(), ROW_HEIGHT, CHROME_HEIGHT)
+            .min(SNAPSHOT_CATALOG_PAGE_SIZE);
+        let total_pages = page_count(filtered.len(), page_size);
         self.snapshot_catalog_page = self.snapshot_catalog_page.min(total_pages - 1);
         pagination_bar(
             ui,
@@ -90,14 +103,14 @@ impl NeoNexusApp {
         );
         ui.separator();
 
-        let start = self.snapshot_catalog_page * SNAPSHOT_CATALOG_PAGE_SIZE;
+        let start = self.snapshot_catalog_page * page_size;
         egui::Grid::new("snapshot_catalog_entries")
             .striped(true)
             .min_col_width(66.0)
             .show(ui, |ui| {
                 grid_header(ui, &["Snapshot", "Runtime", "Network", "Limit"]);
 
-                for entry in filtered.iter().skip(start).take(SNAPSHOT_CATALOG_PAGE_SIZE) {
+                for entry in filtered.iter().skip(start).take(page_size) {
                     let selected =
                         self.selected_snapshot_catalog_entry.as_deref() == Some(entry.id.as_str());
                     if ui

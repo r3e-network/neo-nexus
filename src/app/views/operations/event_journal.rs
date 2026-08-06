@@ -28,9 +28,7 @@ impl NeoNexusApp {
         let total_matches = match count_workspace_events(&self.repository, &filter) {
             Ok(count) => count,
             Err(error) => {
-                ui.label(
-                    egui::RichText::new(error.to_string()).color(theme::danger()),
-                );
+                ui.label(egui::RichText::new(error.to_string()).color(theme::danger()));
                 return;
             }
         };
@@ -38,18 +36,14 @@ impl NeoNexusApp {
             match count_workspace_events(&self.repository, &RuntimeEventFilter::default()) {
                 Ok(count) => count,
                 Err(error) => {
-                    ui.label(
-                        egui::RichText::new(error.to_string()).color(theme::danger()),
-                    );
+                    ui.label(egui::RichText::new(error.to_string()).color(theme::danger()));
                     return;
                 }
             };
         let events = match list_workspace_events(&self.repository, filter) {
             Ok(events) => events,
             Err(error) => {
-                ui.label(
-                    egui::RichText::new(error.to_string()).color(theme::danger()),
-                );
+                ui.label(egui::RichText::new(error.to_string()).color(theme::danger()));
                 return;
             }
         };

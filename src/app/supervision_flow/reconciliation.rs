@@ -66,7 +66,8 @@ impl NeoNexusApp {
             return self.reconcile_sidecar_exit(exit);
         }
 
-        let Some(node) = self.fleet
+        let Some(node) = self
+            .fleet
             .nodes
             .iter()
             .find(|node| node.id == exit.node_id)

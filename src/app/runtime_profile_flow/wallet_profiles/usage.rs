@@ -18,7 +18,8 @@ impl NeoNexusApp {
                         profile.id
                     ),
                 );
-                self.session.notice = Some(format!("Wallet profile marked used: {}", profile.label));
+                self.session.notice =
+                    Some(format!("Wallet profile marked used: {}", profile.label));
             }
             Err(error) => self.session.notice = Some(error.to_string()),
         }
@@ -46,7 +47,8 @@ impl NeoNexusApp {
         if let Err(error) =
             CommitteeRoster::from_public_keys_and_references(&committee_keys, &signer_refs)
         {
-            self.session.notice = Some(format!("Wallet profile signer reference rejected: {error}"));
+            self.session.notice =
+                Some(format!("Wallet profile signer reference rejected: {error}"));
             return;
         }
 

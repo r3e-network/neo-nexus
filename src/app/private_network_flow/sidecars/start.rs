@@ -6,7 +6,8 @@ impl NeoNexusApp {
             return;
         };
         if report.sidecars.is_empty() {
-            self.session.notice = Some("No signer sidecars are defined in the launch pack".to_string());
+            self.session.notice =
+                Some("No signer sidecars are defined in the launch pack".to_string());
             return;
         }
 
@@ -78,7 +79,8 @@ impl NeoNexusApp {
             }
         }
 
-        self.session.notice = sidecar_start_notice(started, already_running, last_log_path.as_ref());
+        self.session.notice =
+            sidecar_start_notice(started, already_running, last_log_path.as_ref());
     }
 }
 

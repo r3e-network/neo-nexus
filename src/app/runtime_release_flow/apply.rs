@@ -7,7 +7,8 @@ impl NeoNexusApp {
             return;
         };
         if node.status.is_active() {
-            self.session.notice = Some("Stop the selected node before applying a runtime".to_string());
+            self.session.notice =
+                Some("Stop the selected node before applying a runtime".to_string());
             return;
         }
 

@@ -31,7 +31,9 @@ impl NeoNexusApp {
                     self.session.notice = Some("No nodes to select".to_string());
                 }
             }
-            AppShortcut::NextView => self.session.selected_view = views::next_view(self.session.selected_view),
+            AppShortcut::NextView => {
+                self.session.selected_view = views::next_view(self.session.selected_view)
+            }
             AppShortcut::PreviousView => {
                 self.session.selected_view = views::previous_view(self.session.selected_view);
             }

@@ -21,7 +21,8 @@ fn render_provider_picker(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         ui,
         "Provider",
         "alert_provider",
-        app.async_bus.alert_routing_policy_draft
+        app.async_bus
+            .alert_routing_policy_draft
             .provider
             .display_name()
             .to_string(),
@@ -42,7 +43,10 @@ fn render_severity_picker(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         ui,
         "Minimum severity",
         "alert_min_severity",
-        app.async_bus.alert_routing_policy_draft.min_severity.to_string(),
+        app.async_bus
+            .alert_routing_policy_draft
+            .min_severity
+            .to_string(),
         |ui| {
             for severity in EventSeverity::ALL {
                 ui.selectable_value(

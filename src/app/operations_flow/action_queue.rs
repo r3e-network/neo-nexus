@@ -90,7 +90,8 @@ impl NeoNexusApp {
         &self,
         actions: &'a [ReadinessAction],
     ) -> Option<&'a ReadinessAction> {
-        self.operations_ui.selected_readiness_action
+        self.operations_ui
+            .selected_readiness_action
             .as_ref()
             .and_then(|key| actions.iter().find(|action| key.matches(action)))
     }
@@ -113,10 +114,7 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn clamp_action_queue_page(&mut self, diagnostics: &FleetDiagnostics) {
         let actions = self.filtered_readiness_actions(diagnostics);
-        self.operations_ui.action_queue_page = clamp_page(
-            self.operations_ui.action_queue_page,
-            actions.len(),
-            ACTION_QUEUE_PAGE_SIZE,
-        );
+        self.operations_ui.action_queue_page =
+            clamp_page(self.operations_ui.action_queue_page, actions.len());
     }
 }

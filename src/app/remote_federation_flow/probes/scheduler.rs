@@ -8,12 +8,21 @@ impl NeoNexusApp {
         }
 
         let now = Instant::now();
-        let interval = self.async_bus.remote_federation_monitor_policy.interval_duration();
+        let interval = self
+            .async_bus
+            .remote_federation_monitor_policy
+            .interval_duration();
         let Some(profile) = self.remote_servers.iter().find_map(|profile| {
-            if !profile.enabled || self.async_bus.remote_federation_pending.contains(&profile.id) {
+            if !profile.enabled
+                || self
+                    .async_bus
+                    .remote_federation_pending
+                    .contains(&profile.id)
+            {
                 return None;
             }
-            let due = self.async_bus
+            let due = self
+                .async_bus
                 .remote_federation_last_started
                 .get(&profile.id)
                 .is_none_or(|last_started| now.duration_since(*last_started) >= interval);
@@ -22,8 +31,11 @@ impl NeoNexusApp {
             return;
         };
 
-        self.async_bus.remote_federation_pending.insert(profile.id.clone());
-        self.async_bus.remote_federation_last_started
+        self.async_bus
+            .remote_federation_pending
+            .insert(profile.id.clone());
+        self.async_bus
+            .remote_federation_last_started
             .insert(profile.id.clone(), now);
         self.spawn_remote_federation_probe(profile);
     }
@@ -57,9 +69,11 @@ impl NeoNexusApp {
             .iter()
             .map(|profile| profile.id.clone())
             .collect::<BTreeSet<_>>();
-        self.async_bus.remote_federation_pending
+        self.async_bus
+            .remote_federation_pending
             .retain(|profile_id| live_profile_ids.contains(profile_id));
-        self.async_bus.remote_federation_last_started
+        self.async_bus
+            .remote_federation_last_started
             .retain(|profile_id, _| live_profile_ids.contains(profile_id));
     }
 }

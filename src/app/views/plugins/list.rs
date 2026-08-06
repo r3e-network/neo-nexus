@@ -4,7 +4,7 @@ use crate::app::domain::NodeConfig;
 
 use super::{
     super::super::{
-        paging::page_count,
+        paging::{page_count, rows_that_fit},
         text::truncate_middle,
         theme::muted_text,
         widgets::{empty_state, fact, grid_header, pagination_bar, plugin_enabled},
@@ -12,6 +12,14 @@ use super::{
     },
     filter::render_plugin_filter,
 };
+
+/// Measured pitch between two striped catalog rows: the row itself, which is
+/// as tall as its leading selectable label, plus the grid's row spacing.
+const PLUGIN_ROW_HEIGHT: f32 = 52.0;
+
+/// Chrome between the filter and the first plugin: the pagination bar, its
+/// separator, and the grid's column header.
+const PLUGIN_CHROME_HEIGHT: f32 = 74.0;
 
 pub(super) fn render_plugin_list(app: &mut NeoNexusApp, ui: &mut egui::Ui, node: &NodeConfig) {
     ui.horizontal(|ui| {
@@ -45,10 +53,18 @@ pub(super) fn render_plugin_list(app: &mut NeoNexusApp, ui: &mut egui::Ui, node:
         .repository
         .list_plugin_states(&node.id)
         .unwrap_or_default();
-    let total_pages = page_count(plugins.len(), PLUGIN_PAGE_SIZE);
+    // Measured after the filter, where the rows begin; the bar, separator and
+    // column header drawn below come off as reserved space.
+    let page_size = rows_that_fit(
+        ui.available_height(),
+        PLUGIN_ROW_HEIGHT,
+        PLUGIN_CHROME_HEIGHT,
+    )
+    .min(PLUGIN_PAGE_SIZE);
+    let total_pages = page_count(plugins.len(), page_size);
     app.plugin_page = app.plugin_page.min(total_pages - 1);
-    let start = app.plugin_page * PLUGIN_PAGE_SIZE;
-    let visible = plugins.iter().skip(start).take(PLUGIN_PAGE_SIZE);
+    let start = app.plugin_page * page_size;
+    let visible = plugins.iter().skip(start).take(page_size);
 
     pagination_bar(ui, &mut app.plugin_page, total_pages, plugins.len());
     ui.separator();

@@ -6,7 +6,10 @@ impl NeoNexusApp {
     }
 
     pub(in crate::app) fn refresh_metrics_if_due(&mut self) {
-        if let Some(snapshot) = self.metrics.refresh_if_due(&self.fleet.nodes, Instant::now()) {
+        if let Some(snapshot) = self
+            .metrics
+            .refresh_if_due(&self.fleet.nodes, Instant::now())
+        {
             self.metrics_snapshot = snapshot;
         }
     }

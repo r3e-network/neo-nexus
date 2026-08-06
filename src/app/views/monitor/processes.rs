@@ -1,10 +1,12 @@
 use eframe::egui;
 
+use crate::app::widgets::inset_card;
+
 use crate::app::domain::{format_bytes, NodeStatus, ProcessRow};
 
 use super::super::super::{
     format_duration,
-    paging::page_count,
+    paging::{page_count, rows_that_fit},
     text::truncate_middle,
     theme,
     view::View,
@@ -14,6 +16,21 @@ use super::super::super::{
     NeoNexusApp, MONITOR_PROCESS_PAGE_SIZE,
 };
 use super::filter::render_process_filter;
+
+/// Pitch between two striped process rows. Same anatomy as the plugin
+/// catalog — a selectable label leading a row of cells — whose stripe pitch
+/// measures 52pt.
+const PROCESS_ROW_HEIGHT: f32 = 52.0;
+
+/// Chrome around the rows: the pagination bar, the gap under it, and the
+/// column header.
+const PROCESS_CHROME_HEIGHT: f32 = 70.0;
+
+/// The selected-process card below the table. `ensure_valid_monitor_process_selection`
+/// always leaves a selection while rows exist, so the card is always drawn;
+/// sized for the observed case (caption plus six facts) so the page size does
+/// not shift when the selection moves to a missing process with two facts.
+const PROCESS_DETAIL_HEIGHT: f32 = 246.0;
 
 pub(super) fn render_process_metrics(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     let has_process_data = !app.metrics_snapshot.node_processes.is_empty()
@@ -38,19 +55,28 @@ pub(super) fn render_process_metrics(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         return;
     }
 
-    let total_pages = page_count(rows.len(), MONITOR_PROCESS_PAGE_SIZE);
+    // Measured after the filter, which is the last variable-height block above
+    // the table; everything between here and the panel floor — bar, header and
+    // the detail card under the rows — is subtracted as reserved space.
+    let page_size = rows_that_fit(
+        ui.available_height(),
+        PROCESS_ROW_HEIGHT,
+        PROCESS_CHROME_HEIGHT + PROCESS_DETAIL_HEIGHT,
+    )
+    .min(MONITOR_PROCESS_PAGE_SIZE);
+    let total_pages = page_count(rows.len(), page_size);
     app.monitor_process_page = app.monitor_process_page.min(total_pages - 1);
     pagination_bar(ui, &mut app.monitor_process_page, total_pages, rows.len());
     ui.add_space(theme::SM);
 
-    let start = app.monitor_process_page * MONITOR_PROCESS_PAGE_SIZE;
+    let start = app.monitor_process_page * page_size;
     egui::Grid::new("monitor_process_metrics")
         .striped(true)
         .min_col_width(66.0)
         .show(ui, |ui| {
             grid_header(ui, &["Node", "PID", "CPU", "RSS", "Uptime", "State"]);
 
-            for row in rows.iter().skip(start).take(MONITOR_PROCESS_PAGE_SIZE) {
+            for row in rows.iter().skip(start).take(page_size) {
                 render_process_row(app, ui, row);
                 ui.end_row();
             }
@@ -107,34 +133,28 @@ fn render_selected_process_detail(app: &NeoNexusApp, ui: &mut egui::Ui, rows: &[
     };
 
     ui.add_space(theme::SM);
-    egui::Frame::new()
-        .fill(theme::card_surface())
-        .stroke(theme::hairline())
-        .corner_radius(egui::CornerRadius::same(10))
-        .inner_margin(egui::Margin::symmetric(12, 10))
-        .show(ui, |ui| {
-            ui.set_min_width(ui.available_width());
-            ui.label(theme::label_caption("Selected process"));
-            ui.add_space(theme::SM);
-            match row {
-                ProcessRow::Observed(process) => {
-                    fact(ui, "Node", &process.node_name);
-                    fact(ui, "PID", &process.pid.to_string());
-                    fact(ui, "CPU", &cpu_label(process.cpu_usage_percent));
-                    fact(ui, "RSS", &format_bytes(process.memory_bytes));
-                    fact(
-                        ui,
-                        "Uptime",
-                        &format_duration(std::time::Duration::from_secs(process.run_time_seconds)),
-                    );
-                    fact(ui, "State", &process.status);
-                }
-                ProcessRow::Missing(process) => {
-                    fact(ui, "Node", &process.node_name);
-                    fact(ui, "State", "missing / not observed");
-                }
+    inset_card(ui, |ui| {
+        ui.label(theme::label_caption("Selected process"));
+        ui.add_space(theme::SM);
+        match row {
+            ProcessRow::Observed(process) => {
+                fact(ui, "Node", &process.node_name);
+                fact(ui, "PID", &process.pid.to_string());
+                fact(ui, "CPU", &cpu_label(process.cpu_usage_percent));
+                fact(ui, "RSS", &format_bytes(process.memory_bytes));
+                fact(
+                    ui,
+                    "Uptime",
+                    &format_duration(std::time::Duration::from_secs(process.run_time_seconds)),
+                );
+                fact(ui, "State", &process.status);
             }
-        });
+            ProcessRow::Missing(process) => {
+                fact(ui, "Node", &process.node_name);
+                fact(ui, "State", "missing / not observed");
+            }
+        }
+    });
 }
 
 fn cpu_label(percent: f32) -> String {

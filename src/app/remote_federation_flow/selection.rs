@@ -27,7 +27,6 @@ impl NeoNexusApp {
         self.remote_server_page = clamp_page(
             self.remote_server_page,
             self.filtered_remote_server_profiles().len(),
-            REMOTE_SERVER_PAGE_SIZE,
         );
     }
 
@@ -95,10 +94,6 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn clamp_remote_probe_history_page(&mut self) {
         let history = self.filtered_selected_remote_server_probe_history();
-        self.remote_probe_history_page = clamp_page(
-            self.remote_probe_history_page,
-            history.len(),
-            REMOTE_PROBE_HISTORY_PAGE_SIZE,
-        );
+        self.remote_probe_history_page = clamp_page(self.remote_probe_history_page, history.len());
     }
 }

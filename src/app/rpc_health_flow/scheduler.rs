@@ -13,7 +13,8 @@ impl NeoNexusApp {
             if !node.status.is_running() || self.async_bus.rpc_health_pending.contains(&node.id) {
                 return None;
             }
-            let due = self.async_bus
+            let due = self
+                .async_bus
                 .rpc_health_last_started
                 .get(&node.id)
                 .is_none_or(|last_started| now.duration_since(*last_started) >= interval);
@@ -23,7 +24,9 @@ impl NeoNexusApp {
         };
 
         self.async_bus.rpc_health_pending.insert(node.id.clone());
-        self.async_bus.rpc_health_last_started.insert(node.id.clone(), now);
+        self.async_bus
+            .rpc_health_last_started
+            .insert(node.id.clone(), now);
         let sender = self.async_bus.rpc_health_sender.clone();
         let thread_node = node.clone();
         if let Err(error) = thread::Builder::new()
@@ -45,14 +48,17 @@ impl NeoNexusApp {
     }
 
     fn prune_deleted_rpc_health_runtime_state(&mut self) {
-        let live_node_ids = self.fleet
+        let live_node_ids = self
+            .fleet
             .nodes
             .iter()
             .map(|node| node.id.clone())
             .collect::<BTreeSet<_>>();
-        self.async_bus.rpc_health_pending
+        self.async_bus
+            .rpc_health_pending
             .retain(|node_id| live_node_ids.contains(node_id));
-        self.async_bus.rpc_health_last_started
+        self.async_bus
+            .rpc_health_last_started
             .retain(|node_id, _| live_node_ids.contains(node_id));
     }
 }

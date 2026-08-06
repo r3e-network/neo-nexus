@@ -34,7 +34,7 @@ impl NeoNexusApp {
         {
             self.selected_plugin = plugins.first().map(|plugin| plugin.id);
         }
-        self.plugin_page = clamp_page(self.plugin_page, plugins.len(), PLUGIN_PAGE_SIZE);
+        self.plugin_page = clamp_page(self.plugin_page, plugins.len());
     }
 
     pub(super) fn toggle_plugin(&mut self, plugin_id: PluginId, enabled: bool) {
@@ -73,7 +73,8 @@ impl NeoNexusApp {
         match sha256_file(&source_path) {
             Ok((sha256, bytes)) => {
                 self.plugin_package_expected_sha256 = sha256;
-                self.session.notice = Some(format!("Plugin package hashed: {}", format_bytes(bytes)));
+                self.session.notice =
+                    Some(format!("Plugin package hashed: {}", format_bytes(bytes)));
             }
             Err(error) => self.session.notice = Some(error.to_string()),
         }
@@ -81,11 +82,13 @@ impl NeoNexusApp {
 
     pub(super) fn install_selected_plugin_package(&mut self) {
         let Some(node) = self.selected_node().cloned() else {
-            self.session.notice = Some("Select a node before installing a plugin package".to_string());
+            self.session.notice =
+                Some("Select a node before installing a plugin package".to_string());
             return;
         };
         if node.node_type != NodeType::NeoCli {
-            self.session.notice = Some("Plugin packages are supported for neo-cli nodes only".to_string());
+            self.session.notice =
+                Some("Plugin packages are supported for neo-cli nodes only".to_string());
             return;
         }
         if node.status.is_active() {

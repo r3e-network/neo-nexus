@@ -2,7 +2,8 @@ use super::*;
 
 impl NeoNexusApp {
     pub(in crate::app) fn auto_assign_draft_ports(&mut self) {
-        let preferred_rpc = self.fleet
+        let preferred_rpc = self
+            .fleet
             .draft
             .rpc_port
             .trim()
@@ -13,7 +14,8 @@ impl NeoNexusApp {
         match plan_available_node_ports(&self.fleet.nodes, None, preferred_rpc, include_ws) {
             Ok(assignment) => {
                 self.apply_port_assignment_to_draft(assignment);
-                self.session.notice = Some(format!("Draft ports assigned: {}", assignment.summary()));
+                self.session.notice =
+                    Some(format!("Draft ports assigned: {}", assignment.summary()));
             }
             Err(error) => self.session.notice = Some(error.to_string()),
         }
@@ -31,7 +33,12 @@ impl NeoNexusApp {
         }
 
         let include_ws = node.ws_port.is_some();
-        match plan_available_node_ports(&self.fleet.nodes, Some(&node.id), node.rpc_port, include_ws) {
+        match plan_available_node_ports(
+            &self.fleet.nodes,
+            Some(&node.id),
+            node.rpc_port,
+            include_ws,
+        ) {
             Ok(assignment) => {
                 if node.rpc_port == assignment.rpc_port
                     && node.p2p_port == assignment.p2p_port

@@ -3,7 +3,8 @@ use super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn delete_selected_remote_server(&mut self) {
         let Some(profile) = self.selected_remote_server_profile() else {
-            self.session.notice = Some("Select a remote server profile before deleting it".to_string());
+            self.session.notice =
+                Some("Select a remote server profile before deleting it".to_string());
             return;
         };
         match self.repository.delete_remote_server(&profile.id) {
@@ -26,7 +27,9 @@ impl NeoNexusApp {
                     self.last_remote_server_probe = None;
                 }
                 self.async_bus.remote_federation_pending.remove(&profile.id);
-                self.async_bus.remote_federation_last_started.remove(&profile.id);
+                self.async_bus
+                    .remote_federation_last_started
+                    .remove(&profile.id);
                 self.reload_remote_servers();
             }
             Err(error) => self.session.notice = Some(error.to_string()),

@@ -52,7 +52,8 @@ impl NeoNexusApp {
         &self,
         rows: &'a [PortMatrixRow],
     ) -> Option<&'a PortMatrixRow> {
-        self.fleet.selected_node
+        self.fleet
+            .selected_node
             .as_ref()
             .and_then(|node_id| rows.iter().find(|row| row.node_id == *node_id))
     }
@@ -72,6 +73,6 @@ impl NeoNexusApp {
     pub(in crate::app) fn clamp_port_matrix_page(&mut self, diagnostics: &FleetDiagnostics) {
         let rows = self.filtered_port_matrix_rows(diagnostics);
         self.operations_ui.port_matrix_page =
-            clamp_page(self.operations_ui.port_matrix_page, rows.len(), PORT_MATRIX_PAGE_SIZE);
+            clamp_page(self.operations_ui.port_matrix_page, rows.len());
     }
 }

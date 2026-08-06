@@ -3,7 +3,7 @@ use eframe::egui;
 use crate::app::domain::NodeStatus;
 
 use super::super::super::{
-    paging::page_count,
+    paging::{page_count, rows_that_fit},
     theme,
     widgets::{
         chip_pill, empty_state, empty_state_with_action, filter_bar, filter_chip, mini_stat,

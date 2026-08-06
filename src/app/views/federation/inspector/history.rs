@@ -2,7 +2,7 @@ use eframe::egui;
 
 use crate::app::{
     domain::{RemoteProbeStatus, RemoteServerProbeRecord},
-    paging::page_count,
+    paging::{page_count, rows_that_fit},
     text::truncate_middle,
     theme::muted_text,
     widgets::{chip_pill, empty_state, grid_header, pagination_bar},
@@ -10,6 +10,14 @@ use crate::app::{
 };
 
 use super::colors::remote_probe_color;
+
+/// One history row: a 24pt line of plain grid text plus the 10pt spacing the
+/// striped grid puts between rows.
+const HISTORY_ROW_HEIGHT: f32 = 34.0;
+
+/// Chrome between the filters and the first sample: the pagination bar, its
+/// separator, and the grid's column header.
+const HISTORY_CHROME_HEIGHT: f32 = 74.0;
 
 pub(super) fn render_probe_history(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     ui.strong("Probe history");
@@ -35,7 +43,16 @@ pub(super) fn render_probe_history(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         return;
     }
 
-    let total_pages = page_count(history.len(), REMOTE_PROBE_HISTORY_PAGE_SIZE);
+    // Measured after the filters, which is the last thing drawn above the rows
+    // whose height is not fixed; the bar, separator and column header that sit
+    // between here and the first sample are subtracted as reserved space.
+    let page_size = rows_that_fit(
+        ui.available_height(),
+        HISTORY_ROW_HEIGHT,
+        HISTORY_CHROME_HEIGHT,
+    )
+    .min(REMOTE_PROBE_HISTORY_PAGE_SIZE);
+    let total_pages = page_count(history.len(), page_size);
     app.remote_probe_history_page = app.remote_probe_history_page.min(total_pages - 1);
     pagination_bar(
         ui,
@@ -44,8 +61,8 @@ pub(super) fn render_probe_history(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         history.len(),
     );
     ui.separator();
-    let start = app.remote_probe_history_page * REMOTE_PROBE_HISTORY_PAGE_SIZE;
-    render_history_table(ui, &history, start);
+    let start = app.remote_probe_history_page * page_size;
+    render_history_table(ui, &history, start, page_size);
 }
 
 fn render_history_filters(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
@@ -84,7 +101,12 @@ fn status_button(
     }
 }
 
-fn render_history_table(ui: &mut egui::Ui, history: &[RemoteServerProbeRecord], start: usize) {
+fn render_history_table(
+    ui: &mut egui::Ui,
+    history: &[RemoteServerProbeRecord],
+    start: usize,
+    page_size: usize,
+) {
     egui::Grid::new("remote_probe_history")
         .striped(true)
         .min_col_width(58.0)
@@ -93,11 +115,7 @@ fn render_history_table(ui: &mut egui::Ui, history: &[RemoteServerProbeRecord], 
                 ui,
                 &["Time", "Status", "Nodes", "Blocks", "Peers", "Message"],
             );
-            for record in history
-                .iter()
-                .skip(start)
-                .take(REMOTE_PROBE_HISTORY_PAGE_SIZE)
-            {
+            for record in history.iter().skip(start).take(page_size) {
                 render_history_row(ui, record);
             }
         });

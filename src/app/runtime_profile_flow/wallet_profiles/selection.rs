@@ -26,7 +26,6 @@ impl NeoNexusApp {
         self.wallet_profile_page = clamp_page(
             self.wallet_profile_page,
             self.filtered_neo_wallet_profiles().len(),
-            WALLET_PROFILE_PAGE_SIZE,
         );
     }
 

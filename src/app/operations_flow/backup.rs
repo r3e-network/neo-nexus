@@ -105,7 +105,8 @@ impl NeoNexusApp {
             };
 
         if !self.latest_backup_validation_matches(&latest_path) {
-            self.session.notice = Some("Validate latest workspace backup before importing".to_string());
+            self.session.notice =
+                Some("Validate latest workspace backup before importing".to_string());
             return;
         }
 

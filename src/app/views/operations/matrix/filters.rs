@@ -84,7 +84,10 @@ fn status_button(
 
 fn network_button(app: &mut NeoNexusApp, ui: &mut egui::Ui, label: &str, network: Option<Network>) {
     if ui
-        .selectable_label(app.operations_ui.port_matrix_network_filter == network, label)
+        .selectable_label(
+            app.operations_ui.port_matrix_network_filter == network,
+            label,
+        )
         .clicked()
     {
         app.operations_ui.port_matrix_network_filter = network;

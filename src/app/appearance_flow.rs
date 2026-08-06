@@ -6,7 +6,10 @@ impl NeoNexusApp {
     /// notice line but never blocks the in-session switch.
     pub(in crate::app) fn toggle_theme(&mut self) {
         self.session.theme = self.session.theme.toggled();
-        if let Err(error) = self.repository.save_app_dark_mode(self.session.theme.is_dark()) {
+        if let Err(error) = self
+            .repository
+            .save_app_dark_mode(self.session.theme.is_dark())
+        {
             self.session.notice = Some(format!("Theme preference not saved: {error}"));
         }
     }
@@ -15,10 +18,7 @@ impl NeoNexusApp {
     /// on the next frame via `configure_style_with_density`.
     pub(in crate::app) fn set_ui_density(&mut self, density: UiDensity) {
         self.session.density = density;
-        if let Err(error) = self
-            .repository
-            .save_app_ui_density(density.persist_key())
-        {
+        if let Err(error) = self.repository.save_app_ui_density(density.persist_key()) {
             self.session.notice = Some(format!("Density preference not saved: {error}"));
         }
     }

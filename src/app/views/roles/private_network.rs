@@ -97,7 +97,8 @@ impl NeoNexusApp {
     ) -> bool {
         materialized_count == plan.nodes.len()
             && plan.nodes.iter().all(|planned| {
-                self.fleet.nodes
+                self.fleet
+                    .nodes
                     .iter()
                     .any(|node| node.name == planned.name && !node.status.is_active())
             })

@@ -16,7 +16,7 @@ use super::super::{
     text::{short_path, truncate_middle},
     theme,
     widgets::{empty_state, metric_row, page_chrome, panel},
-    NeoNexusApp, SNAPSHOT_PAGE_SIZE,
+    NeoNexusApp,
 };
 
 pub(in crate::app) use section::SnapshotsSection;
