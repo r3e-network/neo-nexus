@@ -19,6 +19,11 @@ Data_LevelDB_*/
 logs/
 !src/**/logs/
 !src/**/logs/*.rs
+# `src/logs.rs` loads its unit tests from `tests/unit/logs/tests.rs` via #[path].
+# Without this negation the `logs/` rule above excludes that file from the
+# repository, and a fresh clone fails to compile the test target.
+!tests/**/logs/
+!tests/**/logs/*.rs
 *.log
 *.tmp
 *.temp
