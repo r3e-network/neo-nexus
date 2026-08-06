@@ -244,3 +244,52 @@ Fixing it is an information-architecture change, not a styling one: each
 over-long surface needs paging or sectioning the way the inspector's
 Overview / Paths / Process switcher already does. That switcher is the pattern
 to copy.
+
+---
+
+## Containment: the rule that replaced "it looked fine"
+
+The workbench has no scrolling anywhere. A surface that lays out more than its
+panel holds does not become scrollable — egui culls the widgets that fall
+entirely outside the clip, so the surplus is **silently dropped**. It is not
+painted over other content, which is why it survived so long: every screenshot
+looked plausible and every clip-rect assertion passed.
+
+`tests/ui_overflow.rs` renders real frames for all six primary destinations,
+with the inspector open and closed, and fails the build when painted geometry
+leaves the region that will clip it — horizontally or vertically.
+
+### The four sizing mistakes it catches
+
+| Mistake | Symptom |
+|---|---|
+| Measuring width *outside* a frame and asking for it *inside* | Each row two margins too wide; the parent grows; the next row grows again |
+| An absolute floor on a proportional split | `clamp(h * 0.48, 180, 280)` forces 368pt into a 200pt panel |
+| A fixed page size for a list | Rows past the fold are laid out and dropped |
+| Measuring text in `TextStyle::Body` | The app draws at 13pt; the fit check reads a different size and labels wrap mid-word |
+
+### The four rules that follow
+
+1. **Page sizes come from height.** `paging::rows_that_fit(available, row, chrome)`,
+   with the old constant kept as an upper bound.
+2. **Columns reflow, they do not shrink.** `widgets::columns_that_fit` wraps onto
+   another row rather than squeezing a labelled field below the width of its label.
+3. **Chrome earns its height.** A callout that reports nothing is wrong, a caption
+   that repeats its own eyebrow, and a panel that restates the column beside it
+   are all height taken from the content the operator came for.
+4. **Chrome appears only where it applies.** The node inspector shows on node
+   surfaces; on Runtimes, Network and Settings it is 332pt saying nothing.
+
+## Grouping: surfaces are organised by what they act on
+
+| Surface | Owns |
+|---|---|
+| **Nodes** › Studio · Config · Roles · Plugins · Logs · Health | Everything scoped to one node, in the order an operator works |
+| **Runtimes** › Install · Catalog · Installed · Applied · Fast Sync | Binaries and snapshots on disk |
+| **Network** › Remote · Private Net · Wallets | Topology and reach, plus the keys that sign for both |
+| **Operations** | Fleet-wide readiness, ports, safety, journal |
+| **Settings** | Policy: watchdog, upgrades, monitors, alerts, storage, release |
+
+Role presets moved from Network to Nodes: a role is applied to one node, so it
+belongs in that node's workspace. Private-network planning moved the other way —
+a committee topology is not a property of any single node.
