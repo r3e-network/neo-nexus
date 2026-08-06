@@ -25,16 +25,6 @@ pub(in crate::config::validation) fn check_yaml_string(
     }
 }
 
-pub(in crate::config::validation) fn check_yaml_u16(
-    report: &mut ConfigValidationReport,
-    value: &serde_yaml::Value,
-    path: &[&str],
-    expected: u16,
-    title: &'static str,
-) {
-    check_yaml_u64(report, value, path, expected as u64, title);
-}
-
 pub(in crate::config::validation) fn check_yaml_u8(
     report: &mut ConfigValidationReport,
     value: &serde_yaml::Value,
@@ -108,4 +98,45 @@ pub(in crate::config::validation) fn check_yaml_array_len_at_least(
             format!("{} is missing or not an array.", dotted_path(path)),
         ),
     }
+}
+
+/// Asserts that a neo-go `Addresses` list binds the expected port.
+///
+/// neo-go entries are `"[host]:port"` — an empty host means all interfaces — so
+/// the port is the last colon-separated field. Checking the whole string would
+/// tie the contract to a bind host the operator is free to change.
+pub(in crate::config::validation) fn check_yaml_address_port(
+    report: &mut ConfigValidationReport,
+    value: &serde_yaml::Value,
+    path: &[&str],
+    expected: u16,
+    title: &'static str,
+) {
+    let Some(entries) = yaml_path(value, path).and_then(serde_yaml::Value::as_sequence) else {
+        report.critical(
+            title,
+            format!("{} is missing or not an array.", dotted_path(path)),
+        );
+        return;
+    };
+    let bound: Vec<u16> = entries
+        .iter()
+        .filter_map(serde_yaml::Value::as_str)
+        .filter_map(address_port)
+        .collect();
+    if bound.contains(&expected) {
+        report.pass(title, format!("{} binds {expected}.", dotted_path(path)));
+        return;
+    }
+    report.critical(
+        title,
+        format!(
+            "{} binds {bound:?}, expected {expected}.",
+            dotted_path(path)
+        ),
+    );
+}
+
+fn address_port(entry: &str) -> Option<u16> {
+    entry.rsplit(':').next()?.parse().ok()
 }

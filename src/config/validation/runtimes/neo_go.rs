@@ -66,18 +66,28 @@ pub(in crate::config::validation) fn validate_neo_go_config(
         &format!("data/{}", node.network),
         "Data directory",
     );
-    check_yaml_u16(
+    // neo-go binds through `Addresses: ["host:port"]`. It has no Address/Port
+    // pair, and `KnownFields(true)` makes emitting one a fatal startup error —
+    // so the check has to look where the node actually reads.
+    check_yaml_address_port(
         report,
         &value,
-        &["ApplicationConfiguration", "P2P", "Port"],
+        &["ApplicationConfiguration", "P2P", "Addresses"],
         node.p2p_port,
         "P2P port",
     );
-    check_yaml_u16(
+    check_yaml_address_port(
         report,
         &value,
-        &["ApplicationConfiguration", "RPC", "Port"],
+        &["ApplicationConfiguration", "RPC", "Addresses"],
         node.rpc_port,
         "RPC port",
+    );
+    check_yaml_string(
+        report,
+        &value,
+        &["ApplicationConfiguration", "LogEncoding"],
+        "console",
+        "Log encoding",
     );
 }

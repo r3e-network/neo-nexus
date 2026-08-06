@@ -51,7 +51,7 @@ impl ConfigGenerator {
             consensus: NeoRsConsensusConfig {
                 enabled: profile.is_some_and(|profile| profile.consensus_enabled),
                 auto_start: profile.is_some_and(|profile| profile.consensus_enabled),
-                validators: effective_committee_public_keys(profile),
+                validators: effective_committee_public_keys(node.network, profile),
             },
             blockchain: NeoRsBlockchainConfig {
                 block_time: 15_000,

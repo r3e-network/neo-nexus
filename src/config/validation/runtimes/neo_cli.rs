@@ -47,7 +47,7 @@ pub(in crate::config::validation) fn validate_neo_cli_config(
             report,
             &value,
             &["ProtocolConfiguration", "StandbyCommittee"],
-            effective_committee_public_keys(profile).len(),
+            effective_committee_public_keys(node.network, profile).len(),
             "Standby committee",
         );
     }
