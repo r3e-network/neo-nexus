@@ -27,6 +27,7 @@ pub(in crate::app) use operations::OperationsSection;
 pub(in crate::app) use roles::RolesSection;
 pub(in crate::app) use runtimes::RuntimesSection;
 pub(in crate::app) use settings::SettingsSection;
+pub(in crate::app) use shell::InspectorSection;
 pub(in crate::app) use snapshots::SnapshotsSection;
 
 impl NeoNexusApp {

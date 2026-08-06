@@ -3,37 +3,39 @@ use eframe::egui;
 use super::super::super::super::{
     format_duration,
     text::short_path,
-    theme::{self, accent},
-    widgets::fact,
+    theme,
+    widgets::{card, metric_grid},
     NeoNexusApp,
 };
 
 impl NeoNexusApp {
     pub(super) fn render_runtime_facts(&self, ui: &mut egui::Ui) {
-        ui.label(theme::section_title("Runtime"));
-        fact(ui, "Application", "Pure Rust native");
-        fact(ui, "GUI", "egui / eframe");
-        fact(ui, "Build", env!("CARGO_PKG_VERSION"));
-        fact(ui, "Storage", &short_path(self.repository.db_path(), 46));
-        let policy = self.watchdog.policy();
-        fact(
-            ui,
-            "Watchdog",
-            &format!(
-                "{}; {} base, {} cap",
-                if policy.enabled {
-                    format!("{} attempts", policy.max_restart_attempts)
-                } else {
-                    "disabled".to_string()
-                },
-                format_duration(policy.base_delay),
-                format_duration(policy.max_delay)
-            ),
-        );
-        ui.add_space(theme::XS);
-        ui.label(
-            egui::RichText::new("No browser wrapper, embedded runtime, or JS toolchain.")
-                .color(accent()),
-        );
+        card(ui, "Runtime", Some("pure Rust"), |ui| {
+            let policy = self.watchdog.policy();
+            let watchdog = if policy.enabled {
+                format!(
+                    "{} × {}",
+                    policy.max_restart_attempts,
+                    format_duration(policy.base_delay)
+                )
+            } else {
+                "disabled".to_string()
+            };
+            metric_grid(
+                ui,
+                &[
+                    ("Interface", "egui / eframe".to_string()),
+                    ("Build", env!("CARGO_PKG_VERSION").to_string()),
+                    ("Watchdog", watchdog),
+                    ("Retry cap", format_duration(policy.max_delay)),
+                    ("Workspace", short_path(self.repository.db_path(), 30)),
+                ],
+            );
+            ui.add_space(theme::XS);
+            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Wrap);
+            ui.label(theme::muted_body(
+                "No browser wrapper, embedded runtime, or JS toolchain.",
+            ));
+        });
     }
 }
