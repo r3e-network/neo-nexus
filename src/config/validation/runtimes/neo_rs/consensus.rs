@@ -30,7 +30,7 @@ pub(super) fn check(
         "Consensus auto start",
     );
 
-    let expected_keys = effective_committee_public_keys(profile);
+    let expected_keys = effective_committee_public_keys(node.network, profile);
     let expected_validators = if profile.is_some() {
         expected_keys.len().max(if consensus_expected {
             effective_validators_count(node.network, profile) as usize

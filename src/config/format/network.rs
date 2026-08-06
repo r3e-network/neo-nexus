@@ -34,10 +34,20 @@ pub(in crate::config) fn effective_validators_count(
     )
 }
 
+/// The committee a generated config should carry: the private network's own
+/// keys when a profile supplies them, otherwise the public network's standby
+/// committee. It must never be empty for mainnet or testnet — neo-go treats an
+/// absent or short committee as a fatal configuration error.
 pub(in crate::config) fn effective_committee_public_keys(
+    network: Network,
     profile: Option<&RuntimeConfigProfile>,
 ) -> Vec<String> {
-    profile.map_or_else(Vec::new, |profile| profile.committee_public_keys.clone())
+    match profile {
+        Some(profile) if !profile.committee_public_keys.is_empty() => {
+            profile.committee_public_keys.clone()
+        }
+        _ => super::committee::standby_committee(network),
+    }
 }
 
 pub(super) fn seed_nodes(network: Network) -> Vec<String> {

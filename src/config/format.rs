@@ -1,3 +1,4 @@
+mod committee;
 mod filenames;
 mod network;
 mod plugin;

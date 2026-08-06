@@ -25,8 +25,8 @@ fn config_generator_creates_neo_go_protocol_settings() {
             ["DataDirectoryPath"],
         "data/testnet"
     );
-    assert_eq!(config["ApplicationConfiguration"]["RPC"]["Port"], 10332);
-    assert_eq!(config["ApplicationConfiguration"]["P2P"]["Port"], 10333);
+    // Bind addresses, the flat `Relay` key and the absent `Node` section are
+    // asserted by the schema contract in neo_go_schema.rs.
 }
 
 #[test]

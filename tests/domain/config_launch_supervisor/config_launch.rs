@@ -4,5 +4,7 @@ mod export;
 mod generation;
 #[path = "config_launch/launch.rs"]
 mod launch;
+#[path = "config_launch/neo_go_schema.rs"]
+mod neo_go_schema;
 #[path = "config_launch/validation.rs"]
 mod validation;

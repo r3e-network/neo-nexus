@@ -76,7 +76,10 @@ fn config_exporter_writes_neo_go_yaml_file() {
     assert!(export.path.ends_with("neo-go-rpc-neo-go-config.yml"));
     assert_eq!(export.bytes_written, text.len());
     assert_eq!(parsed["ProtocolConfiguration"]["Magic"], 894710606);
-    assert_eq!(parsed["ApplicationConfiguration"]["RPC"]["Port"], 30332);
+    assert_eq!(
+        parsed["ApplicationConfiguration"]["RPC"]["Addresses"][0],
+        "127.0.0.1:30332"
+    );
 }
 
 #[test]

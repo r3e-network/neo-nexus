@@ -12,5 +12,6 @@ pub(super) use toml::{
     check_toml_string_array_exact, check_toml_u16, check_toml_u32,
 };
 pub(super) use yaml::{
-    check_yaml_array_len_at_least, check_yaml_string, check_yaml_u16, check_yaml_u32, check_yaml_u8,
+    check_yaml_address_port, check_yaml_array_len_at_least, check_yaml_string, check_yaml_u32,
+    check_yaml_u8,
 };
