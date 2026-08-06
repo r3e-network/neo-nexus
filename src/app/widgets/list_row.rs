@@ -6,8 +6,8 @@ use eframe::egui;
 
 use crate::app::theme::{self, card_surface};
 
-/// Frozen selection matrix: accent×0.16 fill, radius 10, hairline when idle.
-pub(in crate::app) const LIST_SELECTED_MULTIPLY: f32 = 0.16;
+/// Frozen selection matrix: `accent_wash` fill with an accent hairline when
+/// selected, card fill with a plain hairline when idle, radius 10 throughout.
 pub(in crate::app) const LIST_CORNER_RADIUS: u8 = 10;
 
 /// Draw a clickable list row frame. `fixed_height` reserves a slot when the
@@ -21,9 +21,8 @@ pub(in crate::app) fn list_row_frame(
     fixed_height: Option<f32>,
     add_contents: impl FnOnce(&mut egui::Ui),
 ) -> bool {
-    let width = ui.available_width();
     let fill = if selected {
-        theme::accent().gamma_multiply(LIST_SELECTED_MULTIPLY)
+        theme::accent_wash()
     } else {
         card_surface()
     };
@@ -47,11 +46,17 @@ pub(in crate::app) fn list_row_frame(
         .corner_radius(egui::CornerRadius::same(LIST_CORNER_RADIUS))
         .inner_margin(egui::Margin::symmetric(h_margin, v_margin))
         .show(ui, |ui| {
+            // Size against the width *inside* the frame margins. Measuring the
+            // outer width and asking for it here made every row 2×h_margin too
+            // wide, which grew the parent, which widened the next row — the
+            // inventory list fanned out further with every item and pushed the
+            // central workspace off its own panel.
+            let content_w = ui.available_width();
             if let Some(height) = fixed_height {
                 let content_h = (height - f32::from(v_margin) * 2.0).max(1.0);
-                ui.set_min_size(egui::vec2(width - 4.0, content_h));
+                ui.set_min_size(egui::vec2(content_w, content_h));
             } else {
-                ui.set_min_width(width - 4.0);
+                ui.set_min_width(content_w);
             }
             add_contents(ui);
         })

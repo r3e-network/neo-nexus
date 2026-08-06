@@ -58,13 +58,20 @@ fn render_single_line(ui: &mut egui::Ui, node: &NodeConfig, layout_compact: bool
     });
 }
 
-/// Comfortable two-line: name/status on first line, type/network/RPC on second.
+/// Comfortable two-line: name and status on the first line, type / network /
+/// RPC port on the second.
+///
+/// Each line carries exactly one right-aligned item. Putting both the status
+/// badge and the port on the same right-to-left run made them overlap the
+/// network chip whenever the column was narrow, which is the normal case for
+/// the inventory panel.
 fn render_two_line(ui: &mut egui::Ui, node: &NodeConfig, layout_compact: bool) {
     ui.horizontal(|ui| {
         status_dot(ui, node.status);
         ui.add_space(theme::SM);
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                 ui.label(
                     theme::body(truncate_middle(
                         &node.name,
@@ -72,21 +79,22 @@ fn render_two_line(ui: &mut egui::Ui, node: &NodeConfig, layout_compact: bool) {
                     ))
                     .strong(),
                 );
-                if !layout_compact {
-                    ui.add_space(theme::SM);
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     status_badge(ui, node.status);
-                }
+                });
             });
             ui.add_space(theme::XS);
             ui.horizontal(|ui| {
                 text_badge(ui, &node.node_type.to_string(), theme::muted_text());
                 ui.add_space(theme::XS);
-                text_badge(ui, &node.network.to_string(), theme::info());
+                let network = if layout_compact {
+                    short_network(node)
+                } else {
+                    &node.network.to_string()
+                };
+                text_badge(ui, network, theme::info());
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label(theme::muted_body(format!(":{}", node.rpc_port)));
-                    if layout_compact {
-                        status_badge(ui, node.status);
-                    }
                 });
             });
         });
