@@ -24,10 +24,6 @@ impl NeoNexusApp {
             self.runtime_catalog_page = 0;
         }
 
-        self.runtime_catalog_page = clamp_page(
-            self.runtime_catalog_page,
-            visible.len(),
-            RUNTIME_CATALOG_PAGE_SIZE,
-        );
+        self.runtime_catalog_page = clamp_page(self.runtime_catalog_page, visible.len());
     }
 }

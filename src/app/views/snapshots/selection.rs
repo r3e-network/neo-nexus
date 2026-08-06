@@ -14,10 +14,7 @@ impl NeoNexusApp {
             self.selected_snapshot = visible.first().map(|snapshot| snapshot.id.clone());
             self.snapshot_page = 0;
         }
-        self.snapshot_page = super::super::super::paging::clamp_page(
-            self.snapshot_page,
-            visible.len(),
-            SNAPSHOT_PAGE_SIZE,
-        );
+        self.snapshot_page =
+            super::super::super::paging::clamp_page(self.snapshot_page, visible.len());
     }
 }

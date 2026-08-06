@@ -5,12 +5,14 @@ impl NeoNexusApp {
         &self,
         ui: &mut egui::Ui,
     ) {
-        let running = self.fleet
+        let running = self
+            .fleet
             .nodes
             .iter()
             .filter(|node| node.status.is_running())
             .count();
-        let stopped = self.fleet
+        let stopped = self
+            .fleet
             .nodes
             .iter()
             .filter(|node| node.status.is_stopped())

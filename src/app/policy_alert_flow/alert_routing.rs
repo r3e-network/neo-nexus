@@ -2,7 +2,11 @@ use super::*;
 
 impl NeoNexusApp {
     pub(in crate::app) fn preview_alert_routing_policy_draft(&mut self) {
-        if let Some(message) = self.async_bus.alert_routing_policy_draft.validation_message() {
+        if let Some(message) = self
+            .async_bus
+            .alert_routing_policy_draft
+            .validation_message()
+        {
             self.async_bus.last_alert_preview = None;
             self.async_bus.last_alert_preview_policy = None;
             self.session.notice = Some(message);
@@ -57,10 +61,12 @@ impl NeoNexusApp {
     }
 
     pub(in crate::app) fn alert_preview_matches_draft(&self) -> bool {
-        self.async_bus.last_alert_preview_policy
+        self.async_bus
+            .last_alert_preview_policy
             .as_ref()
             .is_some_and(|policy| {
-                self.async_bus.alert_routing_policy_draft
+                self.async_bus
+                    .alert_routing_policy_draft
                     .validation_message()
                     .is_none()
                     && self.async_bus.alert_routing_policy_draft.to_policy() == policy.clone()
@@ -68,7 +74,11 @@ impl NeoNexusApp {
     }
 
     pub(in crate::app) fn save_alert_routing_policy(&mut self) {
-        if let Some(message) = self.async_bus.alert_routing_policy_draft.validation_message() {
+        if let Some(message) = self
+            .async_bus
+            .alert_routing_policy_draft
+            .validation_message()
+        {
             self.session.notice = Some(message);
             return;
         }

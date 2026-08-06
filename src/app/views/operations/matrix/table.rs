@@ -1,14 +1,15 @@
 use eframe::egui;
 
+use crate::app::widgets::inset_card;
+
 use crate::app::domain::PortMatrixRow;
 
-use super::super::{
-    super::super::{
-        text::truncate_middle,
-        theme,
-        widgets::{grid_header, primary_button, severity_badge, status_badge},
-        NeoNexusApp, PORT_MATRIX_PAGE_SIZE, views::NodeWorkspaceTab,
-    },
+use super::super::super::super::{
+    text::truncate_middle,
+    theme,
+    views::NodeWorkspaceTab,
+    widgets::{grid_header, primary_button, severity_badge, status_badge},
+    NeoNexusApp,
 };
 
 pub(super) fn render_port_table(
@@ -16,6 +17,7 @@ pub(super) fn render_port_table(
     ui: &mut egui::Ui,
     rows: &[PortMatrixRow],
     start: usize,
+    page_size: usize,
 ) {
     egui::Grid::new("operations_port_matrix")
         .striped(true)
@@ -26,7 +28,7 @@ pub(super) fn render_port_table(
                 &["Node", "Chain", "RPC", "P2P", "WS", "Status", "Health"],
             );
 
-            for row in rows.iter().skip(start).take(PORT_MATRIX_PAGE_SIZE) {
+            for row in rows.iter().skip(start).take(page_size) {
                 render_port_row(app, ui, row);
                 ui.end_row();
             }
@@ -43,39 +45,33 @@ pub(super) fn render_selected_port_summary(
     };
 
     ui.add_space(theme::SM);
-    egui::Frame::new()
-        .fill(theme::card_surface())
-        .stroke(theme::hairline())
-        .corner_radius(egui::CornerRadius::same(10))
-        .inner_margin(egui::Margin::symmetric(12, 10))
-        .show(ui, |ui| {
-            ui.set_min_width(ui.available_width());
-            ui.horizontal(|ui| {
-                ui.label(theme::label_caption("Selected port row"));
-                ui.add_space(theme::SM);
-                status_badge(ui, row.status);
-                ui.add_space(theme::XS);
-                severity_badge(ui, row.health);
-            });
+    inset_card(ui, |ui| {
+        ui.horizontal(|ui| {
+            ui.label(theme::label_caption("Selected port row"));
             ui.add_space(theme::SM);
-            ui.label(theme::body(truncate_middle(&row.node_name, 36)).strong());
-            ui.label(theme::muted_body(format!(
-                "{} · RPC {} · P2P {} · WS {}",
-                row.network,
-                row.rpc_port,
-                row.p2p_port,
-                optional_port(row.ws_port)
-            )));
-            ui.add_space(theme::SM);
-            if primary_button(ui, "Edit ports in Studio")
-                .on_hover_text("Load this node into Node Studio to reassign ports")
-                .clicked()
-            {
-                app.fleet.selected_node = Some(row.node_id.clone());
-                app.load_selected_node_into_draft();
-                app.open_node_workspace_tab(NodeWorkspaceTab::Studio);
-            }
+            status_badge(ui, row.status);
+            ui.add_space(theme::XS);
+            severity_badge(ui, row.health);
         });
+        ui.add_space(theme::SM);
+        ui.label(theme::body(truncate_middle(&row.node_name, 36)).strong());
+        ui.label(theme::muted_body(format!(
+            "{} · RPC {} · P2P {} · WS {}",
+            row.network,
+            row.rpc_port,
+            row.p2p_port,
+            optional_port(row.ws_port)
+        )));
+        ui.add_space(theme::SM);
+        if primary_button(ui, "Edit ports in Studio")
+            .on_hover_text("Load this node into Node Studio to reassign ports")
+            .clicked()
+        {
+            app.fleet.selected_node = Some(row.node_id.clone());
+            app.load_selected_node_into_draft();
+            app.open_node_workspace_tab(NodeWorkspaceTab::Studio);
+        }
+    });
 }
 
 fn render_port_row(app: &mut NeoNexusApp, ui: &mut egui::Ui, row: &PortMatrixRow) {

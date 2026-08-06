@@ -5,7 +5,8 @@ use super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn refresh_private_network_launch_pack_sidecars(&mut self) {
         let Some(root_path) = self.private_network_last_export_root.clone() else {
-            self.session.notice = Some("Export a private launch pack before loading sidecars".to_string());
+            self.session.notice =
+                Some("Export a private launch pack before loading sidecars".to_string());
             return;
         };
 

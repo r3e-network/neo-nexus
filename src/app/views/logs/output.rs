@@ -4,7 +4,7 @@ use crate::app::domain::{LogReader, LogSnapshot};
 
 use super::{
     super::super::{
-        paging::page_count,
+        paging::{page_count, rows_that_fit},
         text::truncate_end,
         theme::{danger, muted_text},
         widgets::{empty_state, pagination_bar},
@@ -12,6 +12,17 @@ use super::{
     },
     diagnosis::render_log_diagnosis,
 };
+
+/// One log line: a monospace row plus the grid's row spacing. Measured from
+/// the pitch between consecutive striped row backgrounds.
+const LOG_ROW_HEIGHT: f32 = 30.0;
+
+/// Chrome between the diagnosis block and the first line: the pagination bar
+/// and the separator under it.
+const LOG_CHROME_HEIGHT: f32 = 52.0;
+
+/// The retained-tail notice, which only appears for a truncated snapshot.
+const LOG_RETENTION_NOTICE_HEIGHT: f32 = 26.0;
 
 pub(super) fn render_log_output(
     app: &mut NeoNexusApp,
@@ -55,13 +66,23 @@ fn render_log_lines(app: &mut NeoNexusApp, ui: &mut egui::Ui, snapshot: &LogSnap
         return;
     }
 
-    let total_pages = page_count(lines.len(), LOG_LINES_PER_PAGE);
+    // Measured after the diagnosis block, whose height varies with the number
+    // of findings; the bar, the optional retention notice and the separator
+    // below it are subtracted as reserved space.
+    let reserved = if snapshot.truncated {
+        LOG_CHROME_HEIGHT + LOG_RETENTION_NOTICE_HEIGHT
+    } else {
+        LOG_CHROME_HEIGHT
+    };
+    let page_size =
+        rows_that_fit(ui.available_height(), LOG_ROW_HEIGHT, reserved).min(LOG_LINES_PER_PAGE);
+    let total_pages = page_count(lines.len(), page_size);
     if app.log_follow_tail {
         app.log_page = total_pages - 1;
     }
     app.log_page = app.log_page.min(total_pages - 1);
-    let start = app.log_page * LOG_LINES_PER_PAGE;
-    let end = (start + LOG_LINES_PER_PAGE).min(lines.len());
+    let start = app.log_page * page_size;
+    let end = (start + page_size).min(lines.len());
     let max_chars = ((ui.available_width() / 7.4) as usize).clamp(48, 180);
 
     pagination_bar(ui, &mut app.log_page, total_pages, lines.len());
@@ -87,7 +108,7 @@ fn render_log_lines(app: &mut NeoNexusApp, ui: &mut egui::Ui, snapshot: &LogSnap
                 ui.end_row();
             }
 
-            for _ in (end - start)..LOG_LINES_PER_PAGE {
+            for _ in (end - start)..page_size {
                 ui.monospace(" ");
                 ui.monospace(" ");
                 ui.end_row();

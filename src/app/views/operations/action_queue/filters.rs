@@ -42,7 +42,10 @@ pub(super) fn render_action_filters(
             &mut app.operations_ui.action_queue_resolution_filter,
             &resolution_counts,
         ) {
-            app.set_action_queue_resolution_filter(diagnostics, app.operations_ui.action_queue_resolution_filter);
+            app.set_action_queue_resolution_filter(
+                diagnostics,
+                app.operations_ui.action_queue_resolution_filter,
+            );
         }
         ui.separator();
         if secondary_button_enabled(ui, "Focus Critical", diagnostics.critical_count > 0)
@@ -65,7 +68,11 @@ pub(super) fn render_action_filters(
         }
     });
     ui.add_space(theme::XS);
-    if filter_bar(ui, &mut app.operations_ui.action_queue_query, "Search actions") {
+    if filter_bar(
+        ui,
+        &mut app.operations_ui.action_queue_query,
+        "Search actions",
+    ) {
         app.operations_ui.action_queue_page = 0;
     }
     ui.add_space(theme::SM);

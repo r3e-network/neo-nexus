@@ -4,7 +4,8 @@ impl NeoNexusApp {
     pub(in crate::app) fn drain_rpc_health_results(&mut self) {
         while let Ok(result) = self.async_bus.rpc_health_results.try_recv() {
             self.async_bus.rpc_health_pending.remove(&result.node.id);
-            let Some(node) = self.fleet
+            let Some(node) = self
+                .fleet
                 .nodes
                 .iter()
                 .find(|node| node.id == result.node.id)
@@ -31,7 +32,8 @@ impl NeoNexusApp {
                 .repository
                 .prune_rpc_health_keep_recent_per_node(RPC_HEALTH_RETAIN_PER_NODE)
             {
-                self.session.notice = Some(format!("{message}; RPC health pruning failed: {error}"));
+                self.session.notice =
+                    Some(format!("{message}; RPC health pruning failed: {error}"));
                 continue;
             }
 

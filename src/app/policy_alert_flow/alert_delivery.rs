@@ -4,7 +4,8 @@ use crate::app::domain::AlertDeliveryStatus;
 impl NeoNexusApp {
     pub(in crate::app) fn drain_alert_delivery_results(&mut self) {
         while let Ok(report) = self.async_bus.alert_delivery_results.try_recv() {
-            self.async_bus.alert_delivery_pending = self.async_bus.alert_delivery_pending.saturating_sub(1);
+            self.async_bus.alert_delivery_pending =
+                self.async_bus.alert_delivery_pending.saturating_sub(1);
             let failed = report.status != AlertDeliveryStatus::Delivered;
             let message = report.message.clone();
             if let Err(error) = self.repository.record_alert_delivery(&report) {
@@ -15,7 +16,8 @@ impl NeoNexusApp {
                 .repository
                 .prune_alert_deliveries_keep_recent(ALERT_DELIVERY_RETAIN)
             {
-                self.session.notice = Some(format!("{message}; alert history pruning failed: {error}"));
+                self.session.notice =
+                    Some(format!("{message}; alert history pruning failed: {error}"));
                 continue;
             }
             if failed {
@@ -42,7 +44,8 @@ impl NeoNexusApp {
                 let _ = sender.send(report);
             })
         {
-            self.async_bus.alert_delivery_pending = self.async_bus.alert_delivery_pending.saturating_sub(1);
+            self.async_bus.alert_delivery_pending =
+                self.async_bus.alert_delivery_pending.saturating_sub(1);
             let target = policy
                 .webhook_url
                 .as_deref()

@@ -55,7 +55,8 @@ impl NeoNexusApp {
     }
 
     pub(in crate::app) fn plugin_states_by_node(&self) -> BTreeMap<String, Vec<PluginState>> {
-        self.fleet.nodes
+        self.fleet
+            .nodes
             .iter()
             .map(|node| {
                 (

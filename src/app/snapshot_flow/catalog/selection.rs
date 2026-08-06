@@ -34,11 +34,7 @@ impl NeoNexusApp {
             self.snapshot_catalog_page = 0;
         }
 
-        self.snapshot_catalog_page = clamp_page(
-            self.snapshot_catalog_page,
-            visible.len(),
-            SNAPSHOT_CATALOG_PAGE_SIZE,
-        );
+        self.snapshot_catalog_page = clamp_page(self.snapshot_catalog_page, visible.len());
     }
 
     pub(in crate::app) fn selected_snapshot_catalog_entry(

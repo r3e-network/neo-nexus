@@ -34,7 +34,10 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn has_active_readiness_check_filter(&self) -> bool {
         self.operations_ui.readiness_check_severity_filter.is_some()
-            || self.operations_ui.readiness_check_resolution_filter.is_some()
+            || self
+                .operations_ui
+                .readiness_check_resolution_filter
+                .is_some()
             || !self.operations_ui.readiness_check_query.trim().is_empty()
     }
 
@@ -94,7 +97,8 @@ impl NeoNexusApp {
         &self,
         checks: &'a [DiagnosticCheck],
     ) -> Option<&'a DiagnosticCheck> {
-        self.operations_ui.selected_readiness_check
+        self.operations_ui
+            .selected_readiness_check
             .as_ref()
             .and_then(|key| checks.iter().find(|check| key.matches(check)))
     }
@@ -117,10 +121,7 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn clamp_readiness_check_page(&mut self, node: &NodeDiagnostics) {
         let checks = self.filtered_readiness_checks(node);
-        self.operations_ui.readiness_check_page = clamp_page(
-            self.operations_ui.readiness_check_page,
-            checks.len(),
-            READINESS_CHECK_PAGE_SIZE,
-        );
+        self.operations_ui.readiness_check_page =
+            clamp_page(self.operations_ui.readiness_check_page, checks.len());
     }
 }

@@ -20,7 +20,8 @@ impl NeoNexusApp {
             return;
         };
 
-        let node_name = self.fleet
+        let node_name = self
+            .fleet
             .nodes
             .iter()
             .find(|node| node.id == node_id)

@@ -11,7 +11,8 @@ impl NeoNexusApp {
 
         let mut reconciled = 0usize;
         for missing in missing_processes {
-            let Some(node) = self.fleet
+            let Some(node) = self
+                .fleet
                 .nodes
                 .iter()
                 .find(|node| node.id == missing.node_id)

@@ -11,7 +11,8 @@ use super::super::super::{
 const MISSING_ROWS: usize = 4;
 
 pub(super) fn render_telemetry_health(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
-    let running_nodes = app.fleet
+    let running_nodes = app
+        .fleet
         .nodes
         .iter()
         .filter(|node| node.status.is_running())
@@ -37,7 +38,11 @@ pub(super) fn render_telemetry_health(app: &mut NeoNexusApp, ui: &mut egui::Ui) 
             "disabled"
         },
     );
-    fact(ui, "RPC Pending", &app.async_bus.rpc_health_pending.len().to_string());
+    fact(
+        ui,
+        "RPC Pending",
+        &app.async_bus.rpc_health_pending.len().to_string(),
+    );
     fact(
         ui,
         "RPC Interval",
@@ -60,7 +65,11 @@ pub(super) fn render_telemetry_health(app: &mut NeoNexusApp, ui: &mut egui::Ui) 
     fact(
         ui,
         "Fed Interval",
-        &format_duration(app.async_bus.remote_federation_monitor_policy.interval_duration()),
+        &format_duration(
+            app.async_bus
+                .remote_federation_monitor_policy
+                .interval_duration(),
+        ),
     );
 
     if let Some(node_id) = app.fleet.selected_node.as_deref() {

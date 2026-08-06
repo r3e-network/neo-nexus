@@ -3,7 +3,8 @@ use super::*;
 impl NeoNexusApp {
     pub(in crate::app) fn verify_selected_snapshot(&mut self) {
         let Some(snapshot) = self.selected_fast_sync_snapshot() else {
-            self.session.notice = Some("Select a fast sync snapshot before verification".to_string());
+            self.session.notice =
+                Some("Select a fast sync snapshot before verification".to_string());
             return;
         };
 

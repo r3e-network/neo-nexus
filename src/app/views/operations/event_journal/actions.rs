@@ -32,7 +32,8 @@ pub(super) fn render_event_actions(
 }
 
 fn has_active_filter(app: &NeoNexusApp) -> bool {
-    !app.operations_ui.event_query.trim().is_empty() || app.operations_ui.event_severity_filter.is_some()
+    !app.operations_ui.event_query.trim().is_empty()
+        || app.operations_ui.event_severity_filter.is_some()
 }
 
 fn clear_event_filters(app: &mut NeoNexusApp) {

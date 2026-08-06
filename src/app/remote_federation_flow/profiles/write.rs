@@ -25,7 +25,8 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn update_selected_remote_server_profile(&mut self) {
         let Some(profile) = self.selected_remote_server_profile() else {
-            self.session.notice = Some("Select a remote server profile before updating".to_string());
+            self.session.notice =
+                Some("Select a remote server profile before updating".to_string());
             return;
         };
         match self
@@ -51,7 +52,8 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn toggle_selected_remote_server_enabled(&mut self) {
         let Some(profile) = self.selected_remote_server_profile() else {
-            self.session.notice = Some("Select a remote server profile before toggling it".to_string());
+            self.session.notice =
+                Some("Select a remote server profile before toggling it".to_string());
             return;
         };
         match self

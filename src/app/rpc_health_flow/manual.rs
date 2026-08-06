@@ -19,7 +19,8 @@ impl NeoNexusApp {
         {
             Ok(pruned) => pruned,
             Err(error) => {
-                self.session.notice = Some(format!("{message}; RPC health pruning failed: {error}"));
+                self.session.notice =
+                    Some(format!("{message}; RPC health pruning failed: {error}"));
                 return;
             }
         };

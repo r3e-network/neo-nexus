@@ -3,7 +3,7 @@ use eframe::egui;
 use crate::app::domain::NeoWalletProfile;
 
 use super::super::super::{
-    paging::page_count,
+    paging::{page_count, rows_that_fit},
     text::truncate_middle,
     theme::{self, muted_text},
     widgets::{empty_state, pagination_bar},
@@ -11,6 +11,17 @@ use super::super::super::{
 };
 
 use super::filter::render_wallet_profile_filter;
+
+/// The selectable label/address button at the top of a registry row.
+const WALLET_ROW_BUTTON_HEIGHT: f32 = 28.0;
+
+/// A whole registry row: the button above, the secondary line carrying the
+/// account counts and wallet hash, and the spacing egui puts around both.
+const WALLET_ROW_HEIGHT: f32 = 64.0;
+
+/// Chrome between the filter and the first row: the pagination bar and the
+/// separator under it.
+const WALLET_CHROME_HEIGHT: f32 = 52.0;
 
 pub(super) fn render_wallet_profile_registry(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     render_wallet_profile_filter(app, ui);
@@ -34,7 +45,15 @@ pub(super) fn render_wallet_profile_registry(app: &mut NeoNexusApp, ui: &mut egu
         return;
     }
 
-    let total_pages = page_count(profiles.len(), WALLET_PROFILE_PAGE_SIZE);
+    // Measured after the filter, before the bar and separator are drawn, so
+    // those two are subtracted as reserved space rather than read from here.
+    let page_size = rows_that_fit(
+        ui.available_height(),
+        WALLET_ROW_HEIGHT,
+        WALLET_CHROME_HEIGHT,
+    )
+    .min(WALLET_PROFILE_PAGE_SIZE);
+    let total_pages = page_count(profiles.len(), page_size);
     app.wallet_profile_page = app.wallet_profile_page.min(total_pages - 1);
     pagination_bar(
         ui,
@@ -44,16 +63,16 @@ pub(super) fn render_wallet_profile_registry(app: &mut NeoNexusApp, ui: &mut egu
     );
     ui.separator();
 
-    let start = app.wallet_profile_page * WALLET_PROFILE_PAGE_SIZE;
+    let start = app.wallet_profile_page * page_size;
     let visible = profiles
         .iter()
         .skip(start)
-        .take(WALLET_PROFILE_PAGE_SIZE)
+        .take(page_size)
         .cloned()
         .collect::<Vec<_>>();
     let mut next_selection = app.selected_neo_wallet_profile.clone();
 
-    for row in 0..WALLET_PROFILE_PAGE_SIZE {
+    for row in 0..page_size {
         if let Some(profile) = visible.get(row) {
             if render_wallet_profile_row(
                 ui,
@@ -63,7 +82,7 @@ pub(super) fn render_wallet_profile_registry(app: &mut NeoNexusApp, ui: &mut egu
                 next_selection = Some(profile.id.clone());
             }
         } else {
-            ui.add_space(theme::DensityMetrics::COMFORTABLE.list_row_compact);
+            ui.add_space(WALLET_ROW_HEIGHT);
         }
     }
 
@@ -83,7 +102,7 @@ fn render_wallet_profile_row(
         truncate_middle(&profile.primary_address, 18)
     );
     let response = ui.add_sized(
-        [ui.available_width(), 28.0],
+        [ui.available_width(), WALLET_ROW_BUTTON_HEIGHT],
         egui::Button::new(label).selected(selected),
     );
     ui.horizontal(|ui| {

@@ -2,7 +2,11 @@ use super::*;
 
 impl NeoNexusApp {
     pub(in crate::app) fn save_rpc_health_monitor_policy(&mut self) {
-        if let Some(message) = self.async_bus.rpc_health_monitor_policy_draft.validation_message() {
+        if let Some(message) = self
+            .async_bus
+            .rpc_health_monitor_policy_draft
+            .validation_message()
+        {
             self.session.notice = Some(message.to_string());
             return;
         }
@@ -12,7 +16,9 @@ impl NeoNexusApp {
             Ok(()) => {
                 self.async_bus.rpc_health_monitor_policy = policy.normalized();
                 self.async_bus.rpc_health_monitor_policy_draft =
-                    RpcHealthMonitorPolicyDraft::from_policy(self.async_bus.rpc_health_monitor_policy);
+                    RpcHealthMonitorPolicyDraft::from_policy(
+                        self.async_bus.rpc_health_monitor_policy,
+                    );
                 self.async_bus.rpc_health_last_started.clear();
                 let message = format!(
                     "RPC health monitor policy saved: {}",
@@ -35,7 +41,8 @@ impl NeoNexusApp {
     }
 
     pub(in crate::app) fn save_remote_federation_monitor_policy(&mut self) {
-        if let Some(message) = self.async_bus
+        if let Some(message) = self
+            .async_bus
             .remote_federation_monitor_policy_draft
             .validation_message()
         {
@@ -43,7 +50,10 @@ impl NeoNexusApp {
             return;
         }
 
-        let policy = self.async_bus.remote_federation_monitor_policy_draft.to_policy();
+        let policy = self
+            .async_bus
+            .remote_federation_monitor_policy_draft
+            .to_policy();
         match self
             .repository
             .save_remote_federation_monitor_policy(policy)
@@ -71,7 +81,9 @@ impl NeoNexusApp {
 
     pub(in crate::app) fn reset_remote_federation_monitor_policy_draft(&mut self) {
         self.async_bus.remote_federation_monitor_policy_draft =
-            RemoteFederationMonitorPolicyDraft::from_policy(self.async_bus.remote_federation_monitor_policy);
+            RemoteFederationMonitorPolicyDraft::from_policy(
+                self.async_bus.remote_federation_monitor_policy,
+            );
         self.session.notice = Some("Remote Federation monitor policy draft reset".to_string());
     }
 }

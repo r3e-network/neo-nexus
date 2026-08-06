@@ -7,7 +7,8 @@ impl NeoNexusApp {
         };
         if sidecar_report.sidecars.is_empty() {
             self.private_network_sidecar_health_report = Some(SidecarEndpointHealthReport::empty());
-            self.session.notice = Some("No signer sidecars are defined in the launch pack".to_string());
+            self.session.notice =
+                Some("No signer sidecars are defined in the launch pack".to_string());
             return;
         }
 

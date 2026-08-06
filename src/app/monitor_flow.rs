@@ -28,11 +28,7 @@ impl NeoNexusApp {
             self.selected_monitor_process = rows.first().map(|row| row.node_id().to_string());
             self.monitor_process_page = 0;
         }
-        self.monitor_process_page = clamp_page(
-            self.monitor_process_page,
-            rows.len(),
-            MONITOR_PROCESS_PAGE_SIZE,
-        );
+        self.monitor_process_page = clamp_page(self.monitor_process_page, rows.len());
     }
 
     pub(in crate::app) fn has_active_monitor_process_filter(&self) -> bool {

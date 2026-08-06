@@ -9,7 +9,8 @@ impl NeoNexusApp {
             return Some(node);
         }
 
-        self.fleet.nodes
+        self.fleet
+            .nodes
             .iter()
             .find(|node| node.node_type == self.private_network_runtime)
     }
@@ -98,7 +99,8 @@ impl NeoNexusApp {
     ) -> anyhow::Result<Vec<NodeConfig>> {
         let mut nodes = Vec::with_capacity(plan.nodes.len());
         for planned in &plan.nodes {
-            let node = self.fleet
+            let node = self
+                .fleet
                 .nodes
                 .iter()
                 .find(|node| {
