@@ -20,7 +20,9 @@ impl eframe::App for NeoNexusApp {
         self.schedule_due_remote_federation_probes();
         // Mirror operator notices into the toast stack before paint so the same
         // frame that sets a notice also shows it as a coloured chip.
-        self.session.toasts.mirror_notice(self.session.notice.as_deref());
+        self.session
+            .toasts
+            .mirror_notice(self.session.notice.as_deref());
         self.session.toasts.expire_due();
         if self.watchdog.has_pending_restart()
             || self.async_bus.has_in_flight_work()
@@ -72,21 +74,25 @@ impl NeoNexusApp {
             .frame(chrome_frame().inner_margin(egui::Margin::symmetric(12, 14)))
             .show(context, |ui| self.render_navigation_sidebar(ui));
 
+        // Both side columns are given a modest default and a narrow range. The
+        // design window is 1280pt: with the sidebar (212) and an open inspector,
+        // anything wider here starves the central workspace, which is where the
+        // operator actually works.
         if self.session.selected_view.shows_inventory() {
             egui::SidePanel::left("inventory_panel")
                 .resizable(true)
-                .default_width(248.0)
-                .width_range(200.0..=340.0)
-                .frame(chrome_frame().inner_margin(egui::Margin::symmetric(14, 14)))
+                .default_width(252.0)
+                .width_range(220.0..=300.0)
+                .frame(chrome_frame().inner_margin(egui::Margin::symmetric(12, 14)))
                 .show(context, |ui| self.render_inventory_panel(ui));
         }
 
         if self.session.inspector_visible {
             egui::SidePanel::right("inspector_panel")
                 .resizable(true)
-                .default_width(320.0)
-                .width_range(280.0..=420.0)
-                .frame(chrome_frame().inner_margin(egui::Margin::symmetric(16, 14)))
+                .default_width(304.0)
+                .width_range(280.0..=360.0)
+                .frame(chrome_frame().inner_margin(egui::Margin::symmetric(14, 14)))
                 .show(context, |ui| self.render_inspector_panel(ui));
         }
 

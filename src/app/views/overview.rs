@@ -49,9 +49,21 @@ impl NeoNexusApp {
         }
 
         ui.add_space(theme::MD);
-        let layout = layout::overview_layout(ui.available_size());
+        let available = ui.available_size();
+        let shows_fleet =
+            layout::shows_fleet_snapshot(self.session.selected_view.shows_inventory());
+        let layout = layout::overview_layout(available, shows_fleet);
+
+        if !layout::shows_selection_column(available.x, self.session.inspector_visible) {
+            self.render_triage_column(ui, &layout, available.x);
+            return;
+        }
 
         ui.horizontal(|ui| {
+            // The explicit gap is the whole gap: egui would otherwise add its
+            // own item spacing around each allocated pane *and* around the
+            // spacer, pushing the pair past the width they were sized to.
+            ui.spacing_mut().item_spacing.x = 0.0;
             ui.allocate_ui_with_layout(
                 egui::vec2(layout.left_width, layout.height),
                 egui::Layout::top_down(egui::Align::Min),
@@ -61,34 +73,48 @@ impl NeoNexusApp {
                     });
                 },
             );
-
             ui.add_space(layout.gap);
-
-            ui.allocate_ui_with_layout(
-                egui::vec2(layout.right_width, layout.height),
-                egui::Layout::top_down(egui::Align::Min),
-                |ui| {
-                    ui.allocate_ui_with_layout(
-                        egui::vec2(layout.right_width, layout.actions_height),
-                        egui::Layout::top_down(egui::Align::Min),
-                        |ui| {
-                            panel(ui, "Next actions", |ui| {
-                                actions::render_next_actions(self, ui);
-                            });
-                        },
-                    );
-                    ui.add_space(layout.gap);
-                    ui.allocate_ui_with_layout(
-                        egui::vec2(layout.right_width, layout.fleet_height),
-                        egui::Layout::top_down(egui::Align::Min),
-                        |ui| {
-                            panel(ui, "Fleet snapshot", |ui| {
-                                fleet::render_fleet_snapshot(self, ui);
-                            });
-                        },
-                    );
-                },
-            );
+            self.render_triage_column(ui, &layout, layout.right_width);
         });
+    }
+
+    /// The action queue, over the fleet snapshot when that snapshot is not
+    /// already duplicated by the inventory column. Rendered on its own at
+    /// narrow widths and beside the selection panel when there is room.
+    fn render_triage_column(
+        &mut self,
+        ui: &mut egui::Ui,
+        layout: &layout::OverviewLayout,
+        width: f32,
+    ) {
+        let shows_fleet = layout.fleet_height > 0.0;
+        ui.allocate_ui_with_layout(
+            egui::vec2(width, layout.height),
+            egui::Layout::top_down(egui::Align::Min),
+            |ui| {
+                ui.allocate_ui_with_layout(
+                    egui::vec2(width, layout.actions_height),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        panel(ui, "Next actions", |ui| {
+                            actions::render_next_actions(self, ui);
+                        });
+                    },
+                );
+                if !shows_fleet {
+                    return;
+                }
+                ui.add_space(layout.gap);
+                ui.allocate_ui_with_layout(
+                    egui::vec2(width, layout.fleet_height),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        panel(ui, "Fleet snapshot", |ui| {
+                            fleet::render_fleet_snapshot(self, ui);
+                        });
+                    },
+                );
+            },
+        );
     }
 }
