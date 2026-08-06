@@ -8,7 +8,8 @@ fn fleet_catalog_upgrade_records_missing_catalog_attempt() -> anyhow::Result<()>
 
     app.upgrade_fleet_nodes_from_catalog();
 
-    let notice = app.session
+    let notice = app
+        .session
         .notice
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("missing catalog should report a notice"))?;
@@ -56,7 +57,8 @@ fn fleet_catalog_upgrade_records_noop_skip_breakdown() -> anyhow::Result<()> {
     })?;
 
     let mut app = NeoNexusApp::new(repository);
-    let active_blocked = app.fleet
+    let active_blocked = app
+        .fleet
         .nodes
         .iter_mut()
         .find(|node| node.id == blocked.id)
@@ -82,7 +84,8 @@ fn fleet_catalog_upgrade_records_noop_skip_breakdown() -> anyhow::Result<()> {
 
     app.upgrade_fleet_nodes_from_catalog();
 
-    let notice = app.session
+    let notice = app
+        .session
         .notice
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("fleet no-op should report a notice"))?;

@@ -20,7 +20,8 @@ fn wallet_profile_actions_import_use_delete_and_audit_events() -> anyhow::Result
         app.selected_neo_wallet_profile.as_deref(),
         Some("validator-wallet-1")
     );
-    assert!(app.session
+    assert!(app
+        .session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("Wallet profile imported")));

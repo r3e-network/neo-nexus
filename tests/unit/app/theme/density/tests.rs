@@ -67,8 +67,8 @@ fn default_density_is_comfortable() {
 fn compact_inventory_page_fits_workbench_content_column() {
     const NODE_PAGE_SIZE: usize = 7;
     const WORKBENCH_H: f32 = 820.0 - 60.0 - 28.0; // screen − header − status
-    // Inventory: filter + mini-stats + pagination leave ~620 usable; use 500 as
-    // a conservative lower bound for the list region alone.
+                                                  // Inventory: filter + mini-stats + pagination leave ~620 usable; use 500 as
+                                                  // a conservative lower bound for the list region alone.
     const LIST_REGION_MIN: f32 = 500.0;
     let row = DensityMetrics::COMPACT.list_row_compact;
     let gap = 4.0; // theme::XS

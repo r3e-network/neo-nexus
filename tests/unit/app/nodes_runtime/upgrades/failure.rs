@@ -65,13 +65,15 @@ fn fleet_catalog_upgrade_records_interrupted_batch_audit() -> anyhow::Result<()>
 
     app.upgrade_fleet_nodes_from_catalog();
 
-    let upgraded = app.fleet
+    let upgraded = app
+        .fleet
         .nodes
         .iter()
         .find(|node| node.id == first.id)
         .ok_or_else(|| anyhow::anyhow!("first node should remain present"))?;
     assert_eq!(upgraded.runtime_version, "v1.2.0");
-    let notice = app.session
+    let notice = app
+        .session
         .notice
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("interrupted fleet run should report a notice"))?;

@@ -101,10 +101,7 @@ fn empty_states_render_actionable_guidance_not_blank_panels() {
     }
     // Primary CTAs must be present so the empty state is actionable.
     for cta in ["New Node", "Create node"] {
-        assert!(
-            by_text.contains_key(cta),
-            "missing empty-state CTA {cta:?}",
-        );
+        assert!(by_text.contains_key(cta), "missing empty-state CTA {cta:?}",);
     }
 }
 

@@ -23,7 +23,8 @@ fn draft_auto_ports_skip_existing_node_ports() -> anyhow::Result<()> {
     assert_ne!(rpc_port, 30_332);
     assert_eq!(app.fleet.draft.p2p_port.parse::<u16>()?, rpc_port + 1);
     assert_eq!(app.fleet.draft.ws_port.parse::<u16>()?, rpc_port + 2);
-    assert!(app.session
+    assert!(app
+        .session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("Draft ports assigned")));
@@ -55,7 +56,8 @@ fn selected_node_fix_ports_persists_available_block_and_audits() -> anyhow::Resu
     assert_ne!(updated.rpc_port, 31_332);
     assert_eq!(updated.p2p_port, updated.rpc_port + 1);
     assert_eq!(updated.ws_port, Some(updated.rpc_port + 2));
-    assert!(app.session
+    assert!(app
+        .session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("ports assigned")));

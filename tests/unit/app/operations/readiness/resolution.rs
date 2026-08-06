@@ -36,11 +36,13 @@ fn readiness_check_resolution_opens_target_workspace_and_preserves_selection() -
 
         assert_eq!(app.session.selected_view, view);
         assert_eq!(app.fleet.selected_node.as_deref(), Some("node-a"));
-        assert!(app.session
+        assert!(app
+            .session
             .notice
             .as_deref()
             .is_some_and(|notice| notice.contains(resolution.label())));
-        assert!(app.operations_ui
+        assert!(app
+            .operations_ui
             .selected_readiness_check
             .as_ref()
             .is_some_and(|key| key.matches(&check)));

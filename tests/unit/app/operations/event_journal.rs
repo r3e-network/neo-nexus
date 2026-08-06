@@ -20,7 +20,8 @@ fn event_journal_export_action_writes_reports_and_audit_event() -> anyhow::Resul
 
     app.export_event_journal_report();
 
-    assert!(app.session
+    assert!(app
+        .session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("Event journal exported")));

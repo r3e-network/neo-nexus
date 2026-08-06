@@ -17,7 +17,8 @@ fn rpc_health_drain_clears_pending_for_a_node_deleted_mid_probe() -> anyhow::Res
 
     // A probe is in flight: the node is pending and a result is queued.
     app.async_bus.rpc_health_pending.insert(node.id.clone());
-    app.async_bus.rpc_health_sender
+    app.async_bus
+        .rpc_health_sender
         .send(RpcHealthProbeResult {
             report: RpcHealthReport {
                 endpoint: format!("127.0.0.1:{}", node.rpc_port),
@@ -72,7 +73,8 @@ fn missing_process_reconciliation_marks_stale_running_nodes_stopped() -> anyhow:
     assert_eq!(reconciled.status, NodeStatus::Stopped);
     assert_eq!(reconciled.pid, None);
     assert!(app.metrics_snapshot.missing_processes.is_empty());
-    assert!(app.session
+    assert!(app
+        .session
         .notice
         .as_deref()
         .is_some_and(|notice| { notice.contains("Runtime state reconciled: 1 missing process") }));
@@ -129,7 +131,8 @@ fn restart_selected_node_replaces_running_process_and_audits() -> anyhow::Result
 
     assert_eq!(restarted.status, NodeStatus::Running);
     assert_ne!(first_pid, second_pid);
-    assert!(app.session
+    assert!(app
+        .session
         .notice
         .as_deref()
         .is_some_and(|notice| notice.contains("restarted with PID")));
