@@ -13,7 +13,8 @@ detail panels instead of a scroll-first web page layout.
 proof, plus headless operator walkthrough regressions. **3.1.0** completed the
 visual system kit (`page_chrome` / `list_row`), Comfortable/Compact control
 density, and chrome contracts (header 60 / status 28 / sidebar 212).
-See `docs/ui-system-redesign-v3.1.md` and `CHANGELOG.md`.
+See `docs/ui-visual-system-v3.3.md` (the current colour, elevation and
+selection language), `docs/ui-system-redesign-v3.1.md`, and `CHANGELOG.md`.
 
 ## What Operators Can Do
 
@@ -115,11 +116,18 @@ cargo test --lib
 cargo test --test ci_policy
 cargo test --test domain
 cargo test --test repository
+make ui-contracts
 cargo run -- --source-purity .
 cargo run -- --source-quality .
 cargo run -- --native-ui-audit .
 cargo run -- --ci-policy .github/workflows/ci.yml
 ```
+
+`make ui-contracts` runs the headless UI contracts — panel geometry, layout
+containment, the type scale, dark-theme tiers, density, empty and error states,
+keyboard reach, and the operator walkthrough. They render real frames against a
+headless egui context, so they need no window and no screen-capture permission.
+CI runs them too.
 
 `make verify` runs the broader local gate set, including smoke checks for
 runtime probes, alerts, readiness, metrics, integrity, support bundles, event
@@ -214,7 +222,12 @@ Tests are kept out of `src/` so the source tree reads as production only:
 - [UI v3 baseline](docs/ui-v3-baseline.md) records the workbench IA redesign,
   phase status, and visual-truth captures.
 - [UI system redesign v3.1](docs/ui-system-redesign-v3.1.md) is the approved
-  visual system, component kit, surface specs, and PR plan for 3.1.x.
+  component kit, surface specs, and PR plan for 3.1.x. Its colour, elevation and
+  selection sections are superseded by v3.3.
+- [UI visual system v3.3](docs/ui-visual-system-v3.3.md) is the current surface
+  language: warm-neutral palette, coral accent, flat hairline elevation, tinted
+  selection, responsive column rules, and the sizing mistakes that cause
+  containment faults.
 - [Runtime catalog example](docs/runtime-catalog.example.json) and
   [snapshot catalog example](docs/snapshot-catalog.example.json) are importable
   schema samples for Runtime Manager and Fast Sync workflows.
