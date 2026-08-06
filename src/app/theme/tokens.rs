@@ -1,6 +1,6 @@
 use eframe::egui::RichText;
 
-use super::muted_text;
+use super::{muted_text, text};
 
 // Spacing scale (logical points). One rhythm shared by every view so panels and
 // sections breathe consistently instead of each file inventing its own gaps.
@@ -31,25 +31,46 @@ const SIZE_METRIC_VALUE: f32 = 24.0;
 const SIZE_BODY: f32 = 13.0;
 
 /// Top-of-page heading (shell header bar, empty-state titles).
-pub(in crate::app) fn page_title(text: impl Into<String>) -> RichText {
-    RichText::new(text).size(SIZE_PAGE_TITLE).strong()
+///
+/// Headings state their colour explicitly. Left to `.strong()` alone, egui
+/// resolves the colour from `Visuals::strong_text_color()` — the *pressed
+/// widget* foreground — which is the wrong role for page copy and once made
+/// every heading in the light theme render white and disappear.
+pub(in crate::app) fn page_title(label: impl Into<String>) -> RichText {
+    RichText::new(label)
+        .size(SIZE_PAGE_TITLE)
+        .color(text())
+        .strong()
 }
 
 /// Heading for a card/panel or an in-panel section.
-pub(in crate::app) fn section_title(text: impl Into<String>) -> RichText {
-    RichText::new(text).size(SIZE_SECTION_TITLE).strong()
+pub(in crate::app) fn section_title(label: impl Into<String>) -> RichText {
+    RichText::new(label)
+        .size(SIZE_SECTION_TITLE)
+        .color(text())
+        .strong()
 }
 
 /// Muted, upper-cased eyebrow label (metric titles, group headers).
-pub(in crate::app) fn label_caption(text: impl Into<String>) -> RichText {
-    RichText::new(text.into().to_uppercase())
+pub(in crate::app) fn label_caption(label: impl Into<String>) -> RichText {
+    RichText::new(label.into().to_uppercase())
         .size(SIZE_CAPTION)
         .color(muted_text())
 }
 
+/// Muted caption that keeps the caller's casing — for mixed-case field labels
+/// such as "WebSocket" or "Max delay", where the shouted eyebrow treatment of
+/// [`label_caption`] would mangle the term.
+pub(in crate::app) fn caption(label: impl Into<String>) -> RichText {
+    RichText::new(label).size(SIZE_CAPTION).color(muted_text())
+}
+
 /// Large, strong figure for metric tiles.
-pub(in crate::app) fn metric_value(text: impl Into<String>) -> RichText {
-    RichText::new(text).size(SIZE_METRIC_VALUE).strong()
+pub(in crate::app) fn metric_value(label: impl Into<String>) -> RichText {
+    RichText::new(label)
+        .size(SIZE_METRIC_VALUE)
+        .color(text())
+        .strong()
 }
 
 /// Column header for data tables: small, muted, semibold (macOS list style).
