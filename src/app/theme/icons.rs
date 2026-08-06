@@ -1,26 +1,37 @@
-use std::sync::OnceLock;
-
 use eframe::egui;
 
 use egui_phosphor::variants::{regular, Variant};
 
 use crate::app::view::View;
 
-static ICONS_INSTALLED: OnceLock<()> = OnceLock::new();
+/// The font-definition key `egui_phosphor::add_to_fonts` registers under.
+const PHOSPHOR_FONT_KEY: &str = "phosphor";
 
-/// Install the Phosphor icon font into the egui proportional family once per
-/// process. The guard makes repeated per-frame calls a cheap read, and
-/// `set_fonts` itself short-circuits when the definitions are unchanged. Once
-/// installed, the glyphs render inline with ordinary text in the same
-/// `RichText`, which is how the sidebar draws an icon next to each label.
+/// Install the Phosphor icon font into a context's proportional family, once
+/// per context. Once installed, the glyphs render inline with ordinary text in
+/// the same `RichText`, which is how the sidebar draws an icon next to each
+/// label.
+///
+/// The guard asks the *context* whether it already has the font rather than
+/// tracking installation in a process-wide flag. A process-wide guard silently
+/// left every context after the first with no icon font at all — every glyph
+/// fell back to a tofu box — which is exactly what happens with a second
+/// viewport or a second headless render in one process.
+/// Must be called from inside a frame: egui has no font state before the first
+/// `Context::run`.
 pub(in crate::app) fn install(context: &egui::Context) {
-    if ICONS_INSTALLED.get().is_some() {
+    let installed = context.fonts(|fonts| {
+        fonts
+            .definitions()
+            .font_data
+            .contains_key(PHOSPHOR_FONT_KEY)
+    });
+    if installed {
         return;
     }
     let mut fonts = context.fonts(|fonts| fonts.definitions().clone());
     egui_phosphor::add_to_fonts(&mut fonts, Variant::Regular);
     context.set_fonts(fonts);
-    let _ = ICONS_INSTALLED.set(());
 }
 
 /// Phosphor glyph for a workspace view, chosen to read as a macOS sidebar
