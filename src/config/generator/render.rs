@@ -7,7 +7,7 @@ use crate::{
 };
 
 use super::super::format::{ConfigFormat, RenderedConfig, RuntimeConfigProfile};
-use super::ConfigGenerator;
+use super::{neo_cli::PluginSidecar, ConfigGenerator};
 
 impl ConfigGenerator {
     pub fn for_node(node: &NodeConfig, plugins: &[PluginState]) -> Result<Value> {
@@ -24,6 +24,24 @@ impl ConfigGenerator {
             NodeType::NeoGo => anyhow::bail!("neo-go configuration is YAML, not JSON"),
             NodeType::NeoRs => anyhow::bail!("neo-rs configuration is TOML, not JSON"),
         }
+    }
+
+    /// The plugin configuration files a node needs beside its primary config.
+    ///
+    /// Only neo-cli has any: neo-go and neo-rs configure every service inside
+    /// their single file. For neo-cli this is where the RPC port, the oracle
+    /// service, the state service and dBFT consensus are actually set, so an
+    /// export that writes only the primary file configures none of them.
+    pub fn sidecars_for_node(node: &NodeConfig, plugins: &[PluginState]) -> Vec<PluginSidecar> {
+        if node.node_type != NodeType::NeoCli {
+            return Vec::new();
+        }
+        let enabled: Vec<_> = plugins
+            .iter()
+            .filter(|plugin| plugin.enabled)
+            .map(|plugin| plugin.plugin_id)
+            .collect();
+        Self::neo_cli_sidecars(node, &enabled)
     }
 
     pub fn render_for_node(node: &NodeConfig, plugins: &[PluginState]) -> Result<RenderedConfig> {

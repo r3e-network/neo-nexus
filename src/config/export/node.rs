@@ -76,9 +76,61 @@ impl ConfigExporter {
         fs::write(&path, rendered.text.as_bytes())
             .with_context(|| format!("failed to write config {}", path.display()))?;
 
+        restrict_permissions(&path);
+
+        let sidecars = Self::write_plugin_sidecars(&path, node, plugins)?;
+
         Ok(ConfigExport {
+            bytes_written: rendered.text.len() + sidecars.bytes_written,
+            sidecar_paths: sidecars.paths,
             path,
-            bytes_written: rendered.text.len(),
         })
     }
+
+    /// Writes each enabled plugin's own configuration file beside the primary
+    /// one. neo-cli configures the RPC listener, the oracle service, the state
+    /// service and dBFT in `Plugins/<Name>/<Name>.json`, not in `config.json`,
+    /// so an export that skips these configures none of them.
+    fn write_plugin_sidecars(
+        primary: &Path,
+        node: &NodeConfig,
+        plugins: &[PluginState],
+    ) -> Result<WrittenSidecars> {
+        let Some(node_dir) = primary.parent() else {
+            return Ok(WrittenSidecars::default());
+        };
+        let mut written = WrittenSidecars::default();
+        for sidecar in ConfigGenerator::sidecars_for_node(node, plugins) {
+            let path = node_dir.join(&sidecar.relative_path);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).with_context(|| {
+                    format!("failed to create plugin directory {}", parent.display())
+                })?;
+            }
+            fs::write(&path, sidecar.text.as_bytes())
+                .with_context(|| format!("failed to write plugin config {}", path.display()))?;
+            restrict_permissions(&path);
+            written.bytes_written += sidecar.text.len();
+            written.paths.push(path);
+        }
+        Ok(written)
+    }
+}
+
+#[derive(Default)]
+struct WrittenSidecars {
+    paths: Vec<PathBuf>,
+    bytes_written: usize,
+}
+
+/// Config files carry network magic, seed addresses and validator keys, and a
+/// plugin file may carry an RPC password, so they stay owner-only on Unix.
+fn restrict_permissions(path: &Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o600));
+    }
+    #[cfg(not(unix))]
+    let _ = path;
 }

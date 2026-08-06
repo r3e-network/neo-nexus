@@ -2,27 +2,40 @@ use serde_json::Value;
 
 use super::super::{super::model::ConfigValidationReport, paths::json_path};
 
-pub(in crate::config::validation) fn check_neo_cli_plugins(
+/// neo-cli enables a plugin by the presence of its assembly under
+/// `Plugins/<Name>/`, not by any configuration key. The only plugin-related key
+/// in `config.json` is where the node fetches packages from.
+///
+/// This used to assert a top-level `Plugins` **array** of `{"Name": …}` — a
+/// NeoNexus-internal manifest that neo-cli never reads. It passed on every
+/// export while telling an operator nothing true about their node.
+pub(in crate::config::validation) fn check_neo_cli_plugin_source(
     report: &mut ConfigValidationReport,
     value: &Value,
 ) {
-    let Some(plugins) = json_path(value, &["Plugins"]).and_then(Value::as_array) else {
-        report.critical("Plugin list", "Plugins must be an array.");
-        return;
-    };
-
-    let has_rpc = plugins.iter().any(|plugin| {
-        plugin
-            .get("Name")
-            .and_then(Value::as_str)
-            .is_some_and(|name| name == "RpcServer")
-    });
-    if has_rpc {
-        report.pass("RPC plugin", "RpcServer plugin is enabled for neo-cli RPC.");
-    } else {
-        report.warning(
-            "RPC plugin",
-            "RpcServer plugin is not enabled; JSON-RPC will not be available.",
-        );
+    let url = json_path(
+        value,
+        &["ApplicationConfiguration", "Plugins", "DownloadUrl"],
+    )
+    .and_then(Value::as_str);
+    match url {
+        // The plugins moved out of neo-modules, which is archived and publishes
+        // no releases, so a node pointed there can install nothing.
+        Some(url) if url.contains("neo-modules") => report.warning(
+            "Plugin source",
+            format!("{url} is the archived neo-modules repository; plugin installs will fail."),
+        ),
+        Some(url) if url.starts_with("https://") => report.pass(
+            "Plugin source",
+            format!("Plugin packages are fetched from {url}."),
+        ),
+        Some(url) => report.critical(
+            "Plugin source",
+            format!("Plugin download URL {url} is not HTTPS."),
+        ),
+        None => report.critical(
+            "Plugin source",
+            "ApplicationConfiguration.Plugins.DownloadUrl is missing; the node cannot install plugins.",
+        ),
     }
 }

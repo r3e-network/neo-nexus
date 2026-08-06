@@ -5,7 +5,7 @@ use super::{PluginCategory, PluginDefinition, PluginId};
 const NEO_CLI_ONLY: &[NodeType] = &[NodeType::NeoCli];
 const BUILT_IN_RPC: &[NodeType] = &[NodeType::NeoCli, NodeType::NeoGo];
 
-pub(in crate::catalog) static PLUGIN_DEFINITIONS: [PluginDefinition; 8] = [
+pub(in crate::catalog) static PLUGIN_DEFINITIONS: [PluginDefinition; 9] = [
     PluginDefinition {
         id: PluginId::RpcServer,
         name: "JSON-RPC API",
@@ -39,9 +39,17 @@ pub(in crate::catalog) static PLUGIN_DEFINITIONS: [PluginDefinition; 8] = [
         requires_restart: true,
     },
     PluginDefinition {
+        id: PluginId::OracleService,
+        name: "Oracle Service",
+        category: PluginCategory::Governance,
+        description: "Answer on-chain oracle requests over HTTPS and NeoFS. Requires the committee to designate this node's key for the Oracle role.",
+        node_types: NEO_CLI_ONLY,
+        requires_restart: true,
+    },
+    PluginDefinition {
         id: PluginId::DBFTPlugin,
         name: "dBFT Consensus",
-        category: PluginCategory::Core,
+        category: PluginCategory::Governance,
         description: "Enable consensus node duties for private or committee deployments.",
         node_types: NEO_CLI_ONLY,
         requires_restart: true,

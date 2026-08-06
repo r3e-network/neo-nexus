@@ -65,13 +65,9 @@ pub(in crate::config::validation) fn validate_neo_cli_config(
         node.p2p_port,
         "P2P port",
     );
-    check_json_u16(
-        report,
-        &value,
-        &["ApplicationConfiguration", "RPC", "Port"],
-        node.rpc_port,
-        "RPC port",
-    );
+    // No `ApplicationConfiguration.RPC` check: neo-cli has no such section. The
+    // listener is configured in Plugins/RpcServer/RpcServer.json, which the
+    // sidecar generator emits and its own tests cover.
     check_json_bool(
         report,
         &value,
@@ -79,5 +75,15 @@ pub(in crate::config::validation) fn validate_neo_cli_config(
         false,
         "Wallet unlock",
     );
-    check_neo_cli_plugins(report, &value);
+    // Without an active logger neo-cli installs no log sink at all and writes
+    // nothing to file or console, leaving the Logs surface reading a file that
+    // is never created.
+    check_json_bool(
+        report,
+        &value,
+        &["ApplicationConfiguration", "Logger", "Active"],
+        true,
+        "Logging",
+    );
+    check_neo_cli_plugin_source(report, &value);
 }
