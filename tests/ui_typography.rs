@@ -79,7 +79,7 @@ fn every_rendered_text_uses_the_design_type_scale() {
 /// Sidebar navigation rows should sit on a uniform baseline grid so the
 /// source-list reads evenly. The Phosphor glyph + label render in one galley,
 /// so each nav item's baseline is its TextShape origin y; consecutive gaps must
-/// match the design row height (32pt) within a tight tolerance.
+/// match the design row pitch within a tight tolerance.
 #[test]
 fn sidebar_navigation_rows_sit_on_a_consistent_baseline_grid() {
     let temp_dir = tempfile::tempdir().unwrap();
@@ -112,10 +112,16 @@ fn sidebar_navigation_rows_sit_on_a_consistent_baseline_grid() {
     }
     baselines.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-    // Group consecutive rows by gap: a uniform 40pt run is one visual group; a
-    // larger gap marks a section break (a new group). Within every group the
-    // leading must be consistent so the source-list reads evenly.
-    let row_height = 40.0;
+    // Group consecutive rows by gap: a uniform run is one visual group; a larger
+    // gap marks a section break (a new group). Within every group the leading
+    // must be consistent so the source-list reads evenly.
+    //
+    // The pitch is nav_row_height (34) + item_spacing.y (8) + the 2pt inter-row
+    // space the sidebar adds = 44. It was previously written as 40, which no
+    // gap ever matched — so every baseline formed its own singleton group and
+    // the uneven-leading assertion below never actually ran. Keep this in step
+    // with `DensityMetrics::COMFORTABLE.nav_row_height` and `sidebar.rs`.
+    let row_height = 44.0;
     let mut groups: Vec<Vec<f32>> = vec![vec![baselines[0]]];
     for &y in &baselines[1..] {
         let prev = *groups.last().and_then(|g| g.last()).unwrap();
@@ -135,6 +141,21 @@ fn sidebar_navigation_rows_sit_on_a_consistent_baseline_grid() {
             );
         }
     }
+    // The grouping above only proves anything if rows actually group. With a
+    // wrong `row_height` every baseline lands in its own singleton and the
+    // even-leading assertion silently never runs — which is exactly how a
+    // stale pitch survived here unnoticed. The sidebar has two multi-row
+    // sections (Workspace and Nodes), so at least two groups must have more
+    // than one member.
+    let grouped_sections = groups.iter().filter(|group| group.len() >= 2).count();
+    assert!(
+        grouped_sections >= 2,
+        "no sidebar section formed a run at the {row_height}pt design pitch \
+         (groups: {:?}); the pitch constant is stale and this contract is not \
+         actually checking anything",
+        groups.iter().map(Vec::len).collect::<Vec<_>>(),
+    );
+
     // The sidebar must render its full set of primary nav items (v3: six),
     // not collapse any.
     assert!(

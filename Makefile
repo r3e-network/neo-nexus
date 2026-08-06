@@ -14,6 +14,18 @@ test:
 	cargo test --test ci_policy
 	cargo test --test domain
 	cargo test --test repository
+	$(MAKE) ui-contracts
+
+# Headless UI contracts: panel geometry, containment, type scale, dark-theme
+# tiers, density, empty/error states, keyboard reach, and the operator
+# walkthrough. These render real frames against a headless egui context, so they
+# need no window and no screen-capture permission — there is no reason for them
+# to sit outside the verified set.
+ui-contracts:
+	cargo test --test ui_geometry --test ui_overflow --test ui_typography \
+	          --test ui_visual_contract --test ui_density_geometry \
+	          --test ui_empty_states --test ui_error_states \
+	          --test ui_keyboard --test ui_operator_walkthrough
 
 build:
 	cargo build
@@ -161,6 +173,7 @@ verify:
 	cargo test --test ci_policy
 	cargo test --test domain
 	cargo test --test repository
+	$(MAKE) ui-contracts
 	cargo run -- --self-check
 	$(MAKE) purity-smoke
 	$(MAKE) quality-smoke
