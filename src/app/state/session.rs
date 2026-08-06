@@ -5,7 +5,7 @@ use super::toasts::ToastStack;
 use crate::app::{
     theme::{Theme, UiDensity},
     view::View,
-    views::{NetworkHubSection, NodeWorkspaceTab},
+    views::{InspectorSection, NetworkHubSection, NodeWorkspaceTab},
 };
 
 #[derive(Debug)]
@@ -18,6 +18,10 @@ pub(in crate::app) struct SessionUi {
     pub(in crate::app) node_workspace_tab: NodeWorkspaceTab,
     pub(in crate::app) persisted_node_workspace_tab: NodeWorkspaceTab,
     pub(in crate::app) network_hub_section: NetworkHubSection,
+    /// Which body the right-hand inspector column is showing. Session-scoped
+    /// rather than persisted: it is a momentary reading position, not a
+    /// workspace preference.
+    pub(in crate::app) inspector_section: InspectorSection,
     pub(in crate::app) notice: Option<String>,
     pub(in crate::app) toasts: ToastStack,
 }
@@ -40,6 +44,7 @@ impl SessionUi {
             node_workspace_tab,
             persisted_node_workspace_tab: node_workspace_tab,
             network_hub_section: NetworkHubSection::default(),
+            inspector_section: InspectorSection::default(),
             notice,
             toasts: ToastStack::default(),
         }

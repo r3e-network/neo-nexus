@@ -11,16 +11,23 @@ use super::super::super::super::{
 };
 
 impl NeoNexusApp {
+    /// Lifecycle control for the selected node, plus one way through to the
+    /// node's own workspace.
+    ///
+    /// The six per-tab shortcuts that used to live here (Studio, Config, Logs,
+    /// Plugins, Health, Network) were a second copy of the Nodes page's own tab
+    /// strip. Two rows of duplicate navigation is what pushed this column past
+    /// the bottom of a panel that does not scroll, taking the Runtime card with
+    /// it — so the inspector now opens the workspace and lets the tab strip
+    /// there do the job it already does.
     pub(super) fn render_inspector_actions(&mut self, ui: &mut egui::Ui, node: &NodeConfig) {
         ui.label(theme::label_caption("Lifecycle"));
         ui.add_space(theme::XS);
         let running = node.status.is_running();
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             if running {
-                if secondary_button_enabled(ui, "Start", false)
-                    .on_hover_text("Node is already running")
-                    .clicked()
-                {}
+                secondary_button_enabled(ui, "Start", false)
+                    .on_hover_text("Node is already running");
             } else if primary_button(ui, "Start")
                 .on_hover_text("Start this stopped node")
                 .clicked()
@@ -40,43 +47,19 @@ impl NeoNexusApp {
                 self.restart_selected_node();
             }
         });
-        ui.add_space(theme::MD);
-        ui.label(theme::label_caption("Open"));
-        ui.add_space(theme::XS);
+        ui.add_space(theme::SM);
         ui.horizontal_wrapped(|ui| {
-            if secondary_button(ui, "Studio")
-                .on_hover_text("Edit this node definition")
+            if secondary_button(ui, "Open node")
+                .on_hover_text(
+                    "Open this node's workspace: definition, config, logs, plugins, health",
+                )
                 .clicked()
             {
                 self.load_selected_node_into_draft();
                 self.open_node_workspace_tab(NodeWorkspaceTab::Studio);
             }
-            if secondary_button(ui, "Config")
-                .on_hover_text("Inspect generated configuration")
-                .clicked()
-            {
-                self.open_node_workspace_tab(NodeWorkspaceTab::Config);
-            }
-            if secondary_button(ui, "Logs")
-                .on_hover_text("Open runtime logs")
-                .clicked()
-            {
-                self.open_node_workspace_tab(NodeWorkspaceTab::Logs);
-            }
-            if secondary_button(ui, "Plugins")
-                .on_hover_text("Manage node plugins")
-                .clicked()
-            {
-                self.open_node_workspace_tab(NodeWorkspaceTab::Plugins);
-            }
-            if secondary_button(ui, "Health")
-                .on_hover_text("Resource and process health")
-                .clicked()
-            {
-                self.open_node_workspace_tab(NodeWorkspaceTab::Health);
-            }
             if secondary_button(ui, "Network")
-                .on_hover_text("Open Network hub")
+                .on_hover_text("Open the Network hub")
                 .clicked()
             {
                 self.session.selected_view = View::Federation;
