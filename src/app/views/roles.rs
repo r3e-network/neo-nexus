@@ -57,9 +57,40 @@ impl NeoNexusApp {
             RolesSection::Plan => panel(ui, "Selected role plan", |ui| {
                 self.render_selected_role_plan(ui);
             }),
-            RolesSection::PrivateNetwork => panel(ui, "Private network planner", |ui| {
-                self.render_private_network_plan(ui);
-            }),
         }
+    }
+
+    /// Private-network planning, reached from the Network hub. A topology is
+    /// not a property of the selected node, so it does not belong beside the
+    /// role presets it used to share a page with.
+    pub(super) fn render_private_network(&mut self, ui: &mut egui::Ui) {
+        let private_plan = PrivateNetworkPlanner::plan(
+            self.private_network_template,
+            self.private_network_runtime,
+        );
+        metric_row(
+            ui,
+            &[
+                (
+                    "Template",
+                    self.private_network_template.label(),
+                    "selected topology",
+                ),
+                (
+                    "Planned",
+                    &private_plan.nodes.len().to_string(),
+                    "nodes in plan",
+                ),
+                (
+                    "Runtime",
+                    &self.private_network_runtime.to_string(),
+                    "committee binary",
+                ),
+            ],
+        );
+        ui.add_space(theme::MD);
+        panel(ui, "Private network planner", |ui| {
+            self.render_private_network_plan(ui);
+        });
     }
 }
