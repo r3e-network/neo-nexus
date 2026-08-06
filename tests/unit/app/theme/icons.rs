@@ -35,3 +35,55 @@ fn icons_are_varied_across_views() {
         View::ALL.len(),
     );
 }
+
+/// The icon font must be installed into *every* context, not just the first one
+/// the process ever creates. A process-wide install guard left every later
+/// context without the Phosphor family, so all its glyphs rendered as tofu
+/// boxes — invisible in the running app, but immediately visible to a second
+/// headless render.
+/// `set_fonts` lands on the following frame, so two frames is the earliest a
+/// context can have the family — but a context that never gets it (the bug)
+/// stays at zero no matter how many frames run.
+#[test]
+fn every_context_receives_the_icon_font() {
+    for context_index in 0..3 {
+        assert_eq!(
+            phosphor_family_entries(2),
+            1,
+            "context {context_index} is missing the Phosphor icon font",
+        );
+    }
+}
+
+/// Installing on every frame must be idempotent rather than appending a second
+/// family entry each time.
+#[test]
+fn installing_every_frame_does_not_duplicate_the_family_entry() {
+    assert_eq!(phosphor_family_entries(3), 1);
+}
+
+/// Runs `install` on a fresh context for `frames` frames and returns how many
+/// times the Phosphor key appears in the proportional family.
+fn phosphor_family_entries(frames: usize) -> usize {
+    use eframe::egui;
+    let context = egui::Context::default();
+    let mut entries = 0;
+    for _ in 0..frames {
+        let _ = context.run(egui::RawInput::default(), |ctx| {
+            super::install(ctx);
+            entries = ctx.fonts(|fonts| {
+                fonts
+                    .definitions()
+                    .families
+                    .get(&egui::FontFamily::Proportional)
+                    .map(|keys| {
+                        keys.iter()
+                            .filter(|key| key.as_str() == super::PHOSPHOR_FONT_KEY)
+                            .count()
+                    })
+                    .unwrap_or_default()
+            });
+        });
+    }
+    entries
+}
