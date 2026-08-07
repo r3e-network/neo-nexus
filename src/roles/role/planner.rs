@@ -20,13 +20,13 @@ impl RolePlanner {
                 node_type,
                 storage_engine,
                 role,
-                "neo-go exposes RPC and core runtime posture through generated YAML configuration.",
+                "neo-go configures every service in its generated YAML; there are no plugin assemblies to install.",
             ),
             NodeType::NeoRs => runtime_managed_plan(
                 node_type,
                 storage_engine,
                 role,
-                "neo-rs exposes RPC, storage, and consensus posture through generated TOML configuration.",
+                "neo-rs configures RPC, storage and consensus in its generated TOML.",
             ),
         }
     }

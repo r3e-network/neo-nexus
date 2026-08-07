@@ -67,6 +67,37 @@ pub(super) fn role_plugin_changes(role: NodeRole) -> Vec<RolePluginChange> {
                 "Consensus role avoids token index workload by default.",
             ),
         ],
+        NodeRole::Oracle => vec![
+            enable(
+                PluginId::OracleService,
+                "The oracle duty is carried by OracleService.",
+            ),
+            enable(
+                PluginId::RpcServer,
+                "OracleService declares a hard dependency on RpcServer.",
+            ),
+            disable(
+                PluginId::DBFTPlugin,
+                "An oracle node does not produce blocks.",
+            ),
+        ],
+        NodeRole::StateValidator => vec![
+            enable(
+                PluginId::StateService,
+                "Signing state roots is StateService work.",
+            ),
+            enable(
+                PluginId::RpcServer,
+                "StateService declares a hard dependency on RpcServer.",
+            ),
+            disable(
+                PluginId::DBFTPlugin,
+                "A state validator does not produce blocks.",
+            ),
+        ],
+        // Unreachable in practice: neo-cli has no notary service, so the
+        // availability matrix rejects this pairing before a plan is built.
+        NodeRole::Notary => Vec::new(),
         NodeRole::Observer => vec![
             enable(
                 PluginId::RpcServer,
