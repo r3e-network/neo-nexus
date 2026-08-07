@@ -5,4 +5,7 @@ pub use self::private_network::{
     PrivateNetworkConflict, PrivateNetworkNodePlan, PrivateNetworkPlan, PrivateNetworkPlanner,
     PrivateNetworkTemplate,
 };
-pub use self::role::{NodeRole, RolePlan, RolePlanner, RolePluginChange};
+pub use self::role::{
+    role_availability, ChainRole, NodeRole, RoleAvailability, RolePlan, RolePlanner,
+    RolePluginChange,
+};
