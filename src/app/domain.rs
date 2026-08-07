@@ -53,9 +53,9 @@ pub(in crate::app) use crate::core::{
         filter_neo_wallet_profiles, NeoWalletProfile, NeoWalletProfileFilter, NeoWalletValidator,
     },
     workspace::{
-        CommitteeRoster, CommitteeSidecarProcess, ConfigExport, ConfigExporter, ConfigGenerator,
-        ConfigValidationReport, ConfigValidationSeverity, ConfigValidator,
-        LaunchPackValidationStatus, NodeRole, PrivateNetworkConflict,
+        role_availability, CommitteeRoster, CommitteeSidecarProcess, ConfigExport, ConfigExporter,
+        ConfigGenerator, ConfigValidationReport, ConfigValidationSeverity, ConfigValidator,
+        GenerationContext, LaunchPackValidationStatus, NodeRole, PrivateNetworkConflict,
         PrivateNetworkDeploymentExport, PrivateNetworkDeploymentExporter,
         PrivateNetworkDeploymentRequest, PrivateNetworkLaunchPackSidecarReport,
         PrivateNetworkLaunchPackValidation, PrivateNetworkLaunchPackVerifier,

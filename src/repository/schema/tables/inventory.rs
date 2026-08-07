@@ -18,6 +18,11 @@ pub(super) fn create_inventory_tables(connection: &Connection) -> Result<()> {
             status TEXT NOT NULL,
             pid INTEGER
         );
+        CREATE TABLE IF NOT EXISTS node_roles (
+            node_id TEXT PRIMARY KEY,
+            role TEXT NOT NULL,
+            FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+        );
         CREATE TABLE IF NOT EXISTS plugin_states (
             node_id TEXT NOT NULL,
             plugin_id TEXT NOT NULL,

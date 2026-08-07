@@ -64,3 +64,18 @@ fn managed_config_applied_message(
         )
     }
 }
+
+/// The generation context for a node: the duty it is recorded as performing.
+///
+/// A wallet is deliberately absent. Enabling a signing service writes a wallet
+/// password to the config file in plaintext, so it is only ever supplied by an
+/// operator through an explicit export, never inferred here.
+pub(in crate::app) fn generation_context_for(
+    app: &NeoNexusApp,
+    node: &NodeConfig,
+) -> GenerationContext {
+    GenerationContext {
+        role: app.repository.load_node_role(&node.id).unwrap_or_default(),
+        wallet: None,
+    }
+}

@@ -12,6 +12,29 @@ impl NeoNexusApp {
             return;
         }
 
+        // Refuse a duty the node's client cannot perform. Accepting it would
+        // write plugin rows and print success for something that will never
+        // run.
+        let availability = role_availability(node.node_type, self.selected_role);
+        if let Some(reason) = availability.reason() {
+            self.session.notice = Some(format!(
+                "{} cannot perform the {} duty: {reason}",
+                node.node_type, self.selected_role
+            ));
+            return;
+        }
+
+        // The duty has to outlive this session: it is what decides which
+        // service sections the node's generated configuration carries, and a
+        // role held only in UI state never reaches the generator.
+        if let Err(error) = self
+            .repository
+            .set_node_role(&node.id, Some(self.selected_role))
+        {
+            self.session.notice = Some(error.to_string());
+            return;
+        }
+
         let plan = RolePlanner::plan(&node, self.selected_role);
         for change in &plan.plugin_changes {
             if let Err(error) =
@@ -25,7 +48,7 @@ impl NeoNexusApp {
 
         let message = if plan.change_count() == 0 {
             format!(
-                "{} role planned for {}; runtime posture is managed by managed config",
+                "{} role recorded for {}; it is carried by the generated configuration",
                 plan.role, node.name
             )
         } else {

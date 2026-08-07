@@ -6,7 +6,7 @@ use crate::{
     types::{NodeConfig, NodeType},
 };
 
-use super::super::format::{ConfigFormat, RenderedConfig, RuntimeConfigProfile};
+use super::super::format::{ConfigFormat, GenerationContext, RenderedConfig, RuntimeConfigProfile};
 use super::{neo_cli::PluginSidecar, ConfigGenerator};
 
 impl ConfigGenerator {
@@ -53,6 +53,20 @@ impl ConfigGenerator {
         plugins: &[PluginState],
         profile: Option<&RuntimeConfigProfile>,
     ) -> Result<RenderedConfig> {
+        Self::render_for_node_with_context(node, plugins, profile, &GenerationContext::default())
+    }
+
+    /// Renders a node's configuration for the duty it is being operated for.
+    ///
+    /// The duty is what switches on a service section, so a render without a
+    /// context produces a plain relaying node — which is exactly what selecting
+    /// a role used to produce, because the role never reached this function.
+    pub fn render_for_node_with_context(
+        node: &NodeConfig,
+        plugins: &[PluginState],
+        profile: Option<&RuntimeConfigProfile>,
+        context: &GenerationContext,
+    ) -> Result<RenderedConfig> {
         match node.node_type {
             NodeType::NeoCli => {
                 let value = Self::for_node_with_profile(node, plugins, profile)?;
@@ -64,7 +78,7 @@ impl ConfigGenerator {
             }
             NodeType::NeoGo => Ok(RenderedConfig {
                 format: ConfigFormat::Yaml,
-                text: Self::neo_go_yaml_with_profile(node, profile)?,
+                text: Self::neo_go_yaml_with_context(node, profile, context)?,
             }),
             NodeType::NeoRs => Ok(RenderedConfig {
                 format: ConfigFormat::Toml,

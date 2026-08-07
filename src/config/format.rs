@@ -1,9 +1,11 @@
 mod committee;
+mod context;
 mod filenames;
 mod network;
 mod plugin;
 mod types;
 
+pub use self::context::{GenerationContext, ServiceWallet};
 pub use types::{ConfigFormat, RenderedConfig, RuntimeConfigProfile};
 
 pub(super) use filenames::{config_filename, config_format};

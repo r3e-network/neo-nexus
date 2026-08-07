@@ -11,7 +11,10 @@ impl NeoNexusApp {
 
         let plugins = plugin_states_for(self, &node);
         let path = self.managed_config_path(&node);
-        let export = match ConfigExporter::write_node_config_to_path(&path, &node, &plugins) {
+        let context = generation_context_for(self, &node);
+        let export = match ConfigExporter::write_node_config_to_path_with_context(
+            &path, &node, &plugins, None, &context,
+        ) {
             Ok(export) => export,
             Err(error) => {
                 self.session.notice = Some(error.to_string());

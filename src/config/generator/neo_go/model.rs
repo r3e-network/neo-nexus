@@ -18,6 +18,12 @@
 
 use serde::Serialize;
 
+mod services;
+
+pub(in crate::config::generator::neo_go) use services::{
+    NeoGoInternalService, NeoGoOracle, NeoGoOracleNeoFs, NeoGoServices, NeoGoWallet,
+};
+
 /// A Go `time.Duration` as neo-go parses it from YAML: `"15s"`, `"3m"`, `"1h"`.
 /// A bare number is *not* accepted for these fields, so the type exists to make
 /// it impossible to emit one by accident.
@@ -83,6 +89,11 @@ pub(super) struct NeoGoApplicationConfiguration {
     pub(super) prometheus: NeoGoBasicService,
     #[serde(rename = "Pprof")]
     pub(super) pprof: NeoGoPprofConfiguration,
+    /// The duty sections. Flattened so each lands as a key of
+    /// `ApplicationConfiguration`, and each is omitted when the node does not
+    /// perform that duty.
+    #[serde(flatten)]
+    pub(super) services: NeoGoServices,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

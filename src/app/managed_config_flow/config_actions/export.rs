@@ -8,7 +8,11 @@ impl NeoNexusApp {
         };
 
         let plugins = plugin_states_for(self, &node);
-        match ConfigExporter::write_node_config(self.config_export_dir(), &node, &plugins) {
+        let context = generation_context_for(self, &node);
+        let path = ConfigExporter::target_path(self.config_export_dir(), &node);
+        match ConfigExporter::write_node_config_to_path_with_context(
+            &path, &node, &plugins, None, &context,
+        ) {
             Ok(export) => {
                 self.session.notice = Some(format!(
                     "Config exported: {} ({} bytes)",

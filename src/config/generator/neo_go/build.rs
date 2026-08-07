@@ -5,7 +5,8 @@ use crate::types::{NodeConfig, StorageEngine};
 use super::{
     super::super::format::{
         effective_committee_public_keys, effective_network_magic, effective_seed_nodes,
-        effective_validators_count, max_transactions_per_block, RuntimeConfigProfile,
+        effective_validators_count, max_transactions_per_block, GenerationContext,
+        RuntimeConfigProfile,
     },
     model::{
         bind_address, GoDuration, NeoGoApplicationConfiguration, NeoGoBasicService, NeoGoConfig,
@@ -28,6 +29,7 @@ const PPROF_PORT_OFFSET: u16 = 3;
 pub(super) fn neo_go_config(
     node: &NodeConfig,
     profile: Option<&RuntimeConfigProfile>,
+    context: &GenerationContext,
 ) -> Result<NeoGoConfig> {
     if node.storage_engine != StorageEngine::LevelDb {
         anyhow::bail!("neo-go supports LevelDB storage in NeoNexus");
@@ -35,7 +37,7 @@ pub(super) fn neo_go_config(
 
     Ok(NeoGoConfig {
         protocol_configuration: protocol_configuration(node, profile),
-        application_configuration: application_configuration(node),
+        application_configuration: application_configuration(node, context),
     })
 }
 
@@ -54,7 +56,10 @@ fn protocol_configuration(
     }
 }
 
-fn application_configuration(node: &NodeConfig) -> NeoGoApplicationConfiguration {
+fn application_configuration(
+    node: &NodeConfig,
+    context: &GenerationContext,
+) -> NeoGoApplicationConfiguration {
     NeoGoApplicationConfiguration {
         // neo-go spells the warning level `warn`; `warning` is rejected.
         log_level: "info".to_string(),
@@ -68,6 +73,7 @@ fn application_configuration(node: &NodeConfig) -> NeoGoApplicationConfiguration
         rpc: rpc_configuration(node),
         prometheus: prometheus_configuration(node),
         pprof: pprof_configuration(node),
+        services: super::services::services_for(context),
     }
 }
 
