@@ -3,6 +3,7 @@ pub mod app;
 pub mod argv;
 pub mod backup;
 pub mod catalog;
+pub mod chain_state;
 pub mod ci_policy;
 pub mod cli;
 pub mod config;
