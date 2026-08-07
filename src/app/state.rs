@@ -1,6 +1,7 @@
 use super::*;
 
 mod async_bus;
+mod chain;
 mod fleet;
 mod operations_ui;
 mod sections;
@@ -8,6 +9,7 @@ mod session;
 mod toasts;
 
 pub(in crate::app) use async_bus::AsyncProbeBus;
+pub(in crate::app) use chain::ChainStateUi;
 pub(in crate::app) use fleet::FleetUi;
 pub(in crate::app) use operations_ui::OperationsUi;
 pub(in crate::app) use sections::WorkspaceSections;
@@ -69,6 +71,9 @@ pub struct NeoNexusApp {
     pub(in crate::app) selected_runtime_release: Option<String>,
     pub(in crate::app) selected_remote_server: Option<String>,
     pub(in crate::app) selected_role: NodeRole,
+    /// The last chain-state read, kept so the panel shows an answer rather than
+    /// re-querying on every repaint.
+    pub(in crate::app) chain: ChainStateUi,
     pub(in crate::app) private_network_template: PrivateNetworkTemplate,
     pub(in crate::app) private_network_runtime: NodeType,
     pub(in crate::app) private_network_committee_keys: String,

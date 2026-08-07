@@ -1,3 +1,4 @@
+use crate::app::state::ChainStateUi;
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::super::super::*;
@@ -12,6 +13,7 @@ pub(super) fn build_initial_app(
     channels: StartupChannels,
 ) -> NeoNexusApp {
     NeoNexusApp {
+        chain: ChainStateUi::default(),
         repository,
         session: SessionUi::new(
             prefs.theme,

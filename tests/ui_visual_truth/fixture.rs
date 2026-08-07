@@ -64,7 +64,21 @@ const DEMO_NODES: [DemoNode; 5] = [
 /// Opens a workspace at `path`, seeds it with the demo fleet and the given UI
 /// preferences, and returns a repository handle ready to hand to the app.
 pub fn seeded_workspace(path: &Path, dark: bool, view_key: &str) -> Repository {
+    seeded_workspace_at(path, dark, view_key, &[])
+}
+
+/// As [`seeded_workspace`], but also pins sub-tabs so a preview can land on a
+/// page that is not its section's default.
+pub fn seeded_workspace_at(
+    path: &Path,
+    dark: bool,
+    view_key: &str,
+    sections: &[(&str, &str)],
+) -> Repository {
     let repository = Repository::open(path).unwrap();
+    for (key, value) in sections {
+        repository.save_workspace_section(key, value).unwrap();
+    }
     repository.save_app_dark_mode(dark).unwrap();
     repository.save_app_inspector_visible(true).unwrap();
     repository.save_workspace_last_view(view_key).unwrap();

@@ -9,6 +9,7 @@ use anyhow::Context;
 use uuid::Uuid;
 
 mod appearance_flow;
+mod chain_state_flow;
 mod constants;
 mod domain;
 mod draft;
