@@ -61,9 +61,10 @@ pub(in crate::app) use crate::core::{
         PrivateNetworkDeploymentRequest, PrivateNetworkLaunchPackSidecarReport,
         PrivateNetworkLaunchPackValidation, PrivateNetworkLaunchPackVerifier,
         PrivateNetworkNodePlan, PrivateNetworkPlan, PrivateNetworkPlanner, PrivateNetworkTemplate,
-        RenderedConfig, Repository, RolePlanner, WorkspaceBackupExporter, WorkspaceBackupImporter,
-        WorkspaceBackupValidation, WorkspaceIntegrityChecker, WorkspaceIntegrityReport,
-        WorkspaceReadinessReport, WorkspaceReadinessReporter, WorkspaceSupportBundleExporter,
+        RenderedConfig, Repository, RolePlanner, ServiceWallet, WorkspaceBackupExporter,
+        WorkspaceBackupImporter, WorkspaceBackupValidation, WorkspaceIntegrityChecker,
+        WorkspaceIntegrityReport, WorkspaceReadinessReport, WorkspaceReadinessReporter,
+        WorkspaceSupportBundleExporter,
     },
     workspace_queries::{count_workspace_events, list_workspace_events, list_workspace_snapshots},
 };
