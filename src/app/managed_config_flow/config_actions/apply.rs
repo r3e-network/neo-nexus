@@ -9,7 +9,10 @@ impl NeoNexusApp {
 
         let plugins = plugin_states_for(self, &node);
         let path = self.managed_config_path(&node);
-        match ConfigExporter::write_node_config_to_path(&path, &node, &plugins) {
+        let context = generation_context_for(self, &node);
+        match ConfigExporter::write_node_config_to_path_with_context(
+            &path, &node, &plugins, None, &context,
+        ) {
             Ok(export) => {
                 record_managed_config_applied(self, &node, &export, node_requires_restart(&node));
             }

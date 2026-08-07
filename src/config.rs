@@ -8,7 +8,8 @@ pub use self::export::{
     WorkspaceConfigExporter, WorkspaceConfigReport,
 };
 pub use self::format::{ConfigFormat, RenderedConfig, RuntimeConfigProfile};
-pub use self::generator::ConfigGenerator;
+pub use self::format::{GenerationContext, ServiceWallet};
+pub use self::generator::{ConfigGenerator, PluginSidecar};
 pub use self::validation::{
     ConfigValidationCheck, ConfigValidationReport, ConfigValidationSeverity, ConfigValidator,
 };

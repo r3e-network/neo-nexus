@@ -12,7 +12,7 @@ use crate::{
 
 use super::model::ConfigExport;
 use crate::config::{
-    format::{config_filename, RuntimeConfigProfile},
+    format::{config_filename, GenerationContext, RuntimeConfigProfile},
     generator::ConfigGenerator,
     validation::ConfigValidator,
 };
@@ -57,7 +57,27 @@ impl ConfigExporter {
         plugins: &[PluginState],
         profile: Option<&RuntimeConfigProfile>,
     ) -> Result<ConfigExport> {
-        let rendered = ConfigGenerator::render_for_node_with_profile(node, plugins, profile)?;
+        Self::write_node_config_to_path_with_context(
+            path,
+            node,
+            plugins,
+            profile,
+            &GenerationContext::default(),
+        )
+    }
+
+    /// Writes a node's configuration for the duty it is being operated for.
+    /// Without a context the render is a plain relaying node — which is what
+    /// every export produced before duties reached the generator.
+    pub fn write_node_config_to_path_with_context(
+        path: impl AsRef<Path>,
+        node: &NodeConfig,
+        plugins: &[PluginState],
+        profile: Option<&RuntimeConfigProfile>,
+        context: &GenerationContext,
+    ) -> Result<ConfigExport> {
+        let rendered =
+            ConfigGenerator::render_for_node_with_context(node, plugins, profile, context)?;
         let validation = ConfigValidator::validate_rendered_with_profile(node, &rendered, profile);
         if !validation.is_success() {
             anyhow::bail!(

@@ -1,25 +1,32 @@
 use super::*;
 
-const ROLE_ROWS: usize = 5;
+use crate::app::domain::role_availability;
 
 impl NeoNexusApp {
     pub(in crate::app::views::roles) fn render_role_presets(&mut self, ui: &mut egui::Ui) {
-        for row in 0..ROLE_ROWS {
-            if let Some(role) = NodeRole::ALL.get(row).copied() {
-                let selected = self.selected_role == role;
-                if ui
-                    .add_sized(
-                        [ui.available_width(), 28.0],
-                        egui::Button::new(role.label()).selected(selected),
-                    )
-                    .clicked()
-                {
-                    self.selected_role = role;
-                }
-                ui.label(egui::RichText::new(role.description()).color(muted_text()));
-            } else {
-                ui.label(" ");
+        // A duty the selected node's client cannot perform is offered greyed
+        // out with the reason, rather than hidden or — worse — accepted and
+        // then silently never performed.
+        let node_type = self.selected_node().map(|node| node.node_type);
+        for role in NodeRole::ALL {
+            let availability = node_type.map(|node_type| role_availability(node_type, role));
+            let usable = availability.is_none_or(|state| state.is_supported());
+            let selected = self.selected_role == role;
+            if ui
+                .add_enabled(
+                    usable,
+                    egui::Button::new(role.label())
+                        .selected(selected)
+                        .min_size(egui::vec2(ui.available_width(), 28.0)),
+                )
+                .clicked()
+            {
+                self.selected_role = role;
             }
+            let note = availability
+                .and_then(|state| state.reason())
+                .unwrap_or_else(|| role.description());
+            ui.label(egui::RichText::new(note).color(muted_text()));
             ui.add_space(theme::XS);
         }
 
