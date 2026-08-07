@@ -5,14 +5,18 @@ use crate::{
 };
 
 fn wallet() -> ServiceWallet {
-    ServiceWallet {
-        path: "/opt/neo/wallets/node.json".to_string(),
-        password: "hunter2".to_string(),
-    }
+    ServiceWallet::at("/opt/neo/wallets/node.json").unlocked_with("hunter2")
 }
 
+/// A node whose wallet can actually be unlocked for this export.
 fn signed(role: NodeRole) -> GenerationContext {
     GenerationContext::for_role(role).with_wallet(wallet())
+}
+
+/// A node with a wallet assigned but no password supplied — the state every
+/// export starts in, because the password is never held in the workspace.
+fn locked(role: NodeRole) -> GenerationContext {
+    GenerationContext::for_role(role).with_wallet(ServiceWallet::at("/opt/neo/wallets/node.json"))
 }
 
 /// A node with no assigned duty gets a plain relaying config: no service
@@ -80,6 +84,26 @@ fn a_signing_service_stays_disabled_until_a_wallet_is_supplied() {
     assert!(consensus.unlock_wallet.is_none());
 }
 
+/// An assigned wallet with no password configures the service without starting
+/// it: the path is written so the operator can see where the key comes from,
+/// and the empty password field shows exactly what is missing.
+#[test]
+fn an_assigned_wallet_without_a_password_configures_but_does_not_enable() {
+    let services = services_for(&locked(NodeRole::Consensus));
+    let consensus = services.consensus.expect("consensus section");
+    assert!(!consensus.enabled);
+    let unlocked = consensus.unlock_wallet.expect("the path is still written");
+    assert_eq!(unlocked.path, "/opt/neo/wallets/node.json");
+    assert!(unlocked.password.is_empty());
+}
+
+#[test]
+fn an_empty_password_never_enables_a_service() {
+    let context = GenerationContext::for_role(NodeRole::Oracle)
+        .with_wallet(ServiceWallet::at("/w.json").unlocked_with(""));
+    assert!(!services_for(&context).oracle.expect("oracle").enabled);
+}
+
 #[test]
 fn a_supplied_wallet_enables_the_service_and_is_written_through() {
     let services = services_for(&signed(NodeRole::Consensus));
@@ -87,7 +111,7 @@ fn a_supplied_wallet_enables_the_service_and_is_written_through() {
     assert!(consensus.enabled);
     let unlocked = consensus.unlock_wallet.expect("wallet is written");
     assert_eq!(unlocked.path, wallet().path);
-    assert_eq!(unlocked.password, wallet().password);
+    assert_eq!(Some(unlocked.password), wallet().password);
 }
 
 #[test]

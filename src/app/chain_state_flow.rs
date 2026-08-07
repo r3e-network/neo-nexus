@@ -34,7 +34,13 @@ impl NeoNexusApp {
         };
 
         let endpoint = node_rpc_endpoint(&node);
-        let status = designation_status(&endpoint, chain_role, None, CHAIN_STATE_TIMEOUT);
+        let public_key = self.node_signing_key(&node.id);
+        let status = designation_status(
+            &endpoint,
+            chain_role,
+            public_key.as_deref(),
+            CHAIN_STATE_TIMEOUT,
+        );
         let message = match &status {
             Ok(designation) => format!("{}: {}", node.name, designation.summary()),
             Err(error) => format!("{}: {}", node.name, error.message()),
@@ -68,5 +74,19 @@ impl NeoNexusApp {
                 self.session.notice = Some(message);
             }
         }
+    }
+
+    /// The public key this node signs with, from the wallet profile assigned to
+    /// it.
+    ///
+    /// `None` when no wallet is assigned, and the difference matters: without a
+    /// key the report says how many keys hold the duty but makes no claim about
+    /// *this* node, rather than reporting it as undesignated.
+    fn node_signing_key(&self, node_id: &str) -> Option<String> {
+        let profile_id = self.repository.load_node_wallet(node_id).ok().flatten()?;
+        self.neo_wallet_profiles
+            .iter()
+            .find(|profile| profile.id == profile_id)
+            .and_then(|profile| profile.contract_public_keys.first().cloned())
     }
 }

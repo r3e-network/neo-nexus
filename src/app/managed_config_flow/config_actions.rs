@@ -65,17 +65,27 @@ fn managed_config_applied_message(
     }
 }
 
-/// The generation context for a node: the duty it is recorded as performing.
+/// The generation context for a node: the duty it is recorded as performing,
+/// and the wallet it signs with.
 ///
-/// A wallet is deliberately absent. Enabling a signing service writes a wallet
-/// password to the config file in plaintext, so it is only ever supplied by an
-/// operator through an explicit export, never inferred here.
+/// The wallet arrives by path only. Enabling a signing service writes its
+/// password to the config file in plaintext, and that password is never held in
+/// the workspace — so the exported section carries the path with an empty
+/// password and stays disabled until an operator fills it in.
 pub(in crate::app) fn generation_context_for(
     app: &NeoNexusApp,
     node: &NodeConfig,
 ) -> GenerationContext {
     GenerationContext {
         role: app.repository.load_node_role(&node.id).unwrap_or_default(),
-        wallet: None,
+        wallet: node_service_wallet(app, node),
     }
+}
+
+fn node_service_wallet(app: &NeoNexusApp, node: &NodeConfig) -> Option<ServiceWallet> {
+    let profile_id = app.repository.load_node_wallet(&node.id).ok().flatten()?;
+    app.neo_wallet_profiles
+        .iter()
+        .find(|profile| profile.id == profile_id)
+        .map(|profile| ServiceWallet::at(&profile.source_path))
 }

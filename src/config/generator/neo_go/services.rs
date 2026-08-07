@@ -5,12 +5,12 @@
 //! four are keys of `ApplicationConfiguration`, verified against
 //! `pkg/config/*.go` on nspcc-dev/neo-go.
 //!
-//! Every one of them signs with a key, so none can be switched on without a
-//! wallet: neo-go reads `UnlockWallet` as a value, not a pointer, and an
-//! enabled service with an empty path fails at startup. A node with a duty but
-//! no wallet therefore gets the section written **disabled**, which is honest —
-//! the configuration records the intent, and validation says what is missing —
-//! rather than a file that will not boot.
+//! Every one of them signs with a key, so none is switched on until the wallet
+//! can actually be unlocked: neo-go reads `UnlockWallet` as a value, not a
+//! pointer, and an enabled service with no usable password fails at startup. A
+//! node with a duty but no unlocked wallet gets the section written
+//! **disabled** — the configuration records the intent and shows where the
+//! password goes — rather than a file that will not boot.
 
 use crate::{
     config::format::{GenerationContext, ServiceWallet},
@@ -42,15 +42,19 @@ pub(super) fn services_for(context: &GenerationContext) -> NeoGoServices {
 
 fn signing_service(wallet: Option<&ServiceWallet>) -> NeoGoInternalService {
     NeoGoInternalService {
-        enabled: wallet.is_some(),
+        enabled: wallet.is_some_and(ServiceWallet::can_unlock),
         unlock_wallet: wallet.map(unlock),
     }
 }
 
+/// Writes the wallet the service will unlock. The path comes from the profile
+/// assigned to the node; the password is only present when the operator
+/// supplied one for this export, and an empty string is left in its place so
+/// the field is visible to edit rather than absent and easy to miss.
 fn unlock(wallet: &ServiceWallet) -> NeoGoWallet {
     NeoGoWallet {
         path: wallet.path.clone(),
-        password: wallet.password.clone(),
+        password: wallet.password.clone().unwrap_or_default(),
     }
 }
 
@@ -59,7 +63,7 @@ fn unlock(wallet: &ServiceWallet) -> NeoGoWallet {
 /// simply means this node broadcasts to none yet.
 fn oracle(wallet: Option<&ServiceWallet>) -> NeoGoOracle {
     NeoGoOracle {
-        enabled: wallet.is_some(),
+        enabled: wallet.is_some_and(ServiceWallet::can_unlock),
         allow_private_host: false,
         allowed_content_types: vec!["application/json".to_string()],
         nodes: Vec::new(),
