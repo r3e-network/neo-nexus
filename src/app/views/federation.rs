@@ -7,6 +7,7 @@ use super::super::{
     NeoNexusApp,
 };
 
+mod governance;
 mod inspector;
 mod profiles;
 mod section;
@@ -62,6 +63,9 @@ impl NeoNexusApp {
             }),
             FederationSection::Editor => panel(ui, "Profile editor", |ui| {
                 self.render_remote_profile_editor(ui);
+            }),
+            FederationSection::Governance => panel(ui, "Governance", |ui| {
+                self.render_governance(ui);
             }),
             FederationSection::Inspector => panel(ui, "Endpoint inspector", |ui| {
                 self.render_remote_profile_inspector(ui);

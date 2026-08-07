@@ -6,16 +6,24 @@ pub(in crate::app) enum FederationSection {
     Profiles,
     Editor,
     Inspector,
+    /// The committee, the validators, and the candidate vote.
+    Governance,
 }
 
 impl FederationSection {
-    pub(in crate::app) const ALL: [Self; 3] = [Self::Profiles, Self::Editor, Self::Inspector];
+    pub(in crate::app) const ALL: [Self; 4] = [
+        Self::Profiles,
+        Self::Editor,
+        Self::Inspector,
+        Self::Governance,
+    ];
 
     pub(in crate::app) fn label(self) -> &'static str {
         match self {
             Self::Profiles => "Profiles",
             Self::Editor => "Editor",
             Self::Inspector => "Inspector",
+            Self::Governance => "Governance",
         }
     }
 
@@ -25,6 +33,7 @@ impl FederationSection {
             Self::Profiles => "profiles",
             Self::Editor => "editor",
             Self::Inspector => "inspector",
+            Self::Governance => "governance",
         }
     }
 

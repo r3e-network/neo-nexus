@@ -42,6 +42,22 @@ const VIEWS: [&str; 6] = [
     "settings",
 ];
 
+/// Sub-tabs worth a preview of their own, as (name, view, section key, value).
+const SECTIONS: [(&str, &str, &str, &str); 2] = [
+    (
+        "chain-duties",
+        "monitor",
+        "workspace.section.monitor",
+        "chain-duties",
+    ),
+    (
+        "governance",
+        "federation",
+        "workspace.section.federation",
+        "governance",
+    ),
+];
+
 #[test]
 #[ignore]
 fn rasterize_primary_views() {
@@ -50,7 +66,29 @@ fn rasterize_primary_views() {
             render_view(view, dark);
         }
     }
+    for (name, view, key, value) in SECTIONS {
+        render_section(name, view, &[(key, value)], false);
+    }
     println!("\nInspect /tmp/neonexus_truth_<view>_<theme>.png");
+}
+
+fn render_section(name: &str, view: &str, sections: &[(&str, &str)], dark: bool) {
+    let temp = tempfile::tempdir().unwrap();
+    let repository =
+        fixture::seeded_workspace_at(&temp.path().join("neonexus.db"), dark, view, sections);
+    let mut app = NeoNexusApp::new(repository);
+    let context = egui::Context::default();
+    let raw = egui::RawInput {
+        screen_rect: Some(Rect::from_min_size(Pos2::ZERO, SCREEN)),
+        ..Default::default()
+    };
+    let frames: Vec<egui::FullOutput> = (0..3)
+        .map(|_| context.run(raw.clone(), |ctx| app.render_headless_frame(ctx)))
+        .collect();
+    let image = raster::rasterize(&context, frames, SCREEN, Color32::from_rgb(244, 241, 236));
+    let out = format!("/tmp/neonexus_truth_{name}.png");
+    image.save(std::path::Path::new(&out)).unwrap();
+    println!("===== TRUTH [{name}] -> {out} =====");
 }
 
 fn render_view(view: &str, dark: bool) {

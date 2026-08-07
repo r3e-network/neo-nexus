@@ -1,3 +1,4 @@
+mod chain_duties;
 mod filter;
 mod metrics;
 mod pressure;
@@ -35,6 +36,9 @@ impl NeoNexusApp {
             }),
             MonitorSection::Processes => panel(ui, "Managed processes", |ui| {
                 processes::render_process_metrics(self, ui);
+            }),
+            MonitorSection::ChainDuties => panel(ui, "Chain duties", |ui| {
+                self.render_chain_duties(ui);
             }),
         }
     }

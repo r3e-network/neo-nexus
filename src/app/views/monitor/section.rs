@@ -5,16 +5,24 @@ pub(in crate::app) enum MonitorSection {
     Pressure,
     Telemetry,
     Processes,
+    /// Whether the chain has granted this node the duty it is configured for.
+    ChainDuties,
 }
 
 impl MonitorSection {
-    pub(in crate::app) const ALL: [Self; 3] = [Self::Pressure, Self::Telemetry, Self::Processes];
+    pub(in crate::app) const ALL: [Self; 4] = [
+        Self::Pressure,
+        Self::Telemetry,
+        Self::Processes,
+        Self::ChainDuties,
+    ];
 
     pub(in crate::app) fn label(self) -> &'static str {
         match self {
             Self::Pressure => "Pressure",
             Self::Telemetry => "Telemetry",
             Self::Processes => "Processes",
+            Self::ChainDuties => "Chain",
         }
     }
 
@@ -24,6 +32,7 @@ impl MonitorSection {
             Self::Pressure => "pressure",
             Self::Telemetry => "telemetry",
             Self::Processes => "processes",
+            Self::ChainDuties => "chain-duties",
         }
     }
 

@@ -27,5 +27,8 @@ pub(super) const LOG_MAX_BYTES: usize = 256 * 1024;
 pub(super) const METRICS_REFRESH_INTERVAL: Duration = Duration::from_secs(2);
 pub(super) const RUNTIME_SMOKE_TIMEOUT: Duration = Duration::from_secs(3);
 pub(super) const RPC_HEALTH_TIMEOUT: Duration = Duration::from_secs(3);
+/// Chain-state reads run an `invokefunction` against a native contract, which
+/// is slower than a bare `getversion`, so they get a little more room.
+pub(super) const CHAIN_STATE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const REMOTE_FEDERATION_TIMEOUT: Duration = Duration::from_secs(3);
 pub(super) const SIGNER_ENDPOINT_HEALTH_TIMEOUT: Duration = Duration::from_secs(3);
