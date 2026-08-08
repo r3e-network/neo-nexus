@@ -10,11 +10,18 @@ use super::super::{ProcessExit, ProcessStart};
 pub(super) struct ManagedChild {
     child: Child,
     log_path: PathBuf,
+    /// The associated node identifier. For node processes this equals the
+    /// process ID; for sidecars/helpers it references the parent node.
+    node_id: String,
 }
 
 impl ManagedChild {
-    pub(super) fn new(child: Child, log_path: PathBuf) -> Self {
-        Self { child, log_path }
+    pub(super) fn new(child: Child, log_path: PathBuf, node_id: String) -> Self {
+        Self {
+            child,
+            log_path,
+            node_id,
+        }
     }
 
     pub(super) fn pid(&self) -> u32 {
@@ -48,7 +55,7 @@ impl ManagedChild {
     pub(super) fn to_exit(&self, process_id: &str, status: ExitStatus) -> ProcessExit {
         ProcessExit {
             process_id: process_id.to_string(),
-            node_id: process_id.to_string(),
+            node_id: self.node_id.clone(),
             pid: self.pid(),
             exit_code: status.code(),
         }
