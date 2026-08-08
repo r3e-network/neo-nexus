@@ -18,6 +18,18 @@ pub struct NodeBackup {
     pub plugins: Vec<PluginBackup>,
     #[serde(default)]
     pub plugin_installations: Vec<PluginInstallationBackup>,
+    /// The duty this node performs, if any.
+    ///
+    /// A backup that omitted it restored a fleet whose configs regenerate as
+    /// plain relays, while the import summary reported the nodes as fully
+    /// restored — silent, because no counter existed to come back zero.
+    /// `default` keeps backups taken before this field readable.
+    #[serde(default)]
+    pub role: Option<String>,
+    /// The wallet profile this node's signing services use, by profile id. The
+    /// password is never in the workspace, so it is not in the backup either.
+    #[serde(default)]
+    pub wallet_profile_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

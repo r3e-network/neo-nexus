@@ -11,6 +11,8 @@ pub(super) struct NodeImportCounts {
     pub(super) updated_nodes: usize,
     pub(super) plugin_state_count: usize,
     pub(super) plugin_installation_count: usize,
+    pub(super) role_count: usize,
+    pub(super) wallet_binding_count: usize,
 }
 
 impl NodeImportCounts {
@@ -20,6 +22,8 @@ impl NodeImportCounts {
             updated_nodes: 0,
             plugin_state_count: 0,
             plugin_installation_count: 0,
+            role_count: 0,
+            wallet_binding_count: 0,
         }
     }
 }
