@@ -78,7 +78,16 @@ impl ConfigExporter {
     ) -> Result<ConfigExport> {
         let rendered =
             ConfigGenerator::render_for_node_with_context(node, plugins, profile, context)?;
-        let validation = ConfigValidator::validate_rendered_with_profile(node, &rendered, profile);
+        // Validated against the SAME context it was generated with. Checking a
+        // duty-bearing config against a duty-free expectation rejects the
+        // generator's own output and writes nothing.
+        let validation = ConfigValidator::validate_text_with_context(
+            node,
+            rendered.format,
+            &rendered.text,
+            profile,
+            context,
+        );
         if !validation.is_success() {
             anyhow::bail!(
                 "generated {} config failed validation: {}",

@@ -7,12 +7,16 @@ mod storage;
 
 use crate::types::NodeConfig;
 
-use super::super::{super::format::RuntimeConfigProfile, model::ConfigValidationReport};
+use super::super::{
+    super::format::{GenerationContext, RuntimeConfigProfile},
+    model::ConfigValidationReport,
+};
 
 pub(in crate::config::validation) fn validate_neo_rs_config(
     node: &NodeConfig,
     text: &str,
     profile: Option<&RuntimeConfigProfile>,
+    context: &GenerationContext,
     report: &mut ConfigValidationReport,
 ) {
     let value: toml::Value = match toml::from_str(text) {
@@ -30,6 +34,6 @@ pub(in crate::config::validation) fn validate_neo_rs_config(
     storage::check(node, report, &value);
     p2p::check(node, profile, report, &value);
     rpc::check(node, report, &value);
-    consensus::check(node, profile, report, &value);
+    consensus::check(profile, context, report, &value);
     blockchain::check(node, report, &value);
 }

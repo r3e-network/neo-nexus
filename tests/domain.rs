@@ -37,7 +37,9 @@ use neo_nexus::{
         PrivateNetworkLaunchPackSidecarReport, PrivateNetworkLaunchPackVerifier,
     },
     repository::Repository,
-    roles::{NodeRole, PrivateNetworkPlanner, PrivateNetworkTemplate, RolePlanner},
+    roles::{
+        role_availability, NodeRole, PrivateNetworkPlanner, PrivateNetworkTemplate, RolePlanner,
+    },
     rpc_health::RpcHealthMonitorPolicy,
     runtime::{
         validate_catalog_load_request, validate_download_request, validate_https_redirect,
