@@ -6,7 +6,9 @@ mod checks;
 mod model;
 mod runtimes;
 
-use self::runtimes::{validate_neo_cli_config, validate_neo_go_config, validate_neo_rs_config};
+use self::runtimes::{
+    validate_neo_cli_config, validate_neo_go_config, validate_neo_rs_config, validate_neox_config,
+};
 
 pub use self::model::{ConfigValidationCheck, ConfigValidationReport, ConfigValidationSeverity};
 
@@ -75,6 +77,9 @@ impl ConfigValidator {
             NodeType::NeoCli => validate_neo_cli_config(node, text, profile, &mut report),
             NodeType::NeoGo => validate_neo_go_config(node, text, profile, &mut report),
             NodeType::NeoRs => validate_neo_rs_config(node, text, profile, &mut report),
+            NodeType::NeoXGeth | NodeType::NeoXReth => {
+                validate_neox_config(node, text, profile, &mut report)
+            }
         }
 
         report

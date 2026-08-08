@@ -28,6 +28,18 @@ impl RolePlanner {
                 role,
                 "neo-rs configures RPC, storage and consensus in its generated TOML.",
             ),
+            NodeType::NeoXGeth => runtime_managed_plan(
+                node_type,
+                storage_engine,
+                role,
+                "Neo X Geth configures its RPC namespaces and peering in the generated TOML; consensus membership is decided on-chain.",
+            ),
+            NodeType::NeoXReth => runtime_managed_plan(
+                node_type,
+                storage_engine,
+                role,
+                "neox-rs takes its chain and ports as launch flags; validator mode also needs --validator.experimental on the public networks.",
+            ),
         }
     }
 }

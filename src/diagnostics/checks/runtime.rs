@@ -12,6 +12,9 @@ pub(in crate::diagnostics) fn plugin_checks(
         NodeType::NeoGo => neo_go_checks(node),
         NodeType::NeoRs => neo_rs_checks(node),
         NodeType::NeoCli => neo_cli_plugin_checks(node, states),
+        // Neo X nodes load no plugin assemblies: their services are flags and
+        // config keys, so there is nothing here to check.
+        NodeType::NeoXGeth | NodeType::NeoXReth => Vec::new(),
     }
 }
 

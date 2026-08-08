@@ -78,6 +78,36 @@ pub(super) fn runtime_identity_check(
                 }
             }
         }
+        NodeType::NeoXGeth => {
+            if matches(&["geth", "neox"]) {
+                RuntimePreflightCheck {
+                    severity: PreflightSeverity::Pass,
+                    title: "Runtime identity",
+                    detail: "Command matches Neo X Geth runtime naming.".to_string(),
+                }
+            } else {
+                RuntimePreflightCheck {
+                    severity: PreflightSeverity::Warning,
+                    title: "Runtime identity",
+                    detail: "Binary name does not look like Neo X Geth.".to_string(),
+                }
+            }
+        }
+        NodeType::NeoXReth => {
+            if matches(&["neox-rs", "neox", "reth"]) {
+                RuntimePreflightCheck {
+                    severity: PreflightSeverity::Pass,
+                    title: "Runtime identity",
+                    detail: "Command matches neox-rs runtime naming.".to_string(),
+                }
+            } else {
+                RuntimePreflightCheck {
+                    severity: PreflightSeverity::Warning,
+                    title: "Runtime identity",
+                    detail: "Binary name does not look like neox-rs.".to_string(),
+                }
+            }
+        }
     }
 }
 

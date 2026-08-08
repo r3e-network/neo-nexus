@@ -111,6 +111,8 @@ fn binary_path(node_type: NodeType) -> PathBuf {
         NodeType::NeoCli => "/opt/neo/neo-cli/neo-cli",
         NodeType::NeoGo => "/opt/neo/neo-go/bin/neo-go",
         NodeType::NeoRs => "/opt/neo/neo-rs/bin/neo-rs",
+        NodeType::NeoXGeth => "/opt/neox/geth/bin/geth",
+        NodeType::NeoXReth => "/opt/neox/neox-rs/bin/neox-rs",
     })
 }
 

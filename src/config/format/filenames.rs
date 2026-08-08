@@ -15,7 +15,9 @@ pub(in crate::config) fn config_format(node_type: NodeType) -> ConfigFormat {
     match node_type {
         NodeType::NeoCli => ConfigFormat::Json,
         NodeType::NeoGo => ConfigFormat::Yaml,
-        NodeType::NeoRs => ConfigFormat::Toml,
+        // Both Neo X clients take a TOML config beside their command-line
+        // flags: neox-rs inherits Reth's, and Neo X Geth accepts geth's.
+        NodeType::NeoRs | NodeType::NeoXGeth | NodeType::NeoXReth => ConfigFormat::Toml,
     }
 }
 

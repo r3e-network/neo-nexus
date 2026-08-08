@@ -72,6 +72,8 @@ fn default_runtime_binary_path(node_type: NodeType) -> PathBuf {
         NodeType::NeoCli => PathBuf::from("neo-cli"),
         NodeType::NeoGo => PathBuf::from("neo-go"),
         NodeType::NeoRs => PathBuf::from("neo-node"),
+        NodeType::NeoXGeth => PathBuf::from("geth"),
+        NodeType::NeoXReth => PathBuf::from("neox-rs"),
     }
 }
 

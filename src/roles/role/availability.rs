@@ -16,6 +16,10 @@
 //!   `neo-oracle-service` crate, the daemon uses it only to recognise oracle
 //!   response transactions when validating a block proposal; no `[oracle]`
 //!   config section exists, so an operator cannot run one.
+//! - **Neo X has no designated duties at all.** Oracle, StateValidator and
+//!   P2PNotary are `RoleManagement` designations on a Neo N3 native contract.
+//!   Neo X is an EVM sidechain: that contract does not exist there, and neither
+//!   do the services behind it.
 
 use crate::types::NodeType;
 
@@ -53,6 +57,7 @@ pub fn role_availability(node_type: NodeType, role: NodeRole) -> RoleAvailabilit
         NodeType::NeoCli => neo_cli(role),
         NodeType::NeoGo => neo_go(role),
         NodeType::NeoRs => neo_rs(role),
+        NodeType::NeoXGeth | NodeType::NeoXReth => neox(role),
     }
 }
 
@@ -104,6 +109,34 @@ fn neo_rs(role: NodeRole) -> RoleAvailability {
              transactions when validating blocks, but cannot answer oracle requests.",
         ),
         NodeRole::Notary => RoleAvailability::Unsupported("neo-rs has no P2P notary service."),
+    }
+}
+
+/// Both Neo X clients answer the same way: the differences between Geth and
+/// neox-rs are in how a duty is switched on, not in which duties exist.
+fn neox(role: NodeRole) -> RoleAvailability {
+    match role {
+        // The EVM JSON-RPC surface covers all four: `eth_getProof` serves state
+        // proofs and `eth_getLogs` serves the receipt index, so neither needs a
+        // service of its own the way Neo N3 does.
+        NodeRole::RpcApi | NodeRole::State | NodeRole::Indexer | NodeRole::Observer => {
+            RoleAvailability::Supported
+        }
+        // Both clients ship dBFT block production, keyed by an ECDSA signing
+        // key and a DKG share. Membership is decided on-chain, not by config.
+        NodeRole::Consensus => RoleAvailability::Supported,
+        NodeRole::Oracle => RoleAvailability::Unsupported(
+            "Neo X has no oracle service: the Oracle designation lives on the Neo N3 \
+             RoleManagement native contract, which an EVM sidechain does not have.",
+        ),
+        NodeRole::StateValidator => RoleAvailability::Unsupported(
+            "Neo X needs no state-root signers: every EVM block header already commits to the \
+             state root, so there is nothing separate to sign or publish.",
+        ),
+        NodeRole::Notary => RoleAvailability::Unsupported(
+            "Neo X has no P2P notary service: the P2PNotaryRequest payload is a Neo N3 \
+             protocol message with no EVM equivalent.",
+        ),
     }
 }
 

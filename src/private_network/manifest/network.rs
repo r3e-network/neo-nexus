@@ -8,6 +8,11 @@ pub(in crate::private_network) fn deployment_network_magic(
         NodeType::NeoCli => 100,
         NodeType::NeoGo => 200,
         NodeType::NeoRs => 300,
+        // Neo X private networks are not planned by this template: they need a
+        // genesis allocation, not a committee roster. The offsets exist so the
+        // match stays exhaustive.
+        NodeType::NeoXGeth => 400,
+        NodeType::NeoXReth => 500,
     };
     let template_offset = match template {
         PrivateNetworkTemplate::SingleValidator => 1,

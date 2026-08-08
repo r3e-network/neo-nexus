@@ -17,6 +17,8 @@ pub(super) fn output_contains_runtime_identity(node_type: NodeType, output: &str
                 || normalized.contains("neo-rs")
                 || normalized.contains("neo node")
         }
+        NodeType::NeoXGeth => normalized.contains("geth") || normalized.contains("neox"),
+        NodeType::NeoXReth => normalized.contains("neox-rs") || normalized.contains("reth"),
     }
 }
 
