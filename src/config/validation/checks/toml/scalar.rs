@@ -54,7 +54,7 @@ pub(in crate::config::validation) fn check_toml_u16(
     expected: u16,
     title: &'static str,
 ) {
-    check_toml_u64(report, value, path, expected as u64, title);
+    check_toml_u64_eq(report, value, path, u64::from(expected), title);
 }
 
 pub(in crate::config::validation) fn check_toml_u32(
@@ -64,10 +64,10 @@ pub(in crate::config::validation) fn check_toml_u32(
     expected: u32,
     title: &'static str,
 ) {
-    check_toml_u64(report, value, path, expected as u64, title);
+    check_toml_u64_eq(report, value, path, u64::from(expected), title);
 }
 
-fn check_toml_u64(
+pub(in crate::config::validation) fn check_toml_u64_eq(
     report: &mut ConfigValidationReport,
     value: &toml::Value,
     path: &[&str],

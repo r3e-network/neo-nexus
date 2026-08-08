@@ -4,7 +4,8 @@ pub fn runtime_args_include_config(node_type: NodeType, args: &[String]) -> bool
     match node_type {
         NodeType::NeoCli => false,
         NodeType::NeoGo => has_neo_go_config_arg(args),
-        NodeType::NeoRs => has_neo_rs_config_arg(args),
+        // Both Neo X clients spell it `--config`, the same way neo-rs does.
+        NodeType::NeoRs | NodeType::NeoXGeth | NodeType::NeoXReth => has_neo_rs_config_arg(args),
     }
 }
 

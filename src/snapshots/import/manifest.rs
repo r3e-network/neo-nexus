@@ -77,5 +77,7 @@ fn runtime_import_profile(node: &NodeConfig) -> &'static str {
         NodeType::NeoCli => "neo-cli managed chain data",
         NodeType::NeoGo => "neo-go managed chain data",
         NodeType::NeoRs => "neo-rs [storage].data_dir RocksDB data",
+        NodeType::NeoXGeth => "Neo X Geth --datadir chain data",
+        NodeType::NeoXReth => "neox-rs --datadir chain data",
     }
 }

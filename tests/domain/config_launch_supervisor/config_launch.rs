@@ -8,5 +8,7 @@ mod launch;
 mod neo_cli_schema;
 #[path = "config_launch/neo_go_schema.rs"]
 mod neo_go_schema;
+#[path = "config_launch/neox_schema.rs"]
+mod neox_schema;
 #[path = "config_launch/validation.rs"]
 mod validation;

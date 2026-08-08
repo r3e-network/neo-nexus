@@ -8,7 +8,7 @@ use crate::{
 
 use super::{
     config_args::{has_neo_go_config_arg, has_neo_rs_config_arg},
-    LaunchPlan,
+    neox, LaunchPlan,
 };
 
 pub struct LaunchPlanner;
@@ -26,6 +26,13 @@ impl LaunchPlanner {
             NodeType::NeoRs => neo_rs_managed_config_path(&mut args, managed_config_path),
             NodeType::NeoGo => neo_go_managed_config_path(&mut args, managed_config_path),
             NodeType::NeoCli => Some(managed_config_path),
+            // Neither Neo X client can be launched from its config file
+            // alone: see `super::neox` for what each one keeps on the command
+            // line, and what it silently defaults to without these flags.
+            NodeType::NeoXGeth => neox::geth_args(&mut args, &working_dir, managed_config_path),
+            NodeType::NeoXReth => {
+                neox::reth_args(node, &mut args, &working_dir, managed_config_path)
+            }
         };
         let display_command = format_command(&node.binary_path, &redact_sensitive_args(&args));
 

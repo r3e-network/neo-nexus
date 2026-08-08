@@ -43,6 +43,16 @@ pub(in crate::diagnostics) fn managed_config_checks(
             NodeType::NeoRs => {
                 "NeoNexus will inject generated TOML config with --config at launch.".to_string()
             }
+            NodeType::NeoXGeth => {
+                "NeoNexus will inject generated TOML config with --config at launch; the data \
+                 directory must be initialised from the published Neo X genesis first."
+                    .to_string()
+            }
+            NodeType::NeoXReth => {
+                "NeoNexus will inject generated TOML config with --config at launch; the chain \
+                 and every port are launch flags for this client."
+                    .to_string()
+            }
         },
     };
 

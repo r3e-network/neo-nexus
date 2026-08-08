@@ -23,6 +23,9 @@ impl ConfigGenerator {
             NodeType::NeoCli => Self::neo_cli_with_profile(node, plugins, profile),
             NodeType::NeoGo => anyhow::bail!("neo-go configuration is YAML, not JSON"),
             NodeType::NeoRs => anyhow::bail!("neo-rs configuration is TOML, not JSON"),
+            NodeType::NeoXGeth | NodeType::NeoXReth => {
+                anyhow::bail!("Neo X configuration is TOML, not JSON")
+            }
         }
     }
 
@@ -83,6 +86,13 @@ impl ConfigGenerator {
             NodeType::NeoRs => Ok(RenderedConfig {
                 format: ConfigFormat::Toml,
                 text: Self::neo_rs_toml_with_context(node, profile, context)?,
+            }),
+            // Neo X has no duty-driven service sections: consensus membership
+            // is decided on-chain by the governance contract, not by a config
+            // key, so the generation context has nothing to switch on.
+            NodeType::NeoXGeth | NodeType::NeoXReth => Ok(RenderedConfig {
+                format: ConfigFormat::Toml,
+                text: Self::neox_toml(node, profile)?,
             }),
         }
     }

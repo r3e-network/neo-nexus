@@ -35,6 +35,24 @@ pub(super) fn runtime_probe_args(
                 appended_many(&base_args, &["node", "--help"]),
             ]
         }
+        // Neo X Geth answers `geth version`; neox-rs inherits Reth's `--version`
+        // and puts everything else behind the `node` subcommand.
+        NodeType::NeoXGeth => {
+            let base_args = runtime_wrapper_base_args(binary_path, node_args);
+            vec![
+                appended(&base_args, "version"),
+                appended(&base_args, "--version"),
+                appended(&base_args, "--help"),
+            ]
+        }
+        NodeType::NeoXReth => {
+            let base_args = runtime_wrapper_base_args(binary_path, node_args);
+            vec![
+                appended(&base_args, "--version"),
+                appended_many(&base_args, &["node", "--help"]),
+                appended(&base_args, "--help"),
+            ]
+        }
     }
 }
 

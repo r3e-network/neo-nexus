@@ -28,7 +28,7 @@ impl ConfigExporter {
         let node_work_dir = node_work_dir.as_ref();
         match node.node_type {
             NodeType::NeoCli => node_work_dir.join("config.json"),
-            NodeType::NeoGo | NodeType::NeoRs => {
+            NodeType::NeoGo | NodeType::NeoRs | NodeType::NeoXGeth | NodeType::NeoXReth => {
                 node_work_dir.join("config").join(config_filename(node))
             }
         }

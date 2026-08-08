@@ -1,5 +1,6 @@
 mod config_args;
 mod model;
+mod neox;
 mod planner;
 
 pub use config_args::runtime_args_include_config;
