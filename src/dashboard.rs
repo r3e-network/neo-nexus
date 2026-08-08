@@ -40,11 +40,10 @@ impl DashboardSummary {
             }
         }
 
-        let health_percent = if total_nodes == 0 {
-            100
-        } else {
-            (running_nodes * 100) / total_nodes
-        };
+        // An empty fleet is fully healthy: there is nothing unhealthy in it.
+        let health_percent = (running_nodes * 100)
+            .checked_div(total_nodes)
+            .unwrap_or(100);
 
         Ok(Self {
             total_nodes,

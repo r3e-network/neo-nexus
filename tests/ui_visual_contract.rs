@@ -68,7 +68,7 @@ fn dark_theme_background_tiers_are_clearly_separated() {
     // The three tiers must each be among the most-painted colours. Sort by area
     // and take the distinct luminances of the top fills.
     let mut by_area: Vec<((u8, u8, u8), i32)> = tiers.into_iter().collect();
-    by_area.sort_by(|a, b| b.1.cmp(&a.1));
+    by_area.sort_by_key(|(_, area)| std::cmp::Reverse(*area));
 
     let luminances: Vec<i32> = by_area
         .iter()

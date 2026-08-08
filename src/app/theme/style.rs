@@ -33,8 +33,8 @@ pub(in crate::app) fn configure_style_with_density(
     // pre-blended wash is the same tint the sidebar and list rows use, so all
     // selection in the workbench now reads as one quiet highlight.
     visuals.selection.bg_fill = palette.accent_wash;
-    visuals.selection.stroke = egui::Stroke::new(1.0, palette.border_strong);
-    visuals.window_stroke = egui::Stroke::new(1.0, palette.border);
+    visuals.selection.stroke = egui::Stroke::new(1.0_f32, palette.border_strong);
+    visuals.window_stroke = egui::Stroke::new(1.0_f32, palette.border);
 
     let rounding = egui::CornerRadius::same(9);
     visuals.window_corner_radius = egui::CornerRadius::same(14);
@@ -49,20 +49,20 @@ pub(in crate::app) fn configure_style_with_density(
     visuals.widgets.noninteractive.corner_radius = rounding;
     visuals.widgets.noninteractive.bg_fill = palette.card_fill;
     visuals.widgets.noninteractive.weak_bg_fill = palette.card_fill;
-    visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, palette.border);
-    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, palette.muted_text);
+    visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0_f32, palette.border);
+    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0_f32, palette.muted_text);
 
     visuals.widgets.inactive.corner_radius = rounding;
     visuals.widgets.inactive.bg_fill = palette.card_fill;
     visuals.widgets.inactive.weak_bg_fill = palette.card_fill;
-    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, palette.border);
-    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, palette.text);
+    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0_f32, palette.border);
+    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0_f32, palette.text);
 
     visuals.widgets.hovered.corner_radius = rounding;
     visuals.widgets.hovered.bg_fill = palette.faint_fill;
     visuals.widgets.hovered.weak_bg_fill = palette.faint_fill;
-    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, palette.border_strong);
-    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, palette.text);
+    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0_f32, palette.border_strong);
+    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0_f32, palette.text);
 
     // `active` is the pressed state — and, critically, the source egui reads for
     // `Visuals::strong_text_color()`. Filling it with the accent used to make
@@ -73,14 +73,14 @@ pub(in crate::app) fn configure_style_with_density(
     visuals.widgets.active.corner_radius = rounding;
     visuals.widgets.active.bg_fill = palette.accent_wash;
     visuals.widgets.active.weak_bg_fill = palette.accent_wash;
-    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, palette.accent);
-    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, palette.text);
+    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0_f32, palette.accent);
+    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0_f32, palette.text);
 
     visuals.widgets.open.corner_radius = rounding;
     visuals.widgets.open.bg_fill = palette.faint_fill;
     visuals.widgets.open.weak_bg_fill = palette.faint_fill;
-    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0, palette.border_strong);
-    visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, palette.text);
+    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0_f32, palette.border_strong);
+    visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0_f32, palette.text);
 
     style.spacing.item_spacing = egui::vec2(metrics.item_spacing_x, metrics.item_spacing_y);
     style.spacing.button_padding = egui::vec2(metrics.button_pad_x, metrics.button_pad_y);

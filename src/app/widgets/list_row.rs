@@ -27,7 +27,7 @@ pub(in crate::app) fn list_row_frame(
         card_surface()
     };
     let stroke = if selected {
-        egui::Stroke::new(1.0, theme::accent())
+        egui::Stroke::new(1.0_f32, theme::accent())
     } else {
         theme::hairline()
     };
