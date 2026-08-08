@@ -1,11 +1,12 @@
 use anyhow::{Context, Result};
-use serde::Serialize;
 
 use crate::types::{NodeConfig, StorageEngine};
 
+use crate::roles::NodeRole;
+
 use super::super::format::{
-    broadcast_history_limit, effective_committee_public_keys, effective_network_magic,
-    effective_seed_nodes, max_transactions_per_block, RuntimeConfigProfile,
+    broadcast_history_limit, effective_network_magic, effective_seed_nodes,
+    max_transactions_per_block, GenerationContext, RuntimeConfigProfile,
 };
 use super::ConfigGenerator;
 
@@ -18,9 +19,23 @@ impl ConfigGenerator {
         node: &NodeConfig,
         profile: Option<&RuntimeConfigProfile>,
     ) -> Result<String> {
+        Self::neo_rs_toml_with_context(node, profile, &GenerationContext::default())
+    }
+
+    pub fn neo_rs_toml_with_context(
+        node: &NodeConfig,
+        profile: Option<&RuntimeConfigProfile>,
+        context: &GenerationContext,
+    ) -> Result<String> {
         if node.storage_engine != StorageEngine::RocksDb {
             anyhow::bail!("neo-rs requires RocksDB storage in NeoNexus");
         }
+
+        // A duty decides which service sections the node runs. Consensus can
+        // also come from a private-network profile, which predates duties.
+        let consensus = matches!(context.role, Some(NodeRole::Consensus))
+            || profile.is_some_and(|profile| profile.consensus_enabled);
+        let indexing = matches!(context.role, Some(NodeRole::Indexer));
 
         let config = NeoRsConfig {
             network: NeoRsNetworkConfig {
@@ -49,9 +64,34 @@ impl ConfigGenerator {
                 bind_address: "127.0.0.1".to_string(),
             },
             consensus: NeoRsConsensusConfig {
-                enabled: profile.is_some_and(|profile| profile.consensus_enabled),
-                auto_start: profile.is_some_and(|profile| profile.consensus_enabled),
-                validators: effective_committee_public_keys(node.network, profile),
+                enabled: consensus,
+                auto_start: consensus,
+            },
+            state_service: NeoRsStateServiceConfig {
+                enabled: matches!(context.role, Some(NodeRole::State)),
+                full_state: matches!(context.role, Some(NodeRole::State)),
+                track_during_catchup: false,
+                path: format!("./data/{}/state-root", node.network),
+            },
+            indexer: NeoRsIndexerConfig {
+                enabled: indexing,
+                backfill_on_startup: indexing,
+                store_path: format!("./data/{}/indexer", node.network),
+            },
+            application_logs: NeoRsApplicationLogsConfig {
+                enabled: indexing,
+                path: format!("./data/{}/application-logs", node.network),
+                max_stack_size: 65_535,
+                debug: false,
+                exception_policy: "Ignore".to_string(),
+            },
+            tokens_tracker: NeoRsTokensTrackerConfig {
+                enabled: indexing,
+                db_path: format!("./data/{}/tokens", node.network),
+                track_history: true,
+                max_results: 1000,
+                enabled_trackers: vec!["NEP-17".to_string(), "NEP-11".to_string()],
+                exception_policy: "StopPlugin".to_string(),
             },
             blockchain: NeoRsBlockchainConfig {
                 block_time: 15_000,
@@ -63,58 +103,6 @@ impl ConfigGenerator {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-struct NeoRsConfig {
-    network: NeoRsNetworkConfig,
-    storage: NeoRsStorageConfig,
-    p2p: NeoRsP2pConfig,
-    rpc: NeoRsRpcConfig,
-    consensus: NeoRsConsensusConfig,
-    blockchain: NeoRsBlockchainConfig,
-}
+mod model;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-struct NeoRsNetworkConfig {
-    network_type: String,
-    network_magic: u32,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-struct NeoRsStorageConfig {
-    backend: String,
-    data_dir: String,
-    read_only: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-struct NeoRsP2pConfig {
-    port: u16,
-    bind_address: String,
-    max_connections: i64,
-    min_desired_connections: usize,
-    max_connections_per_address: usize,
-    max_known_hashes: usize,
-    seed_nodes: Vec<String>,
-    enable_compression: bool,
-    broadcast_history_limit: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-struct NeoRsRpcConfig {
-    enabled: bool,
-    port: u16,
-    bind_address: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-struct NeoRsConsensusConfig {
-    enabled: bool,
-    auto_start: bool,
-    validators: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-struct NeoRsBlockchainConfig {
-    block_time: u32,
-    max_transactions_per_block: u32,
-}
+use model::*;

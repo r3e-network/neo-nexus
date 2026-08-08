@@ -8,10 +8,14 @@
 //!   payload and no notary module, so no amount of configuration makes neo-cli
 //!   serve notary requests. (The Notary *contract* is on-chain and visible to
 //!   every client; running the *service* is not.)
-//! - **neo-rs is unverified.** No part of this work established what neo-rs
-//!   supports, and it must not inherit neo-go's answers by sharing a code path
-//!   with it. Everything beyond the roles its existing TOML already models is
-//!   reported as unverified rather than guessed at.
+//! - **neo-rs serves state but does not sign it, and cannot be an oracle.**
+//!   Its daemon config (`neo-node/src/node/config.rs` in r3e-network/neo-rs)
+//!   has a `[state_service]` section for tracking and serving state roots, but
+//!   the only signing key it accepts anywhere is `[consensus] private_key_hex`
+//!   — there is no state-root witness path. And while the workspace contains a
+//!   `neo-oracle-service` crate, the daemon uses it only to recognise oracle
+//!   response transactions when validating a block proposal; no `[oracle]`
+//!   config section exists, so an operator cannot run one.
 
 use crate::types::NodeType;
 
@@ -83,17 +87,23 @@ fn neo_go(role: NodeRole) -> RoleAvailability {
 
 fn neo_rs(role: NodeRole) -> RoleAvailability {
     match role {
-        // These are the postures the existing neo-rs TOML generator already
-        // models, so they are known to be expressible.
-        NodeRole::RpcApi | NodeRole::Consensus | NodeRole::Observer => RoleAvailability::Supported,
-        NodeRole::State
+        // Each of these has a section in the daemon's TOML config: [rpc],
+        // [consensus], [state_service], and the [indexer] / [application_logs]
+        // / [tokens_tracker] trio.
+        NodeRole::RpcApi
+        | NodeRole::Consensus
+        | NodeRole::State
         | NodeRole::Indexer
-        | NodeRole::Oracle
-        | NodeRole::StateValidator
-        | NodeRole::Notary => RoleAvailability::Unverified(
-            "neo-rs support for this duty has not been established; NeoNexus will not \
-             generate configuration it cannot verify the node reads.",
+        | NodeRole::Observer => RoleAvailability::Supported,
+        NodeRole::StateValidator => RoleAvailability::Unsupported(
+            "neo-rs tracks and serves state roots but does not sign them: the only signing \
+             key its daemon accepts is the consensus key.",
         ),
+        NodeRole::Oracle => RoleAvailability::Unsupported(
+            "neo-rs has no oracle configuration: its daemon recognises oracle response \
+             transactions when validating blocks, but cannot answer oracle requests.",
+        ),
+        NodeRole::Notary => RoleAvailability::Unsupported("neo-rs has no P2P notary service."),
     }
 }
 

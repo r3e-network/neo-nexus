@@ -182,11 +182,11 @@ fn config_generator_applies_private_network_runtime_profile() {
         rs_config["p2p"]["seed_nodes"][0].as_str(),
         Some("127.0.0.1:30333")
     );
-    assert_eq!(
-        rs_config["consensus"]["validators"][2].as_str(),
-        Some(committee_public_key("02", 'c').as_str())
-    );
     assert_eq!(rs_config["consensus"]["enabled"].as_bool(), Some(true));
+    // neo-rs takes its validator set from the protocol preset, not from the
+    // config file: `[consensus]` has no `validators` field, and the list we
+    // used to write was silently discarded.
+    assert!(rs_config["consensus"].get("validators").is_none());
 
     let rs_report =
         ConfigValidator::validate_rendered_with_profile(&neo_rs, &rs_rendered, Some(&profile));

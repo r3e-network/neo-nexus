@@ -69,8 +69,14 @@ fn config_validator_rejects_tampered_neo_rs_p2p_operational_limits() {
     }
 }
 
+/// Tampering with a generated config must be caught.
+///
+/// This used to edit a committee key inside `[consensus] validators`. neo-rs
+/// has no such field — the list was written and silently discarded — so the
+/// check now targets the network magic, which the node genuinely reads and
+/// which decides the chain it joins.
 #[test]
-fn config_validator_rejects_tampered_neo_rs_consensus_validator_keys() {
+fn config_validator_rejects_a_tampered_neo_rs_network_magic() {
     let first_key = committee_public_key("02", 'a');
     let second_key = committee_public_key("03", 'b');
     let profile = RuntimeConfigProfile {
@@ -98,9 +104,8 @@ fn config_validator_rejects_tampered_neo_rs_consensus_validator_keys() {
         .unwrap();
     let rendered =
         ConfigGenerator::render_for_node_with_profile(&neo_rs, &[], Some(&profile)).unwrap();
-    let tampered = rendered
-        .text
-        .replace(&first_key, &committee_public_key("02", 'f'));
+    let tampered = rendered.text.replace("1230405", "1230406");
+    assert_ne!(tampered, rendered.text, "the magic should have been edited");
 
     let report = ConfigValidator::validate_text_with_profile(
         &neo_rs,
@@ -112,7 +117,6 @@ fn config_validator_rejects_tampered_neo_rs_consensus_validator_keys() {
     assert!(!report.is_success());
     assert_eq!(report.status_label(), "invalid");
     assert!(report.checks.iter().any(|check| {
-        check.title == "Consensus validator keys"
-            && check.severity == ConfigValidationSeverity::Critical
+        check.title == "Network magic" && check.severity == ConfigValidationSeverity::Critical
     }));
 }
