@@ -25,7 +25,8 @@ ui-contracts:
 	cargo test --test ui_geometry --test ui_overflow --test ui_typography \
 	          --test ui_visual_contract --test ui_density_geometry \
 	          --test ui_empty_states --test ui_error_states \
-	          --test ui_keyboard --test ui_operator_walkthrough
+	          --test ui_keyboard --test ui_operator_walkthrough \
+	          --test ui_pagination_reach
 
 build:
 	cargo build

@@ -28,7 +28,7 @@ fn workspace_integrity_cli_reports_healthy_database() -> Result<()> {
     assert_eq!(exit_code, 0);
     assert!(text.contains("workspace-integrity: ok"));
     assert!(text.contains("integrity-check: ok"));
-    assert!(text.contains("tables: 14/14"));
+    assert!(text.contains("tables: 16/16"));
     assert!(text.contains("indexes: 5/5"));
     assert!(text.contains("foreign-key-violations: 0"));
     assert!(text.contains("rows: nodes | 1"));
@@ -64,7 +64,7 @@ fn workspace_integrity_json_cli_reports_foreign_key_failure() -> Result<()> {
     assert_eq!(value["integrity_check"][0], "ok");
     assert_eq!(value["foreign_key_violations"][0]["table"], "plugin_states");
     assert_eq!(value["foreign_key_violations"][0]["parent_table"], "nodes");
-    assert_eq!(value["required_tables"].as_array().map(Vec::len), Some(14));
+    assert_eq!(value["required_tables"].as_array().map(Vec::len), Some(16));
     assert_eq!(value["required_indexes"].as_array().map(Vec::len), Some(5));
     Ok(())
 }

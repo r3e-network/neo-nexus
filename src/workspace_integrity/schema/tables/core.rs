@@ -23,6 +23,19 @@ pub(super) const CORE_TABLES: &[RequiredTable] = &[
         name: "plugin_states",
         columns: &["node_id", "plugin_id", "enabled"],
     },
+    // The duty a node performs and the wallet its signing services use. Both
+    // decide which sections a generated config carries, so a workspace missing
+    // them is not structurally sound — it is one whose fleet will regenerate as
+    // plain relays. They self-heal on the next open, which is why their absence
+    // is worth reporting rather than fatal.
+    RequiredTable {
+        name: "node_roles",
+        columns: &["node_id", "role"],
+    },
+    RequiredTable {
+        name: "node_wallets",
+        columns: &["node_id", "wallet_profile_id"],
+    },
     RequiredTable {
         name: "plugin_installations",
         columns: &[
