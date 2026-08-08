@@ -38,7 +38,7 @@ pub(super) use controls::{
 pub(super) use divider::{hr, hr_tight, vr};
 pub(super) use filter_bar::{filter_bar, filter_chip};
 #[allow(unused_imports)]
-pub(super) use form::{field_combo, field_text, form_group, form_section};
+pub(super) use form::{field_combo, field_static, field_text, form_group, form_section};
 #[allow(unused_imports)] // adopted surface-by-surface across the six hand-rolled insets
 pub(super) use inset_card::inset_card;
 #[allow(unused_imports)]

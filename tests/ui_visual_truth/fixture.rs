@@ -18,7 +18,7 @@ struct DemoNode {
     p2p_port: u16,
 }
 
-const DEMO_NODES: [DemoNode; 5] = [
+const DEMO_NODES: [DemoNode; 7] = [
     DemoNode {
         name: "mainnet-consensus-01",
         node_type: NodeType::NeoCli,
@@ -50,6 +50,24 @@ const DEMO_NODES: [DemoNode; 5] = [
         runtime_version: "0.4.1",
         rpc_port: 20334,
         p2p_port: 20335,
+    },
+    // One node per Neo X client, so every surface is rendered with both chain
+    // families present rather than only the Neo N3 one.
+    DemoNode {
+        name: "neox-mainnet-rpc",
+        node_type: NodeType::NeoXGeth,
+        network: Network::Mainnet,
+        runtime_version: "1.2.0",
+        rpc_port: 18332,
+        p2p_port: 18333,
+    },
+    DemoNode {
+        name: "neox-testnet-validator",
+        node_type: NodeType::NeoXReth,
+        network: Network::Testnet,
+        runtime_version: "0.9.2",
+        rpc_port: 18334,
+        p2p_port: 18335,
     },
     DemoNode {
         name: "private-committee-a",

@@ -48,6 +48,27 @@ pub(in crate::app) fn field_combo(
     });
 }
 
+/// A field slot whose value the operator cannot change.
+///
+/// Same caption, same height, same vertical rhythm as the editable fields
+/// beside it — the difference is meant to read as "fixed by the runtime", not
+/// as a field that failed to render.
+pub(in crate::app) fn field_static(ui: &mut egui::Ui, label: &str, value: &str) {
+    ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing.y = 0.0;
+        ui.label(theme::label_caption(label));
+        ui.add_space(LABEL_GAP);
+        ui.allocate_ui(
+            egui::vec2(ui.available_width().max(120.0), FIELD_HEIGHT),
+            |ui| {
+                ui.horizontal_centered(|ui| {
+                    ui.label(egui::RichText::new(value).color(theme::muted_text()));
+                });
+            },
+        );
+    });
+}
+
 /// Card section with a title and optional footer action area.
 #[allow(dead_code)]
 pub(in crate::app) fn form_section(

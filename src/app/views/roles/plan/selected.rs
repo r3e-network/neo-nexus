@@ -17,7 +17,11 @@ impl NeoNexusApp {
 
         fact(ui, "Role", plan.role.label());
         fact(ui, "Runtime", &plan.node_type.to_string());
-        fact(ui, "Storage", &plan.storage_engine.to_string());
+        fact(
+            ui,
+            "Storage",
+            &plan.node_type.storage_label(plan.storage_engine),
+        );
         ui.separator();
 
         if plan.plugin_changes.is_empty() {

@@ -12,7 +12,7 @@ use eframe::egui;
 use crate::app::{
     domain::{ChainFamily, Network, NodeType, StorageEngine},
     theme,
-    widgets::{field_combo, field_text},
+    widgets::{field_combo, field_static, field_text},
     NeoNexusApp,
 };
 
@@ -86,10 +86,11 @@ fn storage(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         .collect();
 
     if node_type.family() == ChainFamily::NeoX || choices.len() < 2 {
-        ui.horizontal(|ui| {
-            ui.label(egui::RichText::new("Storage").color(theme::muted_text()));
-            ui.label(embedded_store_label(node_type));
-        });
+        field_static(
+            ui,
+            "Storage",
+            &node_type.storage_label(app.fleet.draft.storage_engine),
+        );
         return;
     }
 
@@ -108,16 +109,6 @@ fn storage(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
             }
         },
     );
-}
-
-/// What the client actually stores its chain in, when that is fixed.
-fn embedded_store_label(node_type: NodeType) -> &'static str {
-    match node_type {
-        NodeType::NeoXGeth => "Pebble (built in)",
-        NodeType::NeoXReth => "MDBX (built in)",
-        NodeType::NeoGo => "LevelDB",
-        NodeType::NeoCli | NodeType::NeoRs => "RocksDB",
-    }
 }
 
 /// The endpoints this node listens on.
