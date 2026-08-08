@@ -30,31 +30,55 @@ fn the_notary_service_is_neo_go_only() {
     assert!(role_availability(NodeType::NeoGo, NodeRole::Notary).is_supported());
 }
 
-/// neo-rs was never researched. Its unknown duties must report as unverified —
-/// a gap we own — rather than borrowing neo-go's answers.
+/// Verified against the daemon's own TOML config struct: each of these has a
+/// section it reads.
 #[test]
-fn unresearched_neo_rs_duties_are_unverified_not_unsupported() {
+fn neo_rs_supports_the_duties_its_config_has_sections_for() {
     for role in [
+        NodeRole::RpcApi,
+        NodeRole::Consensus,
         NodeRole::State,
         NodeRole::Indexer,
-        NodeRole::Oracle,
-        NodeRole::StateValidator,
-        NodeRole::Notary,
+        NodeRole::Observer,
     ] {
         assert!(
-            matches!(
-                role_availability(NodeType::NeoRs, role),
-                RoleAvailability::Unverified(_)
-            ),
-            "{role} on neo-rs must be reported as unverified",
+            role_availability(NodeType::NeoRs, role).is_supported(),
+            "{role} has a neo-rs config section and must be offered",
         );
     }
 }
 
+/// These are facts about the client, established by reading it — not gaps in
+/// what we know. neo-rs serves state roots without signing them, and holds an
+/// oracle crate it uses only to validate other nodes' oracle responses.
 #[test]
-fn the_duties_neo_rs_already_models_stay_available() {
-    for role in [NodeRole::RpcApi, NodeRole::Consensus, NodeRole::Observer] {
-        assert!(role_availability(NodeType::NeoRs, role).is_supported());
+fn neo_rs_duties_it_cannot_perform_are_unsupported_with_a_reason() {
+    for role in [NodeRole::StateValidator, NodeRole::Oracle, NodeRole::Notary] {
+        let availability = role_availability(NodeType::NeoRs, role);
+        assert!(
+            matches!(availability, RoleAvailability::Unsupported(_)),
+            "{role} on neo-rs is a known limitation, not an unknown",
+        );
+        assert!(availability
+            .reason()
+            .is_some_and(|reason| !reason.is_empty()));
+    }
+}
+
+/// Nothing is left unverified now that every client has been read. The variant
+/// stays for the next client added before anyone has read it.
+#[test]
+fn no_cell_of_the_matrix_is_still_unverified() {
+    for node_type in NodeType::ALL {
+        for role in NodeRole::ALL {
+            assert!(
+                !matches!(
+                    role_availability(node_type, role),
+                    RoleAvailability::Unverified(_)
+                ),
+                "{node_type}/{role} is still unverified",
+            );
+        }
     }
 }
 

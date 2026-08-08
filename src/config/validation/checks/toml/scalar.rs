@@ -94,3 +94,23 @@ fn check_toml_u64(
         ),
     }
 }
+
+/// Asserts a key is **not** present. Used for fields a generated config must
+/// never carry, such as a plaintext private key.
+pub(in crate::config::validation) fn check_toml_absent(
+    report: &mut ConfigValidationReport,
+    value: &toml::Value,
+    path: &[&str],
+    title: &'static str,
+) {
+    match toml_path(value, path) {
+        Some(_) => report.critical(
+            title,
+            format!(
+                "{} must not be written to a generated config.",
+                dotted_path(path)
+            ),
+        ),
+        None => report.pass(title, format!("{} is absent.", dotted_path(path))),
+    }
+}

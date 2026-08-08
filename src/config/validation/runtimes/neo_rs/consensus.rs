@@ -1,15 +1,20 @@
 use crate::types::NodeConfig;
 
 use super::super::super::{
-    super::format::{
-        effective_committee_public_keys, effective_validators_count, RuntimeConfigProfile,
-    },
-    checks::*,
-    model::ConfigValidationReport,
+    super::format::RuntimeConfigProfile, checks::*, model::ConfigValidationReport,
 };
 
+/// `[consensus]` (which the daemon also accepts as `[dbft]`) takes `enabled`,
+/// `auto_start`, `private_key_hex` and an optional HSM block — and nothing
+/// else.
+///
+/// This used to assert a `validators` array. neo-rs has no such field, and
+/// because it ignores unknown keys rather than rejecting them the check passed
+/// on a list the node silently discarded: the committee's public keys were
+/// written into a file that never read them. The validator set comes from the
+/// protocol preset; the only key this node contributes is its own.
 pub(super) fn check(
-    node: &NodeConfig,
+    _node: &NodeConfig,
     profile: Option<&RuntimeConfigProfile>,
     report: &mut ConfigValidationReport,
     value: &toml::Value,
@@ -29,29 +34,11 @@ pub(super) fn check(
         consensus_expected,
         "Consensus auto start",
     );
-
-    let expected_keys = effective_committee_public_keys(node.network, profile);
-    let expected_validators = if profile.is_some() {
-        expected_keys.len().max(if consensus_expected {
-            effective_validators_count(node.network, profile) as usize
-        } else {
-            0
-        })
-    } else {
-        0
-    };
-    check_toml_array_len_at_least(
+    // A private key in a generated config would be a plaintext secret on disk.
+    check_toml_absent(
         report,
         value,
-        &["consensus", "validators"],
-        expected_validators,
-        "Consensus validators",
-    );
-    check_toml_string_array_exact(
-        report,
-        value,
-        &["consensus", "validators"],
-        &expected_keys,
-        "Consensus validator keys",
+        &["consensus", "private_key_hex"],
+        "Consensus signing key",
     );
 }
