@@ -10,8 +10,13 @@ use super::super::{ProcessExit, ProcessStart};
 pub(super) struct ManagedChild {
     child: Child,
     log_path: PathBuf,
-    /// The associated node identifier. For node processes this equals the
-    /// process ID; for sidecars/helpers it references the parent node.
+    /// The id this child was spawned for, carried so an exit is reported
+    /// against it rather than against the reap loop's process key.
+    ///
+    /// Today `ManagedProcessSpec::id` is the node id for every managed process,
+    /// so this equals the process key — the point is that it is read from the
+    /// spec instead of being assumed equal to it, which is what a sidecar with
+    /// its own key would need.
     node_id: String,
 }
 

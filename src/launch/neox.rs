@@ -34,6 +34,8 @@ use crate::{
     types::{Network, NodeConfig},
 };
 
+use super::config_args::has_neox_config_arg;
+
 /// Where a managed Neo X node keeps its chain, under the node's own work dir.
 const DATA_DIR: &str = "data";
 
@@ -45,7 +47,7 @@ pub(super) fn geth_args(
     managed_config_path: PathBuf,
 ) -> Option<PathBuf> {
     push_missing(args, "--datadir", &data_dir(working_dir));
-    if has_flag(args, "--config") {
+    if has_neox_config_arg(args) {
         return None;
     }
     push(args, "--config", &managed_config_path.display().to_string());
@@ -86,7 +88,7 @@ pub(super) fn reth_args(
         args.push("--disable-discovery".to_string());
     }
 
-    if has_flag(args, "--config") {
+    if has_neox_config_arg(args) {
         return None;
     }
     push(args, "--config", &managed_config_path.display().to_string());
