@@ -1,9 +1,10 @@
 use std::path::Path;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 #[cfg(unix)]
 pub(in crate::runtime) fn make_executable(path: &Path) -> Result<()> {
+    use anyhow::Context;
     use std::{fs, os::unix::fs::PermissionsExt};
 
     let mut permissions = fs::metadata(path)

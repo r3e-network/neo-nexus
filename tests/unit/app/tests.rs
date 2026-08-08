@@ -6,20 +6,26 @@ use crate::{
     private_network::CommitteeRoster,
     repository::Repository,
     rpc_health::{RpcHealthMonitorPolicy, RpcHealthStatus},
-    runtime::{RuntimeCatalogProfile, RuntimeUpgradePolicy},
+    runtime::RuntimeUpgradePolicy,
     runtime::{RuntimeInstallation, RuntimePlatform, RuntimeRelease, RuntimeReleaseCatalog},
     snapshots::{FastSyncSnapshot, FastSyncSnapshotCatalog, FastSyncSnapshotCatalogEntry},
     types::{Network, NewNode, NodeStatus, NodeType, StorageEngine},
-    watchdog::RestartPolicy,
 };
 use std::path::PathBuf;
 
+// Used only from the `#[cfg(unix)]` submodules below — the sidecar suites and the
+// runtime-upgrade suites, which need a real forkable process. Imported without
+// the gate they are unused on Windows, and CI builds with `-D warnings`.
+#[cfg(unix)]
 use super::sidecar_health::SidecarEndpointHealthStatus;
 use super::{
     should_record_remote_probe_event, should_record_rpc_health_event, AlertRoutingPolicyDraft,
     NeoNexusApp, RemoteFederationMonitorPolicyDraft, RpcHealthMonitorPolicyDraft, View,
 };
+#[cfg(unix)]
+use crate::{runtime::RuntimeCatalogProfile, watchdog::RestartPolicy};
 
+#[cfg(unix)]
 use process_fixtures::reconcile_app_processes_until;
 #[cfg(unix)]
 use sidecar_fixtures::{
