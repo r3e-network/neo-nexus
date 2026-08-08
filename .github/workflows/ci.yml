@@ -123,12 +123,12 @@ jobs:
         run: |
           $secret = "dd123"
           $target = "https://event-management-intake.datadoghq.com/api/v2/events?api_key=$secret"
-          $text = cargo run -- --alert-preview datadog $target critical "RPC health unreachable"
+          $text = cargo run -- --alert-preview datadog $target critical "RPC health unreachable" | Out-String
           if ($text -notmatch 'alert-preview: ready') { throw "alert preview text was not ready" }
           if ($text -notmatch 'provider: datadog') { throw "alert preview text missing provider" }
           if ($text -notmatch 'DD-API-KEY=<redacted>') { throw "alert preview text missing redacted header" }
           if ($text -match $secret) { throw "alert preview leaked secret in text output" }
-          $json = cargo run -- --alert-preview-json datadog $target critical "RPC health unreachable"
+          $json = cargo run -- --alert-preview-json datadog $target critical "RPC health unreachable" | Out-String
           if ($json -notmatch '"status": "ready"') { throw "alert preview JSON was not ready" }
           if ($json -notmatch '"provider": "datadog"') { throw "alert preview JSON missing provider" }
           if ($json -notmatch '<redacted>') { throw "alert preview JSON missing redaction" }
@@ -165,10 +165,10 @@ jobs:
         run: |
           $runtime = Join-Path $env:RUNNER_TEMP "neo-node.cmd"
           Set-Content -Path $runtime -Value "@echo off`necho neo-rs neo-node version smoke`nexit /b 0" -NoNewline
-          $text = cargo run -- --runtime-smoke neo-rs $runtime
+          $text = cargo run -- --runtime-smoke neo-rs $runtime | Out-String
           if ($text -notmatch 'runtime-smoke: passed') { throw "runtime smoke text did not pass" }
           if ($text -notmatch 'runtime-binary-sha256:') { throw "runtime smoke text lacks binary hash" }
-          $json = cargo run -- --runtime-smoke-json neo-rs $runtime
+          $json = cargo run -- --runtime-smoke-json neo-rs $runtime | Out-String
           if ($json -notmatch '"status": "passed"') { throw "runtime smoke json did not pass" }
           if ($json -notmatch '"binary_evidence"') { throw "runtime smoke json lacks binary evidence" }
           if ($json -notmatch '"status": "verified"') { throw "runtime smoke json lacks verified binary evidence" }
@@ -481,7 +481,7 @@ jobs:
             "}"
           ) -join [Environment]::NewLine
           Set-Content -Path $wallet -Value $walletJson -NoNewline
-          $walletText = cargo run -- --validate-wallet $wallet
+          $walletText = cargo run -- --validate-wallet $wallet | Out-String
           $walletText
           if ($walletText -notmatch $walletKey) { throw "wallet text report did not include contract public key" }
           if ($walletText -notmatch "account address matches contract script hash") { throw "wallet text report did not include address/script match evidence" }
@@ -490,7 +490,7 @@ jobs:
           if (-not ($walletReport.report.checks | Where-Object { $_.category -eq "account-address-contract" -and $_.status -eq "pass" })) { throw "wallet JSON report did not include address/script match check" }
           $walletDb = Join-Path $env:RUNNER_TEMP "wallet-profile.db"
           Remove-Item $walletDb -ErrorAction SilentlyContinue
-          $walletProfileImport = cargo run -- --import-wallet-profile $walletDb $wallet validator-wallet-1 "Validator wallet 1"
+          $walletProfileImport = cargo run -- --import-wallet-profile $walletDb $wallet validator-wallet-1 "Validator wallet 1" | Out-String
           $walletProfileImport
           if ($walletProfileImport -notmatch "wallet-profile-import: ok") { throw "wallet profile import did not succeed" }
           if ($walletProfileImport -notmatch "profile-id: validator-wallet-1") { throw "wallet profile import did not report profile id" }
