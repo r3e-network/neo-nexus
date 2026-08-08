@@ -8,8 +8,20 @@
 //! neox-rs goes further. Reth keeps the chain, the data directory and every
 //! listening port on the command line: its config file holds pipeline and
 //! peering tuning and nothing else. Launched with only `--config`, neox-rs
-//! would come up on **Ethereum mainnet** with default ports, looking managed
-//! and being nothing of the sort.
+//! takes its defaults for all of them.
+//!
+//! Its `--chain` default is not Ethereum: `NeoXChainSpecParser::SUPPORTED_CHAINS`
+//! begins with `"mainnet"`, and Reth's `ChainSpecParser::default_value` returns
+//! the first entry, which `parse` maps to `NeoXChainSpec::mainnet()` — Neo X
+//! MainNet, chain id 47763. No Ethereum spec is reachable from the binary.
+//!
+//! That default is the hazard, not a wrong network family: a node an operator
+//! labelled **Private** would come up on real Neo X MainNet, in the managed
+//! datadir, with discovery off — an isolated node holding MainNet's genesis, on
+//! which any key they treat as throwaway signs MainNet-valid transactions.
+//! NeoNexus cannot invent a genesis to prevent that, so a private Neo X node is
+//! blocked at readiness until the operator supplies `--chain <their spec>`
+//! themselves; see `diagnostics::checks::chain`.
 //!
 //! Flags verified against `NodeCommand` in `crates/cli/commands/src/node.rs`
 //! and the `RpcServerArgs` / `NetworkArgs` / `DatadirArgs` definitions in
@@ -51,9 +63,11 @@ pub(super) fn reth_args(
         args.insert(0, "node".to_string());
     }
 
-    // Without `--chain` the built-in default is Ethereum mainnet. A private
-    // network has no built-in spec, so the operator supplies their own genesis
-    // path and NeoNexus must not guess one.
+    // A private network has no built-in spec, and NeoNexus must not guess one.
+    // Omitting the flag is not neutral — the client's own default is Neo X
+    // MainNet — so the operator's own `--chain` is the only safe value here,
+    // and its absence is a readiness blocker rather than something to paper
+    // over with a default.
     if let Some(chain) = neox_reth_chain(node.network) {
         push_missing(args, "--chain", chain);
     }
