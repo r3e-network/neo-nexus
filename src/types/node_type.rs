@@ -35,6 +35,21 @@ impl NodeType {
         }
     }
 
+    /// What this client actually stores its chain in, for display.
+    ///
+    /// For Neo N3 clients this is the configured engine, because it is a real
+    /// choice. Neither Neo X client offers one — Geth keeps its own Pebble
+    /// store and neox-rs keeps Reth's MDBX — so their `storage_engine` field
+    /// is a placeholder, and printing it would name a database the node never
+    /// opens.
+    pub fn storage_label(self, configured: StorageEngine) -> String {
+        match self {
+            Self::NeoXGeth => "Pebble (built in)".to_string(),
+            Self::NeoXReth => "MDBX (built in)".to_string(),
+            Self::NeoCli | Self::NeoGo | Self::NeoRs => configured.to_string(),
+        }
+    }
+
     pub fn default_storage_engine(self) -> StorageEngine {
         match self {
             Self::NeoCli | Self::NeoRs => StorageEngine::RocksDb,

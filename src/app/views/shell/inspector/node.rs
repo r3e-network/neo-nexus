@@ -27,7 +27,7 @@ impl NeoNexusApp {
                     ("Type", node.node_type.to_string()),
                     ("Network", node.network.to_string()),
                     ("Version", node.runtime_version.clone()),
-                    ("Storage", node.storage_engine.to_string()),
+                    ("Storage", node.node_type.storage_label(node.storage_engine)),
                     ("RPC port", node.rpc_port.to_string()),
                     ("P2P port", node.p2p_port.to_string()),
                     ("WebSocket", optional_port(node.ws_port)),

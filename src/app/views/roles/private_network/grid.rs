@@ -39,7 +39,7 @@ fn render_row(ui: &mut egui::Ui, node: Option<&PrivateNetworkNodePlan>) {
             node.ws_port
                 .map_or_else(|| "-".to_string(), |port| port.to_string()),
         );
-        ui.label(node.storage_engine.to_string());
+        ui.label(node.node_type.storage_label(node.storage_engine));
     } else {
         for _ in 0..PRIVATE_PLAN_COLUMNS {
             ui.label(" ");
