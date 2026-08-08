@@ -5,7 +5,7 @@ use crate::types::NodeConfig;
 use super::super::{
     super::format::{
         effective_committee_public_keys, effective_network_magic, effective_validators_count,
-        neo_cli_storage_engine, RuntimeConfigProfile,
+        neo_cli_storage_engine, GenerationContext, RuntimeConfigProfile,
     },
     checks::*,
     model::ConfigValidationReport,
@@ -15,6 +15,7 @@ pub(in crate::config::validation) fn validate_neo_cli_config(
     node: &NodeConfig,
     text: &str,
     profile: Option<&RuntimeConfigProfile>,
+    context: &GenerationContext,
     report: &mut ConfigValidationReport,
 ) {
     let value: Value = match serde_json::from_str(text) {
@@ -68,11 +69,19 @@ pub(in crate::config::validation) fn validate_neo_cli_config(
     // No `ApplicationConfiguration.RPC` check: neo-cli has no such section. The
     // listener is configured in Plugins/RpcServer/RpcServer.json, which the
     // sidecar generator emits and its own tests cover.
+    // `IsActive` is expected to match the wallet the config was generated with,
+    // not hard-coded false. neo-cli opens one wallet for the whole node and its
+    // signing plugins use it, so a duty-bearing export with a supplied password
+    // is *meant* to set this true — asserting false rejected the generator's own
+    // output and wrote no file for any neo-cli duty.
     check_json_bool(
         report,
         &value,
         &["ApplicationConfiguration", "UnlockWallet", "IsActive"],
-        false,
+        context
+            .wallet
+            .as_ref()
+            .is_some_and(crate::config::ServiceWallet::can_unlock),
         "Wallet unlock",
     );
     // Without an active logger neo-cli installs no log sink at all and writes
