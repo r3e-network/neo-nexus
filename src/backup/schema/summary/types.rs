@@ -25,6 +25,11 @@ pub struct WorkspaceBackupExport {
 pub struct WorkspaceBackupImport {
     pub source_path: Option<PathBuf>,
     pub created_nodes: usize,
+    /// Duties restored. Reported so a restore that silently dropped them cannot
+    /// look identical to one that had none to restore.
+    pub role_count: usize,
+    /// Node-to-wallet bindings restored.
+    pub wallet_binding_count: usize,
     pub updated_nodes: usize,
     pub plugin_state_count: usize,
     pub plugin_installation_count: usize,

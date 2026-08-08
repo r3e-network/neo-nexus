@@ -6,14 +6,30 @@ use crate::{
     catalog::{PluginId, PluginState},
     plugins::PluginInstallation,
     repository::validate_node_config,
+    roles::NodeRole,
     types::{Network, NodeConfig, NodeStatus, NodeType, StorageEngine},
 };
 
 use super::super::schema::{NodeBackup, PluginInstallationBackup};
 
+/// A node's duty and wallet binding, restored alongside it.
+///
+/// An unrecognised role reads as `None` rather than failing the whole import,
+/// matching `Repository::load_node_role`: a duty removed in a later version must
+/// not make a backup unrestorable.
+pub(in crate::backup) struct RestoredNodeBindings {
+    pub(in crate::backup) role: Option<NodeRole>,
+    pub(in crate::backup) wallet_profile_id: Option<String>,
+}
+
 pub(in crate::backup) fn restored_node(
     backup: &NodeBackup,
-) -> Result<(NodeConfig, Vec<PluginState>, Vec<PluginInstallation>)> {
+) -> Result<(
+    NodeConfig,
+    Vec<PluginState>,
+    Vec<PluginInstallation>,
+    RestoredNodeBindings,
+)> {
     if backup.id.trim().is_empty() {
         anyhow::bail!("backup node id is required");
     }
@@ -51,7 +67,17 @@ pub(in crate::backup) fn restored_node(
     };
     validate_node_config(&node)?;
 
-    Ok((node, plugins, plugin_installations))
+    let bindings = RestoredNodeBindings {
+        role: backup.role.as_deref().and_then(NodeRole::from_persist_key),
+        wallet_profile_id: backup
+            .wallet_profile_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|id| !id.is_empty())
+            .map(ToString::to_string),
+    };
+
+    Ok((node, plugins, plugin_installations, bindings))
 }
 
 fn restored_plugin_state(backup: &super::super::schema::PluginBackup) -> Result<PluginState> {

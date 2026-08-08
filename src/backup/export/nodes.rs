@@ -24,6 +24,13 @@ pub(in crate::backup) fn node_backup(
         .map(plugin_installation_backup)
         .collect();
 
+    // Duty and wallet binding travel with the node: regenerating a config
+    // without them turns a consensus node back into a relay.
+    let role = repository
+        .load_node_role(&node.id)?
+        .map(|role| role.persist_key().to_string());
+    let wallet_profile_id = repository.load_node_wallet(&node.id)?;
+
     Ok(NodeBackup {
         id: node.id,
         name: node.name,
@@ -40,6 +47,8 @@ pub(in crate::backup) fn node_backup(
         pid: node.pid,
         plugins,
         plugin_installations,
+        role,
+        wallet_profile_id,
     })
 }
 

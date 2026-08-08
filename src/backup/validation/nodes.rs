@@ -32,7 +32,7 @@ fn validate_backup_node(
     counts: &mut BackupValidationCounts,
 ) -> Result<()> {
     insert_unique_value(node_ids, "node id", node_backup.id.trim())?;
-    let (node, plugins, plugin_installations) = restored_node(node_backup)?;
+    let (node, plugins, plugin_installations, _bindings) = restored_node(node_backup)?;
     validate_node_plugin_inventory(&node, &plugins, &plugin_installations)?;
     validate_node_ports_are_unique(&node, ports)?;
     counts.plugin_state_count += plugins.len();
