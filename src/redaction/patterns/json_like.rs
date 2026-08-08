@@ -110,7 +110,7 @@ fn balanced_container_end(value: &str, from: usize) -> usize {
             '"' => in_string = true,
             '{' | '[' => depth += 1,
             '}' | ']' => {
-                depth -= 1;
+                depth = depth.saturating_sub(1);
                 if depth == 0 {
                     return from + offset + character.len_utf8();
                 }

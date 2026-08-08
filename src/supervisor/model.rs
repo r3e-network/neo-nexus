@@ -98,6 +98,13 @@ impl ManagedProcessSpec {
     }
 }
 
+/// Returns the current Unix timestamp in seconds.
+///
+/// Intentionally returns `0` when the system clock is before the Unix epoch.
+/// This is acceptable because the value is only used in informational log
+/// headers (launch/stop markers) where a failed timestamp should not abort
+/// the operation. For contexts requiring a strict guarantee, see
+/// `repository::helpers::current_unix_time` which returns a `Result`.
 pub(super) fn unix_timestamp() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

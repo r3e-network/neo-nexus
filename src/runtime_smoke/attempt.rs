@@ -1,5 +1,5 @@
 use std::{
-    fs::{self, File},
+    fs::{self, File, OpenOptions},
     io::Read,
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -27,9 +27,17 @@ pub(super) fn run_attempt(
 ) -> Result<RuntimeSmokeAttempt> {
     let stdout_path = temp_output_path("stdout");
     let stderr_path = temp_output_path("stderr");
-    let stdout_file = File::create(&stdout_path)
+    // Use create_new (O_EXCL) to refuse opening a pre-existing symlink or file
+    // at the predictable temp path, preventing local symlink attacks.
+    let stdout_file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&stdout_path)
         .with_context(|| format!("failed to create {}", stdout_path.display()))?;
-    let stderr_file = File::create(&stderr_path)
+    let stderr_file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&stderr_path)
         .with_context(|| format!("failed to create {}", stderr_path.display()))?;
 
     let started = Instant::now();

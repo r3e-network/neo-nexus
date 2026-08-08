@@ -34,7 +34,7 @@ pub(super) fn spawn_managed_child(
     append_pid(&mut log_file, &log_path, pid)?;
 
     Ok((
-        ManagedChild::new(child, log_path.clone()),
+        ManagedChild::new(child, log_path.clone(), spec.id.clone()),
         ProcessStart { pid, log_path },
     ))
 }
