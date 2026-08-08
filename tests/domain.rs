@@ -64,11 +64,12 @@ use neo_nexus::{
 };
 use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
+// `ProcessSupervisor` is needed on every platform: the duty-launch contract runs
+// `execute_node_launch` for its config-writing step, which is platform
+// independent, and only the *spawn* succeeding is unix-only.
+use neo_nexus::supervisor::ProcessSupervisor;
 #[cfg(unix)]
-use neo_nexus::{
-    launch::LaunchPlan,
-    supervisor::{ProcessStart, ProcessSupervisor},
-};
+use neo_nexus::{launch::LaunchPlan, supervisor::ProcessStart};
 
 #[cfg(unix)]
 use std::thread;
