@@ -1,5 +1,7 @@
 #[path = "config_launch/duty_export.rs"]
 mod duty_export;
+#[path = "config_launch/duty_launch.rs"]
+mod duty_launch;
 #[path = "config_launch/export.rs"]
 mod export;
 #[path = "config_launch/generation.rs"]
