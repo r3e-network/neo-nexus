@@ -1,0 +1,193 @@
+//! Every segment of every view, and the key that selects it.
+//!
+//! A view is not one surface; it is as many surfaces as it has segments. The
+//! view-level contracts land on whichever segment happened to be persisted, so
+//! anything reachable only by clicking is invisible to them — which is how one
+//! surface shipped with its primary action laid out below the panel.
+
+pub(super) const SECTIONS: [(&str, &str, &str, &str); 33] = [
+    ("nodes/studio", "nodes", "workspace.section.nodes", "studio"),
+    ("nodes/config", "nodes", "workspace.section.nodes", "config"),
+    (
+        "nodes/plugins",
+        "nodes",
+        "workspace.section.nodes",
+        "plugins",
+    ),
+    ("nodes/logs", "nodes", "workspace.section.nodes", "logs"),
+    ("nodes/health", "nodes", "workspace.section.nodes", "health"),
+    // The Network hub reaches its three surfaces by *view*, not by a section
+    // key: View::Roles is the private-network planner and View::Wallets the
+    // wallet registry. Pinning `workspace.section.roles` here would set a value
+    // nothing on this page reads — which is how two entries ended up measuring
+    // the same planner under two role-sounding names. The real role presets are
+    // in NESTED, under Nodes.
+    (
+        "network/private-net/plan",
+        "roles",
+        "workspace.section.private-network",
+        "plan",
+    ),
+    (
+        "network/private-net/signers",
+        "roles",
+        "workspace.section.private-network",
+        "signers",
+    ),
+    (
+        "network/private-net/deploy",
+        "roles",
+        "workspace.section.private-network",
+        "deploy",
+    ),
+    (
+        "network/wallets",
+        "wallets",
+        "workspace.section.nodes",
+        "studio",
+    ),
+    (
+        "operations/readiness",
+        "operations",
+        "workspace.section.operations",
+        "readiness",
+    ),
+    (
+        "operations/action-queue",
+        "operations",
+        "workspace.section.operations",
+        "action_queue",
+    ),
+    (
+        "operations/ports",
+        "operations",
+        "workspace.section.operations",
+        "ports",
+    ),
+    (
+        "operations/safety",
+        "operations",
+        "workspace.section.operations",
+        "safety",
+    ),
+    (
+        "operations/journal",
+        "operations",
+        "workspace.section.operations",
+        "journal",
+    ),
+    (
+        "settings/watchdog",
+        "settings",
+        "workspace.section.settings",
+        "watchdog",
+    ),
+    (
+        "settings/upgrades",
+        "settings",
+        "workspace.section.settings",
+        "upgrades",
+    ),
+    (
+        "settings/monitors",
+        "settings",
+        "workspace.section.settings",
+        "monitors",
+    ),
+    (
+        "settings/alerts",
+        "settings",
+        "workspace.section.settings",
+        "alerts",
+    ),
+    (
+        "settings/storage",
+        "settings",
+        "workspace.section.settings",
+        "storage",
+    ),
+    (
+        "settings/release",
+        "settings",
+        "workspace.section.settings",
+        "release",
+    ),
+    (
+        "runtimes/install",
+        "runtimes",
+        "workspace.section.runtimes",
+        "install",
+    ),
+    (
+        "runtimes/catalog",
+        "runtimes",
+        "workspace.section.runtimes",
+        "catalog",
+    ),
+    (
+        "runtimes/installed",
+        "runtimes",
+        "workspace.section.runtimes",
+        "installed",
+    ),
+    (
+        "runtimes/applied",
+        "runtimes",
+        "workspace.section.runtimes",
+        "applied",
+    ),
+    (
+        "runtimes/sync",
+        "runtimes",
+        "workspace.section.runtimes",
+        "sync",
+    ),
+    (
+        "monitor/pressure",
+        "monitor",
+        "workspace.section.monitor",
+        "pressure",
+    ),
+    (
+        "monitor/telemetry",
+        "monitor",
+        "workspace.section.monitor",
+        "telemetry",
+    ),
+    (
+        "monitor/processes",
+        "monitor",
+        "workspace.section.monitor",
+        "processes",
+    ),
+    (
+        "monitor/chain-duties",
+        "monitor",
+        "workspace.section.monitor",
+        "chain-duties",
+    ),
+    (
+        "federation/profiles",
+        "federation",
+        "workspace.section.federation",
+        "profiles",
+    ),
+    (
+        "federation/editor",
+        "federation",
+        "workspace.section.federation",
+        "editor",
+    ),
+    (
+        "federation/inspector",
+        "federation",
+        "workspace.section.federation",
+        "inspector",
+    ),
+    (
+        "federation/governance",
+        "federation",
+        "workspace.section.federation",
+        "governance",
+    ),
+];

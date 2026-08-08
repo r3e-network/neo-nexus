@@ -1,8 +1,10 @@
+#[cfg(unix)]
 use std::{
     thread,
     time::{Duration, Instant},
 };
 
+#[cfg(unix)]
 use super::NeoNexusApp;
 
 /// Drives the app's process reconciliation until a predicate holds.
