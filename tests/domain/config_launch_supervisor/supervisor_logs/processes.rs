@@ -4,6 +4,7 @@
 //! group is unix-only. Gating the modules rather than each test inside them
 //! keeps the reason in one place, and stops their `use super::*` from being an
 //! unused import on the platforms that skip them.
+#[cfg(unix)]
 use crate::*;
 
 #[cfg(unix)]
