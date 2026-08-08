@@ -14,6 +14,7 @@
 mod designation;
 mod governance;
 mod model;
+mod render;
 mod rpc;
 
 pub use designation::designation_status;

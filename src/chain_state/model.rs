@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use crate::roles::ChainRole;
 
 /// Why a chain query could not be answered. Kept separate from a *negative*
@@ -22,7 +24,7 @@ impl ChainQueryError {
 
 /// Who currently holds a `RoleManagement` designation, and whether this node's
 /// key is among them.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RoleDesignation {
     pub role: ChainRole,
     /// Public keys the committee has designated, in the order the contract
@@ -64,7 +66,7 @@ impl RoleDesignation {
 pub type DesignationStatus = Result<RoleDesignation, ChainQueryError>;
 
 /// Where a public key stands in the candidate vote.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CandidateStanding {
     pub public_key: String,
     /// Votes in NEO, as returned by the contract.
@@ -72,7 +74,7 @@ pub struct CandidateStanding {
 }
 
 /// A read-only picture of Neo governance at the height the node is at.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct GovernanceSnapshot {
     /// The 21 committee members.
     pub committee: Vec<String>,

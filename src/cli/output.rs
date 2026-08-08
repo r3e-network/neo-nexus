@@ -3,6 +3,7 @@ use serde::Serialize;
 
 mod alerts;
 mod backup;
+mod chain;
 mod config;
 mod health;
 mod launch;
@@ -13,6 +14,7 @@ mod wallet;
 pub(super) use self::{
     alerts::alert_preview_json_text,
     backup::{backup_export_json_text, backup_import_json_text, backup_validation_json_text},
+    chain::{designation_json_text, governance_json_text},
     config::{generated_node_config_json_text, node_config_validation_json_text},
     health::{
         rpc_health_json_text, runtime_smoke_json_text, workspace_metrics_json_text,

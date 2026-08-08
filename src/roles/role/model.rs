@@ -96,7 +96,7 @@ impl NodeRole {
 ///
 /// The discriminants are the on-chain values passed to `designateAsRole` and
 /// `getDesignatedByRole`; they are consensus-visible and must not be renumbered.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
 pub enum ChainRole {
     StateValidator = 4,
     Oracle = 8,

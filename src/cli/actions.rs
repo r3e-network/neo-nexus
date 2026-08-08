@@ -35,6 +35,7 @@ use super::{output::*, CliAction};
 mod alerts;
 mod backup;
 mod basics;
+mod chain;
 mod completions;
 mod config;
 mod dispatcher;
@@ -52,8 +53,8 @@ pub(super) use self::basics::{help_text, self_check_text, version_text};
 pub(super) use self::config::GeneratedNodeConfigReport;
 pub(super) use self::dispatcher::action_from_args_vec;
 use self::{
-    alerts::*, backup::*, completions::*, config::*, health::*, launch_pack::*, node_control::*,
-    quality::*, release::*, reports::*, wallet::*, workspace::*,
+    alerts::*, backup::*, chain::*, completions::*, config::*, health::*, launch_pack::*,
+    node_control::*, quality::*, release::*, reports::*, wallet::*, workspace::*,
 };
 
 fn current_unix_time() -> Result<u64> {
