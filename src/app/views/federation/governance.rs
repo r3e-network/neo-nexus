@@ -11,8 +11,11 @@
 
 use eframe::egui;
 
+use crate::rpc_health::node_rpc_endpoint;
+
 use crate::app::{
     domain::GovernanceSnapshot,
+    state::ChainReadKey,
     text::truncate_middle,
     theme,
     widgets::{callout, empty_state, grid_header, metric_grid, secondary_button, CalloutKind},
@@ -29,24 +32,35 @@ const KEY_CHARS: usize = 20;
 
 impl NeoNexusApp {
     pub(in crate::app::views::federation) fn render_governance(&mut self, ui: &mut egui::Ui) {
-        if self.selected_node().is_none() {
+        let Some(node) = self.selected_node().cloned() else {
             empty_state(
                 ui,
                 "No node selected",
                 "Governance is read through a node's RPC. Select one from Inventory.",
             );
             return;
-        }
+        };
 
-        if let Some(error) = self.chain.governance_error.clone() {
+        // Both the answer and the error belong to the chain they came from. A
+        // committee read through a testnet node must not be shown against a
+        // mainnet node, and an error reading one chain is not the other's.
+        let key = ChainReadKey::for_node(&node, &node_rpc_endpoint(&node));
+        if let Some(error) = self
+            .chain
+            .governance_error_for(&key)
+            .map(ToString::to_string)
+        {
             callout(ui, CalloutKind::Danger, "Could not read the chain", &error);
             ui.add_space(theme::SM);
         }
 
-        match self.chain.governance.clone() {
+        match self.chain.governance_for(&key).cloned() {
             Some(snapshot) => render_snapshot(ui, &snapshot),
             None => {
-                ui.label(theme::muted_body("Governance has not been read yet."));
+                ui.label(theme::muted_body(format!(
+                    "Governance has not been read on {} yet.",
+                    node.network
+                )));
             }
         }
 

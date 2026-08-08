@@ -9,7 +9,7 @@ mod session;
 mod toasts;
 
 pub(in crate::app) use async_bus::AsyncProbeBus;
-pub(in crate::app) use chain::ChainStateUi;
+pub(in crate::app) use chain::{ChainReadKey, ChainStateUi};
 pub(in crate::app) use fleet::FleetUi;
 pub(in crate::app) use operations_ui::OperationsUi;
 pub(in crate::app) use sections::WorkspaceSections;
