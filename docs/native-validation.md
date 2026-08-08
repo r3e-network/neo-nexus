@@ -250,9 +250,9 @@ documentation refresh:
 - `CARGO_INCREMENTAL=0 cargo check --quiet`
 - `CARGO_INCREMENTAL=0 cargo clippy --quiet --all-targets -- -D warnings`
 - `CARGO_INCREMENTAL=0 cargo test --quiet`
-- `cargo run --quiet -- --source-quality /Users/jinghuiliao/git/r3e/neo-nexus`
-- `cargo run --quiet -- --source-purity /Users/jinghuiliao/git/r3e/neo-nexus`
-- `cargo run --quiet -- --native-ui-audit /Users/jinghuiliao/git/r3e/neo-nexus`
-- `cargo run --quiet -- --ci-policy /Users/jinghuiliao/git/r3e/neo-nexus/.github/workflows/ci.yml`
+- `cargo run --quiet -- --source-quality .`
+- `cargo run --quiet -- --source-purity .`
+- `cargo run --quiet -- --native-ui-audit .`
+- `cargo run --quiet -- --ci-policy .github/workflows/ci.yml`
 
 The final push gate should repeat the core gates after documentation changes.
