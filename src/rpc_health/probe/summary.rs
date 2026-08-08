@@ -34,12 +34,6 @@ pub(super) fn summarize_version(value: &Value) -> Option<String> {
     value.as_str().map(ToString::to_string)
 }
 
-pub(super) fn parse_block_count(value: &Value) -> Option<u64> {
-    value
-        .as_u64()
-        .or_else(|| value.as_str().and_then(|text| text.parse::<u64>().ok()))
-}
-
 fn summarize_value(value: &Value) -> String {
     if let Some(text) = value.as_str() {
         return single_line(text);
