@@ -12,8 +12,15 @@ pub enum NodeType {
     NeoGo,
     NeoRs,
     /// Neo X reference client: a go-ethereum fork with dBFT finality.
+    ///
+    /// Renamed explicitly: `rename_all = "kebab-case"` would derive
+    /// `neo-x-geth`, which `FromStr` rejects, so a script reading `node_type`
+    /// out of a `--*-json` action and feeding it back to another invocation
+    /// would break on Neo X and only on Neo X.
+    #[serde(rename = "neox-geth")]
     NeoXGeth,
     /// Independent Rust Neo X node built on Reth.
+    #[serde(rename = "neox-rs")]
     NeoXReth,
 }
 
@@ -100,3 +107,7 @@ impl FromStr for NodeType {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/types/node_type/tests.rs"]
+mod tests;
