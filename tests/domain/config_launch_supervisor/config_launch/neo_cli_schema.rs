@@ -60,3 +60,55 @@ fn the_storage_path_is_namespaced_by_network() {
         .expect("Storage.Path must be set");
     assert!(path.contains("{0}"), "{path} is not namespaced by network");
 }
+
+/// neo-cli opens one wallet for the whole node and every signing plugin uses
+/// it, so unlike neo-go the wallet lives in the primary config.
+#[test]
+fn a_node_with_no_wallet_keeps_its_wallet_closed() {
+    let config = neo_cli_config();
+    let wallet = &config["ApplicationConfiguration"]["UnlockWallet"];
+    assert_eq!(wallet["IsActive"], false);
+    assert_eq!(wallet["Path"], "");
+    assert_eq!(wallet["Password"], "");
+}
+
+/// The path is written so an operator can see which key the node signs with;
+/// `IsActive` stays false because without a password neo-cli would prompt on a
+/// console the supervisor does not have.
+#[test]
+fn an_assigned_wallet_is_named_but_stays_closed_without_a_password() {
+    let repo = create_repo();
+    let node_id = create_node(&repo, "neo-cli", NodeType::NeoCli);
+    let node = repo
+        .list_nodes()
+        .unwrap()
+        .into_iter()
+        .find(|node| node.id == node_id)
+        .unwrap();
+    let context = GenerationContext::for_role(NodeRole::Oracle)
+        .with_wallet(ServiceWallet::at("/opt/neo/wallets/oracle.json"));
+    let config = ConfigGenerator::neo_cli_with_context(&node, &[], None, &context).unwrap();
+
+    let wallet = &config["ApplicationConfiguration"]["UnlockWallet"];
+    assert_eq!(wallet["Path"], "/opt/neo/wallets/oracle.json");
+    assert_eq!(wallet["IsActive"], false);
+}
+
+#[test]
+fn a_password_supplied_for_this_export_opens_the_wallet() {
+    let repo = create_repo();
+    let node_id = create_node(&repo, "neo-cli", NodeType::NeoCli);
+    let node = repo
+        .list_nodes()
+        .unwrap()
+        .into_iter()
+        .find(|node| node.id == node_id)
+        .unwrap();
+    let context = GenerationContext::for_role(NodeRole::Oracle)
+        .with_wallet(ServiceWallet::at("/opt/neo/wallets/oracle.json").unlocked_with("hunter2"));
+    let config = ConfigGenerator::neo_cli_with_context(&node, &[], None, &context).unwrap();
+
+    let wallet = &config["ApplicationConfiguration"]["UnlockWallet"];
+    assert_eq!(wallet["IsActive"], true);
+    assert_eq!(wallet["Password"], "hunter2");
+}

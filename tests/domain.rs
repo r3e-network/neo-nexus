@@ -15,7 +15,7 @@ use neo_nexus::{
     catalog::{PluginCatalog, PluginId, PluginState},
     config::{
         ConfigExporter, ConfigFormat, ConfigGenerator, ConfigValidationSeverity, ConfigValidator,
-        RuntimeConfigProfile, WorkspaceConfigExporter,
+        GenerationContext, RuntimeConfigProfile, ServiceWallet, WorkspaceConfigExporter,
     },
     dashboard::DashboardSummary,
     diagnostics::{

@@ -69,7 +69,7 @@ impl ConfigGenerator {
     ) -> Result<RenderedConfig> {
         match node.node_type {
             NodeType::NeoCli => {
-                let value = Self::for_node_with_profile(node, plugins, profile)?;
+                let value = Self::neo_cli_with_context(node, plugins, profile, context)?;
                 Ok(RenderedConfig {
                     format: ConfigFormat::Json,
                     text: serde_json::to_string_pretty(&value)
@@ -82,7 +82,7 @@ impl ConfigGenerator {
             }),
             NodeType::NeoRs => Ok(RenderedConfig {
                 format: ConfigFormat::Toml,
-                text: Self::neo_rs_toml_with_profile(node, profile)?,
+                text: Self::neo_rs_toml_with_context(node, profile, context)?,
             }),
         }
     }
