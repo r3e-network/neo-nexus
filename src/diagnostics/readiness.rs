@@ -62,6 +62,7 @@ where
     let plan = LaunchPlanner::plan(node, managed_config_path, working_dir);
     let mut checks = Vec::new();
     checks.extend(binary_checks(node));
+    checks.extend(super::checks::chain_identity_checks(node));
     checks.extend(managed_config_checks(node, Some(&plan)));
     checks.extend(config_checks(node, plugin_states));
     checks.extend(restart_lifecycle_checks(node));
@@ -95,6 +96,10 @@ where
     let plan = LaunchPlanner::plan(node, managed_config_path, working_dir);
     let mut checks = Vec::new();
     checks.extend(binary_checks(node));
+    // Chain identity gates the launch, not just the fleet view: a private Neo X
+    // node with no chain spec joins Neo X MainNet, which has to be stopped
+    // before the process starts rather than reported after it has.
+    checks.extend(super::checks::chain_identity_checks(node));
     checks.extend(managed_config_checks(node, Some(&plan)));
     checks.extend(config_checks(node, plugin_states));
     checks.extend(launch_lifecycle_checks(node));
