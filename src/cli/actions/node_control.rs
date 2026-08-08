@@ -1,9 +1,18 @@
-use std::path::PathBuf;
+//! Node lifecycle from the command line: start, restart, stop.
+//!
+//! Every one runs the same core pipeline the workbench runs, so a scripted
+//! node and an operator-driven node behave identically. Reporting lives in
+//! `report`, and workspace lookup in `workspace`.
+
+mod report;
+mod workspace;
+
+pub(in crate::cli::actions) use report::{node_list_action, node_status_action};
+use workspace::{node_by_name, open_workspace, workspace_child_dir};
 
 use super::*;
 
 use crate::core::lifecycle::{execute_node_launch, LaunchAction, ManagedConfig, NodeLaunchOutcome};
-use crate::core::node_health::latest_node_rpc_health;
 use crate::core::operations::{evaluate_launch_readiness, evaluate_restart_readiness};
 use crate::core::workspace::ConfigExporter;
 use crate::launch::LaunchPlanner;
@@ -148,128 +157,4 @@ pub(in crate::cli::actions) fn node_stop_action(args: &[String]) -> Result<CliAc
             None => format!("{} was not running", node.name),
         },
     })
-}
-
-/// `--node-list <db>`: print every node in the workspace as a compact table, so
-/// a script or operator can see fleet status headlessly. Columns are name,
-/// type, network, status, rpc port, p2p port.
-pub(in crate::cli::actions) fn node_list_action(args: &[String]) -> Result<CliAction> {
-    require_arg_count(args, 3, "--node-list")?;
-    let repository = open_workspace(&args[2])?;
-    let nodes = repository
-        .list_nodes()
-        .context("failed to read nodes from the workspace")?;
-
-    if nodes.is_empty() {
-        return Ok(CliAction::PrintWithExitCode {
-            exit_code: 0,
-            text: "No nodes in the workspace.".to_string(),
-        });
-    }
-
-    let mut lines = Vec::with_capacity(nodes.len() + 1);
-    lines.push(format!(
-        "{:<24} {:<8} {:<8} {:<8} {:>8} {:>8}",
-        "NAME", "TYPE", "NETWORK", "STATUS", "RPC", "P2P"
-    ));
-    for node in &nodes {
-        lines.push(format!(
-            "{:<24} {:<8} {:<8} {:<8} {:>8} {:>8}",
-            truncate_node_name(&node.name, 24),
-            node.node_type,
-            node.network,
-            node.status,
-            node.rpc_port,
-            node.p2p_port
-        ));
-    }
-    Ok(CliAction::PrintWithExitCode {
-        exit_code: 0,
-        text: lines.join("\n"),
-    })
-}
-
-/// `--node-status <db> <node-name>`: print a detailed single-node report
-/// (identity, status/pid, ports, version, storage, latest RPC health) so an
-/// operator or script can inspect one node headlessly. All reads go through the
-/// core facade, never the repository's row API directly.
-pub(in crate::cli::actions) fn node_status_action(args: &[String]) -> Result<CliAction> {
-    require_arg_count(args, 4, "--node-status")?;
-    let repository = open_workspace(&args[2])?;
-    let node = node_by_name(&repository, &args[3])?;
-
-    let mut lines = Vec::with_capacity(12);
-    lines.push(format!("Name:    {}", node.name));
-    lines.push(format!("Type:    {}", node.node_type));
-    lines.push(format!("Network: {}", node.network));
-    lines.push(format!("Version: {}", node.runtime_version));
-    lines.push(format!("Storage: {}", node.storage_engine));
-    lines.push(format!("Status:  {}", node.status));
-    if let Some(pid) = node.pid {
-        lines.push(format!("PID:     {pid}"));
-    }
-    lines.push(format!("RPC:     {}", node.rpc_port));
-    lines.push(format!("P2P:     {}", node.p2p_port));
-    if let Some(ws) = node.ws_port {
-        lines.push(format!("WS:      {ws}"));
-    }
-    lines.push(format!("Binary:  {}", node.binary_path.display()));
-
-    // Latest RPC health probe, via the core read operation (not the repository).
-    match latest_node_rpc_health(&repository, &node.id) {
-        Ok(Some(health)) => {
-            lines.push(String::new());
-            lines.push("RPC health:".to_string());
-            lines.push(format!("  status:   {}", health.status));
-            if let Some(height) = health.block_count {
-                lines.push(format!("  height:   {height}"));
-            }
-            lines.push(format!("  endpoint: {}", health.endpoint));
-            lines.push(format!("  message:  {}", health.message));
-        }
-        Ok(None) => lines.push("RPC health: unchecked".to_string()),
-        Err(error) => lines.push(format!("RPC health: error — {error}")),
-    }
-
-    Ok(CliAction::PrintWithExitCode {
-        exit_code: 0,
-        text: lines.join("\n"),
-    })
-}
-
-fn truncate_node_name(name: &str, max: usize) -> String {
-    if name.len() <= max {
-        name.to_string()
-    } else {
-        let end = name.char_indices().take(max - 1).last().map(|(i, _)| i);
-        if let Some(i) = end {
-            format!("{}…", &name[..i])
-        } else {
-            format!("{}…", name.chars().take(max - 1).collect::<String>())
-        }
-    }
-}
-
-fn open_workspace(db_path: &str) -> Result<Repository> {
-    Repository::open(PathBuf::from(db_path))
-        .with_context(|| format!("failed to open workspace database {db_path}"))
-}
-
-fn node_by_name(repository: &Repository, name: &str) -> Result<NodeConfig> {
-    let nodes = repository
-        .list_nodes()
-        .context("failed to read nodes from the workspace")?;
-    nodes
-        .into_iter()
-        .find(|node| node.name == name)
-        .with_context(|| format!("no node named {name:?} in the workspace"))
-}
-
-/// Mirrors NeoNexusApp::workspace_child_dir: a subdirectory beside the database,
-/// so the CLI writes managed configs and logs to the same place the GUI would.
-fn workspace_child_dir(repository: &Repository, child: &str) -> PathBuf {
-    repository
-        .db_path()
-        .parent()
-        .map_or_else(|| PathBuf::from(child), |parent| parent.join(child))
 }
