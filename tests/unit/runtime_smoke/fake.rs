@@ -67,14 +67,24 @@ pub(super) fn strings(values: &[&str]) -> Vec<String> {
     values.iter().map(|value| (*value).to_string()).collect()
 }
 
+/// Marks a fixture binary executable.
+///
+/// Two arms rather than one with a `#[cfg]` block inside, matching
+/// `runtime::io::permissions`: off unix the path is never read, and a parameter
+/// that exists only to be ignored has to say so in its name or the build fails
+/// on `-D warnings` where nobody runs it locally.
+#[cfg(unix)]
 fn make_executable(path: &Path) -> Result<()> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::PermissionsExt;
 
-        let mut permissions = fs::metadata(path)?.permissions();
-        permissions.set_mode(0o755);
-        fs::set_permissions(path, permissions)?;
-    }
+    let mut permissions = fs::metadata(path)?.permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(path, permissions)?;
+    Ok(())
+}
+
+/// Executability is not a permission bit off unix, so there is nothing to set.
+#[cfg(not(unix))]
+fn make_executable(_path: &Path) -> Result<()> {
     Ok(())
 }

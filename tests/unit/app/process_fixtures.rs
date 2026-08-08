@@ -5,6 +5,11 @@ use std::{
 
 use super::NeoNexusApp;
 
+/// Drives the app's process reconciliation until a predicate holds.
+///
+/// Only the sidecar watchdog suite uses it, and that suite needs a real forkable
+/// process, so it is `#[cfg(unix)]` — and so is this.
+#[cfg(unix)]
 pub(super) fn reconcile_app_processes_until(
     app: &mut NeoNexusApp,
     timeout: Duration,
