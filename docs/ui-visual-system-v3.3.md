@@ -233,17 +233,25 @@ both themes, from a seeded five-node fleet.
 
 ---
 
-## Known limitation
+## Containment: what is guarded, and what is left
 
-Several surfaces still paint **taller** than their fixed panel, so content past
-the panel edge is not visible: the Settings body below the active-policy block,
-and the inspector's Overview actions. `tests/ui_overflow.rs` deliberately checks
-horizontal containment only — a vertical check fails broadly today.
+`tests/ui_overflow.rs` checks **both** axes, and it checks every sub-tab rather
+than every view — a view is as many surfaces as it has segments, and measuring
+only the persisted one is how Nodes > Roles shipped with Apply Role laid out
+~414pt below a panel that does not scroll. egui culls a widget entirely outside
+its clip rect, so a control down there does not exist for the operator.
 
-Fixing it is an information-architecture change, not a styling one: each
-over-long surface needs paging or sectioning the way the inspector's
-Overview / Paths / Process switcher already does. That switcher is the pattern
-to copy.
+Eight sub-tabs still do not fit and are declared in `KNOWN_UNCONTAINED`, with
+what is cut off on each. The same sweep against the pre-v3.3 tree reports 38, so
+the list is the remainder of a much larger problem rather than a new one.
+
+The ledger asserts in both directions: no unlisted sub-tab may overflow, and
+every listed one must still overflow. So fixing a surface fails the suite until
+its entry is deleted, and the list cannot outlive the debt it records.
+
+Each remaining surface needs paging or sectioning the way the inspector's
+Overview / Paths / Process switcher already does — an information-architecture
+change, not a styling one. That switcher is the pattern to copy.
 
 ---
 

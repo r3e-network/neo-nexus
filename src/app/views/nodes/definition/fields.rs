@@ -4,8 +4,10 @@
 //! **Identity** is which chain this node is and what it is called, **Runtime**
 //! is which binary runs it and how, and **Ports** is the endpoints it exposes.
 //! Storage sits with Runtime rather than Identity because the engine is a
-//! property of the binary (neo-cli/neo-rs default to RocksDB, neo-go to
-//! LevelDB) and is validated against the selected node type.
+//! property of the binary, and is validated against the selected node type.
+//! Only neo-cli offers a choice at all: it ships LevelDBStore and accepts
+//! RocksDBStore when that plugin assembly is present. neo-go is LevelDB,
+//! neo-rs is RocksDB, and neither Neo X client is selectable.
 
 use eframe::egui;
 

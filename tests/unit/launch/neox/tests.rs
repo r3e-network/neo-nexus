@@ -173,6 +173,43 @@ fn an_existing_config_flag_suppresses_the_managed_one() {
     }
 }
 
+/// `-c` is not a Neo X flag: Reth declares `config` as `#[arg(long)]` with no
+/// short alias, and geth's is `--config`. Treating `-c` as a config flag made
+/// the diagnostic promise to leave the operator's file alone while the planner
+/// injected `--config` anyway, putting two conflicting flags on one line.
+#[test]
+fn a_short_c_flag_is_not_mistaken_for_a_neox_config_flag() {
+    for node_type in [NodeType::NeoXGeth, NodeType::NeoXReth] {
+        let operator_args = vec!["-c".to_string(), "/etc/neox/other.toml".to_string()];
+        // The diagnostic reads the operator's own arguments, so it is asked
+        // before the planner adds anything to them.
+        assert!(
+            !crate::launch::runtime_args_include_config(node_type, &operator_args),
+            "{node_type}: `-c` must not read as an operator-supplied config",
+        );
+
+        let mut args = operator_args;
+        let managed = match node_type {
+            NodeType::NeoXGeth => {
+                geth_args(&mut args, &work_dir(), PathBuf::from("/cfg/neox.toml"))
+            }
+            _ => reth_args(
+                &node(node_type, Network::Mainnet),
+                &mut args,
+                &work_dir(),
+                PathBuf::from("/cfg/neox.toml"),
+            ),
+        };
+        assert!(
+            managed.is_some(),
+            "{node_type}: the managed config is written"
+        );
+        // So the planner supplies the managed one, agreeing with what the
+        // diagnostic just told the operator would happen.
+        assert_eq!(value_of(&args, "--config"), Some("/cfg/neox.toml"));
+    }
+}
+
 /// Geth's chain id, ports and peers all live in the config file, so its command
 /// line stays short — but the file still has to be handed to it.
 #[test]
