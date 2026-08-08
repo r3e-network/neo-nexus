@@ -8,7 +8,10 @@
 use super::*;
 
 use crate::{
-    app::domain::{designation_status, governance_snapshot},
+    app::{
+        domain::{designation_status, governance_snapshot},
+        state::ChainReadKey,
+    },
     rpc_health::node_rpc_endpoint,
 };
 
@@ -57,7 +60,12 @@ impl NeoNexusApp {
                 Some("Select a node to read governance state through".to_string());
             return;
         };
-        match governance_snapshot(&node_rpc_endpoint(&node), CHAIN_STATE_TIMEOUT) {
+        let endpoint = node_rpc_endpoint(&node);
+        // Keyed by the chain the answer came from, so selecting a node on a
+        // different network shows that network's committee or nothing — never
+        // this one's. See `ChainReadKey`.
+        let key = ChainReadKey::for_node(&node, &endpoint);
+        match governance_snapshot(&endpoint, CHAIN_STATE_TIMEOUT) {
             Ok(snapshot) => {
                 self.session.notice = Some(format!(
                     "Committee {} · validators {} · candidates {}",
@@ -65,12 +73,11 @@ impl NeoNexusApp {
                     snapshot.next_validators.len(),
                     snapshot.candidates.len()
                 ));
-                self.chain.governance_error = None;
-                self.chain.governance = Some(snapshot);
+                self.chain.record_governance(key, snapshot);
             }
             Err(error) => {
                 let message = error.message().to_string();
-                self.chain.governance_error = Some(message.clone());
+                self.chain.record_governance_error(key, message.clone());
                 self.session.notice = Some(message);
             }
         }
