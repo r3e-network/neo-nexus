@@ -201,6 +201,11 @@ jobs:
           $exitCode = $LASTEXITCODE
           if ($exitCode -eq 0) { throw "expected rpc-health-json to fail for unreachable endpoint" }
           if ($exitCode -ne 1) { throw "unexpected rpc-health-json exit code: $exitCode" }
+          # The failure above is the assertion, not a problem. GitHub's pwsh
+          # wrapper ends with `exit $LASTEXITCODE`, so leaving cargo's 1 in place
+          # fails the step for the very thing it set out to prove — the Unix twin
+          # swallows it with `set +e` for the same reason.
+          exit 0
 
       - name: Workspace readiness CLI (Unix)
         if: runner.os != 'Windows'
