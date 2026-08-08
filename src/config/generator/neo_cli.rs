@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 use crate::{catalog::PluginState, types::NodeConfig};
 
 use super::super::format::{
-    effective_network_magic, max_transactions_per_block, neo_cli_storage_engine,
+    effective_network_magic, max_transactions_per_block, neo_cli_storage_engine, GenerationContext,
     RuntimeConfigProfile,
 };
 use super::ConfigGenerator;
@@ -47,8 +47,22 @@ impl ConfigGenerator {
     /// Shape verified against `src/Neo.CLI/config.json` in neo-project/neo-node.
     pub fn neo_cli_with_profile(
         node: &NodeConfig,
+        plugins: &[PluginState],
+        profile: Option<&RuntimeConfigProfile>,
+    ) -> Result<Value> {
+        Self::neo_cli_with_context(node, plugins, profile, &GenerationContext::default())
+    }
+
+    /// The primary config for a node performing a duty.
+    ///
+    /// neo-cli opens one wallet for the whole node — `UnlockWallet` — and the
+    /// plugins that sign (dBFT, OracleService, StateService) use it. So unlike
+    /// neo-go, the wallet lives here rather than in each service section.
+    pub fn neo_cli_with_context(
+        node: &NodeConfig,
         _plugins: &[PluginState],
         profile: Option<&RuntimeConfigProfile>,
+        context: &GenerationContext,
     ) -> Result<Value> {
         let mut protocol = json!({
             "Network": effective_network_magic(node.network, profile)
@@ -80,15 +94,27 @@ impl ConfigGenerator {
                 "P2P": {
                     "Port": node.p2p_port
                 },
-                "UnlockWallet": {
-                    "Path": "",
-                    "Password": "",
-                    "IsActive": false
-                },
+                "UnlockWallet": unlock_wallet(context),
                 "Plugins": {
                     "DownloadUrl": PLUGIN_DOWNLOAD_URL
                 }
             }
         }))
     }
+}
+
+/// The wallet neo-cli opens at startup, which every signing plugin then uses.
+///
+/// `IsActive` is the switch: without a password the node would prompt on a
+/// console the supervisor does not have, so the path is written for the
+/// operator to see and the wallet stays closed until they supply one.
+fn unlock_wallet(context: &GenerationContext) -> Value {
+    let wallet = context.wallet.as_ref();
+    json!({
+        "Path": wallet.map(|wallet| wallet.path.as_str()).unwrap_or_default(),
+        "Password": wallet
+            .and_then(|wallet| wallet.password.as_deref())
+            .unwrap_or_default(),
+        "IsActive": wallet.is_some_and(crate::config::ServiceWallet::can_unlock)
+    })
 }
