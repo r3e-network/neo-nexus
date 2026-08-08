@@ -1,3 +1,4 @@
+mod chain_family;
 mod network;
 mod node;
 mod node_inventory;
@@ -6,6 +7,7 @@ mod ports;
 mod status;
 mod storage;
 
+pub use chain_family::ChainFamily;
 pub use network::Network;
 pub use node::{NewNode, NodeConfig};
 pub use node_inventory::{filter_nodes, NodeInventoryFilter};

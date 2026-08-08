@@ -4,9 +4,9 @@ pub(in crate::app) use crate::core::{
     },
     lifecycle::{execute_node_launch, LaunchAction, ManagedConfig, NodeLaunchOutcome},
     node::{
-        filter_nodes, plan_available_node_ports, validate_node_port, validate_node_ports, Network,
-        NewNode, NodeConfig, NodeInventoryFilter, NodeStatus, NodeType, PortAssignment,
-        StorageEngine, DEFAULT_RPC_PORT,
+        filter_nodes, plan_available_node_ports, validate_node_port, validate_node_ports,
+        ChainFamily, Network, NewNode, NodeConfig, NodeInventoryFilter, NodeStatus, NodeType,
+        PortAssignment, StorageEngine, DEFAULT_RPC_PORT,
     },
     node_chain::{designation_status, governance_snapshot, DesignationStatus, GovernanceSnapshot},
     node_health::{latest_node_rpc_health, node_rpc_health_history},
