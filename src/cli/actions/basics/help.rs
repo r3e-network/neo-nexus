@@ -25,8 +25,8 @@ const USAGE_LINES: &[&str] = &[
     "USAGE:",
     "  neo-nexus [--gui|--version|--self-check|--help]",
     "  neo-nexus --completions <bash|zsh|fish>",
-    "  neo-nexus --runtime-smoke <neo-cli|neo-go|neo-rs> <binary> [runtime-args...]",
-    "  neo-nexus --runtime-smoke-json <neo-cli|neo-go|neo-rs> <binary> [runtime-args...]",
+    "  neo-nexus --runtime-smoke <neo-cli|neo-go|neo-rs|neox-geth|neox-rs> <binary> [runtime-args...]",
+    "  neo-nexus --runtime-smoke-json <neo-cli|neo-go|neo-rs|neox-geth|neox-rs> <binary> [runtime-args...]",
     "  neo-nexus --designation <rpc-endpoint> <role> [public-key]",
     "  neo-nexus --designation-json <rpc-endpoint> <role> [public-key]",
     "  neo-nexus --governance <rpc-endpoint>",
@@ -52,8 +52,8 @@ const USAGE_LINES: &[&str] = &[
     "  neo-nexus --export-event-journal <neonexus.db> <output-dir> [limit] [info|warning|critical|all] [query...]",
     "  neo-nexus --export-node-configs <neonexus.db> <output-dir>",
     "  neo-nexus --export-node-configs-json <neonexus.db> <output-dir>",
-    "  neo-nexus --validate-node-config <neo-cli|neo-go|neo-rs> <mainnet|testnet|private> <leveldb|rocksdb> <rpc-port> <p2p-port> <config-path>",
-    "  neo-nexus --validate-node-config-json <neo-cli|neo-go|neo-rs> <mainnet|testnet|private> <leveldb|rocksdb> <rpc-port> <p2p-port> <config-path>",
+    "  neo-nexus --validate-node-config <neo-cli|neo-go|neo-rs|neox-geth|neox-rs> <mainnet|testnet|private> <leveldb|rocksdb> <rpc-port> <p2p-port> <config-path>",
+    "  neo-nexus --validate-node-config-json <neo-cli|neo-go|neo-rs|neox-geth|neox-rs> <mainnet|testnet|private> <leveldb|rocksdb> <rpc-port> <p2p-port> <config-path>",
     "  neo-nexus --export-backup <neonexus.db> <output-dir>",
     "  neo-nexus --export-backup-json <neonexus.db> <output-dir>",
     "  neo-nexus --import-backup <neonexus.db> <backup.json>",
@@ -142,8 +142,8 @@ const OPTION_LINES: &[&str] = &[
 
 const CONFIG_GENERATION_LINES: &[&str] = &[
     "CONFIG GENERATION:",
-    "  neo-nexus --generate-node-config <neo-cli|neo-go|neo-rs> <mainnet|testnet|private> <leveldb|rocksdb> <rpc-port> <p2p-port> <output-path>",
-    "  neo-nexus --generate-node-config-json <neo-cli|neo-go|neo-rs> <mainnet|testnet|private> <leveldb|rocksdb> <rpc-port> <p2p-port> <output-path>",
+    "  neo-nexus --generate-node-config <neo-cli|neo-go|neo-rs|neox-geth|neox-rs> <mainnet|testnet|private> <leveldb|rocksdb> <rpc-port> <p2p-port> <output-path>",
+    "  neo-nexus --generate-node-config-json <neo-cli|neo-go|neo-rs|neox-geth|neox-rs> <mainnet|testnet|private> <leveldb|rocksdb> <rpc-port> <p2p-port> <output-path>",
 ];
 
 const WALLET_PROFILE_LINES: &[&str] = &[

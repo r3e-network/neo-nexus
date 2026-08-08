@@ -16,7 +16,7 @@ fn runtime_smoke_report(args: &[String]) -> Result<RuntimeSmokeReport> {
     if args.len() < 4 {
         let option = args.get(1).map_or("--runtime-smoke", String::as_str);
         anyhow::bail!(
-            "usage: neo-nexus {option} <neo-cli|neo-go|neo-rs> <binary> [runtime-args...]"
+            "usage: neo-nexus {option} <neo-cli|neo-go|neo-rs|neox-geth|neox-rs> <binary> [runtime-args...]"
         );
     }
     let node_type = NodeType::from_str(&args[2])?;

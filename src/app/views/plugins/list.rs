@@ -32,11 +32,18 @@ pub(super) fn render_plugin_list(app: &mut NeoNexusApp, ui: &mut egui::Ui, node:
     let total_plugins = app.plugin_catalog.for_node_type(node.node_type).len();
 
     if total_plugins == 0 {
-        empty_state(
-            ui,
-            "No plugins",
-            "This runtime has no supported plugins yet.",
-        );
+        // "yet" would be wrong for Neo X: its clients load no plugin
+        // assemblies at all, so nothing will ever appear here.
+        let (title, detail) = if node.node_type.family().has_plugins() {
+            ("No plugins", "This runtime has no supported plugins yet.")
+        } else {
+            (
+                "Not applicable",
+                "Neo X clients load no plugin assemblies; their services are launch flags and \
+                 config keys.",
+            )
+        };
+        empty_state(ui, title, detail);
         return;
     }
 
