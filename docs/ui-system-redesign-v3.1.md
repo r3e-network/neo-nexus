@@ -8,7 +8,7 @@
 | **Date** | 2026-07-15 |
 | **Status** | Shipped: **3.1.0** (PR-01–15 + PR-14-full gate); **3.2.0** Compact single-line lists + operator walkthrough |
 | **Stack** | Pure Rust · eframe/egui 0.33 · SQLite · dual GUI+CLI |
-| **Repo** | `/Users/jinghuiliao/git/r3e/neo-nexus` |
+| **Repo** | the repository root |
 | **Supersedes** | Partial IA + widget kit shipped in 3.0.0 (`docs/ui-v3-baseline.md`) |
 
 ---
