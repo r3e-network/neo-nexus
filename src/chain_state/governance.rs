@@ -90,7 +90,8 @@ pub(super) fn parse_candidates(result: &Value) -> Result<Vec<CandidateStanding>,
             Ok(CandidateStanding { public_key, votes })
         })
         .collect::<Result<_, ChainQueryError>>()?;
-    candidates.sort_by(|left, right| right.votes.cmp(&left.votes));
+    // Highest vote first, so the top of the tail is what an operator reads.
+    candidates.sort_by_key(|candidate| std::cmp::Reverse(candidate.votes));
     Ok(candidates)
 }
 

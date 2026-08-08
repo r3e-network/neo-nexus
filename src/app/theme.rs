@@ -128,13 +128,13 @@ pub(super) fn track_surface() -> Color32 {
 /// them from the surface they sit on, so this stroke carries all of the
 /// workbench's elevation. Depth comes from the three fill tiers instead.
 pub(super) fn hairline() -> egui::Stroke {
-    egui::Stroke::new(1.0, palette(active_theme()).border)
+    egui::Stroke::new(1.0_f32, palette(active_theme()).border)
 }
 
 /// The stronger hairline used for hover and focus edges, so interaction
 /// feedback does not have to reach for the accent on every control.
 pub(super) fn hairline_strong() -> egui::Stroke {
-    egui::Stroke::new(1.0, palette(active_theme()).border_strong)
+    egui::Stroke::new(1.0_f32, palette(active_theme()).border_strong)
 }
 
 /// Semantic colours for inline status text (validation, severity, pressure,

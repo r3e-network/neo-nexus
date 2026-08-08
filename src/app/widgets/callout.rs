@@ -34,7 +34,7 @@ pub(in crate::app) fn callout(ui: &mut egui::Ui, kind: CalloutKind, title: &str,
     let accent = kind.accent();
     egui::Frame::new()
         .fill(tint(accent))
-        .stroke(egui::Stroke::new(1.0, tint_border(accent)))
+        .stroke(egui::Stroke::new(1.0_f32, tint_border(accent)))
         .corner_radius(egui::CornerRadius::same(10))
         .inner_margin(egui::Margin::ZERO)
         .show(ui, |ui| {

@@ -28,10 +28,9 @@ fn validate_signer_template_syntax(template: &str) -> Result<()> {
                 }
                 validate_signer_template_field(&field)?;
             }
-            '}' => {
-                if chars.next_if_eq(&'}').is_none() {
-                    anyhow::bail!("signer sidecar command template has an unopened placeholder");
-                }
+            // A lone `}` is an unopened placeholder; `}}` is an escaped brace.
+            '}' if chars.next_if_eq(&'}').is_none() => {
+                anyhow::bail!("signer sidecar command template has an unopened placeholder");
             }
             _ => {}
         }

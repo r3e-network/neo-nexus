@@ -28,7 +28,7 @@ fn badge_pill(ui: &mut egui::Ui, text: &str, fg: Color32, bg: Color32) {
         .fill(bg)
         // A hairline in the chip's own hue gives it a definite edge on every
         // surface tier, now that no shadow separates nested surfaces.
-        .stroke(egui::Stroke::new(1.0, badge_edge(fg)))
+        .stroke(egui::Stroke::new(1.0_f32, badge_edge(fg)))
         .corner_radius(egui::CornerRadius::same(8))
         .inner_margin(egui::Margin::symmetric(8, 3))
         .show(ui, |ui| {

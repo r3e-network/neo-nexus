@@ -1,0 +1,12 @@
+# The toolchain this repository is verified against.
+#
+# CI installs `dtolnay/rust-toolchain@stable` and runs `cargo clippy --all-targets
+# -- -D warnings`, so a contributor whose default is nightly gets a *different*
+# clippy than the gate: nightly reported zero findings on a tree that stable 1.97
+# failed with 21, because each release adds lints. Pinning the channel here means
+# a bare `cargo clippy` is the same clippy that decides whether CI passes.
+#
+# Update it deliberately, and expect new lints to fire when you do.
+[toolchain]
+channel = "stable"
+components = ["clippy", "rustfmt"]
