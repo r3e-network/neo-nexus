@@ -32,6 +32,7 @@ pub(super) fn build_initial_app(
             prefs.monitor,
             prefs.federation,
             prefs.roles,
+            prefs.private_network,
         ),
         async_bus: AsyncProbeBus {
             alert_routing_policy: policies.alert_routing.clone(),

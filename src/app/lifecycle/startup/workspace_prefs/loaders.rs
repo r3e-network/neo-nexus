@@ -87,6 +87,6 @@ pub(super) fn load_section<T>(
     }
 }
 
-pub(super) fn first_notice(notices: [Option<String>; 12]) -> Option<String> {
+pub(super) fn first_notice(notices: [Option<String>; 13]) -> Option<String> {
     notices.into_iter().flatten().next()
 }

@@ -1,5 +1,6 @@
 mod actions;
 mod grid;
+mod section;
 mod status;
 
 use eframe::egui;
@@ -11,10 +12,15 @@ use crate::app::domain::{
 
 use super::super::super::{theme::muted_text, NeoNexusApp};
 
-impl NeoNexusApp {
-    pub(super) fn render_private_network_plan(&mut self, ui: &mut egui::Ui) {
-        self.render_private_network_plan_controls(ui);
+pub(in crate::app) use section::PrivateNetworkSection;
 
+impl NeoNexusApp {
+    /// One stage of the private-network workflow, chosen by the caller's tabs.
+    ///
+    /// All seven blocks used to render together, which put ~414pt of them below
+    /// a panel that does not scroll — including every button that writes the
+    /// network out. See [`PrivateNetworkSection`].
+    pub(super) fn render_private_network_plan(&mut self, ui: &mut egui::Ui) {
         let plan = PrivateNetworkPlanner::plan(
             self.private_network_template,
             self.private_network_runtime,
@@ -27,21 +33,31 @@ impl NeoNexusApp {
             &self.private_network_committee_keys,
             &self.private_network_signer_refs,
         );
-        let can_create_nodes = source.is_some() && conflicts.is_empty();
 
-        status::render_plan_status(self, ui, &plan, materialized_count, &signer_handoff);
-        status::render_sidecar_status(self, ui);
-        status::render_source_status(self, ui, source.as_ref(), conflicts.first());
-        actions::render_plan_actions(
-            self,
-            ui,
-            can_create_nodes,
-            launch_pack_ready,
-            signer_handoff.is_ok(),
-        );
-        actions::render_signer_inputs(self, ui);
-        ui.separator();
-        grid::render_plan_grid(ui, &plan);
+        match self.sections.private_network {
+            PrivateNetworkSection::Plan => {
+                self.render_private_network_plan_controls(ui);
+                status::render_plan_status(ui, &plan);
+                ui.separator();
+                grid::render_plan_grid(ui, &plan);
+            }
+            PrivateNetworkSection::Signers => {
+                actions::render_signer_inputs(self, ui);
+            }
+            PrivateNetworkSection::Deploy => {
+                let can_create_nodes = source.is_some() && conflicts.is_empty();
+                status::render_deploy_status(self, ui, &plan, materialized_count, &signer_handoff);
+                status::render_source_status(self, ui, source.as_ref(), conflicts.first());
+                status::render_sidecar_status(self, ui);
+                actions::render_plan_actions(
+                    self,
+                    ui,
+                    can_create_nodes,
+                    launch_pack_ready,
+                    signer_handoff.is_ok(),
+                );
+            }
+        }
     }
 
     fn render_private_network_plan_controls(&mut self, ui: &mut egui::Ui) {

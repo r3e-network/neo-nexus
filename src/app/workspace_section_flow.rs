@@ -10,6 +10,7 @@ const KEY_SNAPSHOTS: &str = "workspace.section.snapshots";
 const KEY_MONITOR: &str = "workspace.section.monitor";
 const KEY_FEDERATION: &str = "workspace.section.federation";
 const KEY_ROLES: &str = "workspace.section.roles";
+const KEY_PRIVATE_NETWORK: &str = "workspace.section.private-network";
 const KEY_NODES: &str = "workspace.section.nodes";
 
 impl NeoNexusApp {
@@ -81,6 +82,14 @@ impl NeoNexusApp {
             &mut self.sections.persisted_roles,
             KEY_ROLES,
             RolesSection::persist_key,
+        );
+        persist_section(
+            &self.repository,
+            &mut self.session.notice,
+            self.sections.private_network,
+            &mut self.sections.persisted_private_network,
+            KEY_PRIVATE_NETWORK,
+            PrivateNetworkSection::persist_key,
         );
     }
 }

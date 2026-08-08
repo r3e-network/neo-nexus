@@ -4,7 +4,7 @@ mod section;
 
 use eframe::egui;
 
-use crate::app::domain::{PrivateNetworkPlanner, RolePlanner};
+use crate::app::domain::PrivateNetworkPlanner;
 
 use super::super::{
     theme,
@@ -12,38 +12,20 @@ use super::super::{
     NeoNexusApp,
 };
 
+pub(in crate::app) use private_network::PrivateNetworkSection;
 pub(in crate::app) use section::RolesSection;
 
 impl NeoNexusApp {
+    /// The Roles tab of the Nodes workspace.
+    ///
+    /// It carries no metric row. It used to, from when this was a top-level
+    /// page: Role and Runtime restated the button the operator had just pressed
+    /// and the inspector beside it, and "Private Plan" counted nodes for the
+    /// private-network planner, which moved to the Network hub. Rendered inside
+    /// the Nodes workspace those four metrics sat under a second header and a
+    /// second tab bar, and the ~90pt they took is why Apply Role — the only
+    /// control on the page — was laid out below a panel that does not scroll.
     pub(super) fn render_roles(&mut self, ui: &mut egui::Ui) {
-        let selected_node = self.selected_node().cloned();
-        let role_plan = selected_node
-            .as_ref()
-            .map(|node| RolePlanner::plan(node, self.selected_role));
-        let private_plan = PrivateNetworkPlanner::plan(
-            self.private_network_template,
-            self.private_network_runtime,
-        );
-
-        let changes = role_plan
-            .as_ref()
-            .map_or_else(|| "-".to_string(), |plan| plan.change_count().to_string());
-        let private_plan_count = private_plan.nodes.len().to_string();
-        let runtime_label = selected_node
-            .as_ref()
-            .map_or(self.private_network_runtime, |node| node.node_type)
-            .to_string();
-        metric_row(
-            ui,
-            &[
-                ("Role", self.selected_role.label(), "selected preset"),
-                ("Changes", &changes, "plugin states"),
-                ("Private Plan", &private_plan_count, "planned nodes"),
-                ("Runtime", &runtime_label, "selected"),
-            ],
-        );
-
-        ui.add_space(theme::MD);
         let mut index = self.sections.roles as usize;
         let labels = RolesSection::ALL.map(RolesSection::label);
         if page_chrome(ui, None, Some((&labels, &mut index))) {
@@ -89,7 +71,12 @@ impl NeoNexusApp {
             ],
         );
         ui.add_space(theme::MD);
-        panel(ui, "Private network planner", |ui| {
+        let mut index = self.sections.private_network as usize;
+        let labels = PrivateNetworkSection::ALL.map(PrivateNetworkSection::label);
+        if page_chrome(ui, None, Some((&labels, &mut index))) {
+            self.sections.private_network = PrivateNetworkSection::ALL[index];
+        }
+        panel(ui, self.sections.private_network.label(), |ui| {
             self.render_private_network_plan(ui);
         });
     }

@@ -17,6 +17,12 @@ impl NeoNexusApp {
         ui.add_space(theme::MD);
         let layout = layout::wallet_pane_layout(ui.available_size());
         ui.horizontal(|ui| {
+            // The widths were measured before this layout existed, and the gap
+            // between the panes is applied explicitly below. Left at its
+            // default, `item_spacing.x` is inserted *again* on either side of
+            // that gap, and the pair ends up ~10pt wider than the column that
+            // clips it.
+            ui.spacing_mut().item_spacing.x = 0.0;
             ui.allocate_ui_with_layout(
                 egui::vec2(layout.import_width, layout.height),
                 egui::Layout::top_down(egui::Align::Min),

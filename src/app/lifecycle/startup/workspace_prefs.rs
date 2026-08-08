@@ -16,6 +16,7 @@ const KEY_SNAPSHOTS: &str = "workspace.section.snapshots";
 const KEY_MONITOR: &str = "workspace.section.monitor";
 const KEY_FEDERATION: &str = "workspace.section.federation";
 const KEY_ROLES: &str = "workspace.section.roles";
+const KEY_PRIVATE_NETWORK: &str = "workspace.section.private-network";
 const KEY_NODES: &str = "workspace.section.nodes";
 
 /// Host-level workspace preferences that an operator tunes once and expects to
@@ -34,6 +35,7 @@ pub(super) struct StartupWorkspacePrefs {
     pub(super) monitor: MonitorSection,
     pub(super) federation: FederationSection,
     pub(super) roles: RolesSection,
+    pub(super) private_network: PrivateNetworkSection,
     pub(super) notice: Option<String>,
 }
 
@@ -92,6 +94,13 @@ impl StartupWorkspacePrefs {
             RolesSection::Presets,
         );
 
+        let (private_network, private_network_notice) = load_section(
+            repository,
+            KEY_PRIVATE_NETWORK,
+            PrivateNetworkSection::from_persist_key,
+            PrivateNetworkSection::Plan,
+        );
+
         Self {
             theme,
             density,
@@ -105,6 +114,7 @@ impl StartupWorkspacePrefs {
             monitor,
             federation,
             roles,
+            private_network,
             notice: first_notice([
                 theme_notice,
                 density_notice,
@@ -118,6 +128,7 @@ impl StartupWorkspacePrefs {
                 monitor_notice,
                 federation_notice,
                 roles_notice,
+                private_network_notice,
             ]),
         }
     }

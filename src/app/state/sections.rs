@@ -1,8 +1,8 @@
 //! Persisted in-page section tabs for dense multi-surface workspaces.
 
 use crate::app::views::{
-    FederationSection, MonitorSection, RolesSection, RuntimesSection, SettingsSection,
-    SnapshotsSection,
+    FederationSection, MonitorSection, PrivateNetworkSection, RolesSection, RuntimesSection,
+    SettingsSection, SnapshotsSection,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -19,6 +19,8 @@ pub(in crate::app) struct WorkspaceSections {
     pub(in crate::app) persisted_federation: FederationSection,
     pub(in crate::app) roles: RolesSection,
     pub(in crate::app) persisted_roles: RolesSection,
+    pub(in crate::app) private_network: PrivateNetworkSection,
+    pub(in crate::app) persisted_private_network: PrivateNetworkSection,
 }
 
 impl WorkspaceSections {
@@ -29,6 +31,7 @@ impl WorkspaceSections {
         monitor: MonitorSection,
         federation: FederationSection,
         roles: RolesSection,
+        private_network: PrivateNetworkSection,
     ) -> Self {
         Self {
             settings,
@@ -43,6 +46,8 @@ impl WorkspaceSections {
             persisted_federation: federation,
             roles,
             persisted_roles: roles,
+            private_network,
+            persisted_private_network: private_network,
         }
     }
 }
