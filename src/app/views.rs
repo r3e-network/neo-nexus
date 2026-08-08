@@ -24,7 +24,7 @@ pub(in crate::app) use monitor::MonitorSection;
 pub(in crate::app) use network_hub::NetworkHubSection;
 pub(in crate::app) use nodes::NodeWorkspaceTab;
 pub(in crate::app) use operations::OperationsSection;
-pub(in crate::app) use roles::RolesSection;
+pub(in crate::app) use roles::{PrivateNetworkSection, RolesSection};
 pub(in crate::app) use runtimes::RuntimesSection;
 pub(in crate::app) use settings::SettingsSection;
 pub(in crate::app) use shell::InspectorSection;

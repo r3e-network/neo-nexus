@@ -7,7 +7,21 @@ use crate::app::{
     NeoNexusApp,
 };
 
+/// What the chosen template *is*. Two facts, because the rest of what used to
+/// sit here — how much of the plan exists on disk, how many committee keys have
+/// been supplied, the signer handoff, the last export — are all questions about
+/// deploying the plan, not about the plan. Six facts left the node grid two rows
+/// of a seven-node topology.
 pub(in crate::app::views::roles::private_network) fn render_plan_status(
+    ui: &mut egui::Ui,
+    plan: &PrivateNetworkPlan,
+) {
+    fact(ui, "Template", plan.template.description());
+    fact(ui, "Consensus", &plan.consensus_count().to_string());
+}
+
+/// How ready this plan is to be written out.
+pub(in crate::app::views::roles::private_network) fn render_deploy_status(
     app: &NeoNexusApp,
     ui: &mut egui::Ui,
     plan: &PrivateNetworkPlan,
@@ -25,8 +39,6 @@ pub(in crate::app::views::roles::private_network) fn render_plan_status(
         .filter(|value| !value.trim().is_empty())
         .count();
 
-    fact(ui, "Template", plan.template.description());
-    fact(ui, "Consensus", &plan.consensus_count().to_string());
     fact(
         ui,
         "Materialized",

@@ -185,10 +185,40 @@ fn no_surface_paints_below_the_panel_that_holds_it() {
 /// segment was never measured, and two of them were shipping with their primary
 /// action laid out below the panel. A view is not one surface; it is as many
 /// surfaces as it has segments, and each one has to be contained on its own.
-const SECTIONS: [(&str, &str, &str, &str); 32] = [
+/// Sub-tabs needing two keys pinned: an outer tab and an inner one.
+///
+/// Nodes > Roles is the only surface with a second level, and its two segments —
+/// the preset list and the resulting plan — are separate surfaces. The one
+/// carrying Apply Role is the one that did not fit.
+/// (label, view, the two section keys to pin).
+type NestedSurface = (
+    &'static str,
+    &'static str,
+    [(&'static str, &'static str); 2],
+);
+
+const NESTED: [NestedSurface; 2] = [
+    (
+        "nodes/roles/presets",
+        "nodes",
+        [
+            ("workspace.section.nodes", "roles"),
+            ("workspace.section.roles", "presets"),
+        ],
+    ),
+    (
+        "nodes/roles/plan",
+        "nodes",
+        [
+            ("workspace.section.nodes", "roles"),
+            ("workspace.section.roles", "plan"),
+        ],
+    ),
+];
+
+const SECTIONS: [(&str, &str, &str, &str); 33] = [
     ("nodes/studio", "nodes", "workspace.section.nodes", "studio"),
     ("nodes/config", "nodes", "workspace.section.nodes", "config"),
-    ("nodes/roles", "nodes", "workspace.section.nodes", "roles"),
     (
         "nodes/plugins",
         "nodes",
@@ -197,13 +227,36 @@ const SECTIONS: [(&str, &str, &str, &str); 32] = [
     ),
     ("nodes/logs", "nodes", "workspace.section.nodes", "logs"),
     ("nodes/health", "nodes", "workspace.section.nodes", "health"),
+    // The Network hub reaches its three surfaces by *view*, not by a section
+    // key: View::Roles is the private-network planner and View::Wallets the
+    // wallet registry. Pinning `workspace.section.roles` here would set a value
+    // nothing on this page reads — which is how two entries ended up measuring
+    // the same planner under two role-sounding names. The real role presets are
+    // in NESTED, under Nodes.
     (
-        "roles/presets",
+        "network/private-net/plan",
         "roles",
-        "workspace.section.roles",
-        "presets",
+        "workspace.section.private-network",
+        "plan",
     ),
-    ("roles/plan", "roles", "workspace.section.roles", "plan"),
+    (
+        "network/private-net/signers",
+        "roles",
+        "workspace.section.private-network",
+        "signers",
+    ),
+    (
+        "network/private-net/deploy",
+        "roles",
+        "workspace.section.private-network",
+        "deploy",
+    ),
+    (
+        "network/wallets",
+        "wallets",
+        "workspace.section.nodes",
+        "studio",
+    ),
     (
         "operations/readiness",
         "operations",
@@ -353,8 +406,10 @@ const SECTIONS: [(&str, &str, &str, &str); 32] = [
 /// Sub-tabs known not to fit yet, and what is cut off on each.
 ///
 /// This list is a **debt ledger, not a permission slip**. Widening the contract
-/// from 6 views to 32 sub-tabs found these; on `main` the same sweep reports 38,
-/// so they are what is left of a much larger problem rather than something new.
+/// from 6 views to every sub-tab found eight; on the pre-v3.3 tree the same sweep
+/// reports 38, so they are what is left of a much larger problem rather than
+/// something new. Three of the eight have since been fixed — Nodes > Roles, the
+/// private-network Plan stage, and the wallet registry — leaving these five.
 /// Each one needs the same treatment the contained surfaces already got —
 /// paging, sectioning, or shedding content — which is design work per surface,
 /// not a layout constant to nudge.
@@ -363,22 +418,10 @@ const SECTIONS: [(&str, &str, &str, &str); 32] = [
 /// overflow, and every listed one must still overflow. So fixing a surface
 /// fails the suite until its entry is deleted, and the ledger cannot quietly
 /// outlive the debt.
-const KNOWN_UNCONTAINED: [(&str, &str); 8] = [
-    (
-        "roles/presets",
-        "Apply Role and the Notary/Observer presets lay out ~414pt below the panel",
-    ),
-    (
-        "roles/plan",
-        "the plugin-change list runs ~414pt past the bottom with no paging",
-    ),
-    (
-        "nodes/roles",
-        "the per-node duty picker runs ~354pt past the bottom",
-    ),
+const KNOWN_UNCONTAINED: [(&str, &str); 5] = [
     (
         "settings/alerts",
-        "the webhook form overflows both the right edge (~86pt) and the bottom (~167pt)",
+        "the webhook form overflows both axes: ~167pt past the bottom and ~86pt past the right",
     ),
     (
         "settings/upgrades",
@@ -386,11 +429,11 @@ const KNOWN_UNCONTAINED: [(&str, &str); 8] = [
     ),
     (
         "monitor/telemetry",
-        "the telemetry table runs ~93pt past the bottom with no paging",
+        "the telemetry table renders a fixed row count instead of a height-derived one (~93pt)",
     ),
     (
         "runtimes/sync",
-        "the applied-version list runs ~78pt past the bottom",
+        "the applied-version list renders a fixed row count instead of a height-derived one (~78pt)",
     ),
     (
         "federation/editor",
@@ -414,10 +457,16 @@ fn every_sub_tab_is_contained_or_a_declared_exception() {
     let mut failures = String::new();
     let mut fixed = Vec::new();
 
-    for (label, view, key, section) in SECTIONS {
+    let flat = SECTIONS
+        .into_iter()
+        .map(|(label, view, key, section)| (label, view, vec![(key, section)]));
+    let nested = NESTED
+        .into_iter()
+        .map(|(label, view, keys)| (label, view, keys.to_vec()));
+    for (label, view, keys) in flat.chain(nested) {
         let mut overflowed = false;
         for inspector in [true, false] {
-            let found = overflows_in(view, false, inspector, &[(key, section)]);
+            let found = overflows_in(view, false, inspector, &keys);
             if found.is_empty() {
                 continue;
             }
@@ -448,12 +497,13 @@ fn every_sub_tab_is_contained_or_a_declared_exception() {
 #[test]
 fn the_uncontained_ledger_does_not_grow() {
     assert!(
-        KNOWN_UNCONTAINED.len() <= 8,
+        KNOWN_UNCONTAINED.len() <= 5,
         "a new sub-tab was added to KNOWN_UNCONTAINED; fix the surface instead",
     );
     for (label, reason) in KNOWN_UNCONTAINED {
         assert!(
-            SECTIONS.iter().any(|(name, ..)| *name == label),
+            SECTIONS.iter().any(|(name, ..)| *name == label)
+                || NESTED.iter().any(|(name, ..)| *name == label),
             "{label} is not a real sub-tab",
         );
         assert!(!reason.is_empty(), "{label} needs a reason");

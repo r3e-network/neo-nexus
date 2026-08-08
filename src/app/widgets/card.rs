@@ -36,8 +36,15 @@ pub(in crate::app) fn stretch_card(
     title: &str,
     add_contents: impl FnOnce(&mut egui::Ui),
 ) {
-    card_frame(ui.style()).show(ui, |ui| {
-        ui.set_min_size(ui.available_size());
+    let frame = card_frame(ui.style());
+    // `available_size()` inside the closure is the room left for *content*, and
+    // the frame adds its own margins around whatever the content asks for. So
+    // stretching to the full available size makes the card its margins taller
+    // and wider than the space it was given — which is exactly the 10pt every
+    // filled page was painting below the panel that clips it.
+    let margin = frame.total_margin().sum();
+    frame.show(ui, |ui| {
+        ui.set_min_size((ui.available_size() - margin).max(egui::Vec2::ZERO));
         card_title(ui, title, None);
         hr(ui);
         add_contents(ui);
