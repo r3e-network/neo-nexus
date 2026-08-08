@@ -11,7 +11,9 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ed25519_dalek::{Signer, SigningKey};
 use flate2::{write::GzEncoder, Compression};
 use neo_nexus::{
-    backup::{WorkspaceBackupExporter, WorkspaceBackupImporter, WorkspaceSettingBackup},
+    backup::{
+        WorkspaceBackup, WorkspaceBackupExporter, WorkspaceBackupImporter, WorkspaceSettingBackup,
+    },
     catalog::{PluginCatalog, PluginId, PluginState},
     config::{
         ConfigExporter, ConfigFormat, ConfigGenerator, ConfigValidationSeverity, ConfigValidator,
@@ -30,6 +32,7 @@ use neo_nexus::{
         format_bytes, MetricsSnapshot, MissingProcessMetric, NodeProcessMetrics, ResourcePressure,
         SystemMetrics,
     },
+    node_lifecycle::{execute_node_launch, LaunchAction, ManagedConfig},
     plugins::{PluginInstallation, PluginPackageManager, PluginPackageManifest},
     private_network::{
         CommitteeRoster, CommitteeSidecarProcess, LaunchPackValidationStatus,

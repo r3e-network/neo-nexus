@@ -16,6 +16,8 @@
 //! responsibility (it returns a rich report the frontend may surface), so a future
 //! CLI `--node-start` and the GUI use the identical launch path.
 
+mod context;
+
 use std::path::{Path, PathBuf};
 
 use crate::{
@@ -66,9 +68,18 @@ pub fn execute_node_launch(
     managed_config: Option<ManagedConfig<'_>>,
 ) -> NodeLaunchOutcome {
     if let Some(config) = managed_config {
-        if let Err(error) =
-            ConfigExporter::write_node_config_to_path(config.path, node, config.plugins)
-        {
+        // Rendered for the duty the workspace records, not as a bare relay. A
+        // context-free render here silently overwrote the section an operator
+        // had just applied, so the node started as a relay while the workbench
+        // still showed its duty.
+        let generation = context::generation_context_for_node(repository, node);
+        if let Err(error) = ConfigExporter::write_node_config_to_path_with_context(
+            config.path,
+            node,
+            config.plugins,
+            None,
+            &generation,
+        ) {
             return NodeLaunchOutcome::Failed {
                 message: error.to_string(),
             };
