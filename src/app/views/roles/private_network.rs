@@ -66,7 +66,13 @@ impl NeoNexusApp {
                 .selected_text(self.private_network_runtime.to_string())
                 .width(120.0)
                 .show_ui(ui, |ui| {
-                    for node_type in NodeType::ALL {
+                    // Neo X is absent by design: its validator set comes from
+                    // a genesis allocation, not from the committee roster these
+                    // templates build. See `ChainFamily::has_committee_templates`.
+                    for node_type in NodeType::ALL
+                        .into_iter()
+                        .filter(|node_type| node_type.family().has_committee_templates())
+                    {
                         ui.selectable_value(
                             &mut self.private_network_runtime,
                             node_type,
