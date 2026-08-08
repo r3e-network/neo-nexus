@@ -60,6 +60,7 @@ pub fn evaluate_node(
 ) -> NodeDiagnostics {
     let mut checks = Vec::new();
     checks.extend(binary_checks(node));
+    checks.extend(super::checks::chain_identity_checks(node));
     checks.extend(super::checks::managed_config_checks(node, None));
     checks.extend(config_checks(node, plugin_states));
     checks.push(version_check(node));
