@@ -23,7 +23,10 @@ impl NeoNexusApp {
 
         self.ensure_valid_snapshot_selection(&snapshots);
         self.ensure_valid_snapshot_catalog_selection();
-        self.render_snapshot_metrics(ui, &snapshots);
+        // No metric row here. This whole view is nested inside the Runtimes
+        // page's Sync tab, so it already sits below one metric row and one tab
+        // bar; a second pair of each pushed the panel ~78pt past the bottom.
+        // The snapshot figures moved into Registry, beside the list they count.
         self.render_snapshot_workspace(ui, &snapshots);
     }
 
@@ -68,6 +71,8 @@ impl NeoNexusApp {
                 self.render_snapshot_catalog(ui);
             }),
             SnapshotsSection::Registry => panel(ui, "Registry", |ui| {
+                self.render_snapshot_metrics(ui, snapshots);
+                ui.add_space(theme::SM);
                 self.render_snapshot_registry(ui, snapshots);
             }),
             SnapshotsSection::Verify => panel(ui, "Verification and cache", |ui| {

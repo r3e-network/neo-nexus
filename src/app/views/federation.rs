@@ -1,9 +1,7 @@
 use eframe::egui;
 
 use super::super::{
-    text::truncate_middle,
-    theme,
-    widgets::{metric_row, page_chrome, panel},
+    widgets::{page_chrome, panel},
     NeoNexusApp,
 };
 
@@ -16,41 +14,11 @@ pub(in crate::app) use section::FederationSection;
 
 impl NeoNexusApp {
     pub(super) fn render_federation(&mut self, ui: &mut egui::Ui) {
-        let enabled = self
-            .remote_servers
-            .iter()
-            .filter(|profile| profile.enabled)
-            .count();
-        let disabled = self.remote_servers.len().saturating_sub(enabled);
-        let selected = self
-            .selected_remote_server_profile()
-            .map_or_else(|| "none".to_string(), |profile| profile.name);
-        let probe = self
-            .selected_remote_server_probe()
-            .map_or("not probed", |report| report.status.label());
-        let auto_label = if self.async_bus.remote_federation_monitor_policy.enabled {
-            "enabled"
-        } else {
-            "disabled"
-        };
-        let auto_detail = format!("{} pending", self.async_bus.remote_federation_pending.len());
-
-        let remotes = self.remote_servers.len().to_string();
-        let enabled_label = enabled.to_string();
-        let disabled_label = disabled.to_string();
-        let selected_short = truncate_middle(&selected, 20);
-        metric_row(
-            ui,
-            &[
-                ("Remotes", &remotes, "saved profiles"),
-                ("Enabled", &enabled_label, "active probes"),
-                ("Disabled", &disabled_label, "paused profiles"),
-                ("Auto", auto_label, &auto_detail),
-                ("Probe", probe, &selected_short),
-            ],
-        );
-
-        ui.add_space(theme::MD);
+        // No page metric row. Remotes, Enabled and Disabled count the profile
+        // list, so they sit in the Profiles section with it; Auto is the
+        // federation monitor, now grouped with the other monitors under
+        // Monitor > Telemetry; and Probe is what the Inspector section shows in
+        // full. Above the tabs they were ~90pt of restatement on every surface.
         let mut index = self.sections.federation as usize;
         let labels = FederationSection::ALL.map(FederationSection::label);
         if page_chrome(ui, None, Some((&labels, &mut index))) {
@@ -59,6 +27,7 @@ impl NeoNexusApp {
 
         match self.sections.federation {
             FederationSection::Profiles => panel(ui, "Remote profiles", |ui| {
+                self.render_remote_profile_counts(ui);
                 self.render_remote_profile_list(ui);
             }),
             FederationSection::Editor => panel(ui, "Profile editor", |ui| {
