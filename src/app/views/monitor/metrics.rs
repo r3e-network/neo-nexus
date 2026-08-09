@@ -4,7 +4,12 @@ use crate::app::domain::format_bytes;
 
 use super::super::super::{widgets::metric_row, NeoNexusApp};
 
-pub(super) fn render_monitor_metrics(app: &NeoNexusApp, ui: &mut egui::Ui) {
+/// Resource pressure, shown inside the section it describes.
+///
+/// This rendered above the section tabs, so every Monitor surface opened under
+/// four figures that only the Pressure tab is about — and CPU and Memory are
+/// already in the status bar, visible from every view in the app.
+pub(super) fn render_pressure_metrics(app: &NeoNexusApp, ui: &mut egui::Ui) {
     let system = &app.metrics_snapshot.system;
     let cpu = format!("{:.0}%", system.cpu_usage_percent);
     let memory = format!("{:.0}%", system.memory_usage_percent);

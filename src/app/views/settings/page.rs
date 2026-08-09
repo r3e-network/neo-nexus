@@ -6,12 +6,9 @@ use crate::app::{
     NeoNexusApp,
 };
 
-use super::{metrics::render_settings_metrics, SettingsSection};
+use super::{metrics::render_watchdog_metrics, SettingsSection};
 
 pub(super) fn render_settings(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
-    render_settings_metrics(app, ui);
-
-    ui.add_space(theme::MD);
     let mut index = app.sections.settings as usize;
     let labels = SettingsSection::ALL.map(SettingsSection::label);
     if page_chrome(ui, None, Some((&labels, &mut index))) {
@@ -20,6 +17,8 @@ pub(super) fn render_settings(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
 
     match app.sections.settings {
         SettingsSection::Watchdog => panel(ui, "Watchdog policy", |ui| {
+            render_watchdog_metrics(app, ui);
+            ui.add_space(theme::SM);
             app.render_watchdog_policy_settings(ui);
         }),
         SettingsSection::Upgrades => panel(ui, "Runtime upgrade policy", |ui| {

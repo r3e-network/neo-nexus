@@ -15,14 +15,14 @@ impl NeoNexusApp {
         metrics::render_wallet_metrics(ui, &self.neo_wallet_profiles);
 
         ui.add_space(theme::MD);
-        let layout = layout::wallet_pane_layout(ui.available_size());
+        // `horizontal` inserts `item_spacing.x` between its children, on top of
+        // the gap applied explicitly below. Subtract it rather than zeroing it:
+        // zeroing inherits into every label and control inside the panes, and
+        // runs their text together.
+        let row_spacing = ui.spacing().item_spacing.x;
+        let available = ui.available_size() - egui::vec2(row_spacing * 2.0, 0.0);
+        let layout = layout::wallet_pane_layout(available);
         ui.horizontal(|ui| {
-            // The widths were measured before this layout existed, and the gap
-            // between the panes is applied explicitly below. Left at its
-            // default, `item_spacing.x` is inserted *again* on either side of
-            // that gap, and the pair ends up ~10pt wider than the column that
-            // clips it.
-            ui.spacing_mut().item_spacing.x = 0.0;
             ui.allocate_ui_with_layout(
                 egui::vec2(layout.import_width, layout.height),
                 egui::Layout::top_down(egui::Align::Min),

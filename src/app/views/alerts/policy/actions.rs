@@ -1,10 +1,16 @@
 use eframe::egui;
 
-use crate::app::{theme::muted_text, widgets, NeoNexusApp};
+use crate::app::{theme::muted_text, widgets, widgets::hr_tight, NeoNexusApp};
 
+/// The three things an operator can do to the draft.
+///
+/// `horizontal_wrapped` rather than `horizontal`: four buttons in a row needed
+/// ~400pt in a pane that is 358pt wide, and the fourth painted outside the column
+/// — which is also what pushed the whole Alerts page 46pt past its clip. Prune
+/// History moved to the Delivery history panel, where the history it prunes is.
 pub(super) fn render_policy_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
-    ui.separator();
-    ui.horizontal(|ui| {
+    hr_tight(ui);
+    ui.horizontal_wrapped(|ui| {
         if widgets::secondary_button_enabled(ui, "Save Route", can_save_policy(app)).clicked() {
             app.save_alert_routing_policy();
         }
@@ -15,14 +21,10 @@ pub(super) fn render_policy_actions(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
         {
             app.preview_alert_routing_policy_draft();
         }
-        if widgets::secondary_button(ui, "Prune History").clicked() {
-            app.prune_alert_delivery_history();
-        }
     });
-    ui.label(
-        egui::RichText::new("Webhook secrets stay local and are not included in JSON backups.")
-            .color(muted_text()),
-    );
+    // One line, not two: at 358pt the longer wording wrapped, and a wrapped
+    // static note costs the same vertical room as a row of real content.
+    ui.label(egui::RichText::new("Secrets stay local — never in backups.").color(muted_text()));
 }
 
 fn can_save_policy(app: &NeoNexusApp) -> bool {

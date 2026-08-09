@@ -18,9 +18,11 @@ pub(in crate::app) use section::MonitorSection;
 
 impl NeoNexusApp {
     pub(super) fn render_monitor(&mut self, ui: &mut egui::Ui) {
-        metrics::render_monitor_metrics(self, ui);
-
-        ui.add_space(theme::MD);
+        // No page-level metric row. CPU and Memory are in the status bar at all
+        // times, and Node CPU / Node RSS are what the Pressure section is for —
+        // so above the tabs they were a duplicate on one tab and a distraction
+        // on the other three, costing ~90pt on a page where two of them did not
+        // fit.
         let mut index = self.sections.monitor as usize;
         let labels = MonitorSection::ALL.map(MonitorSection::label);
         if page_chrome(ui, None, Some((&labels, &mut index))) {
@@ -29,6 +31,8 @@ impl NeoNexusApp {
 
         match self.sections.monitor {
             MonitorSection::Pressure => panel(ui, "System pressure", |ui| {
+                metrics::render_pressure_metrics(self, ui);
+                ui.add_space(theme::SM);
                 pressure::render_system_pressure(self, ui);
             }),
             MonitorSection::Telemetry => panel(ui, "Telemetry health", |ui| {

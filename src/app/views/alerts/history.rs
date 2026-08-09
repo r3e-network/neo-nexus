@@ -8,7 +8,7 @@ use super::super::super::{
     paging::page_count,
     text::truncate_middle,
     theme::{muted_text, status_color},
-    widgets::{chip_pill, empty_state, grid_header, pagination_bar},
+    widgets::{chip_pill, empty_state, grid_header, pagination_bar, secondary_button_enabled},
     NeoNexusApp, ALERT_DELIVERY_PAGE_SIZE,
 };
 
@@ -16,8 +16,11 @@ pub(super) fn render_alert_delivery_history(
     app: &mut NeoNexusApp,
     ui: &mut egui::Ui,
     deliveries: &[AlertDelivery],
+    summary: super::metrics::AlertDeliverySummary,
+    pending: usize,
 ) {
     render_filter_bar(app, ui);
+    render_history_header(app, ui, deliveries.len(), summary, pending);
     let filter = AlertDeliveryFilter::new(
         app.async_bus.alert_delivery_status_filter,
         app.async_bus.alert_delivery_query.as_str(),
@@ -133,4 +136,40 @@ fn alert_delivery_color(status: AlertDeliveryStatus) -> egui::Color32 {
         AlertDeliveryStatus::Failed => status_color(NodeStatus::Error),
         AlertDeliveryStatus::Skipped => muted_text(),
     }
+}
+
+/// Every delivery figure, on one line, above the list it counts.
+///
+/// These were four tiles in a page-level metric row. A count of deliveries is not
+/// a property of the page, it is a property of this list — and read next to the
+/// list an operator can act on it, which is the whole point of the Prune button
+/// sharing the row. Pruning also moved here from the route-policy editor it used
+/// to crowd; it is a history action.
+fn render_history_header(
+    app: &mut NeoNexusApp,
+    ui: &mut egui::Ui,
+    total: usize,
+    summary: super::metrics::AlertDeliverySummary,
+    pending: usize,
+) {
+    ui.horizontal(|ui| {
+        let mut parts = vec![format!("{total} recorded")];
+        if summary.delivered > 0 || summary.failed > 0 {
+            parts.push(format!(
+                "{} delivered / {} failed",
+                summary.delivered, summary.failed
+            ));
+        }
+        if pending > 0 {
+            parts.push(format!("{pending} in flight"));
+        }
+        ui.label(egui::RichText::new(parts.join(" · ")).color(muted_text()));
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            // Disabled when there is nothing to prune, so the button never
+            // claims work it will not do.
+            if secondary_button_enabled(ui, "Prune", total > 0).clicked() {
+                app.prune_alert_delivery_history();
+            }
+        });
+    });
 }
