@@ -71,7 +71,11 @@ pub(super) fn render_telemetry_health(app: &mut NeoNexusApp, ui: &mut egui::Ui) 
 
     let per_row = columns_that_fit(ui.available_width(), GROUP_MIN_WIDTH, groups.len()).max(1);
     for chunk in groups.chunks(per_row) {
-        ui.columns(chunk.len(), |columns| {
+        // Always `per_row` columns, even when the last row holds fewer groups:
+        // sizing that row to its own contents would stretch one group across the
+        // full width and strand its values against the far edge, metres from the
+        // labels they belong to.
+        ui.columns(per_row, |columns| {
             for (column, (heading, rows)) in columns.iter_mut().zip(chunk) {
                 column.label(theme::label_caption(*heading));
                 for (label, value) in rows {

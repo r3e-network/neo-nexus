@@ -2,9 +2,7 @@ use eframe::egui;
 
 use crate::app::theme;
 
-use crate::app::{
-    domain::RuntimeUpgradePolicy, theme::accent, widgets::labeled_combo, NeoNexusApp,
-};
+use crate::app::{domain::RuntimeUpgradePolicy, widgets::labeled_combo, NeoNexusApp};
 
 pub(super) fn render_policy_form(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
     let profiles = app.runtime_catalog_profiles.clone();
@@ -114,9 +112,13 @@ fn render_timing_controls(app: &mut NeoNexusApp, ui: &mut egui::Ui) {
 
 fn render_validation_state(app: &NeoNexusApp, ui: &mut egui::Ui) {
     ui.add_space(theme::SM);
+    // The valid case used the accent, which in this palette is the same coral
+    // the danger state uses — so a policy that was fine announced itself in an
+    // alarm colour. Valid is the quiet state: it earns the muted treatment, and
+    // only a problem is allowed to shout.
     if let Some(message) = app.runtime_upgrade_policy_draft.validation_message() {
         ui.label(egui::RichText::new(message).color(theme::danger()));
     } else {
-        ui.label(egui::RichText::new("Policy draft is valid.").color(accent()));
+        ui.label(egui::RichText::new("Policy draft is valid.").color(theme::muted_text()));
     }
 }
