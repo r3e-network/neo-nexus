@@ -5,11 +5,12 @@ use crate::app::{
     domain::{AlertPreviewHeader, AlertPreviewReport},
     text::truncate_middle,
     theme::muted_text,
+    widgets::hr_tight,
     NeoNexusApp,
 };
 
 pub(super) fn render_alert_preview(app: &NeoNexusApp, ui: &mut egui::Ui) {
-    ui.separator();
+    hr_tight(ui);
     ui.label(egui::RichText::new("Last preview").strong());
     let Some(preview) = app.async_bus.last_alert_preview.as_ref() else {
         ui.label(egui::RichText::new("No preview run.").color(muted_text()));
@@ -24,13 +25,14 @@ fn render_preview_summary(ui: &mut egui::Ui, preview: &AlertPreviewReport, curre
         .num_columns(2)
         .spacing([14.0, 4.0])
         .show(ui, |ui| {
+            // Provider, Severity and Target are the form's own fields, three
+            // rows above this. What a preview adds is what the app *derives*
+            // from them — the endpoint it would actually call, how many headers
+            // it would send, and the body — so those are what it shows.
             preview_status_row(ui, current);
-            preview_row(ui, "Provider", &preview.provider);
-            preview_row(ui, "Severity", &preview.severity);
-            preview_row(ui, "Target", &preview.target);
             preview_row(ui, "Endpoint", &preview.endpoint);
             preview_row(ui, "Headers", &preview.header_count.to_string());
-            preview_row(ui, "Payload", &truncate_middle(&preview.payload_json, 96));
+            preview_row(ui, "Payload", &truncate_middle(&preview.payload_json, 72));
         });
 
     for header in &preview.headers {

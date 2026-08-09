@@ -19,18 +19,10 @@ use super::surfaces::*;
 /// overflow, and every listed one must still overflow. So fixing a surface
 /// fails the suite until its entry is deleted, and the ledger cannot quietly
 /// outlive the debt.
-const KNOWN_UNCONTAINED: [(&str, &str); 5] = [
-    (
-        "settings/alerts",
-        "the webhook form overflows both axes: ~167pt past the bottom and ~86pt past the right",
-    ),
+const KNOWN_UNCONTAINED: [(&str, &str); 3] = [
     (
         "settings/upgrades",
         "the upgrade-policy form runs ~93pt past the bottom",
-    ),
-    (
-        "monitor/telemetry",
-        "the telemetry table renders a fixed row count instead of a height-derived one (~93pt)",
     ),
     (
         "runtimes/sync",
@@ -98,7 +90,7 @@ fn every_sub_tab_is_contained_or_a_declared_exception() {
 #[test]
 fn the_uncontained_ledger_does_not_grow() {
     assert!(
-        KNOWN_UNCONTAINED.len() <= 5,
+        KNOWN_UNCONTAINED.len() <= 3,
         "a new sub-tab was added to KNOWN_UNCONTAINED; fix the surface instead",
     );
     for (label, reason) in KNOWN_UNCONTAINED {

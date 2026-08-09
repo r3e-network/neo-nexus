@@ -104,13 +104,52 @@ pub(in crate::app) fn pagination_bar(
     });
 }
 
-pub(in crate::app) fn labeled_text(ui: &mut egui::Ui, label: &str, value: &mut String) {
+/// Width of the label column in a labelled row.
+///
+/// Fixed, so consecutive rows line their controls up instead of each starting
+/// wherever its own label happened to end. A form whose fields begin at three
+/// different x positions reads as three unrelated rows.
+const LABEL_COLUMN: f32 = 116.0;
+
+/// Narrowest a control may be beside its label before the row stacks instead.
+const MIN_INLINE_CONTROL: f32 = 132.0;
+
+/// Lays out `label` in the fixed column and hands the rest of the row to
+/// `control`, or stacks them when the row is too narrow to do both.
+fn labeled_row(ui: &mut egui::Ui, label: &str, control: impl FnOnce(&mut egui::Ui, f32)) {
+    let stacked = ui.available_width() < LABEL_COLUMN + MIN_INLINE_CONTROL;
+    if stacked {
+        ui.label(theme::label_caption(label));
+        let width = ui.available_width().max(MIN_INLINE_CONTROL);
+        control(ui, width);
+        return;
+    }
     ui.horizontal(|ui| {
-        ui.label(label);
-        ui.add_sized(
-            [ui.available_width().max(120.0), 24.0],
-            egui::TextEdit::singleline(value),
+        let (rect, _) = ui.allocate_exact_size(
+            egui::vec2(LABEL_COLUMN, ui.spacing().interact_size.y),
+            egui::Sense::hover(),
         );
+        ui.painter().galley(
+            egui::pos2(
+                rect.left(),
+                rect.center().y - ui.text_style_height(&egui::TextStyle::Body) / 2.0,
+            ),
+            ui.painter().layout(
+                label.to_string(),
+                egui::TextStyle::Body.resolve(ui.style()),
+                ui.visuals().text_color(),
+                LABEL_COLUMN,
+            ),
+            ui.visuals().text_color(),
+        );
+        let width = ui.available_width().max(MIN_INLINE_CONTROL);
+        control(ui, width);
+    });
+}
+
+pub(in crate::app) fn labeled_text(ui: &mut egui::Ui, label: &str, value: &mut String) {
+    labeled_row(ui, label, |ui, width| {
+        ui.add_sized([width, 24.0], egui::TextEdit::singleline(value));
     });
 }
 
@@ -121,11 +160,10 @@ pub(in crate::app) fn labeled_combo(
     selected: String,
     add_items: impl FnOnce(&mut egui::Ui),
 ) {
-    ui.horizontal(|ui| {
-        ui.label(label);
+    labeled_row(ui, label, |ui, width| {
         egui::ComboBox::from_id_salt(id)
             .selected_text(selected)
-            .width(ui.available_width().max(120.0))
+            .width(width)
             .show_ui(ui, add_items);
     });
 }
