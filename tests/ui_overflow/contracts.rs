@@ -4,35 +4,15 @@ use super::harness::*;
 use super::sub_tabs::SECTIONS;
 use super::surfaces::*;
 
-/// Sub-tabs known not to fit yet, and what is cut off on each.
+/// Sub-tabs allowed not to fit. **Empty, and it stays that way.**
 ///
-/// This list is a **debt ledger, not a permission slip**. Widening the contract
-/// from 6 views to every sub-tab found eight; on the pre-v3.3 tree the same sweep
-/// reports 38, so they are what is left of a much larger problem rather than
-/// something new. Three of the eight have since been fixed — Nodes > Roles, the
-/// private-network Plan stage, and the wallet registry — leaving these five.
-/// Each one needs the same treatment the contained surfaces already got —
-/// paging, sectioning, or shedding content — which is design work per surface,
-/// not a layout constant to nudge.
-///
-/// The test below asserts in **both** directions: no unlisted sub-tab may
-/// overflow, and every listed one must still overflow. So fixing a surface
-/// fails the suite until its entry is deleted, and the ledger cannot quietly
-/// outlive the debt.
-const KNOWN_UNCONTAINED: [(&str, &str); 3] = [
-    (
-        "settings/upgrades",
-        "the upgrade-policy form runs ~93pt past the bottom",
-    ),
-    (
-        "runtimes/sync",
-        "the applied-version list renders a fixed row count instead of a height-derived one (~78pt)",
-    ),
-    (
-        "federation/editor",
-        "the remote-profile editor runs ~39pt past the bottom",
-    ),
-];
+/// Widening the contract from 6 views to all 32 sub-tabs found eight surfaces
+/// laying out content below a panel that does not scroll; the same sweep against
+/// the pre-v3.3 tree reports 38. All of them are fixed, so this list is now a
+/// tripwire rather than a ledger: adding an entry means shipping a surface an
+/// operator cannot fully see, and `the_uncontained_ledger_does_not_grow` fails
+/// the build for it.
+const KNOWN_UNCONTAINED: [(&str, &str); 0] = [];
 
 fn known_uncontained(label: &str) -> bool {
     KNOWN_UNCONTAINED.iter().any(|(known, _)| *known == label)
@@ -90,8 +70,9 @@ fn every_sub_tab_is_contained_or_a_declared_exception() {
 #[test]
 fn the_uncontained_ledger_does_not_grow() {
     assert!(
-        KNOWN_UNCONTAINED.len() <= 3,
-        "a new sub-tab was added to KNOWN_UNCONTAINED; fix the surface instead",
+        KNOWN_UNCONTAINED.is_empty(),
+        "every sub-tab fits today. Adding an entry here ships a surface whose \
+         content is laid out where egui will cull it — fix the surface instead.",
     );
     for (label, reason) in KNOWN_UNCONTAINED {
         assert!(
