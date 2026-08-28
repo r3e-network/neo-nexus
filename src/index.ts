@@ -5,6 +5,8 @@ import { createAppServer } from './server';
 import { paths } from './utils/paths';
 import { detectEnvironment } from './utils/environment';
 import { printStartupBanner } from './utils/startup';
+import { UserManager } from './core/UserManager';
+import { assertProductionAuthenticationSafe } from './utils/authSecurity';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -12,6 +14,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 async function main() {
   try {
     const db = await initializeDatabase();
+    await assertProductionAuthenticationSafe(new UserManager(db));
 
     const server = createAppServer({
       port: PORT,

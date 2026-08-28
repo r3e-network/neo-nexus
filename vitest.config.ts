@@ -28,15 +28,12 @@ export default defineConfig({
     testTimeout: 30000,
     hookTimeout: 30000,
     pool: "threads",
-    poolOptions: {
-      threads: {
-        singleThread: true, // SQLite requires single thread
-      },
-    },
+    minWorkers: 1,
+    maxWorkers: 1, // SQLite-backed tests must not run concurrently.
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "src"),
+      "@": path.resolve(import.meta.dirname, "src"),
     },
   },
 });

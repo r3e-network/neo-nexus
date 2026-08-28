@@ -17,6 +17,7 @@ describe("Actual auth router protection", () => {
     getAllUsers: ReturnType<typeof vi.fn>;
     deleteUser: ReturnType<typeof vi.fn>;
   };
+  let mockAuditLogger: { log: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     app = express();
@@ -38,8 +39,9 @@ describe("Actual auth router protection", () => {
       getAllUsers: vi.fn(() => [{ id: "admin-1", username: "admin", role: "admin" }]),
       deleteUser: vi.fn(),
     };
+    mockAuditLogger = { log: vi.fn() };
 
-    app.use("/api/auth", createAuthRouter(mockUserManager as never));
+    app.use("/api/auth", createAuthRouter(mockUserManager as never, mockAuditLogger));
   });
 
   it("changes password when an authenticated user sends a valid bearer token", async () => {
@@ -84,6 +86,10 @@ describe("Actual auth router protection", () => {
       role: "admin",
       usingDefaultPassword: false,
     });
+    expect(mockAuditLogger.log).toHaveBeenCalledWith(expect.objectContaining({
+      action: "auth.login.succeeded",
+      username: "admin",
+    }));
   });
 
   it("trims login usernames before credential verification", async () => {
@@ -113,6 +119,10 @@ describe("Actual auth router protection", () => {
     expect(response.body.error).toBe("Username and password are required");
     expect(response.body.code).toBe("CREDENTIALS_REQUIRED");
     expect(response.body.suggestion).toBeDefined();
+    expect(mockAuditLogger.log).toHaveBeenCalledWith(expect.objectContaining({
+      action: "auth.login.failed",
+      username: "admin",
+    }));
   });
 
   it("returns structured error for invalid login credentials", async () => {
@@ -158,6 +168,26 @@ describe("Actual auth router protection", () => {
       password: "admin12345",
       role: "admin",
     });
+  });
+
+  it("blocks initial production setup through a non-loopback proxy address", async () => {
+    const previousEnvironment = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    app.set("trust proxy", true);
+    mockUserManager.hasUsers.mockReturnValue(false);
+
+    try {
+      const response = await request(app)
+        .post("/api/auth/setup")
+        .set("X-Forwarded-For", "203.0.113.25")
+        .send({ username: "admin", password: "admin12345" });
+
+      expect(response.status).toBe(403);
+      expect(response.body.code).toBe("SETUP_LOCAL_ONLY");
+      expect(mockUserManager.createUser).not.toHaveBeenCalled();
+    } finally {
+      process.env.NODE_ENV = previousEnvironment;
+    }
   });
 
   it("returns structured error when password fields are missing", async () => {

@@ -15,6 +15,7 @@ import {
 import { publicFetch } from "../utils/publicFetch";
 import type { NodeType, ReleaseInfo } from "../types/index";
 import { ApiError } from "../api/errors";
+import { extractSafeZip } from "../utils/safeZip";
 
 const GITHUB_API_BASE = "https://api.github.com/repos";
 
@@ -62,8 +63,7 @@ export function hasUsableDownloadFile(path: string): boolean {
 }
 
 async function extractArchive(source: string, destination: string): Promise<void> {
-  const { default: extractZip } = await import("extract-zip");
-  await extractZip(source, { dir: destination });
+  await extractSafeZip(source, destination);
 }
 
 export function getNeoXAssetInfo(

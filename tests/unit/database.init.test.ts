@@ -11,16 +11,18 @@ describe("initializeDatabase", () => {
 
   it("ensures the base data directory exists before opening sqlite", async () => {
     vi.doMock("better-sqlite3", () => ({
-      default: vi.fn(() => ({
-        pragma: vi.fn(),
-        exec: vi.fn(),
-        prepare: vi.fn((sql: string) => {
+      default: vi.fn(function DatabaseMock() {
+        return {
+          pragma: vi.fn(),
+          exec: vi.fn(),
+          prepare: vi.fn((sql: string) => {
           if (sql.includes("SELECT COUNT(*) as count FROM users")) {
             return { get: vi.fn(() => ({ count: 1 })) };
           }
           return { get: vi.fn(() => undefined), run: vi.fn(), all: vi.fn(() => []) };
-        }),
-      })),
+          }),
+        };
+      }),
     }));
 
     const fs = await import("node:fs");
@@ -36,10 +38,11 @@ describe("initializeDatabase", () => {
     const insertDefaultAdmin = vi.fn();
 
     vi.doMock("better-sqlite3", () => ({
-      default: vi.fn(() => ({
-        pragma: vi.fn(),
-        exec: vi.fn(),
-        prepare: vi.fn((sql: string) => {
+      default: vi.fn(function DatabaseMock() {
+        return {
+          pragma: vi.fn(),
+          exec: vi.fn(),
+          prepare: vi.fn((sql: string) => {
           if (sql.includes("SELECT COUNT(*) as count FROM users")) {
             return { get: vi.fn(() => ({ count: 0 })) };
           }
@@ -47,8 +50,9 @@ describe("initializeDatabase", () => {
             return { run: insertDefaultAdmin };
           }
           return { get: vi.fn(() => undefined), run: vi.fn(), all: vi.fn(() => []) };
-        }),
-      })),
+          }),
+        };
+      }),
     }));
 
     const { initializeDatabase } = await import("../../src/database/schema");
@@ -62,16 +66,18 @@ describe("initializeDatabase", () => {
     const pragma = vi.fn();
 
     vi.doMock("better-sqlite3", () => ({
-      default: vi.fn(() => ({
-        pragma,
-        exec: vi.fn(),
-        prepare: vi.fn((sql: string) => {
+      default: vi.fn(function DatabaseMock() {
+        return {
+          pragma,
+          exec: vi.fn(),
+          prepare: vi.fn((sql: string) => {
           if (sql.includes("SELECT COUNT(*) as count FROM users")) {
             return { get: vi.fn(() => ({ count: 1 })) };
           }
           return { get: vi.fn(() => undefined), run: vi.fn(), all: vi.fn(() => []) };
-        }),
-      })),
+          }),
+        };
+      }),
     }));
 
     const { initializeDatabase } = await import("../../src/database/schema");
@@ -86,12 +92,13 @@ describe("initializeDatabase", () => {
     const execSql: string[] = [];
 
     vi.doMock("better-sqlite3", () => ({
-      default: vi.fn(() => ({
-        pragma: vi.fn(),
-        exec: vi.fn((sql: string) => {
-          execSql.push(sql);
-        }),
-        prepare: vi.fn((sql: string) => {
+      default: vi.fn(function DatabaseMock() {
+        return {
+          pragma: vi.fn(),
+          exec: vi.fn((sql: string) => {
+            execSql.push(sql);
+          }),
+          prepare: vi.fn((sql: string) => {
           if (sql.includes("SELECT name FROM sqlite_master WHERE type = 'table'")) {
             return {
               all: vi.fn(() => {
@@ -105,8 +112,9 @@ describe("initializeDatabase", () => {
             return { get: vi.fn(() => ({ count: 1 })) };
           }
           return { get: vi.fn(() => undefined), run: vi.fn(), all: vi.fn(() => []) };
-        }),
-      })),
+          }),
+        };
+      }),
     }));
 
     const { initializeDatabase } = await import("../../src/database/schema");
@@ -126,18 +134,20 @@ describe("initializeDatabase", () => {
     const execSql: string[] = [];
 
     vi.doMock("better-sqlite3", () => ({
-      default: vi.fn(() => ({
-        pragma: vi.fn(),
-        exec: vi.fn((sql: string) => {
-          execSql.push(sql);
-        }),
-        prepare: vi.fn((sql: string) => {
+      default: vi.fn(function DatabaseMock() {
+        return {
+          pragma: vi.fn(),
+          exec: vi.fn((sql: string) => {
+            execSql.push(sql);
+          }),
+          prepare: vi.fn((sql: string) => {
           if (sql.includes("SELECT COUNT(*) as count FROM users")) {
             return { get: vi.fn(() => ({ count: 1 })) };
           }
           return { get: vi.fn(() => undefined), run: vi.fn(), all: vi.fn(() => []) };
-        }),
-      })),
+          }),
+        };
+      }),
     }));
 
     const { initializeDatabase } = await import("../../src/database/schema");

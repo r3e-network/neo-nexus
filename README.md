@@ -115,7 +115,13 @@ export JWT_SECRET=$(openssl rand -hex 32)
 docker compose up --build
 ```
 
-Open http://localhost:8080 and create the first admin account in the setup screen.
+Open http://localhost:8080 and create the first admin account in the setup screen. In production, first-admin setup is deliberately loopback-only: SSH to the host or use an SSH tunnel and submit setup to `127.0.0.1`. NeoNexus refuses to start in production if a migrated administrator still uses the legacy default password.
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/auth/setup \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"use-a-unique-strong-admin-passphrase"}'
+```
 
 ### Deploy Your First Node
 
@@ -334,6 +340,7 @@ const ws = new WebSocket("ws://localhost:8080/ws", ["neonexus.auth", "YOUR_TOKEN
 | `JWT_SECRET` | random (dev) | JWT signing key (required in production) |
 | `JWT_EXPIRES_IN` | `24h` | Token expiration |
 | `CORS_ORIGIN` | — | Allowed CORS origins (comma-separated) |
+| `NEONEXUS_TRUST_PROXY` | `loopback` | Express trusted proxy setting. Keep the loopback default when a same-host reverse proxy is the only path to NeoNexus. |
 | `HTTPS_ENABLED` | `false` | Enable HTTPS |
 | `HTTPS_KEY_PATH` | — | TLS key file |
 | `HTTPS_CERT_PATH` | — | TLS cert file |

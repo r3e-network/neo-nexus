@@ -1,5 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import type { UserManager } from "../../core/UserManager";
+import type { AuditEntry, AuditLogger } from "../../core/AuditLogger";
+import { isLoopbackAddress } from "../../utils/authSecurity";
 import { createAuthMiddleware, generateToken, getTokenExpiresInHours, type AuthenticatedRequest } from "../middleware/auth";
 import { Errors } from '../errors';
 import { respondWithApiError } from '../respond';
@@ -8,7 +10,23 @@ function normalizeUsername(username: unknown): string {
   return typeof username === "string" ? username.trim() : "";
 }
 
-export function createAuthRouter(userManager: UserManager): Router {
+function auditAuthentication(
+  auditLogger: Pick<AuditLogger, "log"> | undefined,
+  req: Request,
+  entry: Omit<AuditEntry, "ipAddress">,
+): void {
+  if (!auditLogger) return;
+  try {
+    auditLogger.log({ ...entry, ipAddress: req.ip });
+  } catch (error) {
+    console.error("Authentication audit logging failed:", error instanceof Error ? error.message : error);
+  }
+}
+
+export function createAuthRouter(
+  userManager: UserManager,
+  auditLogger?: Pick<AuditLogger, "log">,
+): Router {
   const router = Router();
   const requireAuth = createAuthMiddleware(userManager);
 
@@ -21,6 +39,10 @@ export function createAuthRouter(userManager: UserManager): Router {
       // Check if setup is already complete
       if (userManager.hasUsers()) {
         throw Errors.setupCompleted();
+      }
+
+      if (process.env.NODE_ENV === "production" && !isLoopbackAddress(req.ip)) {
+        throw Errors.setupLocalOnly();
       }
 
       const { password } = req.body;
@@ -44,6 +66,13 @@ export function createAuthRouter(userManager: UserManager): Router {
 
       // Create session
       userManager.createSession(user.id, token, getTokenExpiresInHours(token));
+      auditAuthentication(auditLogger, req, {
+        action: "auth.setup.completed",
+        resourceType: "user",
+        resourceId: user.id,
+        userId: user.id,
+        username: user.username,
+      });
 
       res.status(201).json({
         message: "Setup completed successfully",
@@ -76,12 +105,26 @@ export function createAuthRouter(userManager: UserManager): Router {
       const username = normalizeUsername(req.body.username);
 
       if (!username || !password) {
+        auditAuthentication(auditLogger, req, {
+          action: "auth.login.failed",
+          resourceType: "user",
+          resourceId: username || undefined,
+          username: username || undefined,
+          details: JSON.stringify({ reason: "credentials_required" }),
+        });
         throw Errors.credentialsRequired();
       }
 
       const user = await userManager.verifyCredentials(username, password);
 
       if (!user) {
+        auditAuthentication(auditLogger, req, {
+          action: "auth.login.failed",
+          resourceType: "user",
+          resourceId: username,
+          username,
+          details: JSON.stringify({ reason: "invalid_credentials" }),
+        });
         throw Errors.invalidCredentials();
       }
 
@@ -94,6 +137,14 @@ export function createAuthRouter(userManager: UserManager): Router {
       // Create session
       userManager.createSession(user.id, token, getTokenExpiresInHours(token));
       const usingDefaultPassword = await userManager.isUsingDefaultPassword(user.id);
+      auditAuthentication(auditLogger, req, {
+        action: "auth.login.succeeded",
+        resourceType: "user",
+        resourceId: user.id,
+        userId: user.id,
+        username: user.username,
+        details: JSON.stringify({ usingDefaultPassword }),
+      });
 
       res.json({
         user: {
@@ -113,11 +164,19 @@ export function createAuthRouter(userManager: UserManager): Router {
    * POST /api/auth/logout - Logout user
    */
   router.post("/logout", requireAuth, (req: Request, res: Response) => {
+    const user = (req as AuthenticatedRequest).user;
     const authHeader = req.headers.authorization;
     if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.substring(7);
       userManager.deleteSession(token);
     }
+    auditAuthentication(auditLogger, req, {
+      action: "auth.logout",
+      resourceType: "user",
+      resourceId: user.id,
+      userId: user.id,
+      username: user.username,
+    });
     res.json({ message: "Logged out successfully" });
   });
 
@@ -146,6 +205,14 @@ export function createAuthRouter(userManager: UserManager): Router {
         username,
         password,
         role: assignedRole,
+      });
+      auditAuthentication(auditLogger, req, {
+        action: "auth.user.created",
+        resourceType: "user",
+        resourceId: newUser.id,
+        userId: user.id,
+        username: user.username,
+        details: JSON.stringify({ createdUsername: newUser.username, role: newUser.role }),
       });
 
       res.status(201).json({
@@ -195,6 +262,13 @@ export function createAuthRouter(userManager: UserManager): Router {
       }
 
       await userManager.updatePassword(user.id, currentPassword, newPassword);
+      auditAuthentication(auditLogger, req, {
+        action: "auth.password.changed",
+        resourceType: "user",
+        resourceId: user.id,
+        userId: user.id,
+        username: user.username,
+      });
 
       res.json({ message: "Password updated successfully" });
     } catch (error) {
@@ -232,7 +306,15 @@ export function createAuthRouter(userManager: UserManager): Router {
       if (req.params.id === user.id) {
         throw Errors.cannotDeleteSelf();
       }
-      userManager.deleteUser(req.params.id as string);
+      const deletedUserId = req.params.id as string;
+      userManager.deleteUser(deletedUserId);
+      auditAuthentication(auditLogger, req, {
+        action: "auth.user.deleted",
+        resourceType: "user",
+        resourceId: deletedUserId,
+        userId: user.id,
+        username: user.username,
+      });
       res.status(204).send();
     } catch (error) {
       respondWithApiError(res, error);

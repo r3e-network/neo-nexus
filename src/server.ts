@@ -1,4 +1,5 @@
 import express from "express";
+import type { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import type { IncomingHttpHeaders, IncomingMessage } from "node:http";
@@ -126,6 +127,7 @@ export function createAppServer(config: ServerConfig) {
   const app = express();
   app.disable("x-powered-by");
   app.set('appVersion', APP_VERSION);
+  app.set("trust proxy", process.env.NEONEXUS_TRUST_PROXY || "loopback");
 
   // Load HTTPS config and create appropriate server
   const httpsConfig = loadHttpsConfig();
@@ -235,12 +237,12 @@ export function createAppServer(config: ServerConfig) {
     }),
   );
 
-  app.use(express.json({ limit: "10mb" }));
-
   // Rate limiting
   const limiter = rateLimit({
     windowMs: RATE_LIMIT_WINDOW_MS,
     max: RATE_LIMIT_MAX_REQUESTS,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
     message: { error: "Too many requests, please try again later" },
   });
   app.use(limiter);
@@ -249,9 +251,26 @@ export function createAppServer(config: ServerConfig) {
   const authLimiter = rateLimit({
     windowMs: RATE_LIMIT_WINDOW_MS,
     max: AUTH_RATE_LIMIT_MAX, // 5 attempts per 15 minutes
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
     message: { error: "Too many login attempts, please try again later" },
   });
-  app.use("/api/auth/login", authLimiter);
+  app.use(["/api/auth/login", "/api/auth/setup"], authLimiter);
+
+  app.use(express.json({ limit: "10mb" }));
+  app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
+    if (error instanceof SyntaxError && "body" in error) {
+      res.status(400).json({
+        error: "Malformed JSON request body",
+        code: "MALFORMED_JSON",
+        suggestion: "Send a valid JSON object with Content-Type: application/json.",
+        status: 400,
+      });
+      return;
+    }
+    next(error);
+  });
 
   // Stricter rate limit for node control operations
   const controlLimiter = rateLimit({
@@ -264,7 +283,7 @@ export function createAppServer(config: ServerConfig) {
   app.use("/api/public", createPublicRouter(nodeManager, metricsCollector));
 
   // Public routes (no auth required)
-  app.use("/api/auth", createAuthRouter(userManager));
+  app.use("/api/auth", createAuthRouter(userManager, auditLogger));
 
   // Apply stricter rate limit to control endpoints
   app.use("/api/nodes/:id/start", requireAuth, requireAdmin, controlLimiter);
@@ -278,8 +297,9 @@ export function createAppServer(config: ServerConfig) {
       const authHeader = req.headers.authorization;
       if (authHeader?.startsWith("Bearer ")) {
         const token = authHeader.substring(7);
+        const payload = verifyToken(token);
         const session = userManager.verifySession(token);
-        authenticated = !!session;
+        authenticated = !!session && payload.userId === session.id && payload.username === session.username;
       }
     } catch {
       // Token invalid — still report health, just not authenticated
@@ -349,8 +369,10 @@ export function createAppServer(config: ServerConfig) {
 
   // Audit log endpoint
   app.get("/api/system/audit-log", requireAuth, requireAdmin, (req, res) => {
-    const limit = Math.min(parseInt(String(req.query.limit ?? "100"), 10), 1000);
-    const offset = parseInt(String(req.query.offset ?? "0"), 10);
+    const requestedLimit = Number.parseInt(String(req.query.limit ?? "100"), 10);
+    const requestedOffset = Number.parseInt(String(req.query.offset ?? "0"), 10);
+    const limit = Number.isSafeInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 1000) : 100;
+    const offset = Number.isSafeInteger(requestedOffset) ? Math.max(requestedOffset, 0) : 0;
     const entries = auditLogger.query({ limit, offset });
     res.json({ entries });
   });
@@ -387,9 +409,9 @@ export function createAppServer(config: ServerConfig) {
         ws.close(4001, "Authentication required");
         return;
       }
-      verifyToken(token);
+      const payload = verifyToken(token);
       const sessionUser = userManager.verifySession(token);
-      if (!sessionUser) {
+      if (!sessionUser || payload.userId !== sessionUser.id || payload.username !== sessionUser.username) {
         ws.close(4001, "Invalid or expired session");
         return;
       }

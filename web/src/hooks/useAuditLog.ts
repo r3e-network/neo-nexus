@@ -7,6 +7,9 @@ export interface AuditEntry {
   resourceType: string;
   resourceId: string;
   userId?: string;
+  username?: string;
+  details?: string;
+  ipAddress?: string;
   timestamp: number;
 }
 
