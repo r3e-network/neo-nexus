@@ -26,6 +26,10 @@ function ActionBadge({ action }: { action: string }) {
     colorClasses = "bg-emerald-50 text-emerald-700 border border-emerald-200";
   } else if (action === "node.stop") {
     colorClasses = "bg-amber-50 text-amber-700 border border-amber-200";
+  } else if (action.endsWith(".failed")) {
+    colorClasses = "bg-rose-50 text-rose-700 border border-rose-200";
+  } else if (action.startsWith("auth.")) {
+    colorClasses = "bg-violet-50 text-violet-700 border border-violet-200";
   }
 
   return (
@@ -108,17 +112,26 @@ export function AuditLogSection() {
                     )}
                   </div>
                 )}
+                {(entry.username || entry.ipAddress) && (
+                  <div className="mt-2 text-xs text-slate-500">
+                    {entry.username && <span>{entry.username}</span>}
+                    {entry.username && entry.ipAddress && <span> · </span>}
+                    {entry.ipAddress && <span className="font-mono">{entry.ipAddress}</span>}
+                  </div>
+                )}
               </div>
             ))}
           </div>
           <div className="hidden overflow-x-auto sm:block">
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="pb-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wide w-28">Time</th>
                   <th className="pb-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">Action</th>
                   <th className="pb-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">Resource</th>
                   <th className="pb-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">ID</th>
+                  <th className="pb-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">Actor</th>
+                  <th className="pb-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">IP</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -134,6 +147,8 @@ export function AuditLogSection() {
                     <td className="py-2.5 text-slate-600 font-mono text-xs truncate max-w-[12rem]" title={entry.resourceId}>
                       {entry.resourceId}
                     </td>
+                    <td className="py-2.5 text-slate-700">{entry.username || "System"}</td>
+                    <td className="py-2.5 text-slate-600 font-mono text-xs">{entry.ipAddress || "-"}</td>
                   </tr>
                 ))}
               </tbody>

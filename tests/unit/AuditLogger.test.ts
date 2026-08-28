@@ -62,13 +62,13 @@ describe('AuditLogger', () => {
       });
 
       const entries = logger.query({ limit: 1 });
-      const entry = entries[0] as unknown as Record<string, unknown>;
+      const entry = entries[0];
       expect(entry.action).toBe('user.login');
-      expect(entry.resource_type).toBe('user');
-      expect(entry.resource_id).toBe('user-123');
+      expect(entry.resourceType).toBe('user');
+      expect(entry.resourceId).toBe('user-123');
       expect(entry.username).toBe('alice');
       expect(entry.details).toBe('successful login');
-      expect(entry.ip_address).toBe('127.0.0.1');
+      expect(entry.ipAddress).toBe('127.0.0.1');
       expect(entry.timestamp).toBeGreaterThan(0);
     });
 

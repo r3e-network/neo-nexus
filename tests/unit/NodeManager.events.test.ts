@@ -70,7 +70,9 @@ describe("NodeManager realtime events", () => {
 
   it("re-emits node status and log events from the runtime node", async () => {
     const runtimeNode = new FakeRuntimeNode();
-    hoisted.NeoCliNode.mockImplementation(() => runtimeNode);
+    hoisted.NeoCliNode.mockImplementation(function NeoCliNodeMock() {
+      return runtimeNode;
+    });
 
     const { NodeManager } = await import("../../src/core/NodeManager");
     const manager = new NodeManager(createMockDb() as never);

@@ -62,7 +62,9 @@ describe("NodeManager.resumeSidecarNodes", () => {
 
   it("re-instantiates and starts neofura sidecars whose persisted status was running", async () => {
     const fake = new FakeNeofura();
-    hoisted.NeofuraNode.mockImplementation(() => fake);
+    hoisted.NeofuraNode.mockImplementation(function NeofuraNodeMock() {
+      return fake;
+    });
 
     const { NodeManager } = await import("../../src/core/NodeManager");
     const manager = new NodeManager(createMockDb() as never) as unknown as {
@@ -82,7 +84,9 @@ describe("NodeManager.resumeSidecarNodes", () => {
   });
 
   it("skips sidecars whose status is stopped", async () => {
-    hoisted.NeofuraNode.mockImplementation(() => new FakeNeofura());
+    hoisted.NeofuraNode.mockImplementation(function NeofuraNodeMock() {
+      return new FakeNeofura();
+    });
     const { NodeManager } = await import("../../src/core/NodeManager");
     const manager = new NodeManager(createMockDb() as never) as unknown as {
       nodes: Map<string, FakeNeofura>;
@@ -99,7 +103,9 @@ describe("NodeManager.resumeSidecarNodes", () => {
   });
 
   it("skips non-sidecar node types", async () => {
-    hoisted.NeofuraNode.mockImplementation(() => new FakeNeofura());
+    hoisted.NeofuraNode.mockImplementation(function NeofuraNodeMock() {
+      return new FakeNeofura();
+    });
     const { NodeManager } = await import("../../src/core/NodeManager");
     const manager = new NodeManager(createMockDb() as never) as unknown as {
       nodes: Map<string, FakeNeofura>;
@@ -116,7 +122,7 @@ describe("NodeManager.resumeSidecarNodes", () => {
   });
 
   it("logs (does not throw) if a sidecar fails to start", async () => {
-    hoisted.NeofuraNode.mockImplementation(() => {
+    hoisted.NeofuraNode.mockImplementation(function NeofuraNodeMock() {
       const f = new FakeNeofura();
       f.start = async () => { throw new Error("boom"); };
       return f;
@@ -138,7 +144,9 @@ describe("NodeManager.resumeSidecarNodes", () => {
   });
 
   it("stopAllNodes leaves sidecar status untouched so resume can find it next boot", async () => {
-    hoisted.NeofuraNode.mockImplementation(() => new FakeNeofura());
+    hoisted.NeofuraNode.mockImplementation(function NeofuraNodeMock() {
+      return new FakeNeofura();
+    });
     const { NodeManager } = await import("../../src/core/NodeManager");
     const manager = new NodeManager(createMockDb() as never) as unknown as {
       stopAllNodes: () => Promise<{ stoppedCount: number; alreadyStoppedCount: number }>;
@@ -158,7 +166,9 @@ describe("NodeManager.resumeSidecarNodes", () => {
 
   it("does not double-instantiate a sidecar already in the map", async () => {
     const existing = new FakeNeofura();
-    hoisted.NeofuraNode.mockImplementation(() => new FakeNeofura());
+    hoisted.NeofuraNode.mockImplementation(function NeofuraNodeMock() {
+      return new FakeNeofura();
+    });
     const { NodeManager } = await import("../../src/core/NodeManager");
     const manager = new NodeManager(createMockDb() as never) as unknown as {
       nodes: Map<string, FakeNeofura>;

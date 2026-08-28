@@ -169,6 +169,10 @@ export const Errors = {
     new ApiError("SETUP_COMPLETED",
       "Setup already completed. Use /register to create new users.",
       "The initial admin account has already been created. Ask an admin to register additional users.", 403),
+  setupLocalOnly: () =>
+    new ApiError("SETUP_LOCAL_ONLY",
+      "Initial production setup is only available from the local host.",
+      "SSH to the server and submit setup to its loopback address, then sign in through the web console.", 403),
   cannotDeleteSelf: () =>
     new ApiError("CANNOT_DELETE_SELF",
       "Cannot delete your own account",

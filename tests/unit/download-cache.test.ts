@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 async function importDownloadManagerWithTempPaths(root: string) {
   vi.resetModules();
   const extractZip = vi.fn();
-  vi.doMock("extract-zip", () => ({ default: extractZip }));
+  vi.doMock("../../src/utils/safeZip", () => ({ extractSafeZip: extractZip }));
   vi.doMock("../../src/utils/paths", () => ({
     paths: {
       base: root,
@@ -29,7 +29,7 @@ describe("hasUsableDownloadFile", () => {
     vi.restoreAllMocks();
     delete process.env.NEO_PLUGIN_BUILD_DIR;
     delete process.env.NEONEXUS_ALLOW_PRIVATE_DOWNLOAD_TARGETS;
-    vi.doUnmock("extract-zip");
+    vi.doUnmock("../../src/utils/safeZip");
     vi.doUnmock("../../src/utils/paths");
     vi.doUnmock("node:dns/promises");
     vi.resetModules();
