@@ -352,6 +352,8 @@ const ws = new WebSocket("ws://localhost:8080/ws", ["neonexus.auth", "YOUR_TOKEN
 | `NEONEXUS_ENABLE_HERMES_AGENT` | `false` | Turn on the Hermes in-app AI agent. Each user supplies their own API key via Settings; tools inherit the user's role (admin/viewer). |
 | `NEONEXUS_ENABLE_NEOX` | `false` | Reveal Neo X (chain `x`, type `neox-go`, networks `neox-mainnet` / `neox-testnet`) alongside Neo N3 in the create-node UI and downloader. |
 
+Production systemd and same-host Nginx examples are versioned under `deploy/`. The service runs as the dedicated `neo-nexus` user with no Linux capabilities, while the Nginx configuration preserves both the Cloudflare client IP and edge IP in structured access logs and proxies the exact `/ws` WebSocket path used by the frontend.
+
 ## Development
 
 ```bash
