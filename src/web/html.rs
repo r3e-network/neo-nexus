@@ -31,7 +31,12 @@ pub fn flash_banner(message: &str) -> String {
     if message.trim().is_empty() {
         String::new()
     } else {
-        format!(r#"<div class="flash">{}</div>"#, escape(message))
+        // `role="status"` so the outcome of a control is announced, not just
+        // painted where the operator happened to be looking.
+        format!(
+            r#"<div class="flash" role="status" aria-live="polite">{}</div>"#,
+            escape(message)
+        )
     }
 }
 
@@ -130,12 +135,19 @@ pub fn row(cells: &[String]) -> String {
 
 /// A header row followed by the given rows, which arrive as complete `<tr>`
 /// markup from [`row`].
+///
+/// Wrapped in a scroll container: the widest tables (runtimes, federation) are
+/// far wider than a laptop column, and letting the table itself overflow beats
+/// squeezing eight columns into unreadable slivers.
 pub fn table(headers: &[&str], rows: &[String]) -> String {
     let head = headers
         .iter()
         .map(|header| format!("<th>{}</th>", escape(header)))
         .collect::<String>();
-    format!("<table><tr>{head}</tr>{}</table>", rows.concat())
+    format!(
+        r#"<div class="scroll-x"><table><tr>{head}</tr>{}</table></div>"#,
+        rows.concat()
+    )
 }
 
 /// A GET form for page filters. Plain query parameters keep filtering usable

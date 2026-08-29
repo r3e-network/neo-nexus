@@ -11,7 +11,7 @@ use serde::Deserialize;
 
 use crate::core::security::{filter_neo_wallet_profiles, NeoWalletProfile, NeoWalletProfileFilter};
 
-use super::super::{html, WebState};
+use super::super::{html, time, WebState};
 
 #[derive(Default, Deserialize)]
 pub struct WalletQuery {
@@ -114,7 +114,7 @@ fn wallet_table(profiles: &[NeoWalletProfile]) -> String {
                 html::cell(&profile.watch_only_account_count.to_string()),
                 html::cell(&profile.contract_public_keys.len().to_string()),
                 html::cell(&profile.wallet_sha256.chars().take(12).collect::<String>()),
-                html::cell(&profile.validated_at_unix.to_string()),
+                html::raw_cell(&time::time_cell(Some(profile.validated_at_unix))),
             ])
         })
         .collect::<Vec<_>>();
@@ -129,7 +129,7 @@ fn wallet_table(profiles: &[NeoWalletProfile]) -> String {
             "Watch-only",
             "Keys",
             "File SHA-256",
-            "Validated (unix)",
+            "Validated",
         ],
         &rows,
     )

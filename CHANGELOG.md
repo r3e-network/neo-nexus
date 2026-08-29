@@ -87,6 +87,19 @@ open the printed address in a browser. The desktop GUI is removed.
   transferred, an already-installed one is refused rather than silently
   replaced, and `RuntimePackageManager::install` checks digest, platform and
   signature before copying, so a verification failure leaves the host untouched.
+- **Readable time** (`src/web/time.rs`): every table that showed a raw Unix
+  second now shows `2026-08-29 12:47Z` with the elapsed reading beneath it
+  ("3m ago"), and a machine-readable `<time datetime>`. Fixed-width so a column
+  aligns, UTC because that is what the logs, events and probes are written in.
+  The conversion is days-since-epoch arithmetic rather than another dependency,
+  and is tested against independently known anchors and the leap-year rollovers
+  where hand-rolled date code usually breaks.
+- **Layout and interaction polish**: wide tables scroll instead of squeezing
+  eight columns into slivers; a page with a job in flight refreshes itself when
+  it finishes and stays put when idle; the flash and job panels announce through
+  `aria-live`; the active nav item carries `aria-current`; headings keep their
+  spacing whether or not they sit in a page header; federation probe history
+  gained the breadcrumb the rest of the sub-pages use.
 - **Background jobs** (`src/web/jobs.rs`): the install runs on its own thread
   behind a one-job-per-lane registry, so a multi-minute download cannot time out
   a browser, a reload still shows it running, and two concurrent installs cannot

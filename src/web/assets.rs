@@ -25,8 +25,11 @@ pub const CSS: &str = r#"
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--text);
   font: 14px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif; }
-h1 { font-size: 21px; line-height: 1.25; font-weight: 650; margin: 0;
-  letter-spacing: -.2px; }
+h1 { font-size: 21px; line-height: 1.25; font-weight: 650; letter-spacing: -.2px;
+  /* Most pages still emit a bare <h1>, so the heading carries its own space.
+     Inside .page-head the block owns the spacing instead. */
+  margin: 0 0 var(--s4); }
+.page-head h1 { margin-bottom: 0; }
 h2 { font-size: 12px; font-weight: 600; margin: var(--s5) 0 var(--s2);
   color: var(--muted); text-transform: uppercase; letter-spacing: .8px; }
 a { color: var(--text); text-decoration-thickness: 1px; text-underline-offset: 2px; }
@@ -168,6 +171,11 @@ fieldset { border: 0; padding: 0; margin: 0; }
   letter-spacing: 0; font-size: 15px; }
 .empty .actions { justify-content: center; margin-top: var(--s4); }
 .muted { color: var(--muted); }
+.scroll-x { overflow-x: auto; }
+.scroll-x table { min-width: 640px; }
+time { display: block; font-variant-numeric: tabular-nums; white-space: nowrap; }
+time .elapsed { display: block; color: var(--faint); font-size: 11px;
+  font-family: inherit; }
 .err { color: var(--danger); font-size: 13px; }
 pre { background: var(--panel); border: 1px solid var(--line);
   border-radius: var(--r2); padding: var(--s3) var(--s4); overflow-x: auto;
@@ -240,6 +248,16 @@ pub const SCRIPT: &str = r#"
   }
   if (document.querySelector("[data-node-id]")) {
     setInterval(refresh, 5000);
+  }
+
+  /* A running job reloads the page so its result appears without the operator
+     clicking. The marker is only emitted while something is in flight, so an
+     idle page never refreshes under them, and with scripting off the page
+     still reports the outcome on the next manual load. */
+  var poll = document.querySelector("[data-job-poll]");
+  if (poll) {
+    setTimeout(function () { window.location.reload(); },
+      parseInt(poll.getAttribute("data-job-poll"), 10) || 5000);
   }
 })();
 "#;
