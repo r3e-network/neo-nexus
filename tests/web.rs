@@ -771,12 +771,9 @@ fn long_running_command() -> (PathBuf, Vec<String>) {
     }
 }
 
-/// Whether the OS still has this process.
+/// Whether the OS still has this process — the same probe the workbench uses.
 fn process_alive(pid: u32) -> bool {
-    let mut system = sysinfo::System::new();
-    let target = sysinfo::Pid::from_u32(pid);
-    system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[target]), true);
-    system.process(target).is_some()
+    neo_nexus::supervisor::process_is_live(pid)
 }
 
 /// The behaviour the workbench claimed and did not have: `ProcessSupervisor`

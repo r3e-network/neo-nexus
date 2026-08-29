@@ -16,7 +16,7 @@ use crate::core::lifecycle::{execute_node_launch, LaunchAction, ManagedConfig, N
 use crate::core::operations::{evaluate_launch_readiness, evaluate_restart_readiness};
 use crate::core::workspace::ConfigExporter;
 use crate::launch::LaunchPlanner;
-use crate::supervisor::{log_path_for, ProcessSupervisor};
+use crate::supervisor::{log_path_for, PidStop, ProcessSupervisor};
 
 /// `--node-start <db> <node-name>`: launch a node through the SAME core pipeline
 /// the GUI uses (`execute_node_launch`), so the two modes stay behaviourally
@@ -155,26 +155,37 @@ pub(in crate::cli::actions) fn node_stop_action(args: &[String]) -> Result<CliAc
 
     let log_path = log_path_for(workspace_child_dir(&repository, "logs"), &node);
     let mut supervisor = ProcessSupervisor::default();
-    let stopped = supervisor
+    let outcome = match supervisor
         .stop(&node.id)
         .context("failed to stop the supervised process")?
-        .or_else(|| {
-            node.pid
-                .and_then(|pid| supervisor.stop_recorded_pid(&node.id, pid, &log_path))
+    {
+        Some(stop) => PidStop::Stopped(stop),
+        None => supervisor.stop_recorded_pid(&node, &log_path),
+    };
+    if matches!(outcome, PidStop::PidReused) {
+        // The number belongs to something else now: nothing was signalled and
+        // the recorded status stays as it was, because we cannot know.
+        return Ok(CliAction::PrintWithExitCode {
+            exit_code: 1,
+            text: format!(
+                "pid {} belongs to a different process; {} was left alone and its status unchanged",
+                node.pid.unwrap_or_default(),
+                node.name
+            ),
         });
-
+    }
     repository
         .update_node_status(&node.id, NodeStatus::Stopped, None)
         .context("failed to persist stopped status")?;
-
+    let _ = supervisor;
     Ok(CliAction::PrintWithExitCode {
         exit_code: 0,
-        text: match stopped {
-            Some(stop) if stop.forced => {
+        text: match outcome {
+            PidStop::Stopped(stop) if stop.forced => {
                 format!("{} stopped (forced, pid {})", node.name, stop.pid)
             }
-            Some(stop) => format!("{} stopped (pid {})", node.name, stop.pid),
-            None => format!("{} was not running", node.name),
+            PidStop::Stopped(stop) => format!("{} stopped (pid {})", node.name, stop.pid),
+            _ => format!("{} was not running", node.name),
         },
     })
 }

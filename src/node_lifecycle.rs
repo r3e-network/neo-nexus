@@ -129,12 +129,15 @@ pub fn quiesce_before_restart(
         // `restart` will stop and replace it through the handle it owns.
         return false;
     }
-    let Some(pid) = node.pid else {
+    if node.pid.is_none() {
         return false;
-    };
-    supervisor
-        .stop_recorded_pid(&node.id, pid, log_path)
-        .is_some()
+    }
+    // Only a genuine stop counts as quiescing: a pid that turned out to belong
+    // to another process must not be papered over by restarting on top of it.
+    matches!(
+        supervisor.stop_recorded_pid(node, log_path),
+        crate::supervisor::PidStop::Stopped(_)
+    )
 }
 
 /// The managed config to write before launching, with the plugins needed to

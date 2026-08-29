@@ -7,7 +7,7 @@ use crate::{launch::LaunchPlan, types::NodeConfig};
 use super::{reap::reap_finished_children, spawn::spawn_managed_child, ProcessSupervisor};
 use crate::supervisor::{
     termination::{stop_by_pid, stop_child},
-    ManagedProcessSpec, ProcessExit, ProcessStart, ProcessStop,
+    ManagedProcessSpec, PidStop, ProcessExit, ProcessStart, ProcessStop,
 };
 
 impl ProcessSupervisor {
@@ -61,15 +61,9 @@ impl ProcessSupervisor {
     /// and `None` there means "not mine to stop" — not "stopped". A server
     /// restart or a `--node-start` from another process leaves exactly this
     /// state: a node running with no `Child` anywhere here.
-    pub fn stop_recorded_pid(
-        &self,
-        process_id: &str,
-        pid: u32,
-        log_path: impl AsRef<Path>,
-    ) -> Option<ProcessStop> {
+    pub fn stop_recorded_pid(&self, node: &NodeConfig, log_path: impl AsRef<Path>) -> PidStop {
         stop_by_pid(
-            process_id,
-            pid,
+            node,
             log_path.as_ref().to_path_buf(),
             self.stop_grace_period,
         )
