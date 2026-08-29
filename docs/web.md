@@ -35,6 +35,11 @@ The engine thread wakes once a second and, for each policy that is enabled:
 - offers new journal entries to the alert route and records what the webhook
   answered.
 
+Long host work — a runtime download and install — runs on a job thread behind a
+one-job-per-lane registry, so it cannot time out a browser, survives a page
+reload, and cannot race a second install into the same directory. The Runtimes
+page reports the running and recent jobs.
+
 Policies are re-read each tick, so saving in Settings applies without restarting
 the server. The engine shares the server's single `ProcessSupervisor`: a node it
 restarts is a node the browser can stop, and a node recorded as running without a
@@ -106,7 +111,8 @@ removes it; `POST /nodes/{id}/start`, `/stop`, `/restart` drive the lifecycle;
 `POST /plugins/{id}/toggle` and `POST /federation/{id}/toggle` flip a flag;
 `POST /config/export` writes the workspace config set;
 `POST /settings/watchdog`, `/settings/rpc-health`, `/settings/federation` and
-`POST /alerts/routing` save policies; `POST /logout` ends the session.
+`POST /alerts/routing` save policies; `POST /runtimes/install` queues a runtime
+install as a background job; `POST /logout` ends the session.
 
 API: `GET /api/fleet`, `GET /api/readiness`, `GET /api/metrics-prometheus`.
 All require the session cookie except `/healthz`.

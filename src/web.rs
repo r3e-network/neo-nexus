@@ -16,10 +16,12 @@ pub mod control;
 pub mod fleet;
 pub mod health;
 pub mod html;
+pub mod jobs;
 pub mod nav;
 pub mod node_form;
 pub mod pages;
 pub mod router;
+pub mod runtime_ops;
 pub mod server;
 pub mod state;
 

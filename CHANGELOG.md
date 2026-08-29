@@ -76,6 +76,22 @@ open the printed address in a browser. The desktop GUI is removed.
 - `src/health_events.rs`: the status-to-severity and status-to-wording helpers the
   engine needs, which had lived inside `src/app/` and were not about drawing a
   window.
+- **Controlled runtime installation** (`/runtimes`): browse an enabled catalog
+  profile, review a release, then install it. The review shows the catalogue and
+  source it came from, the package platform beside this host's, the size limit,
+  the expected digest, and whether a signer key is even configured — so an
+  unsigned source cannot be presented as verified. Browsing reads the catalogue
+  and writes nothing; the form carries only a profile id and a release id and the
+  server re-resolves the URL, so the page cannot be pointed at an arbitrary host.
+  A release built for another platform is refused before any bytes are
+  transferred, an already-installed one is refused rather than silently
+  replaced, and `RuntimePackageManager::install` checks digest, platform and
+  signature before copying, so a verification failure leaves the host untouched.
+- **Background jobs** (`src/web/jobs.rs`): the install runs on its own thread
+  behind a one-job-per-lane registry, so a multi-minute download cannot time out
+  a browser, a reload still shows it running, and two concurrent installs cannot
+  interleave writes into the same tree. The page reports state, result and
+  failure reason.
 - `--web` / `--bind` / `--port` / `--web-token` launch options. No options
   starts the web workbench (the default experience).
 - End-to-end web suite (`tests/web.rs`): real server on an ephemeral port,
@@ -105,9 +121,9 @@ The workbench reaches every surface the desktop shell offered, but not every
 action on them:
 
 - **Inventory pages are read-only where the action writes to the host or leaves
-  the machine.** Runtime download and install, snapshot import and apply, wallet
-  profile import, delivering a real alert (the page previews routing only), and
-  private-network materialisation remain CLI/API operations.
+  the machine.** Snapshot import and apply, wallet profile import, delivering a
+  real alert (the page previews routing only), and private-network
+  materialisation remain CLI/API operations.
 - `/api/metrics-prometheus` sits behind the session cookie, so an external
   Prometheus scraper must authenticate as a browser does or scrape through an
   internal route.

@@ -54,6 +54,7 @@ pub fn build_router(state: WebState) -> Router {
         .route("/plugins", get(pages::plugins::plugins))
         .route("/plugins/{id}/toggle", post(pages::plugins::toggle))
         .route("/runtimes", get(pages::runtimes::runtimes))
+        .route("/runtimes/install", post(pages::runtimes::install))
         .route("/snapshots", get(pages::snapshots::snapshots))
         .route("/wallets", get(pages::wallets::wallets))
         .route("/metrics", get(pages::metrics_page::metrics))
