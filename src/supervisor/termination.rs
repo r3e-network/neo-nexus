@@ -219,7 +219,7 @@ pub fn live_pids(pids: &[u32]) -> std::collections::BTreeSet<u32> {
 pub fn live_pids(pids: &[u32]) -> std::collections::BTreeSet<u32> {
     pids.iter()
         .copied()
-        .filter(|pid| process_is_live(pid))
+        .filter(|&pid| process_is_live(pid))
         .collect()
 }
 
