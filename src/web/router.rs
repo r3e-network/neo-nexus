@@ -24,7 +24,19 @@ pub fn build_router(state: WebState) -> Router {
     let protected = Router::new()
         .route("/", get(pages::home::home))
         .route("/nodes", get(pages::nodes::node_list))
+        .route(
+            "/nodes/new",
+            get(pages::node_editor::new_form).post(pages::node_editor::create),
+        )
         .route("/nodes/{id}", get(pages::nodes::node_detail))
+        .route(
+            "/nodes/{id}/edit",
+            get(pages::node_editor::edit_form).post(pages::node_editor::update),
+        )
+        .route(
+            "/nodes/{id}/delete",
+            get(pages::nodes::delete_form).post(pages::nodes::delete),
+        )
         .route("/nodes/{id}/start", post(control::node_start))
         .route("/nodes/{id}/stop", post(control::node_stop))
         .route("/nodes/{id}/restart", post(control::node_restart))

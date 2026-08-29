@@ -141,13 +141,13 @@ pub fn render(active: &str) -> String {
                 .destinations
                 .iter()
                 .map(|destination| {
-                    let current = if destination.key == active {
-                        " current"
+                    let (current, aria) = if destination.key == active {
+                        (" current", r#" aria-current="page""#)
                     } else {
-                        ""
+                        ("", "")
                     };
                     format!(
-                        r#"<a class="nav-item{current}" href="{href}">{label}</a>"#,
+                        r#"<a class="nav-item{current}" href="{href}"{aria}>{label}</a>"#,
                         href = destination.href,
                         label = destination.label,
                     )

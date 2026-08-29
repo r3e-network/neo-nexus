@@ -13,8 +13,9 @@ use super::super::{fleet::Fleet, html, WebState};
 
 pub fn fleet_table(fleet: &Fleet) -> String {
     if fleet.rows.is_empty() {
-        return r#"<div class="flash">No nodes are registered yet. Import a backup with
-<code>--import-backup</code> or create nodes in the workspace database.</div>"#
+        return r#"<div class="flash">No nodes are registered yet.
+<a href="/nodes/new">Add a node</a> to bring one under management, or restore a workspace
+with <code>--import-backup</code>.</div>"#
             .to_string();
     }
     let rows = fleet

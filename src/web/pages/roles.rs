@@ -143,7 +143,11 @@ fn role_planner(nodes: &[NodeConfig], params: &RoleQuery) -> String {
                 ))
             })
             .unwrap_or_default(),
-        filters = html::filter_form("/roles", &[("node", &node.name), ("role", role.label())],),
+        filters = html::filter_form_with_hidden(
+            "/roles",
+            &[("node", &node.id)],
+            &[("role", role.label())],
+        ),
         changes = if changes.is_empty() {
             html::note("Adopting this duty changes no plugins on this runtime.")
         } else {

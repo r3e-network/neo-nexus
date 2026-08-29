@@ -8,6 +8,7 @@ pub mod login;
 pub mod logs;
 pub mod metrics_page;
 pub mod monitor;
+pub mod node_editor;
 pub mod nodes;
 pub mod operations;
 pub mod plugins;

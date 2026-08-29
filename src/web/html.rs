@@ -141,6 +141,26 @@ pub fn table(headers: &[&str], rows: &[String]) -> String {
 /// A GET form for page filters. Plain query parameters keep filtering usable
 /// without JavaScript and make the result linkable.
 pub fn filter_form(action: &str, fields: &[(&str, &str)]) -> String {
+    filter_form_with_hidden(action, &[], fields)
+}
+
+/// The same, with hidden parameters that identify the page's subject — a node
+/// id, say — so applying a filter does not silently drop back to the first one.
+pub fn filter_form_with_hidden(
+    action: &str,
+    hidden: &[(&str, &str)],
+    fields: &[(&str, &str)],
+) -> String {
+    let hidden = hidden
+        .iter()
+        .map(|(name, value)| {
+            format!(
+                r#"<input type="hidden" name="{}" value="{}">"#,
+                escape(name),
+                escape(value)
+            )
+        })
+        .collect::<String>();
     let inputs = fields
         .iter()
         .map(|(name, value)| {
@@ -153,8 +173,8 @@ pub fn filter_form(action: &str, fields: &[(&str, &str)]) -> String {
         })
         .collect::<String>();
     format!(
-        r#"<form class="filters" method="get" action="{}">{inputs}<button type="submit">Apply</button></form>"#,
-        escape(action)
+        r#"<form class="filters" method="get" action="{action}">{hidden}{inputs}<button type="submit">Apply</button></form>"#,
+        action = escape(action)
     )
 }
 
@@ -195,24 +215,231 @@ pub fn select(name: &str, options: &[String], selected: &str) -> String {
     format!(r#"<select name="{}">{items}</select>"#, escape(name))
 }
 
+/// A labelled text input. A struct rather than five positional arguments:
+/// label, name, value, help and error are easy to pass in the wrong order, and
+/// a swapped pair still compiles.
+#[derive(Default)]
+pub struct TextField<'a> {
+    pub label: &'a str,
+    pub name: &'a str,
+    pub value: &'a str,
+    pub help: Option<&'a str>,
+    pub error: Option<&'a str>,
+    /// Paths, versions and digests read better in the console face.
+    pub monospace: bool,
+    /// Take the whole grid row instead of one column.
+    pub full_width: bool,
+    pub placeholder: Option<&'a str>,
+}
+
+/// A labelled dropdown over server-provided options.
+#[derive(Default)]
+pub struct ChoiceField<'a> {
+    pub label: &'a str,
+    pub name: &'a str,
+    pub options: &'a [String],
+    pub selected: &'a str,
+    pub help: Option<&'a str>,
+    pub error: Option<&'a str>,
+    /// Submit the form when the value changes, reporting this action. Enhancement
+    /// only: an explicit submit button with the same value works without scripting.
+    pub auto_submit: Option<&'a str>,
+    pub full_width: bool,
+}
+
+impl TextField<'_> {
+    pub fn render(&self) -> String {
+        let id = format!("f-{}", self.name);
+        let control_class = if self.monospace {
+            r#" class="mono""#
+        } else {
+            ""
+        };
+        let placeholder = self
+            .placeholder
+            .map(|text| format!(r#" placeholder="{}""#, escape(text)))
+            .unwrap_or_default();
+        format!(
+            r#"<label class="field{classes}" for="{id}"><span>{label}</span><input id="{id}" name="{name}" value="{value}"{control_class}{placeholder}{described}>{messages}</label>"#,
+            classes = field_classes(self.error, self.full_width),
+            id = id,
+            label = escape(self.label),
+            name = escape(self.name),
+            value = escape(self.value),
+            control_class = control_class,
+            placeholder = placeholder,
+            described = describe(&id, self.help, self.error),
+            messages = field_messages(&id, self.help, self.error),
+        )
+    }
+}
+
+impl ChoiceField<'_> {
+    pub fn render(&self) -> String {
+        let id = format!("f-{}", self.name);
+        let options = self
+            .options
+            .iter()
+            .map(|option| {
+                let chosen = if option == self.selected {
+                    " selected"
+                } else {
+                    ""
+                };
+                format!(
+                    r#"<option value="{}"{chosen}>{}</option>"#,
+                    escape(option),
+                    escape(option)
+                )
+            })
+            .collect::<String>();
+        format!(
+            r#"<label class="field{classes}" for="{id}"><span>{label}</span><select id="{id}" name="{name}"{auto}{described}>{options}</select>{messages}</label>"#,
+            classes = field_classes(self.error, self.full_width),
+            id = id,
+            label = escape(self.label),
+            name = escape(self.name),
+            auto = match self.auto_submit {
+                Some(action) => format!(r#" data-autosubmit="{}""#, escape(action)),
+                None => String::new(),
+            },
+            described = describe(&id, self.help, self.error),
+            options = options,
+            messages = field_messages(&id, self.help, self.error),
+        )
+    }
+}
+
+fn field_classes(error: Option<&str>, full_width: bool) -> String {
+    let mut classes = String::new();
+    if error.is_some() {
+        classes.push_str(" invalid");
+    }
+    if full_width {
+        classes.push_str(" span-all");
+    }
+    classes
+}
+
+fn describe(id: &str, help: Option<&str>, error: Option<&str>) -> String {
+    let mut parts = Vec::new();
+    if error.is_some() {
+        parts.push(format!("{id}-error"));
+    }
+    if help.is_some() {
+        parts.push(format!("{id}-help"));
+    }
+    if parts.is_empty() {
+        return String::new();
+    }
+    format!(r#" aria-describedby="{}""#, parts.join(" "))
+}
+
+fn field_messages(id: &str, help: Option<&str>, error: Option<&str>) -> String {
+    let error = error
+        .map(|message| {
+            format!(
+                r#"<span class="error" id="{id}-error" role="alert">{}</span>"#,
+                escape(message)
+            )
+        })
+        .unwrap_or_default();
+    let help = help
+        .map(|message| {
+            format!(
+                r#"<span class="help" id="{id}-help">{}</span>"#,
+                escape(message)
+            )
+        })
+        .unwrap_or_default();
+    format!("{error}{help}")
+}
+
+/// Title, one line of context, and the actions that apply to the page.
+pub fn page_head(title: &str, subtitle: &str, actions: &str) -> String {
+    let subtitle = if subtitle.trim().is_empty() {
+        String::new()
+    } else {
+        format!(r#"<div class="sub">{}</div>"#, escape(subtitle))
+    };
+    let actions = if actions.trim().is_empty() {
+        String::new()
+    } else {
+        format!(r#"<div class="toolbar">{actions}</div>"#)
+    };
+    format!(
+        r#"<div class="page-head"><div><h1>{title}</h1>{subtitle}</div>{actions}</div>"#,
+        title = escape(title),
+        subtitle = subtitle,
+        actions = actions,
+    )
+}
+
+/// A trail back to the list, so a detail or edit page is never a dead end. An
+/// empty href renders the current location as plain text.
+pub fn breadcrumb(items: &[(&str, &str)]) -> String {
+    let parts = items
+        .iter()
+        .map(|(label, href)| {
+            if href.is_empty() {
+                format!("<span>{}</span>", escape(label))
+            } else {
+                format!(r#"<a href="{}">{}</a>"#, escape(href), escape(label))
+            }
+        })
+        .collect::<Vec<_>>();
+    format!(
+        r#"<nav class="breadcrumb">{}</nav>"#,
+        parts.join(r#"<span class="sep">/</span>"#)
+    )
+}
+
+/// A status line that is not a transient flash: `ok`, `warn` or `danger`.
+pub fn notice(kind: &str, message: &str) -> String {
+    let class = match kind {
+        "warn" | "danger" => format!("notice {kind}"),
+        _ => "notice".to_string(),
+    };
+    format!(
+        r#"<div class="{class}">{}</div>"#,
+        escape(message),
+        class = class
+    )
+}
+
+/// What a page shows when there is nothing to show, with the action that would
+/// fix it. An empty list with no way forward is a dead end, not a state.
+pub fn empty_state(title: &str, body: &str, actions: &str) -> String {
+    format!(
+        r#"<div class="empty"><h2>{title}</h2><p>{body}</p><div class="actions">{actions}</div></div>"#,
+        title = escape(title),
+        body = escape(body),
+        actions = actions,
+    )
+}
+
 /// A labelled text/number input carrying its current value.
 pub fn text_field(label: &str, name: &str, value: &str) -> String {
-    format!(
-        r#"<label class="field"><span>{}</span><input name="{}" value="{}"></label>"#,
-        escape(label),
-        escape(name),
-        escape(value)
-    )
+    TextField {
+        label,
+        name,
+        value,
+        ..TextField::default()
+    }
+    .render()
 }
 
 /// A labelled dropdown whose options come from the server, so an operator can
 /// only submit a value the domain accepts.
 pub fn choice_field(label: &str, name: &str, options: &[String], selected: &str) -> String {
-    format!(
-        r#"<label class="field"><span>{}</span>{}</label>"#,
-        escape(label),
-        select(name, options, selected)
-    )
+    ChoiceField {
+        label,
+        name,
+        options,
+        selected,
+        ..ChoiceField::default()
+    }
+    .render()
 }
 
 /// A block of log or report text. The content is escaped; the browser preserves
