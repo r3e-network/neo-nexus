@@ -1,5 +1,9 @@
 # Rust build output
 target/
+# `target-wt/` is the cargo target directory of the baseline worktree checked
+# out at ../neo-nexus-baseline. It is build output, but it lands inside this
+# working directory, so the `target/` rule above does not reach it.
+target-wt/
 dist/
 
 # Runtime data
