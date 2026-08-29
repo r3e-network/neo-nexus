@@ -100,9 +100,10 @@ fn launch_pack_sidecars_json_cli_reports_machine_readable_specs() -> Result<()> 
         value["report"]["sidecars"][0]["process"]["args"][1],
         "wallets/validator-1.wallet.json"
     );
-    assert!(value["report"]["sidecars"][0]["log_path"]
+    let log_path = value["report"]["sidecars"][0]["log_path"]
         .as_str()
         .unwrap_or_default()
-        .ends_with("signers/committee-signer-1/committee-signer-1.supervisor.log"));
+        .replace(std::path::MAIN_SEPARATOR, "/");
+    assert!(log_path.ends_with("signers/committee-signer-1/committee-signer-1.supervisor.log"));
     Ok(())
 }

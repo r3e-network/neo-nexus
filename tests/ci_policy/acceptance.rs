@@ -29,8 +29,6 @@ jobs:
       - run: cargo run -- --source-quality-json tests
       - run: cargo run -- --source-quality .
       - run: cargo run -- --source-quality-json .
-      - run: cargo run -- --native-ui-audit .
-      - run: cargo run -- --native-ui-audit-json .
       - run: cargo run -- --alert-preview datadog https://event-management-intake.datadoghq.com/api/v2/events?api_key=dd123 critical "RPC health unreachable"
       - run: cargo run -- --alert-preview-json datadog https://event-management-intake.datadoghq.com/api/v2/events?api_key=dd123 critical "RPC health unreachable"
       - run: |

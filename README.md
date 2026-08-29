@@ -1,65 +1,89 @@
 # NeoNexus
 
-NeoNexus is a pure Rust native application for Neo N3 node operations. It is
-built with Rust, `eframe`/`egui`, SQLite, and reusable Rust domain services.
+NeoNexus is a pure Rust operations workbench for Neo N3 node fleets. One
+binary starts a **web workbench**: open the printed address in a browser and
+operate your node fleet from anywhere — a laptop, a bastion host, or a cloud
+server. The same binary also exposes the full headless CLI for scripts and CI.
 
-This repository is not a frontend project, browser shell, WebView, Tauri app,
-or server-container wrapper. The default experience is a desktop operations
-workbench with fixed inventory, workspace, inspector, toolbar, menu, and status
-regions. Long operational data is handled with filters, paging, and focused
-detail panels instead of a scroll-first web page layout.
-
-**3.2.0** ships Compact single-line inventory/fleet rows (40pt) after geometry
-proof, plus headless operator walkthrough regressions. **3.1.0** completed the
-visual system kit (`page_chrome` / `list_row`), Comfortable/Compact control
-density, and chrome contracts (header 60 / status 28 / sidebar 212).
-See `docs/ui-visual-system-v3.3.md` (the current colour, elevation and
-selection language), `docs/ui-system-redesign-v3.1.md`, and `CHANGELOG.md`.
+There is no desktop application since 4.0.0. The workbench runs as an HTTP
+service (axum + tokio), renders server-side, and ships its browser assets
+inside the binary — no Node toolchain, no external services, one executable.
 
 ## What Operators Can Do
 
-- Manage neo-cli, neo-go, and neo-rs node definitions from one native app.
-- Launch, stop, restart, reconcile, and inspect supervised node processes.
-- Generate, validate, and export neo-cli JSON, neo-go YAML, and neo-rs TOML
-  configuration.
+- Manage neo-cli, neo-go, neo-rs, and Neo X node definitions from the browser
+  or the CLI.
+- Launch, stop, restart, and inspect supervised node processes through the
+  shared core pipeline (readiness → managed config → supervise → persist).
 - Run runtime smoke checks, RPC health checks, readiness checks, workspace
   integrity checks, metrics exports, backup validation, wallet validation, and
-  release package verification without opening the GUI.
-- Install verified runtime packages, import runtime catalogs, plan catalog
-  upgrades, and roll selected or fleet upgrades through native controls.
-- Export support bundles, readiness reports, event journals, backups, node
-  configs, private-network launch packs, and release artifacts with redacted
-  evidence suitable for handoff.
+  release package verification without opening a browser.
+- Import runtime catalogs, validate NEP-6 wallet profiles (metadata only), and
+  validate private-network launch packs.
 
 neo-rs is a first-class runtime target. NeoNexus recognizes the `neo-node`
 binary, validates RocksDB-oriented TOML configs, supports Fast Sync snapshot
-catalog entries, uses the same runtime catalog machinery as the other Neo
-runtimes, and routes neo-rs readiness findings into the same Operations
+catalog entries, and routes neo-rs readiness findings into the same Operations
 workflow used for neo-cli and neo-go.
 
 ## Requirements
 
 - Rust 1.91 or newer.
-- Linux, macOS, or Windows with the platform GUI dependencies required by
-  `eframe`.
+- Linux, macOS, or Windows.
 - Optional node binaries if you want to start real processes:
   `neo-cli`, `neo-go`, or neo-rs `neo-node`.
 
 Linux development packages used by CI include ALSA, Fontconfig, X11, cursor,
-keyboard, RandR, and OpenGL development headers.
+keyboard, RandR, and OpenGL development headers (the GUI toolkit is gone, but
+transitive skia/geometry crates in the tree may still expect them until the
+4.x dependency audit lands — CI installs them today).
 
-## Run The Native Application
+## Run The Web Workbench
 
 ```bash
 cargo run
-cargo run -- --gui
 ```
 
-No option and `--gui` both enter the native desktop workbench through the
-manager layer. Any other option is an explicit headless manager command and
-must not accidentally launch the GUI.
+No options starts the workbench server on `127.0.0.1:8080` and prints the
+address plus a generated sign-in token. Open the address in a browser and sign
+in with the token.
 
-Useful headless examples:
+Cloud-shaped options:
+
+```bash
+cargo run -- --web --bind 0.0.0.0 --port 8080 --web-token "$NEONEXUS_WEB_TOKEN"
+```
+
+- `--bind` defaults to `127.0.0.1`; set `0.0.0.0` on a cloud host behind a
+  TLS-terminating reverse proxy.
+- `--web-token` sets the operator token explicitly; otherwise the
+  `NEONEXUS_WEB_TOKEN` environment variable is used; otherwise a one-off token
+  is generated and printed at startup. Only the SHA-256 digest is kept in
+  memory.
+- Sessions are HttpOnly cookies with a 12-hour sliding expiry.
+
+The workspace database lives at `NEONEXUS_DATA_DIR/neonexus.db` (or the OS data
+directory), the same file the CLI writes to — browser operators and scripted
+operators see the same workspace.
+
+## Workbench Surfaces
+
+| Page | What operators do there |
+|------|--------------------------|
+| **Home** | Fleet counts, host CPU/memory pressure, fleet table with live status polling |
+| **Nodes** | Node list, per-node config facts, RPC health trend, Start/Stop/Restart controls |
+| **Operations** | Fleet readiness evaluation and the runtime event journal |
+| **Metrics** | Workspace metrics snapshot and the Prometheus exposition |
+
+Status badges poll `/api/fleet` every 5 seconds; every control also works
+without JavaScript (plain form posts with flash messages). `/healthz` is a
+public liveness endpoint for load balancers. `/api/metrics-prometheus` serves
+the same Prometheus exposition the CLI exports.
+
+## Headless CLI
+
+All operational commands run without the workbench and share its core
+pipeline:
 
 ```bash
 cargo run -- --self-check
@@ -77,9 +101,8 @@ cargo run -- --validate-wallet /path/to/validator.wallet.json
 cargo run -- --validate-launch-pack /path/to/private-network/manifest.json
 ```
 
-Node control runs headlessly through the **same core pipeline** the GUI uses
-(readiness, lifecycle, health reads), so a scripted node and an operator's node
-behave identically:
+Node control uses the same readiness + launch path the web workbench uses, so
+a scripted node and a browser-operated node behave identically:
 
 ```bash
 cargo run -- --node-list    /path/to/neonexus.db
@@ -88,14 +111,6 @@ cargo run -- --node-start   /path/to/neonexus.db "node name"
 cargo run -- --node-stop    /path/to/neonexus.db "node name"
 cargo run -- --node-restart /path/to/neonexus.db "node name"
 ```
-
-`--node-list` prints every node as a compact table (name/type/network/status/
-ports). `--node-status` prints a detailed single-node report including the
-latest RPC health probe. `--node-start` evaluates launch readiness, exports the
-managed config, launches the supervised process, and persists status.
-`--node-stop` stops it via the shared supervisor and is idempotent for scripts
-(reports "was not running" when already stopped). `--node-restart` restarts a
-running node through the same readiness + launch path.
 
 After a release build:
 
@@ -116,78 +131,40 @@ cargo test --lib
 cargo test --test ci_policy
 cargo test --test domain
 cargo test --test repository
-make ui-contracts
+cargo test --test web
+make web-smoke
 cargo run -- --source-purity .
 cargo run -- --source-quality .
-cargo run -- --native-ui-audit .
 cargo run -- --ci-policy .github/workflows/ci.yml
 ```
 
-`make ui-contracts` runs the headless UI contracts — panel geometry, layout
-containment, the type scale, dark-theme tiers, density, empty and error states,
-keyboard reach, and the operator walkthrough. They render real frames against a
-headless egui context, so they need no window and no screen-capture permission.
-CI runs them too.
+`cargo test --test web` boots real servers on ephemeral ports and exercises
+the auth boundary, the JSON API, and the lifecycle control path end-to-end.
 
-`make verify` runs the broader local gate set, including smoke checks for
-runtime probes, alerts, readiness, metrics, integrity, support bundles, event
+`make verify` runs the broader local gate set, including the web smoke, runtime
+probes, alerts, readiness, metrics, integrity, support bundles, event
 journals, node config export/generation, backups, wallets, launch packs, and
 release-adjacent flows.
-
-The desktop binary is excluded from Cargo's default test harness. Tests run
-through the library and named integration targets so filtered test commands
-and target listing do not open the native application.
-
-## Native Workbench (v3)
-
-The workbench is **node-centric**: six primary destinations, with secondary
-tools nested as in-page tabs so everyday lifecycle work stays in one place.
-
-| Primary | What operators do there |
-|---------|-------------------------|
-| **Home** | Fleet health, host pressure, next readiness actions, selection context |
-| **Nodes** | Studio definition + Config / Logs / Plugins / Health for the selected node |
-| **Runtimes** | Install packages, catalogs, upgrades, and Fast Sync snapshots |
-| **Network** | Federation remotes, private-network roles, wallet profiles |
-| **Operations** | Readiness, action queue, ports, safety/backups, event journal |
-| **Settings** | Watchdog/upgrades/monitors, alert routing, storage paths, release pack |
-
-Supporting details:
-
-- Inventory stays selection-aware on Home, Nodes, and Operations.
-- Wallet Profiles store encrypted Neo wallet metadata only — never private
-  keys, wallet bytes, passwords, passphrases, mnemonics, or seeds.
-- Private-network tools export launch packs with explicit signer references and
-  no-shell sidecar command plans.
-- Menus, toolbar controls, and keyboard accelerators share one command model.
-  Number keys `1`–`6` jump primary destinations; platform shortcut labels are
-  generated by the native shortcut layer.
-- Dense pages use segmented controls instead of crowding panels. A design-token
-  layer (type scale, spacing, status colours, toast strip) keeps light/dark
-  chrome consistent. Active view, sections, inspector visibility, and theme
-  persist across restarts.
-
-UI redesign notes and the 14→6 view mapping live in
-[docs/ui-v3-baseline.md](docs/ui-v3-baseline.md).
 
 ## Architecture
 
 The source tree is intentionally Rust-only:
 
 - `src/main.rs` is a thin binary entrypoint.
-- `src/manager/` classifies startup arguments into native GUI mode or
+- `src/manager/` classifies startup arguments into the web workbench mode or
   explicit headless manager commands.
-- `src/app/` contains the native `egui` application shell, the design-token
-  theme layer, shared widgets, view modules, and workflow bindings.
-- `src/core/` is the UI-free facade shared by GUI and CLI surfaces. High-level
-  operations live here: `core::lifecycle` (node start/stop/restart orchestration
-  used by both modes), `core::node_health` and `core::workspace_queries`
-  (read APIs so frontends never query the repository directly during render).
+- `src/web/` is the browser workbench: axum router, auth store, page
+  handlers, JSON API, and embedded assets. It renders server-side and calls
+  only the core facade.
 - `src/cli/` parses headless commands and renders text/JSON output.
+- `src/core/` is the UI-free facade shared by the web workbench and CLI.
+  High-level operations live here: `core::lifecycle` (node start/stop/restart
+  orchestration), `core::node_health` and `core::workspace_queries` (read APIs
+  so a surface never queries the repository directly during rendering).
 - Domain modules such as `runtime`, `snapshots`, `config`, `launch`,
   `repository`, `backup`, `wallet`, `private_network`, `supervisor`,
-  `source_purity`, `source_quality`, `native_ui_audit`, and `ci_policy` hold
-  reusable behavior outside the application shell.
+  `source_purity`, `source_quality`, and `ci_policy` hold reusable behavior
+  outside any surface.
 
 Tests are kept out of `src/` so the source tree reads as production only:
 
@@ -195,51 +172,36 @@ Tests are kept out of `src/` so the source tree reads as production only:
   tests. Each production module keeps a one-line `#[cfg(test)] #[path = ...]
   mod tests;` stub that points at its `tests/unit/` file, so the tests retain
   private access while their code lives outside `src/`.
-- `tests/domain`, `tests/ci_policy`, and `tests/repository` hold the public-API
+- `tests/web.rs` is the named end-to-end web target.
+- `tests/domain`, `tests/ci_policy`, and `tests/repository` hold public-API
   integration tests compiled as separate test crates.
 
 - `--source-purity` rejects Node/Web manifests, frontend source files,
-  `node_modules`, web/frontend directories, Docker/compose and nginx deployment
-  artifacts, WebView/Tauri project files, and WebView/Tauri dependencies.
-- `--source-quality` rejects oversized Rust modules, oversized maintenance
-  files, panic-oriented production markers, hardcoded platform shortcut labels,
-  and document-style native layout markers.
-- `--native-ui-audit` requires eframe/egui startup, minimum window sizing,
-  fixed top/bottom/left/right/central panels, explicit workspaces, and no
-  WebView/Tauri/Wry or scroll-first UI markers.
-- `--ci-policy` verifies cross-platform native CI coverage on Ubuntu, macOS,
-  and Windows with native gates and no frontend toolchain.
+  `node_modules`, web/frontend directories, Docker/compose and nginx
+  deployment artifacts, WebView/Tauri project files, and WebView/Tauri
+  dependencies. Browser assets live inside Rust string constants in
+  `src/web/assets.rs` for exactly this reason.
+- `--source-quality` rejects panic-oriented production markers, hardcoded
+  platform shortcut labels, and oversized repository maintenance files.
+- `--ci-policy` verifies cross-platform CI coverage on Ubuntu, macOS, and
+  Windows with the Rust-only gate set and no frontend toolchain.
 
 ## Documentation
 
-- [Native Rust App](docs/native-rust.md) explains architecture, application
-  mode, runtime support, release packaging, catalogs, snapshots, and private
-  network behavior.
-- [Native Rust App Validation](docs/native-validation.md) records the gates and
-  release evidence expected before handoff.
+- [Web workbench](docs/web.md) explains the server, the auth model, cloud
+  deployment, and the API surface.
+- [Native Rust App Validation](docs/native-validation.md) records the gates
+  and release evidence expected before handoff.
 - [Operator Benchmarks](docs/operator-benchmarks.md) summarizes the node
   manager product patterns used to shape the workbench.
-- [UI v3 baseline](docs/ui-v3-baseline.md) records the workbench IA redesign,
-  phase status, and visual-truth captures.
-- [UI system redesign v3.1](docs/ui-system-redesign-v3.1.md) is the approved
-  component kit, surface specs, and PR plan for 3.1.x. Its colour, elevation and
-  selection sections are superseded by v3.3.
-- [UI visual system v3.3](docs/ui-visual-system-v3.3.md) is the current surface
-  language: warm-neutral palette, coral accent, flat hairline elevation, tinted
-  selection, responsive column rules, and the sizing mistakes that cause
-  containment faults.
 - [Runtime catalog example](docs/runtime-catalog.example.json) and
   [snapshot catalog example](docs/snapshot-catalog.example.json) are importable
   schema samples for Runtime Manager and Fast Sync workflows.
 
 ## Current Gaps
 
-The native Rust conversion is broad, but further production hardening should
-continue in these areas:
-
 - More Linux and Windows smoke runs against real neo-cli, neo-go, and neo-rs
-  binaries.
+  binaries through the web workbench.
 - More long-running process-supervision tests with real node data directories.
 - Signed catalog and release-distribution exercises with real operator keys.
-- Additional accessibility and keyboard-only workflow review on each desktop
-  platform.
+- Optional TLS termination in-process (today: put a reverse proxy in front).

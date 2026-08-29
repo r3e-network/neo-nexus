@@ -36,24 +36,6 @@ pub(in crate::cli::actions) fn source_quality_json_action(args: &[String]) -> Re
     })
 }
 
-pub(in crate::cli::actions) fn native_ui_audit_action(args: &[String]) -> Result<CliAction> {
-    require_arg_count(args, 3, "--native-ui-audit")?;
-    let report = NativeUiAuditor::audit(PathBuf::from(&args[2]))?;
-    Ok(CliAction::PrintWithExitCode {
-        exit_code: report.exit_code(),
-        text: report.to_cli_text(),
-    })
-}
-
-pub(in crate::cli::actions) fn native_ui_audit_json_action(args: &[String]) -> Result<CliAction> {
-    require_arg_count(args, 3, "--native-ui-audit-json")?;
-    let report = NativeUiAuditor::audit(PathBuf::from(&args[2]))?;
-    Ok(CliAction::PrintWithExitCode {
-        exit_code: report.exit_code(),
-        text: native_ui_audit_json_text(&report)?,
-    })
-}
-
 pub(in crate::cli::actions) fn ci_policy_action(args: &[String]) -> Result<CliAction> {
     require_arg_count(args, 3, "--ci-policy")?;
     let report = CiPolicyChecker::check(PathBuf::from(&args[2]))?;

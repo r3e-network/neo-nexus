@@ -1,9 +1,7 @@
 use anyhow::Result;
 use serde::Serialize;
 
-use crate::core::quality::{
-    CiPolicyReport, NativeUiAuditReport, SourcePurityReport, SourceQualityReport,
-};
+use crate::core::quality::{CiPolicyReport, SourcePurityReport, SourceQualityReport};
 
 use super::json_text;
 
@@ -21,14 +19,6 @@ struct SourceQualityJsonReport<'a> {
     status: &'static str,
     success: bool,
     report: &'a SourceQualityReport,
-}
-
-#[derive(Debug, Serialize)]
-struct NativeUiAuditJsonReport<'a> {
-    schema_version: u32,
-    status: &'static str,
-    success: bool,
-    report: &'a NativeUiAuditReport,
 }
 
 #[derive(Debug, Serialize)]
@@ -50,15 +40,6 @@ pub(in crate::cli) fn source_purity_json_text(report: &SourcePurityReport) -> Re
 
 pub(in crate::cli) fn source_quality_json_text(report: &SourceQualityReport) -> Result<String> {
     json_text(&SourceQualityJsonReport {
-        schema_version: 1,
-        status: report.status_label(),
-        success: report.is_success(),
-        report,
-    })
-}
-
-pub(in crate::cli) fn native_ui_audit_json_text(report: &NativeUiAuditReport) -> Result<String> {
-    json_text(&NativeUiAuditJsonReport {
         schema_version: 1,
         status: report.status_label(),
         success: report.is_success(),

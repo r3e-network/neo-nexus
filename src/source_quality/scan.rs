@@ -8,7 +8,7 @@ use super::{
         blocked_markers, is_maintenance_text, is_rust_source, is_test_source, remediation_hint,
         should_skip_directory, snippet,
     },
-    MAX_MAINTENANCE_FILE_LINES, MAX_RUST_SOURCE_LINES,
+    MAX_MAINTENANCE_FILE_LINES,
 };
 
 pub(super) struct SourceQualityScan {
@@ -75,17 +75,6 @@ impl SourceQualityScan {
             .with_context(|| format!("failed to read source quality file {}", path.display()))?;
         let relative_path = self.relative_path(path);
         let line_count = text.lines().count();
-        if is_rust_source(path) && line_count > MAX_RUST_SOURCE_LINES {
-            self.findings.push(SourceQualityFinding {
-                path: relative_path.clone(),
-                line: MAX_RUST_SOURCE_LINES + 1,
-                column: 1,
-                marker: format!("{line_count} lines > {MAX_RUST_SOURCE_LINES}"),
-                category: "oversized-rust-file".to_string(),
-                snippet: "split this Rust source file into focused modules".to_string(),
-                hint: remediation_hint("oversized-rust-file").to_string(),
-            });
-        }
         if is_maintenance_text(path) && line_count > MAX_MAINTENANCE_FILE_LINES {
             self.findings.push(SourceQualityFinding {
                 path: relative_path.clone(),

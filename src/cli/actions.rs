@@ -17,7 +17,7 @@ use crate::core::{
         FleetDiagnostics, MetricsCollector, MetricsSnapshot, RpcHealthReport, RpcHealthStatus,
         RuntimeEvent, RuntimeEventFilter, DEFAULT_EVENT_EXPORT_LIMIT, MAX_EVENT_EXPORT_LIMIT,
     },
-    quality::{CiPolicyChecker, NativeUiAuditor, SourcePurityChecker, SourceQualityChecker},
+    quality::{CiPolicyChecker, SourcePurityChecker, SourceQualityChecker},
     runtime::{smoke_runtime_command, RuntimeSmokeReport},
     security::NeoWalletValidator,
     workspace::{

@@ -42,7 +42,16 @@ fn runtime_smoke_passes_when_probe_identifies_neo_rs_node() -> Result<()> {
         report.binary_evidence.status,
         RuntimeSmokeBinaryEvidenceStatus::Verified
     );
-    assert!(report.binary_evidence.runtime_path.ends_with("neo-node"));
+    let runtime_name = script
+        .file_name()
+        .expect("fake binary has a file name")
+        .to_string_lossy()
+        .into_owned();
+    assert!(
+        report.binary_evidence.runtime_path.ends_with(&runtime_name),
+        "runtime path {:?} should end with {runtime_name:?}",
+        report.binary_evidence.runtime_path
+    );
     assert!(report.binary_evidence.bytes.unwrap_or_default() > 0);
     assert_eq!(
         report.binary_evidence.sha256.as_deref().map(str::len),

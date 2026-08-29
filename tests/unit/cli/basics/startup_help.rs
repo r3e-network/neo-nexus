@@ -1,12 +1,12 @@
 use super::super::*;
 
 #[test]
-fn cli_rejects_default_invocation_because_manager_owns_gui_mode() {
+fn cli_rejects_default_invocation_because_manager_owns_the_web_mode() {
     assert!(action_from_args(["neo-nexus"]).is_err());
 }
 
 #[test]
-fn cli_rejects_explicit_gui_because_manager_owns_gui_mode() {
+fn cli_rejects_removed_gui_flag() {
     assert!(action_from_args(["neo-nexus", "--gui"]).is_err());
 }
 
@@ -20,9 +20,11 @@ fn cli_prints_version_and_help_without_gui() -> Result<()> {
         anyhow::bail!("expected help text");
     };
     for expected in [
-        "--gui",
+        "--web",
+        "--bind / --port",
+        "--web-token",
         "APPLICATION MODE",
-        "Start the native desktop application",
+        "Start the web workbench server",
         "--runtime-smoke-json",
         "--rpc-health-json",
         "--workspace-readiness-json",
@@ -37,8 +39,6 @@ fn cli_prints_version_and_help_without_gui() -> Result<()> {
         "--source-quality-json",
         "maintenance file budgets",
         "hardcoded platform shortcut labels",
-        "--native-ui-audit",
-        "--native-ui-audit-json",
         "--ci-policy",
         "--ci-policy-json",
         "--alert-preview",
@@ -96,16 +96,12 @@ fn cargo_does_not_run_native_gui_binary_as_test_target() -> Result<()> {
     let main_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/main.rs");
     let main_source = std::fs::read_to_string(main_path)?;
     assert!(
-        main_source.contains("#[cfg(not(test))]\nfn main()"),
-        "native GUI entrypoint must be disabled in binary test builds"
-    );
-    assert!(
-        main_source.contains("#[cfg(test)]\nfn main() {}"),
-        "binary test builds need an empty entrypoint so all-target test listing exits"
-    );
-    assert!(
         main_source.contains("neo_nexus::manager::action_from_args"),
         "native binary entrypoint should route through the manager mode planner"
+    );
+    assert!(
+        main_source.contains("run_web_server"),
+        "the default experience is the web workbench server"
     );
     assert!(
         main_source.contains("into_cli_output"),
@@ -136,7 +132,6 @@ fn cli_actions_use_core_facade_for_shared_domain_services() -> Result<()> {
         "event_journal_report",
         "events",
         "metrics",
-        "native_ui_audit",
         "private_network",
         "readiness_report",
         "release_pack",
@@ -170,12 +165,7 @@ fn cli_quality_output_uses_core_facade_report_types() -> Result<()> {
         output_source.contains("use crate::core::quality::{"),
         "CLI quality output should use core::quality report types"
     );
-    for module in [
-        "ci_policy",
-        "native_ui_audit",
-        "source_purity",
-        "source_quality",
-    ] {
+    for module in ["ci_policy", "source_purity", "source_quality"] {
         assert!(
             !output_source.contains(&format!("{module}::")),
             "CLI quality output should import {module} reports through core::quality"

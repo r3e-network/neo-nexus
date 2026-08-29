@@ -10,7 +10,7 @@
 //! "extract core, support dual mode" goal was unmet for the single most important
 //! operation.
 //!
-//! This module is the one source of truth. It knows nothing about egui, notices,
+//! This module is the one source of truth. It knows nothing about UI shells, notices,
 //! or event journals — those are presentation concerns that each frontend maps the
 //! [`NodeLaunchOutcome`] to. The readiness evaluation stays a caller
 //! responsibility (it returns a rich report the frontend may surface), so a future

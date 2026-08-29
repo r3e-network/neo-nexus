@@ -9,6 +9,12 @@ fn source_purity_accepts_rust_native_tree_and_skips_build_outputs() -> anyhow::R
         temp_dir.path().join("src").join("lib.rs"),
         "pub fn ok() {}\n",
     )?;
+    // The 4.0 workbench itself lives in a directory named `web` and is pure Rust.
+    std::fs::create_dir_all(temp_dir.path().join("src").join("web"))?;
+    std::fs::write(
+        temp_dir.path().join("src").join("web").join("server.rs"),
+        "pub fn serve() {}\n",
+    )?;
     std::fs::create_dir_all(temp_dir.path().join("docs"))?;
     std::fs::write(temp_dir.path().join("docs").join("example.json"), "{}\n")?;
     std::fs::create_dir_all(temp_dir.path().join("target"))?;
@@ -32,6 +38,8 @@ fn source_purity_rejects_frontend_and_node_artifacts() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     std::fs::write(temp_dir.path().join("Cargo.toml"), "[package]\n")?;
     std::fs::write(temp_dir.path().join("package.json"), "{}\n")?;
+    std::fs::create_dir_all(temp_dir.path().join("frontend"))?;
+    std::fs::write(temp_dir.path().join("frontend").join("index.html"), "")?;
     std::fs::create_dir_all(temp_dir.path().join("web").join("src"))?;
     std::fs::write(temp_dir.path().join("web").join("src").join("App.tsx"), "")?;
     std::fs::create_dir_all(temp_dir.path().join("src-tauri").join("src"))?;
@@ -56,10 +64,17 @@ fn source_purity_rejects_frontend_and_node_artifacts() -> anyhow::Result<()> {
         .iter()
         .any(|finding| finding.path == "package.json"
             && finding.category == "node-toolchain-manifest"));
+    // A directory named `web` now holds the Rust workbench itself; a frontend
+    // hiding inside one is still caught by the per-file rule.
     assert!(report
         .disallowed_entries
         .iter()
-        .any(|finding| finding.path == "web" && finding.category == "frontend-directory"));
+        .any(|finding| finding.path == "web/src/App.tsx"
+            && finding.category == "frontend-source-file"));
+    assert!(report
+        .disallowed_entries
+        .iter()
+        .any(|finding| finding.path == "frontend" && finding.category == "frontend-directory"));
     assert!(report
         .disallowed_entries
         .iter()

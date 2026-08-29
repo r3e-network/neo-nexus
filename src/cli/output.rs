@@ -21,10 +21,7 @@ pub(super) use self::{
         workspace_readiness_exit_code, workspace_readiness_json_text, workspace_readiness_text,
     },
     launch::launch_pack_sidecars_json_text,
-    quality::{
-        ci_policy_json_text, native_ui_audit_json_text, source_purity_json_text,
-        source_quality_json_text,
-    },
+    quality::{ci_policy_json_text, source_purity_json_text, source_quality_json_text},
     release::{
         release_package_verification_failure_json_text, release_package_verification_json_text,
     },

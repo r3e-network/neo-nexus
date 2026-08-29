@@ -1,15 +1,10 @@
-#[cfg(not(test))]
-use neo_nexus::{manager::ManagerAction, NeoNexusApp};
+use neo_nexus::manager::ManagerAction;
 
-#[cfg(test)]
-fn main() {}
-
-#[cfg(not(test))]
 fn main() {
     match neo_nexus::manager::action_from_args(std::env::args()) {
-        Ok(ManagerAction::LaunchGui) => {
-            if let Err(error) = run_native_app() {
-                eprintln!("NeoNexus failed to start: {error}");
+        Ok(ManagerAction::ServeWeb(launch)) => {
+            if let Err(error) = neo_nexus::web::run_web_server(launch) {
+                eprintln!("NeoNexus web server failed: {error:#}");
                 std::process::exit(1);
             }
         }
@@ -38,19 +33,4 @@ fn main() {
             std::process::exit(2);
         }
     }
-}
-
-#[cfg(not(test))]
-fn run_native_app() -> eframe::Result<()> {
-    let options = eframe::NativeOptions {
-        viewport: eframe::egui::ViewportBuilder::default()
-            .with_inner_size([1280.0, 820.0])
-            .with_min_inner_size([1280.0, 760.0]),
-        ..Default::default()
-    };
-    eframe::run_native(
-        "NeoNexus",
-        options,
-        Box::new(|_creation_context| Ok(Box::new(NeoNexusApp::open_default()?))),
-    )
 }

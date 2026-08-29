@@ -34,6 +34,12 @@ fn value_of<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
         .map(String::as_str)
 }
 
+/// The data directory as a launch argument, with host separators folded to '/'
+/// so one expectation holds on Windows and Unix alike.
+fn pinned_datadir(args: &[String]) -> Option<String> {
+    value_of(args, "--datadir").map(|value| value.replace(std::path::MAIN_SEPARATOR, "/"))
+}
+
 /// Reth's default data directory is under the user's home, not the workspace.
 /// Two managed nodes left at that default would share one database and corrupt
 /// each other's chain.
@@ -42,7 +48,7 @@ fn both_clients_are_pinned_to_the_workspace_data_directory() {
     let mut geth = Vec::new();
     geth_args(&mut geth, &work_dir(), PathBuf::from("/cfg/neox.toml"));
     assert_eq!(
-        value_of(&geth, "--datadir"),
+        pinned_datadir(&geth).as_deref(),
         Some("/workspace/nodes/neox/data")
     );
 
@@ -54,7 +60,7 @@ fn both_clients_are_pinned_to_the_workspace_data_directory() {
         PathBuf::from("/cfg/neox.toml"),
     );
     assert_eq!(
-        value_of(&reth, "--datadir"),
+        pinned_datadir(&reth).as_deref(),
         Some("/workspace/nodes/neox/data")
     );
 }

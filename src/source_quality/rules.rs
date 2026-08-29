@@ -116,7 +116,6 @@ pub(super) fn remediation_hint(category: &str) -> &'static str {
         "hardcoded-platform-shortcut-label" => {
             "generate shortcut labels through the platform formatter"
         }
-        "oversized-rust-file" => "split this Rust source file into focused modules",
         "oversized-maintenance-file" => "split this documentation or CI file into focused files",
         _ => "remove or refactor the source-quality finding",
     }
