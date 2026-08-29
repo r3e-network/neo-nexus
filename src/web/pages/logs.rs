@@ -57,20 +57,17 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], params: &LogQuery) -> Str
 {filters}
 {content}"#,
         picker = node_picker(nodes, selected),
-        filters = html::filter_form(
+        filters = html::filter_form_with_hidden(
             "/logs",
-            &[
-                ("node", &selected.name),
-                ("query", &params.query),
-                ("lines", &visible.to_string()),
-            ],
+            &[("node", &selected.id)],
+            &[("query", &params.query), ("lines", &visible.to_string())],
         ),
         content = render_log(selected, &log_path, params, visible),
     )
 }
 
 /// Plain links: switching nodes is a GET, so it works with JavaScript off and
-/// the result stays bookmarkable.
+/// the result stays bookmarkable. The id travels, the name is what is read.
 fn node_picker(nodes: &[NodeConfig], selected: &NodeConfig) -> String {
     nodes
         .iter()
@@ -82,7 +79,7 @@ fn node_picker(nodes: &[NodeConfig], selected: &NodeConfig) -> String {
             };
             format!(
                 r#"<a class="btn{current}" href="/logs?node={}">{}</a>"#,
-                html::urlencoding_lite(&node.name),
+                html::urlencoding_lite(&node.id),
                 html::escape(&node.name)
             )
         })

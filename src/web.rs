@@ -17,6 +17,7 @@ pub mod fleet;
 pub mod health;
 pub mod html;
 pub mod nav;
+pub mod node_form;
 pub mod pages;
 pub mod router;
 pub mod server;

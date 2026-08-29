@@ -137,7 +137,7 @@ fn node_picker(nodes: &[NodeConfig], selected: &NodeConfig) -> String {
             };
             format!(
                 r#"<a class="btn{current}" href="/plugins?node={}">{}</a>"#,
-                html::urlencoding_lite(&node.name),
+                html::urlencoding_lite(&node.id),
                 html::escape(&node.name)
             )
         })

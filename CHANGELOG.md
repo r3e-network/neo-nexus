@@ -35,6 +35,21 @@ open the printed address in a browser. The desktop GUI is removed.
   - Lifecycle controls run the SAME core pipeline the CLI uses — readiness,
     managed config, supervised launch — so browser and script operators
     behave identically.
+  - **Node manager**: register (`/nodes/new`), correct (`/nodes/{id}/edit`) and
+    remove (`/nodes/{id}/delete`) nodes from the browser, which the removed
+    desktop editor had been the only frontend for. A rejected save returns the
+    operator's own text with the reason beside the field it belongs to.
+    Validation borrows the domain's rules rather than restating them —
+    `validate_node_ports`, `NodeType::supports_storage_engine`,
+    `parse_argv_text` — and adds the two checks the workspace needs and the type
+    system cannot see: a name already taken, and a port another node holds
+    (including across the RPC/P2P pair, which would bind fine and then fail).
+    Storage is only offered as a choice on clients that have one; the Neo X
+    clients' embedded stores are stated, not presented as knobs. "Suggest free
+    ports" asks the same planner the launch path uses, so it avoids both the
+    fleet's ports and the host's. Deletion is a two-step flow naming what else
+    goes with the node. Registration, updates and deletions are journaled as
+    `node-created`, `node-updated` and `node-deleted` events.
 - `--web` / `--bind` / `--port` / `--web-token` launch options. No options
   starts the web workbench (the default experience).
 - End-to-end web suite (`tests/web.rs`): real server on an ephemeral port,
@@ -60,14 +75,9 @@ open the printed address in a browser. The desktop GUI is removed.
 
 ### Known gaps
 
-The web workbench now covers every surface the desktop shell offered, but it is
-not a full replacement for it:
+The workbench reaches every surface the desktop shell offered, but not every
+action on them:
 
-- **Node registration has no frontend.** Create and delete lived in
-  `src/app/node_lifecycle_flow/editor/`, so `Repository::create_node` still has
-  no production caller and a fresh workspace cannot gain its first node except
-  by restoring a backup (`--import-backup`) or through the Rust API. The Home
-  empty state says so rather than pretending otherwise.
 - **Inventory pages are read-only where the action writes to the host or leaves
   the machine.** Runtime download and install, snapshot import and apply, wallet
   profile import, delivering a real alert (the page previews routing only), and

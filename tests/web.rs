@@ -10,6 +10,7 @@ use std::{
 
 use axum::serve;
 use neo_nexus::{
+    core::operations::RuntimeEventFilter,
     repository::Repository,
     types::{Network, NewNode, NodeType, StorageEngine},
     web::{auth::AuthStore, html, nav, router::build_router, WebState},
@@ -451,4 +452,255 @@ fn plugin_toggle_refuses_an_identifier_that_is_not_a_plugin() {
             .is_empty(),
         "a rejected toggle must write nothing"
     );
+}
+
+/// A node form body. Deliberately spelled out rather than built from a draft,
+/// so the test asserts what a browser would actually send.
+fn node_form(name: &str, client: &str, rpc: &str, p2p: &str) -> String {
+    format!(
+        "name={name}&node_type={client}&network=mainnet&binary_path=%2Fopt%2Fneo%2Fnode\
+&runtime_version=&storage_engine=rocksdb&args=&rpc_port={rpc}&p2p_port={p2p}&ws_port="
+    )
+}
+
+fn signed_in(http: &ureq::Agent, base: &str) -> String {
+    let login = post_form(http, &format!("{base}/login"), &format!("token={TOKEN}"));
+    cookie_value(&login).expect("session cookie set")
+}
+
+/// The whole point of the 4.0 workbench: a node can be registered, corrected and
+/// removed from a browser, with no access to the database.
+#[test]
+fn a_node_is_created_shown_edited_and_deleted_over_http() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+
+    let form = into_response(
+        http.get(&format!("{base}/nodes/new"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(form.status(), 200);
+    let markup = form.into_string().expect("editor markup");
+    assert!(
+        markup.contains("Add node"),
+        "the editor should announce itself"
+    );
+    assert!(
+        markup.contains("name=\"rpc_port\""),
+        "ports are editable: {markup}"
+    );
+
+    let created = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/nodes/new"),
+        &node_form("web-seed", "neo-rs", "31332", "31333"),
+    );
+    assert_eq!(created.status(), 303);
+    let location = created.header("location").expect("redirect to the node");
+    assert!(
+        location.starts_with("/nodes/node-"),
+        "expected a node page, got {location}"
+    );
+    assert!(
+        location.contains("flash="),
+        "the operator should be told it worked"
+    );
+
+    let repository = Repository::open(&server.db_path).expect("reopen workspace");
+    let node = repository
+        .list_nodes()
+        .expect("nodes")
+        .into_iter()
+        .find(|node| node.name == "web-seed")
+        .expect("the node should be stored");
+    assert_eq!(node.rpc_port, 31332);
+    assert_eq!(
+        node.runtime_version, "latest",
+        "a blank version means latest"
+    );
+
+    // It should be reachable from the list, and offer its own controls.
+    let list = into_response(
+        http.get(&format!("{base}/nodes"))
+            .set("cookie", &session)
+            .call(),
+    );
+    let list_body = list.into_string().expect("list body");
+    assert!(
+        list_body.contains("web-seed"),
+        "the fleet list should show it"
+    );
+    assert!(list_body.contains("/edit"), "each row should offer editing");
+    assert!(
+        list_body.contains("/delete"),
+        "each row should offer deletion"
+    );
+
+    let edited = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/nodes/{}/edit", node.id),
+        &node_form("web-seed", "neo-rs", "31340", "31341"),
+    );
+    assert_eq!(edited.status(), 303);
+    let moved = repository
+        .list_nodes()
+        .expect("nodes")
+        .into_iter()
+        .find(|stored| stored.id == node.id)
+        .expect("still present");
+    assert_eq!(moved.rpc_port, 31340, "the edit should persist");
+
+    let confirm = into_response(
+        http.get(&format!("{base}/nodes/{}/delete", node.id))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(confirm.status(), 200);
+    assert!(
+        confirm
+            .into_string()
+            .expect("confirm body")
+            .contains("cannot be undone"),
+        "deletion must warn before it acts"
+    );
+
+    let removed = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/nodes/{}/delete", node.id),
+        "",
+    );
+    assert_eq!(removed.status(), 303);
+    assert!(repository
+        .list_nodes()
+        .expect("nodes")
+        .iter()
+        .all(|stored| stored.id != node.id));
+
+    // The journal should be able to tell the story afterwards, including the
+    // deletion, which has no node row left to name it.
+    let kinds = repository
+        .list_events(RuntimeEventFilter::new(None, "", 200))
+        .expect("events")
+        .iter()
+        .map(|event| event.kind.to_string())
+        .collect::<Vec<_>>();
+    assert!(
+        kinds.iter().any(|kind| kind == "node-created"),
+        "journal: {kinds:?}"
+    );
+    assert!(
+        kinds.iter().any(|kind| kind == "node-updated"),
+        "journal: {kinds:?}"
+    );
+    assert!(
+        kinds.iter().any(|kind| kind == "node-deleted"),
+        "journal: {kinds:?}"
+    );
+}
+
+/// A rejected save must return the operator's own text and the reason beside the
+/// field, not a blank form that throws their work away.
+#[test]
+fn a_rejected_save_keeps_the_operators_text_and_names_the_field() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+
+    let response = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/nodes/new"),
+        &node_form("typo-node", "neo-rs", "not-a-port", "31333"),
+    );
+    assert_eq!(
+        response.status(),
+        200,
+        "a rejected form re-renders, not redirects"
+    );
+    let body = response.into_string().expect("form body");
+    assert!(
+        body.contains("value=\"typo-node\""),
+        "the name should survive: {body}"
+    );
+    assert!(
+        body.contains("not-a-port"),
+        "the bad port should survive for correction"
+    );
+    assert!(
+        body.contains("field needs attention") || body.contains("needs attention"),
+        "the operator should be told something is wrong"
+    );
+    assert!(
+        body.contains("is not a port number"),
+        "and which field: {body}"
+    );
+
+    let repository = Repository::open(&server.db_path).expect("reopen workspace");
+    assert!(
+        repository.list_nodes().expect("nodes").is_empty(),
+        "nothing may be stored"
+    );
+}
+
+#[test]
+fn a_duplicate_name_is_refused_over_http() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+    create_node(&server.db_path, "taken-name", 32332);
+
+    let response = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/nodes/new"),
+        &node_form("TAKEN-NAME", "neo-rs", "33332", "33333"),
+    );
+    let body = response.into_string().expect("form body");
+    assert!(
+        body.contains("already used by another node"),
+        "expected a clash message: {body}"
+    );
+}
+
+/// The editor routes are not in the sidebar, so the navigation-driven sweep does
+/// not reach them. They guard workspace changes all the same.
+#[test]
+fn editor_routes_require_a_session() {
+    let server = spawn_server();
+    let http = agent();
+    let base = server.base_url.as_str();
+    let node_id = create_node(&server.db_path, "guarded", 34332);
+
+    for path in [
+        "/nodes/new".to_string(),
+        format!("/nodes/{node_id}/edit"),
+        format!("/nodes/{node_id}/delete"),
+    ] {
+        let response = into_response(http.get(&format!("{base}{path}")).call());
+        assert_eq!(
+            response.status(),
+            303,
+            "{path} must redirect when signed out"
+        );
+    }
+    for path in ["/nodes/new".to_string(), format!("/nodes/{node_id}/delete")] {
+        let response = into_response(
+            http.post(&format!("{base}{path}"))
+                .set("content-type", "application/x-www-form-urlencoded")
+                .send_string(&node_form("any", "neo-rs", "35332", "35333")),
+        );
+        assert_eq!(
+            response.status(),
+            303,
+            "{path} must redirect when signed out"
+        );
+    }
 }

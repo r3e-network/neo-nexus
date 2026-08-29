@@ -56,8 +56,11 @@ or not anyone remembers to write a test for it.
 | Group | Route | What it shows |
 |-------|-------|---------------|
 | Fleet | `/` | Fleet counts, host CPU/memory, fleet table (live polling) |
-| | `/nodes` | All nodes with status badges |
-| | `/nodes/{id}` | Config facts, RPC health trend, Start/Stop/Restart |
+| | `/nodes` | Search, status filter, and per-row View / Edit / Delete |
+| | `/nodes/new` | Register a node |
+| | `/nodes/{id}` | Config facts, launch command, plugins, RPC health, Start/Stop/Restart |
+| | `/nodes/{id}/edit` | Change a node's client, ports, binary or arguments |
+| | `/nodes/{id}/delete` | Confirmation step before an irreversible removal |
 | | `/monitor` | Managed process CPU/memory/uptime, missing-process first |
 | | `/logs` | One node's supervised log tail with pattern diagnosis |
 | Operations | `/operations` | Fleet readiness summary, event journal (latest 50) |
@@ -75,11 +78,13 @@ or not anyone remembers to write a test for it.
 | Public | `/login` | Token sign-in |
 | | `/healthz` | Liveness JSON for load balancers |
 
-Controls that change state, all plain form posts: `POST /nodes/{id}/start`,
-`/stop`, `/restart`; `POST /plugins/{id}/toggle`;
-`POST /federation/{id}/toggle`; `POST /config/export`;
-`POST /settings/watchdog`, `/settings/rpc-health`, `/settings/federation`;
-`POST /alerts/routing`; `POST /logout`.
+Controls that change state, all plain form posts: `POST /nodes/new` and
+`POST /nodes/{id}/edit` register or update a node, `POST /nodes/{id}/delete`
+removes it; `POST /nodes/{id}/start`, `/stop`, `/restart` drive the lifecycle;
+`POST /plugins/{id}/toggle` and `POST /federation/{id}/toggle` flip a flag;
+`POST /config/export` writes the workspace config set;
+`POST /settings/watchdog`, `/settings/rpc-health`, `/settings/federation` and
+`POST /alerts/routing` save policies; `POST /logout` ends the session.
 
 API: `GET /api/fleet`, `GET /api/readiness`, `GET /api/metrics-prometheus`.
 All require the session cookie except `/healthz`.
