@@ -11,7 +11,6 @@ pub(in crate::cli) fn help_text() -> String {
         help_section(ALERT_ROUTING_LINES),
         help_section(NATIVE_BOUNDARY_LINES),
         help_section(SOURCE_QUALITY_LINES),
-        help_section(NATIVE_UI_AUDIT_LINES),
         help_section(NODE_CONTROL_LINES),
     ]
     .join("\n\n")
@@ -23,7 +22,7 @@ fn help_section(lines: &[&str]) -> String {
 
 const USAGE_LINES: &[&str] = &[
     "USAGE:",
-    "  neo-nexus [--gui|--version|--self-check|--help]",
+    "  neo-nexus [--web|--version|--self-check|--help]",
     "  neo-nexus --completions <bash|zsh|fish>",
     "  neo-nexus --runtime-smoke <neo-cli|neo-go|neo-rs|neox-geth|neox-rs> <binary> [runtime-args...]",
     "  neo-nexus --runtime-smoke-json <neo-cli|neo-go|neo-rs|neox-geth|neox-rs> <binary> [runtime-args...]",
@@ -77,27 +76,31 @@ const USAGE_LINES: &[&str] = &[
 
 const APPLICATION_MODE_LINES: &[&str] = &[
     "APPLICATION MODE:",
-    "  neo-nexus           Start the native desktop application",
-    "  neo-nexus --gui     Start the native desktop application explicitly",
+    "  neo-nexus           Start the web workbench and open it from a browser",
+    "  --web               Start the web workbench explicitly",
+    "  --bind / --port     Web workbench bind address (default 127.0.0.1) and port (default 8080)",
+    "  --web-token         Set the operator sign-in token (otherwise NEONEXUS_WEB_TOKEN or a generated value)",
     "  all other options   Run a headless manager command and exit",
-    "Without an option, NeoNexus starts the native desktop application.",
+    "Without an option, NeoNexus starts the web workbench server.",
 ];
 
 const OPTION_LINES: &[&str] = &[
     "OPTIONS:",
-    "  --gui                        Start the native desktop application",
+    "  --web                        Start the web workbench server (the default with no options)",
+    "  --bind / --port              Web workbench bind address and port",
+    "  --web-token                  Operator sign-in token for the web workbench",
     "  --version                    Print version and exit",
     "  --self-check                 Verify native runtime prerequisites and exit",
     "  --completions                Print a shell completion script (bash, zsh, or fish)",
-    "  --runtime-smoke              Run a bounded runtime binary probe without opening the GUI",
+    "  --runtime-smoke              Run a bounded runtime binary probe headlessly",
     "  --runtime-smoke-json         Print runtime smoke probe evidence as JSON",
     "  --designation                Read which keys hold a RoleManagement designation",
     "  --designation-json           Print designation evidence as JSON; exits 1 when not designated",
     "  --governance                 Read the committee, validators, and candidate vote",
     "  --governance-json            Print governance state as JSON for CI and scripts",
-    "  --rpc-health                 Check a Neo JSON-RPC endpoint without opening the GUI",
+    "  --rpc-health                 Check a Neo JSON-RPC endpoint headlessly",
     "  --rpc-health-json            Print Neo JSON-RPC health probe evidence as JSON",
-    "  --workspace-readiness        Evaluate workspace readiness without opening the GUI",
+    "  --workspace-readiness        Evaluate workspace readiness headlessly",
     "  --workspace-readiness-json   Print workspace readiness as JSON for CI and scripts",
     "  --workspace-metrics          Capture system and managed node process metrics",
     "  --workspace-metrics-json     Print workspace metrics as JSON for CI and scripts",
@@ -118,21 +121,21 @@ const OPTION_LINES: &[&str] = &[
     "  --export-node-configs-json   Write all node runtime configs and print JSON evidence",
     "  --validate-node-config       Validate a runtime config file against expected node settings",
     "  --validate-node-config-json  Validate a runtime config file and print JSON evidence",
-    "  --export-backup              Export an existing workspace backup without opening the GUI",
+    "  --export-backup              Export an existing workspace backup headlessly",
     "  --export-backup-json         Export an existing workspace backup and print JSON evidence",
-    "  --import-backup              Validate and import a workspace backup without opening the GUI",
+    "  --import-backup              Validate and import a workspace backup headlessly",
     "  --import-backup-json         Import a workspace backup and print JSON evidence",
     "  --validate-backup            Validate a workspace backup without importing it",
     "  --validate-backup-json       Print workspace backup validation as JSON",
     "  --validate-wallet            Validate an encrypted NEP-6 Neo wallet file",
     "  --validate-wallet-json       Print encrypted NEP-6 wallet validation as JSON",
-    "  --validate-launch-pack       Validate a private-network launch pack without opening the GUI",
+    "  --validate-launch-pack       Validate a private-network launch pack headlessly",
     "  --launch-pack-sidecars       Print supervisor-ready signer sidecar specs from a launch pack",
     "  --launch-pack-sidecars-json  Print launch pack signer sidecar specs as JSON",
     "  --package-release            Package the current native executable as a signed-by-checksum ZIP",
     "  --verify-release-package     Verify release ZIP, manifests, checksum, and binary hash",
     "  --verify-release-package-json Print release package verification as JSON",
-    "  --node-start                 Start a node headlessly via the same core path as the GUI",
+    "  --node-start                 Start a node headlessly via the shared core pipeline",
     "  --node-stop                  Stop a node headlessly via the shared supervisor",
     "  --node-restart               Restart a node headlessly via the shared core path",
     "  --node-status                Print a detailed single-node report (status, ports, RPC health)",
@@ -164,19 +167,13 @@ const NATIVE_BOUNDARY_LINES: &[&str] = &[
 
 const SOURCE_QUALITY_LINES: &[&str] = &[
     "SOURCE QUALITY:",
-    "  --source-quality checks production markers, hardcoded platform shortcut labels, Rust module budgets, and repository maintenance file budgets.",
-];
-
-const NATIVE_UI_AUDIT_LINES: &[&str] = &[
-    "NATIVE UI AUDIT:",
-    "  neo-nexus --native-ui-audit <repo-dir>",
-    "  neo-nexus --native-ui-audit-json <repo-dir>",
+    "  --source-quality checks production markers, hardcoded platform shortcut labels, and repository maintenance file budgets.",
 ];
 
 const NODE_CONTROL_LINES: &[&str] = &[
     "NODE CONTROL:",
     "  Start, stop, restart, or list nodes headlessly. These run the SAME core launch pipeline as",
-    "  the GUI (readiness -> managed config -> supervise -> persist status), so a scripted node and",
+    "  the web workbench (readiness -> managed config -> supervise -> persist status), so a scripted node and",
     "  an operator's node behave identically.",
     "  --node-start / --node-stop / --node-restart / --node-status take the database and node name.",
     "  --node-list takes just the workspace database path.",

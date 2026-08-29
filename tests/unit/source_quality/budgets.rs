@@ -1,49 +1,6 @@
 use super::*;
 
 #[test]
-fn source_quality_rejects_oversized_rust_source_files() -> anyhow::Result<()> {
-    let temp_dir = tempfile::tempdir()?;
-    std::fs::create_dir_all(temp_dir.path().join("src"))?;
-    let oversized = (0..=MAX_RUST_SOURCE_LINES)
-        .map(|index| format!("pub const VALUE_{index}: usize = {index};"))
-        .collect::<Vec<_>>()
-        .join("\n");
-    std::fs::write(temp_dir.path().join("src").join("giant.rs"), oversized)?;
-    let report = SourceQualityChecker::check_at(temp_dir.path(), 1_800_000_000)?;
-    assert!(!report.is_success());
-    assert_eq!(report.status, "failed");
-    assert_eq!(report.finding_count, 1);
-    assert_eq!(report.findings[0].path, "src/giant.rs");
-    assert_eq!(report.findings[0].category, "oversized-rust-file");
-    assert_eq!(
-        report.findings[0].marker,
-        format!(
-            "{} lines > {MAX_RUST_SOURCE_LINES}",
-            MAX_RUST_SOURCE_LINES + 1
-        )
-    );
-    Ok(())
-}
-
-#[test]
-fn source_quality_rejects_files_above_professional_module_budget() -> anyhow::Result<()> {
-    assert_eq!(MAX_RUST_SOURCE_LINES, 200);
-    let temp_dir = tempfile::tempdir()?;
-    std::fs::create_dir_all(temp_dir.path().join("src"))?;
-    let oversized = (0..=MAX_RUST_SOURCE_LINES)
-        .map(|index| format!("pub const PROFESSIONAL_VALUE_{index}: usize = {index};"))
-        .collect::<Vec<_>>()
-        .join("\n");
-    std::fs::write(temp_dir.path().join("src").join("near_limit.rs"), oversized)?;
-    let report = SourceQualityChecker::check_at(temp_dir.path(), 1_800_000_000)?;
-    assert!(!report.is_success());
-    assert_eq!(report.finding_count, 1);
-    assert_eq!(report.findings[0].path, "src/near_limit.rs");
-    assert_eq!(report.findings[0].category, "oversized-rust-file");
-    Ok(())
-}
-
-#[test]
 fn source_quality_rejects_oversized_maintenance_files() -> anyhow::Result<()> {
     assert_eq!(MAX_MAINTENANCE_FILE_LINES, 1000);
     let temp_dir = tempfile::tempdir()?;

@@ -2,6 +2,7 @@ mod action;
 mod output;
 mod planner;
 
+pub use crate::web::WebLaunch;
 pub use action::{ManagerAction, ManagerMode};
 pub use output::ManagerCliOutput;
 pub use planner::action_from_args;

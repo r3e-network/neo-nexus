@@ -38,8 +38,6 @@ pub(in crate::cli) fn action_from_args_vec(args: &[String]) -> Result<CliAction>
         "--source-purity-json" => source_purity_json_action(args),
         "--source-quality" => source_quality_action(args),
         "--source-quality-json" => source_quality_json_action(args),
-        "--native-ui-audit" => native_ui_audit_action(args),
-        "--native-ui-audit-json" => native_ui_audit_json_action(args),
         "--ci-policy" => ci_policy_action(args),
         "--ci-policy-json" => ci_policy_json_action(args),
         "--alert-preview" => Ok(CliAction::Print(alert_preview_text(args)?)),

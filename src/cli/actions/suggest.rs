@@ -27,8 +27,6 @@ pub(super) const KNOWN_OPTIONS: &[&str] = &[
     "--source-purity-json",
     "--source-quality",
     "--source-quality-json",
-    "--native-ui-audit",
-    "--native-ui-audit-json",
     "--ci-policy",
     "--ci-policy-json",
     "--alert-preview",

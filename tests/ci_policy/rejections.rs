@@ -41,10 +41,6 @@ jobs:
     assert!(report
         .missing_commands
         .iter()
-        .any(|command| command == "native-ui-audit-text"));
-    assert!(report
-        .missing_commands
-        .iter()
         .any(|command| command == "alert-preview-json"));
     assert!(report
         .missing_commands

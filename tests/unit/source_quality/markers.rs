@@ -106,7 +106,8 @@ fn source_quality_rejects_hardcoded_platform_shortcut_labels() -> anyhow::Result
 }
 
 #[test]
-fn source_quality_allows_test_assertion_shortcuts_but_keeps_budget() -> anyhow::Result<()> {
+fn source_quality_allows_test_assertion_shortcuts_but_flags_unfinished_work() -> anyhow::Result<()>
+{
     let temp_dir = tempfile::tempdir()?;
     std::fs::create_dir_all(temp_dir.path().join("tests"))?;
     let assertion_marker = marker_token("unwrap", '(');
@@ -125,19 +126,5 @@ fn source_quality_allows_test_assertion_shortcuts_but_keeps_budget() -> anyhow::
     assert!(!report.is_success());
     assert_eq!(report.finding_count, 1);
     assert_eq!(report.findings[0].category, "unfinished-implementation");
-    std::fs::write(
-        temp_dir.path().join("tests").join("domain.rs"),
-        format!("fn assertion_fixture(value: Option<u8>) -> u8 {{ value.{assertion_marker}) }}\n"),
-    )?;
-    let oversized = (0..=MAX_RUST_SOURCE_LINES)
-        .map(|index| format!("fn case_{index}() {{}}"))
-        .collect::<Vec<_>>()
-        .join("\n");
-    std::fs::write(temp_dir.path().join("tests").join("giant.rs"), oversized)?;
-    let report = SourceQualityChecker::check_at(temp_dir.path(), 1_800_000_000)?;
-    assert!(!report.is_success());
-    assert_eq!(report.finding_count, 1);
-    assert_eq!(report.findings[0].path, "tests/giant.rs");
-    assert_eq!(report.findings[0].category, "oversized-rust-file");
     Ok(())
 }

@@ -53,19 +53,8 @@ jobs:
           cargo test --test ci_policy
           cargo test --test domain
           cargo test --test repository
+          cargo test --test web
 
-      - name: UI contracts
-        run: |
-          cargo test --test ui_geometry
-          cargo test --test ui_overflow
-          cargo test --test ui_typography
-          cargo test --test ui_visual_contract
-          cargo test --test ui_density_geometry
-          cargo test --test ui_empty_states
-          cargo test --test ui_error_states
-          cargo test --test ui_keyboard
-          cargo test --test ui_operator_walkthrough
-          cargo test --test ui_pagination_reach
 
       - name: Debug binary smoke
         run: cargo run -- --self-check
@@ -84,10 +73,6 @@ jobs:
           cargo run -- --source-quality .
           cargo run -- --source-quality-json .
 
-      - name: Native UI audit gate
-        run: |
-          cargo run -- --native-ui-audit .
-          cargo run -- --native-ui-audit-json .
 
       - name: CI policy gate
         run: |

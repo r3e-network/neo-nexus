@@ -40,7 +40,7 @@ pub(in crate::cli) fn self_check_text() -> Result<String> {
     })?;
 
     Ok(format!(
-        "{version}\ntarget: {os}/{arch}\nworkspace-db: ok ({node_count} nodes)\nnative-mode: eframe/egui\n",
+        "{version}\ntarget: {os}/{arch}\nworkspace-db: ok ({node_count} nodes)\nmode: web workbench\n",
         version = version_text(),
         os = env::consts::OS,
         arch = env::consts::ARCH,

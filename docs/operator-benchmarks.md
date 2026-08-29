@@ -29,7 +29,7 @@ how they are applied in the pure Rust native workbench.
 
 - Workbench over pages: operators should not move through a website-like flow
   to maintain nodes. NeoNexus keeps inventory, workspace, inspector, command
-  controls, and status visible as a fixed desktop layout.
+  controls, and status visible as a fixed workbench layout.
 - Guided remediation: a warning should identify the target workspace, action,
   and reason. Readiness findings include stable keys, severity, target
   workspaces, action labels, and hints.
@@ -76,8 +76,6 @@ how they are applied in the pure Rust native workbench.
 
 - Source purity gates prevent the project from drifting back into a frontend,
   WebView, Tauri, Node, or server-container app.
-- Native UI audits prevent scroll-first document pages from replacing the
-  desktop workbench.
 - Source quality gates keep Rust modules, docs, JSON examples, and maintenance
   files reviewable.
 - Wallet workflows store encrypted wallet metadata only and reject plaintext
@@ -102,17 +100,17 @@ validates references and rejects inline secret material.
 
 ## Release Handoff Patterns
 
-Settings and CLI release flows both package the native executable, write a
-manifest and checksum, verify the archive, and record audit evidence. This
-mirrors node-operations products where release artifacts must be inspected and
-handed off without relying on a running GUI session.
+Settings and CLI release flows both package the executable, write a manifest
+and checksum, verify the archive, and record audit evidence. This mirrors
+node-operations products where release artifacts must be inspected and handed
+off without relying on a running browser session.
 
 ## Current Boundaries
 
-NeoNexus now has a native application shell, dual GUI/headless manager,
-runtime catalog and Fast Sync systems, process supervisor, managed configs,
-runtime upgrades, readiness triage, logs, metrics, backups, support bundles,
-wallet profiles, private-network launch packs, release packaging, source
+NeoNexus now has a web workbench, dual web/headless manager, runtime catalog
+and Fast Sync systems, process supervisor, managed configs, runtime upgrades,
+readiness triage, metrics, backups, support bundles, wallet profiles,
+private-network launch packs, release packaging, source
 purity, source quality, native UI, and CI policy gates.
 
 The next product-hardening work should focus on real-binary cross-platform

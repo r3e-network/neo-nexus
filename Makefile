@@ -1,4 +1,4 @@
-.PHONY: check fmt test clippy build release dist smoke purity-smoke quality-smoke native-ui-smoke ci-policy-smoke alert-smoke runtime-smoke json-smoke wallet-smoke launch-pack-smoke readiness-smoke metrics-smoke integrity-smoke report-smoke support-smoke event-smoke config-smoke backup-smoke verify clean
+.PHONY: check fmt test clippy build release dist smoke web-smoke purity-smoke quality-smoke ci-policy-smoke alert-smoke runtime-smoke json-smoke wallet-smoke launch-pack-smoke readiness-smoke metrics-smoke integrity-smoke report-smoke support-smoke event-smoke config-smoke backup-smoke verify clean
 
 fmt:
 	cargo fmt --all
@@ -14,19 +14,7 @@ test:
 	cargo test --test ci_policy
 	cargo test --test domain
 	cargo test --test repository
-	$(MAKE) ui-contracts
-
-# Headless UI contracts: panel geometry, containment, type scale, dark-theme
-# tiers, density, empty/error states, keyboard reach, and the operator
-# walkthrough. These render real frames against a headless egui context, so they
-# need no window and no screen-capture permission — there is no reason for them
-# to sit outside the verified set.
-ui-contracts:
-	cargo test --test ui_geometry --test ui_overflow --test ui_typography \
-	          --test ui_visual_contract --test ui_density_geometry \
-	          --test ui_empty_states --test ui_error_states \
-	          --test ui_keyboard --test ui_operator_walkthrough \
-	          --test ui_pagination_reach
+	cargo test --test web
 
 build:
 	cargo build
@@ -41,9 +29,9 @@ dist: release
 
 smoke:
 	cargo run -- --self-check
+	$(MAKE) web-smoke
 	$(MAKE) purity-smoke
 	$(MAKE) quality-smoke
-	$(MAKE) native-ui-smoke
 	$(MAKE) ci-policy-smoke
 	$(MAKE) alert-smoke
 	$(MAKE) runtime-smoke
@@ -63,6 +51,20 @@ smoke:
 runtime-smoke:
 	@set -e; tmp_dir=$$(mktemp -d); trap 'rm -rf "$$tmp_dir"' EXIT; runtime="$$tmp_dir/neo-node"; printf '%s\n' '#!/bin/sh' 'echo "neo-rs neo-node version smoke"' 'exit 0' > "$$runtime"; chmod +x "$$runtime"; cargo run -- --runtime-smoke neo-rs "$$runtime" > "$$tmp_dir/runtime-smoke.txt"; grep 'runtime-smoke: passed' "$$tmp_dir/runtime-smoke.txt"; grep 'runtime-binary-sha256:' "$$tmp_dir/runtime-smoke.txt"; cargo run -- --runtime-smoke-json neo-rs "$$runtime" > "$$tmp_dir/runtime-smoke.json"; grep '"status": "passed"' "$$tmp_dir/runtime-smoke.json"; grep '"binary_evidence"' "$$tmp_dir/runtime-smoke.json"; grep '"status": "verified"' "$$tmp_dir/runtime-smoke.json"; grep '"sha256":' "$$tmp_dir/runtime-smoke.json"
 
+# Web workbench smoke: start the server on an ephemeral port with a throwaway
+# workspace, prove the public health endpoint and the auth boundary, then stop.
+web-smoke:
+	@set -e; tmp_dir=$$(mktemp -d); trap 'rm -rf "$$tmp_dir"' EXIT; \
+	NEONEXUS_DATA_DIR="$$tmp_dir" cargo run -- --web --port 8712 --web-token smoke-token > "$$tmp_dir/web.log" 2>&1 & \
+	server_pid=$$!; \
+	for i in $$(seq 1 60); do \
+		if curl -sf http://127.0.0.1:8712/healthz > /dev/null 2>&1; then break; fi; \
+		sleep 0.5; \
+	done; \
+	curl -sf http://127.0.0.1:8712/healthz | grep -E '"status" *: *"ok"'; \
+	if curl -sf http://127.0.0.1:8712/api/fleet > /dev/null 2>&1; then echo "api must require a session" >&2; kill $$server_pid; exit 1; fi; \
+	kill $$server_pid
+
 json-smoke:
 	@set -e; tmp_dir=$$(mktemp -d); trap 'rm -rf "$$tmp_dir"' EXIT; if cargo run -- --rpc-health-json 127.0.0.1:1; then echo "expected rpc-health-json to fail for unreachable endpoint" >&2; exit 1; fi
 
@@ -76,9 +78,6 @@ quality-smoke:
 	cargo run -- --source-quality tests
 	cargo run -- --source-quality-json tests
 
-native-ui-smoke:
-	cargo run -- --native-ui-audit .
-	cargo run -- --native-ui-audit-json .
 
 ci-policy-smoke:
 	cargo run -- --ci-policy .github/workflows/ci.yml
@@ -174,11 +173,9 @@ verify:
 	cargo test --test ci_policy
 	cargo test --test domain
 	cargo test --test repository
-	$(MAKE) ui-contracts
 	cargo run -- --self-check
 	$(MAKE) purity-smoke
 	$(MAKE) quality-smoke
-	$(MAKE) native-ui-smoke
 	$(MAKE) ci-policy-smoke
 	$(MAKE) alert-smoke
 	$(MAKE) runtime-smoke
@@ -194,6 +191,7 @@ verify:
 	$(MAKE) event-smoke
 	$(MAKE) config-smoke
 	$(MAKE) backup-smoke
+	$(MAKE) web-smoke
 	cargo build --release
 	./target/release/neo-nexus --package-release dist
 	./target/release/neo-nexus --verify-release-package dist

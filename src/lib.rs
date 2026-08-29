@@ -1,5 +1,4 @@
 pub mod alerts;
-pub mod app;
 pub mod argv;
 pub mod backup;
 pub mod catalog;
@@ -17,7 +16,6 @@ pub mod launch;
 pub mod logs;
 pub mod manager;
 pub mod metrics;
-pub mod native_ui_audit;
 pub mod node_lifecycle;
 pub mod plugins;
 pub mod port_planner;
@@ -39,6 +37,5 @@ pub mod support_bundle;
 pub mod types;
 pub mod wallet;
 pub mod watchdog;
+pub mod web;
 pub mod workspace_integrity;
-
-pub use app::NeoNexusApp;

@@ -19,7 +19,7 @@ pub(super) fn node_by_name(repository: &Repository, name: &str) -> Result<NodeCo
         .with_context(|| format!("no node named {name:?} in the workspace"))
 }
 
-/// Mirrors NeoNexusApp::workspace_child_dir: a subdirectory beside the database,
+/// A subdirectory beside the database,
 /// so the CLI writes managed configs and logs to the same place the GUI would.
 pub(super) fn workspace_child_dir(repository: &Repository, child: &str) -> PathBuf {
     repository

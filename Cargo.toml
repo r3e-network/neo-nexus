@@ -1,10 +1,10 @@
 [package]
 name = "neo-nexus"
-version = "3.2.0"
+version = "4.0.0"
 edition = "2021"
 license = "MIT"
 authors = ["NeoNexus Team"]
-description = "Pure Rust native Neo N3 node operations application"
+description = "Pure Rust web workbench for Neo N3 node operations"
 
 [lib]
 name = "neo_nexus"
@@ -17,11 +17,9 @@ test = false
 
 [dependencies]
 anyhow = "1"
+axum = "0.8"
 base64 = "0.22"
 dirs = "6"
-eframe = "0.33"
-egui = "0.33"
-egui-phosphor = "=0.11.0"
 ed25519-dalek = "2"
 flate2 = "1"
 libc = "0.2"
@@ -33,6 +31,7 @@ serde_yaml = "0.9"
 sha2 = "0.10"
 sysinfo = "0.38.4"
 tar = "0.4"
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread"] }
 toml = "0.9"
 ureq = "2"
 url = "2"
@@ -41,8 +40,3 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
 tempfile = "3"
-# Used only by tests/ui_visual_truth.rs, an opt-in pixel-truth rasterizer for
-# verifying rendered output without screen capture (which on a Retina/scaled
-# desktop captures mostly empty workspace). image is already in the tree via
-# eframe; pinning it as a direct dev-dep makes the rasterizer reproducible.
-image = { version = "0.25", default-features = false, features = ["png"] }
