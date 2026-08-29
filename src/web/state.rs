@@ -11,6 +11,7 @@ use std::{
 use crate::{repository::Repository, supervisor::ProcessSupervisor};
 
 use super::auth::AuthStore;
+use super::jobs::Jobs;
 
 #[derive(Clone)]
 pub struct WebState {
@@ -18,6 +19,8 @@ pub struct WebState {
     pub data_dir: PathBuf,
     pub auth: AuthStore,
     processes: Arc<Mutex<ProcessSupervisor>>,
+    /// Long work that outlives the request which started it.
+    pub jobs: Jobs,
 }
 
 impl WebState {
@@ -45,6 +48,7 @@ impl WebState {
             data_dir,
             auth,
             processes,
+            jobs: Jobs::default(),
         }
     }
 

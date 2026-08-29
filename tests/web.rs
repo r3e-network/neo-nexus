@@ -977,3 +977,103 @@ fn an_unmanaged_node_is_settled_once_its_process_disappears() {
     });
     assert!(settled, "a stale Running row was never settled");
 }
+
+/// The install endpoint is a host-mutating action, so it cannot be reachable
+/// without a session, and a bad request must fail visibly rather than quietly.
+#[test]
+fn runtime_install_requires_a_session_and_reports_a_refused_job() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+
+    let anonymous = into_response(
+        http.post(&format!("{base}/runtimes/install"))
+            .set("content-type", "application/x-www-form-urlencoded")
+            .send_string("profile=ghost&release=rel-1"),
+    );
+    assert_eq!(
+        anonymous.status(),
+        303,
+        "an unauthenticated install must redirect to sign in"
+    );
+    assert_eq!(
+        anonymous.header("location"),
+        Some("/login"),
+        "and not be accepted"
+    );
+
+    let session = signed_in(&http, base);
+    let accepted = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/runtimes/install"),
+        "profile=ghost&release=rel-1",
+    );
+    assert_eq!(accepted.status(), 303);
+    let location = accepted.header("location").expect("redirect back");
+    assert!(
+        location.contains("install%20started"),
+        "the page should acknowledge the job it queued: {location}"
+    );
+
+    // The job runs off the request thread, so the outcome has to be observed.
+    let mut settled = String::new();
+    for _ in 0..100 {
+        let page = into_response(
+            http.get(&format!("{base}/runtimes"))
+                .set("cookie", &session)
+                .call(),
+        )
+        .into_string()
+        .expect("runtimes page");
+        if page.contains("failed") {
+            settled = page;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    assert!(
+        settled.contains("failed"),
+        "the job never reported a result to the page"
+    );
+    assert!(
+        settled.contains("ghost"),
+        "the failure should name the profile that could not be found: {settled}"
+    );
+
+    let repository = Repository::open(&server.db_path).expect("reopen workspace");
+    assert!(
+        repository
+            .list_runtime_installations()
+            .expect("installations")
+            .is_empty(),
+        "a refused install must not record anything"
+    );
+}
+
+/// Catalogue browsing must not be reachable anonymously either: it reaches out
+/// to a configured source on the server's behalf.
+#[test]
+fn runtime_catalogue_browsing_requires_a_session() {
+    let server = spawn_server();
+    let http = agent();
+    let anonymous = into_response(
+        http.get(&format!("{}/runtimes?profile=cat-1", server.base_url))
+            .call(),
+    );
+    assert_eq!(anonymous.status(), 303);
+
+    let session = signed_in(&http, &server.base_url);
+    let page = into_response(
+        http.get(&format!("{}/runtimes?profile=cat-1", server.base_url))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(page.status(), 200);
+    assert!(
+        page.into_string()
+            .expect("page body")
+            .contains("no longer exists"),
+        "an unknown profile should be stated plainly"
+    );
+}
