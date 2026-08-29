@@ -43,7 +43,7 @@ use crate::{
     logs::LogReader,
     repository::Repository,
     rpc_health::probe_node_rpc,
-    supervisor::{log_path_for, ProcessSupervisor},
+    supervisor::{live_pids, log_path_for, PidStop, ProcessSupervisor},
     types::NodeStatus,
     watchdog::{default_restart_policy, RestartOutcome, RestartPolicy, Watchdog},
 };
@@ -178,23 +178,38 @@ pub fn launch_node(
 /// already absent.
 pub fn stop_node(state: &EngineState, node: &NodeConfig) -> anyhow::Result<String> {
     let log_path = log_path_for(state.workspace_child_dir("logs"), node);
-    let stopped = {
+    let outcome = {
         let mut supervisor = state.supervisor();
         match supervisor.stop(&node.id)? {
-            Some(stop) => Some(stop),
-            None => node
-                .pid
-                .and_then(|pid| supervisor.stop_recorded_pid(&node.id, pid, &log_path)),
+            Some(stop) => PidStop::Stopped(stop),
+            None => supervisor.stop_recorded_pid(node, &log_path),
         }
     };
-    state
-        .repository
-        .update_node_status(&node.id, NodeStatus::Stopped, None)?;
-    Ok(match stopped {
-        Some(stop) if stop.forced => format!("{} stopped (forced, pid {})", node.name, stop.pid),
-        Some(stop) => format!("{} stopped (pid {})", node.name, stop.pid),
-        None => format!("{} was not running", node.name),
-    })
+    match outcome {
+        PidStop::Stopped(stop) => {
+            state
+                .repository
+                .update_node_status(&node.id, NodeStatus::Stopped, None)?;
+            Ok(if stop.forced {
+                format!("{} stopped (forced, pid {})", node.name, stop.pid)
+            } else {
+                format!("{} stopped (pid {})", node.name, stop.pid)
+            })
+        }
+        PidStop::AlreadyGone => {
+            state
+                .repository
+                .update_node_status(&node.id, NodeStatus::Stopped, None)?;
+            Ok(format!("{} was not running", node.name))
+        }
+        // The number is held by something else now. We cannot know whether this
+        // node is running, so nothing is signalled and no status is written.
+        PidStop::PidReused => Err(anyhow::anyhow!(
+            "pid {} belongs to a different process; {name} was left alone and its status unchanged",
+            node.pid.unwrap_or_default(),
+            name = node.name
+        )),
+    }
 }
 
 /// Handle to the running engine. Dropping it stops the loop and waits for the
@@ -410,15 +425,23 @@ impl LoopState {
     /// the CLI, or left alive across a restart — are watched by pid, so their
     /// status cannot stay true after the process is gone.
     fn watch_external_processes(&mut self, state: &EngineState) {
-        for node in state.nodes() {
-            if !node.status.is_running() {
-                continue;
-            }
-            let Some(pid) = node.pid else { continue };
-            if state.supervisor().is_managing(&node.id) {
-                continue;
-            }
-            if process_is_live(pid) {
+        let supervisor = state.supervisor();
+        let candidates: Vec<(NodeConfig, u32)> = state
+            .nodes()
+            .into_iter()
+            .filter(|node| node.status.is_running())
+            .filter(|node| node.pid.is_some())
+            .filter(|node| !supervisor.is_managing(&node.id))
+            .filter_map(|node| node.pid.map(|pid| (node, pid)))
+            .collect();
+        drop(supervisor);
+        if candidates.is_empty() {
+            return;
+        }
+        // One pass over the process table for the whole tick, not one per node.
+        let alive = live_pids(&candidates.iter().map(|(_, pid)| *pid).collect::<Vec<_>>());
+        for (node, pid) in candidates {
+            if alive.contains(&pid) {
                 continue;
             }
             let _ = state
@@ -593,13 +616,4 @@ impl LoopState {
         // Alerts page already renders; the journal is for state changes.
         let _ = report.status;
     }
-}
-
-/// Whether the OS still holds this pid. Used to settle the status of a node
-/// this server never spawned a handle for.
-fn process_is_live(pid: u32) -> bool {
-    let mut system = sysinfo::System::new();
-    let target = sysinfo::Pid::from_u32(pid);
-    system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[target]), true);
-    system.process(target).is_some()
 }
