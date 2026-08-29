@@ -18,7 +18,18 @@ fn an_exact_name_matches() {
 
 #[test]
 fn the_windows_extension_is_tolerated_on_both_sides() {
-    assert!(matches("neo-go.exe", r"C:\neo\neo-go.exe"));
+    // Forward slashes are separators on every platform this suite runs on, so
+    // the `.exe` tolerance is genuinely exercised on Linux and Windows alike.
+    assert!(matches("neo-go.exe", "/opt/neo/neo-go.exe"));
+    assert!(matches("neo-go", "/opt/neo/neo-go.exe"));
+    assert!(matches("neo-go.exe", "/opt/neo/neo-go"));
+}
+
+#[test]
+#[cfg(windows)]
+fn a_backslash_recorded_path_resolves_on_windows() {
+    // Windows accepts both separators; POSIX platforms do not treat a backslash
+    // as one, so this case only means something there.
     assert!(matches("neo-go", r"C:\neo\neo-go.exe"));
     assert!(matches("neo-go.exe", r"C:\neo\neo-go"));
 }

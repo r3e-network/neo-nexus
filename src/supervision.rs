@@ -459,6 +459,12 @@ impl LoopState {
         }
     }
 
+    /// Whether something last done at `seen` is due again. Never having done it
+    /// counts as due.
+    fn due(&self, seen: Option<Instant>, now: Instant, interval: Duration) -> bool {
+        seen.is_none_or(|seen| now.duration_since(seen) >= interval)
+    }
+
     fn probe_rpc_health(&mut self, state: &EngineState) {
         let Ok(policy) = state.repository.load_rpc_health_monitor_policy() else {
             return;
@@ -470,14 +476,7 @@ impl LoopState {
         let now = Instant::now();
         let Some(node) = state.nodes().into_iter().find(|node| {
             node.status.is_running()
-                && now.duration_since(
-                    self.rpc_last_probe
-                        .get(&node.id)
-                        .copied()
-                        .unwrap_or_else(Instant::now)
-                        .min(now),
-                ) >= interval
-                || (node.status.is_running() && !self.rpc_last_probe.contains_key(&node.id))
+                && self.due(self.rpc_last_probe.get(&node.id).copied(), now, interval)
         }) else {
             return;
         };
@@ -520,15 +519,12 @@ impl LoopState {
             return;
         };
         let Some(profile) = profiles.into_iter().find(|profile| {
-            profile.enabled && !self.federation_last_probe.contains_key(&profile.id)
-                || profile.enabled
-                    && now.duration_since(
-                        self.federation_last_probe
-                            .get(&profile.id)
-                            .copied()
-                            .unwrap_or(now)
-                            .min(now),
-                    ) >= interval
+            profile.enabled
+                && self.due(
+                    self.federation_last_probe.get(&profile.id).copied(),
+                    now,
+                    interval,
+                )
         }) else {
             return;
         };
