@@ -1,7 +1,8 @@
-//! Node lifecycle from the browser: the same core pipeline the CLI and the
-//! former GUI share — readiness evaluation, managed config export, supervised
-//! launch — plus the supervisor-backed stop. Handlers answer with a redirect
-//! back to the node page carrying a flash message, so plain form posts work.
+//! Controls from the browser. Node lifecycle delegates to the supervision
+//! engine, so a start from the page and a start from the watchdog are the same
+//! code path against the same supervisor; policy forms do the same for settings.
+//! Handlers answer with a redirect carrying a flash message, so every control is
+//! a plain form post that works without JavaScript.
 
 use std::time::Duration;
 
@@ -13,18 +14,15 @@ use serde::Deserialize;
 
 use crate::{
     core::{
-        lifecycle::{execute_node_launch, LaunchAction, ManagedConfig, NodeLaunchOutcome},
+        lifecycle::LaunchAction,
         operations::{
-            evaluate_launch_readiness, evaluate_restart_readiness, AlertProvider,
-            AlertRoutingPolicy, EventSeverity, RemoteFederationMonitorPolicy,
+            AlertProvider, AlertRoutingPolicy, EventSeverity, RemoteFederationMonitorPolicy,
             RpcHealthMonitorPolicy,
         },
         runtime::RestartPolicy,
-        workspace::ConfigExporter,
     },
-    launch::LaunchPlanner,
-    supervisor::{log_path_for, ProcessSupervisor},
-    types::{NodeConfig, NodeStatus},
+    supervision,
+    types::NodeConfig,
 };
 
 use super::{html, pages::settings, WebState};
@@ -38,8 +36,8 @@ pub async fn node_restart(State(state): State<WebState>, Path(id): Path<String>)
 }
 
 pub async fn node_stop(State(state): State<WebState>, Path(id): Path<String>) -> Response {
-    let repository = &state.repository;
-    let outcome = load_node(repository, &id).and_then(|node| stop_node(repository, &node));
+    let outcome = load_node(&state.repository, &id)
+        .and_then(|node| supervision::stop_node(&state.engine_state(), &node));
     match outcome {
         Ok(message) => back_to_node(&id, &message),
         Err(error) => back_to_node(&id, &format!("stop failed: {error}")),
@@ -47,8 +45,8 @@ pub async fn node_stop(State(state): State<WebState>, Path(id): Path<String>) ->
 }
 
 fn control_redirect(state: &WebState, id: &str, action: LaunchAction) -> Response {
-    let outcome =
-        load_node(&state.repository, id).and_then(|node| launch_node(state, &node, action));
+    let outcome = load_node(&state.repository, id)
+        .and_then(|node| supervision::launch_node(&state.engine_state(), &node, action));
     match outcome {
         Ok(message) => back_to_node(id, &message),
         Err(error) => back_to_node(id, &format!("failed: {error}")),
@@ -72,84 +70,12 @@ fn load_node(repository: &crate::repository::Repository, id: &str) -> anyhow::Re
         .ok_or_else(|| anyhow::anyhow!("node {id} was not found"))
 }
 
-fn stop_node(
-    repository: &crate::repository::Repository,
-    node: &NodeConfig,
-) -> anyhow::Result<String> {
-    let mut supervisor = ProcessSupervisor::default();
-    let stopped = supervisor.stop(&node.id)?;
-    repository.update_node_status(&node.id, NodeStatus::Stopped, None)?;
-    Ok(match stopped {
-        Some(_) => format!("{} stopped", node.name),
-        None => format!("{} was not running", node.name),
-    })
-}
-
-fn launch_node(
-    state: &WebState,
-    node: &NodeConfig,
-    action: LaunchAction,
-) -> anyhow::Result<String> {
-    let plugins = state.repository.list_plugin_states(&node.id)?;
-    let work_dir = state.workspace_child_dir("nodes").join(&node.id);
-    let managed_config_path = ConfigExporter::managed_target_path(&work_dir, node);
-    let log_path = log_path_for(state.workspace_child_dir("logs"), node);
-
-    let readiness = match action {
-        LaunchAction::Start => evaluate_launch_readiness(
-            node,
-            std::slice::from_ref(node),
-            &plugins,
-            &managed_config_path,
-            &work_dir,
-        ),
-        LaunchAction::Restart => evaluate_restart_readiness(
-            node,
-            std::slice::from_ref(node),
-            &plugins,
-            &managed_config_path,
-            &work_dir,
-        ),
-    };
-    if let Some(blocker) = readiness.blocking_summary() {
-        anyhow::bail!("readiness blocked — {blocker}");
-    }
-
-    let plan = LaunchPlanner::plan(node, &managed_config_path, &work_dir);
-    let mut supervisor = ProcessSupervisor::default();
-    let outcome = execute_node_launch(
-        &state.repository,
-        &mut supervisor,
-        node,
-        &plan,
-        &log_path,
-        action,
-        Some(ManagedConfig {
-            path: &managed_config_path,
-            plugins: &plugins,
-        }),
-    );
-    Ok(match outcome {
-        NodeLaunchOutcome::Started { pid, log_path } => {
-            format!(
-                "{} launched with PID {}; log {}",
-                node.name,
-                pid,
-                log_path.display()
-            )
-        }
-        NodeLaunchOutcome::Failed { message } => {
-            format!("{} launch failed: {message}", node.name)
-        }
-    })
-}
-
-/// The Settings page posts whole numbers as text, so a hand-edited form has to
-/// be rejected rather than silently saved as zero.
+/// Policy forms post whole numbers as text, so a hand-edited submission has to
+/// be refused rather than silently saved as zero.
 fn whole_number(raw: &str, field: &str) -> anyhow::Result<u64> {
     raw.trim()
         .parse::<u64>()
-        .map_err(|_| anyhow::anyhow!("{field} must be a whole number of seconds"))
+        .map_err(|_| anyhow::anyhow!("{field} must be a whole number"))
 }
 
 #[derive(Deserialize)]

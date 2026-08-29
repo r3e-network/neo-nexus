@@ -15,8 +15,30 @@ host, or the same cloud server the node fleet lives on.
 - **Server-side rendering.** Pages are assembled from Rust functions in
   `src/web/pages/`. Every interpolated value passes through the HTML escaper
   in `src/web/html.rs`.
-- **One core pipeline.** Browser controls call the same `core::lifecycle`
-  functions the CLI actions call; there is no web-only control path.
+- **One core pipeline.** Node launch and stop live in `src/supervision.rs`;
+  browser controls and the watchdog both call it, so a manual start and an
+  automatic restart are the same code path against the same supervisor. There is
+  no web-only control path.
+- **Not only request-driven.** A background engine applies the policies the
+  Settings page edits — see [Supervision](#supervision). Run exactly one
+  instance per workspace: two engines would fight over the same nodes.
+
+## Supervision
+
+The engine thread wakes once a second and, for each policy that is enabled:
+
+- reaps finished processes, journals the exit with the log's own diagnosis, and
+  restarts a crashed node within the watchdog budget;
+- probes RPC health for running nodes on the configured interval, recording a
+  journal entry only when the status actually changes;
+- probes enabled federation peers on their interval, likewise on change;
+- offers new journal entries to the alert route and records what the webhook
+  answered.
+
+Policies are re-read each tick, so saving in Settings applies without restarting
+the server. The engine shares the server's single `ProcessSupervisor`: a node it
+restarts is a node the browser can stop, and a node recorded as running without a
+handle here is settled by pid rather than left claiming to run.
 
 ## Launch options
 

@@ -5,7 +5,7 @@
 
 use std::{
     path::{Path, PathBuf},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use axum::serve;
@@ -13,6 +13,7 @@ use neo_nexus::{
     core::operations::RuntimeEventFilter,
     repository::Repository,
     types::{Network, NewNode, NodeType, StorageEngine},
+    watchdog::RestartPolicy,
     web::{auth::AuthStore, html, nav, router::build_router, WebState},
 };
 use ureq::AgentBuilder;
@@ -22,6 +23,12 @@ const TOKEN: &str = "web-suite-token";
 struct Server {
     base_url: String,
     db_path: PathBuf,
+    /// The state the router serves with, kept so a supervised test can hand the
+    /// engine the *same* supervisor rather than a second one.
+    state: WebState,
+    /// The supervision engine, when the test asked for one. Production always
+    /// runs it; most tests do not need it and would only pay for the probes.
+    _engine: Option<neo_nexus::supervision::Engine>,
     // The runtime owns the accept loop; dropping it stops the server, so it has
     // to outlive every request the test makes. Declared before `_home` so the
     // server is shut down before the temp workspace disappears.
@@ -43,13 +50,16 @@ fn spawn_server() -> Server {
         home.path().to_path_buf(),
         AuthStore::from_token(TOKEN),
     );
+    // `build_router` consumes its state, so hand it a clone and keep the
+    // original: WebState is shared by design and cheap to clone.
+    let router_state = state.clone();
     let address = runtime.block_on(async move {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
             .expect("ephemeral bind");
         let address = listener.local_addr().expect("bound address");
         tokio::spawn(async move {
-            serve(listener, build_router(state))
+            serve(listener, build_router(router_state))
                 .await
                 .expect("server task");
         });
@@ -58,9 +68,52 @@ fn spawn_server() -> Server {
     Server {
         base_url: format!("http://{address}"),
         db_path,
+        state,
+        _engine: None,
         _runtime: runtime,
         _home: home,
     }
+}
+
+/// The same server with the supervision engine running, so a test can watch the
+/// watchdog do what the Settings page promises it does.
+fn spawn_supervised_server() -> Server {
+    let mut server = spawn_server();
+    // Share the router's state exactly as `serve()` does. A second WebState
+    // would mean a second supervisor, and the engine would then treat every
+    // browser-started node as an unmanaged outsider.
+    server._engine = Some(neo_nexus::supervision::Engine::start(
+        server.state.engine_state(),
+    ));
+    server
+}
+
+/// A command that exits non-zero immediately, so the watchdog has something
+/// real to notice.
+fn crashing_command() -> (PathBuf, Vec<String>) {
+    if cfg!(windows) {
+        (
+            PathBuf::from(r"C:\Windows\System32\cmd.exe"),
+            vec!["/c".to_string(), "exit 3".to_string()],
+        )
+    } else {
+        (
+            PathBuf::from("/bin/sh"),
+            vec!["-c".to_string(), "exit 3".to_string()],
+        )
+    }
+}
+
+/// Poll `check` until it says yes or the deadline passes.
+fn wait_until(timeout: Duration, mut check: impl FnMut() -> bool) -> bool {
+    let deadline = Instant::now() + timeout;
+    while Instant::now() < deadline {
+        if check() {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    false
 }
 
 fn agent() -> ureq::Agent {
@@ -703,4 +756,227 @@ fn editor_routes_require_a_session() {
             "{path} must redirect when signed out"
         );
     }
+}
+
+/// A command that stays running long enough to observe, on every platform the
+/// suite runs on.
+fn long_running_command() -> (PathBuf, Vec<String>) {
+    if cfg!(windows) {
+        (
+            PathBuf::from(r"C:\Windows\System32\ping.exe"),
+            vec!["-n".to_string(), "120".to_string(), "127.0.0.1".to_string()],
+        )
+    } else {
+        (PathBuf::from("/bin/sleep"), vec!["120".to_string()])
+    }
+}
+
+/// Whether the OS still has this process.
+fn process_alive(pid: u32) -> bool {
+    let mut system = sysinfo::System::new();
+    let target = sysinfo::Pid::from_u32(pid);
+    system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[target]), true);
+    system.process(target).is_some()
+}
+
+/// The behaviour the workbench claimed and did not have: `ProcessSupervisor`
+/// terminates everything registered when it drops, so a supervisor built inside
+/// one request killed the node it had just started, and `stop` on a node started
+/// elsewhere only rewrote the row.
+#[test]
+fn starting_a_node_leaves_a_live_process_that_stop_really_stops() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+
+    let (binary, args) = long_running_command();
+    let repository = Repository::open(&server.db_path).expect("open workspace");
+    let node = repository
+        .create_node(NewNode {
+            name: "live-node".to_string(),
+            node_type: NodeType::NeoGo,
+            network: Network::Testnet,
+            binary_path: binary,
+            args,
+            runtime_version: "test".to_string(),
+            storage_engine: StorageEngine::LevelDb,
+            rpc_port: 43332,
+            p2p_port: 43333,
+            ws_port: None,
+        })
+        .expect("node creation");
+
+    let started = into_response(
+        http.post(&format!("{base}/nodes/{}/start", node.id))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(started.status(), 303);
+    let location = started.header("location").expect("redirect back to node");
+    assert!(
+        location.contains("launched%20with%20PID"),
+        "the control should report a pid: {location}"
+    );
+
+    let running = repository
+        .list_nodes()
+        .expect("nodes")
+        .into_iter()
+        .find(|stored| stored.id == node.id)
+        .expect("node");
+    assert_eq!(running.status, neo_nexus::types::NodeStatus::Running);
+    let pid = running.pid.expect("a running node records its pid");
+    assert!(
+        process_alive(pid),
+        "pid {pid} was reported Running but is not alive — the supervisor dropped it"
+    );
+
+    let stopped = into_response(
+        http.post(&format!("{base}/nodes/{}/stop", node.id))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(stopped.status(), 303);
+    let location = stopped.header("location").expect("redirect back to node");
+    assert!(
+        location.contains("stopped") && location.contains("pid"),
+        "stop should confirm the process it stopped: {location}"
+    );
+    assert!(
+        !process_alive(pid),
+        "pid {pid} outlived the stop that reported success"
+    );
+    let settled = repository
+        .list_nodes()
+        .expect("nodes")
+        .into_iter()
+        .find(|stored| stored.id == node.id)
+        .expect("node");
+    assert_eq!(settled.status, neo_nexus::types::NodeStatus::Stopped);
+    assert_eq!(settled.pid, None, "a stopped node keeps no pid");
+}
+
+/// The claim the Settings page makes and nothing honoured until now: when a node
+/// dies on its own, the workbench notices and brings it back within policy.
+#[test]
+fn the_watchdog_notices_a_crash_and_restarts_the_node() {
+    let server = spawn_supervised_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+
+    // One attempt, one second from now: fast enough to observe, bounded enough
+    // that a crash loop cannot run forever during a test.
+    let repository = Repository::open(&server.db_path).expect("open workspace");
+    repository
+        .save_watchdog_policy(RestartPolicy::new(
+            1,
+            Duration::from_secs(1),
+            Duration::from_secs(1),
+        ))
+        .expect("watchdog policy");
+
+    let (binary, args) = crashing_command();
+    let node = repository
+        .create_node(NewNode {
+            name: "crasher".to_string(),
+            node_type: NodeType::NeoCli,
+            network: Network::Testnet,
+            binary_path: binary,
+            args,
+            runtime_version: "test".to_string(),
+            storage_engine: StorageEngine::RocksDb,
+            rpc_port: 46332,
+            p2p_port: 46333,
+            ws_port: None,
+        })
+        .expect("node creation");
+
+    let started = into_response(
+        http.post(&format!("{base}/nodes/{}/start", node.id))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(started.status(), 303);
+
+    let kinds = || -> Vec<String> {
+        repository
+            .list_events(RuntimeEventFilter::new(None, "", 100))
+            .unwrap_or_default()
+            .iter()
+            .map(|event| format!("{}:: {}", event.kind, event.message))
+            .collect()
+    };
+
+    assert!(
+        wait_until(Duration::from_secs(20), || {
+            let seen = kinds();
+            seen.iter()
+                .any(|entry| entry.starts_with("watchdog-scheduled"))
+                && seen
+                    .iter()
+                    .any(|entry| entry.starts_with("watchdog-restarted"))
+        }),
+        "the watchdog never noticed the crash; journal was {:?}",
+        kinds()
+    );
+
+    // The node must not be left claiming to run.
+    let final_status = repository
+        .list_nodes()
+        .expect("nodes")
+        .into_iter()
+        .find(|stored| stored.id == node.id)
+        .expect("node");
+    assert!(
+        matches!(
+            final_status.status,
+            neo_nexus::types::NodeStatus::Error | neo_nexus::types::NodeStatus::Running
+        ),
+        "unexpected status {:?}",
+        final_status.status
+    );
+}
+
+/// A node recorded Running that this server holds no handle for must not stay
+/// Running once its process is gone.
+#[test]
+fn an_unmanaged_node_is_settled_once_its_process_disappears() {
+    let server = spawn_supervised_server();
+    let repository = Repository::open(&server.db_path).expect("open workspace");
+    let (binary, args) = crashing_command();
+    let node = repository
+        .create_node(NewNode {
+            name: "ghost".to_string(),
+            node_type: NodeType::NeoCli,
+            network: Network::Testnet,
+            binary_path: binary,
+            args,
+            runtime_version: "test".to_string(),
+            storage_engine: StorageEngine::RocksDb,
+            rpc_port: 47332,
+            p2p_port: 47333,
+            ws_port: None,
+        })
+        .expect("node creation");
+
+    // A pid that cannot exist: the row claims Running, nothing backs it.
+    repository
+        .update_node_status(
+            &node.id,
+            neo_nexus::types::NodeStatus::Running,
+            Some(4_000_000),
+        )
+        .expect("seed status");
+
+    let settled = wait_until(Duration::from_secs(10), || {
+        repository
+            .list_nodes()
+            .unwrap_or_default()
+            .iter()
+            .find(|stored| stored.id == node.id)
+            .is_some_and(|stored| stored.status == neo_nexus::types::NodeStatus::Stopped)
+    });
+    assert!(settled, "a stale Running row was never settled");
 }
