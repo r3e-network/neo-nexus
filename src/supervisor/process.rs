@@ -30,6 +30,37 @@ impl ProcessSupervisor {
             stop_grace_period,
         }
     }
+
+    /// Forget every child **without terminating it**.
+    ///
+    /// [`Drop`] kills what is still registered, which is what a desktop shell
+    /// wants and what a one-shot `--node-start` must not do: without this, the
+    /// CLI reports a node as started and then kills it on the way out of the
+    /// process. Dropping the stored handle is not itself a signal — `ManagedChild`
+    /// has no `Drop`, and dropping a `std::process::Child` leaves the OS process
+    /// running.
+    pub fn disown_all(&mut self) {
+        self.children.clear();
+    }
+
+    /// Forget one child without terminating it, for the case where a single
+    /// process is handed to someone else to supervise.
+    pub fn disown(&mut self, process_id: &str) -> bool {
+        self.children.remove(process_id).is_some()
+    }
+
+    /// Whether this supervisor can actually control `node_id` — i.e. holds the
+    /// handle it was started with. A node can be alive in the database and
+    /// unmanaged here, and reporting the two as the same thing is how a
+    /// "stopped" node keeps running.
+    pub fn is_managing(&self, node_id: &str) -> bool {
+        self.children.contains_key(node_id)
+    }
+
+    /// Every node this supervisor can control.
+    pub fn managed_node_ids(&self) -> Vec<String> {
+        self.children.keys().cloned().collect()
+    }
 }
 
 impl Drop for ProcessSupervisor {

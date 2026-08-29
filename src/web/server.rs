@@ -49,6 +49,10 @@ async fn serve(launch: WebLaunch) -> Result<()> {
     let (auth, generated) = auth_from_launch(&launch);
     let addr = SocketAddr::new(launch.bind, launch.port);
     let state = WebState::new(repository, launch.data_dir.clone(), auth);
+    // The engine shares the server's supervisor rather than making its own, so
+    // a node the watchdog restarts is a node the browser can stop. Held until
+    // this returns, which stops the loop on shutdown.
+    let _supervision = crate::supervision::Engine::start(state.engine_state());
     let router = build_router(state);
 
     print_banner(&addr, generated);

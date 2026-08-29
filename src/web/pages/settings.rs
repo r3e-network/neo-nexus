@@ -41,11 +41,16 @@ fn render_body(repository: &Repository) -> anyhow::Result<String> {
     let upgrade = repository.load_runtime_upgrade_policy()?;
     Ok(format!(
         r#"<h1>Settings</h1>
+{engine_note}
 {watchdog}
 {rpc_health}
 {federation}
 <h2>Runtime upgrades</h2>
 {upgrade}"#,
+        engine_note = html::notice(
+            "ok",
+            "Applied by this workbench process: the supervision engine reads these on its own tick, so a saved change takes effect without a restart.",
+        ),
         watchdog = watchdog_form(&watchdog),
         rpc_health = monitor_form(
             "RPC health monitor",

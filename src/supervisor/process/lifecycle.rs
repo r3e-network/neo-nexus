@@ -6,7 +6,8 @@ use crate::{launch::LaunchPlan, types::NodeConfig};
 
 use super::{reap::reap_finished_children, spawn::spawn_managed_child, ProcessSupervisor};
 use crate::supervisor::{
-    termination::stop_child, ManagedProcessSpec, ProcessExit, ProcessStart, ProcessStop,
+    termination::{stop_by_pid, stop_child},
+    ManagedProcessSpec, ProcessExit, ProcessStart, ProcessStop,
 };
 
 impl ProcessSupervisor {
@@ -51,6 +52,27 @@ impl ProcessSupervisor {
             return Ok(Some(stop));
         }
         Ok(None)
+    }
+
+    /// Stop a node this supervisor never spawned, from the pid the workspace
+    /// recorded for it.
+    ///
+    /// [`Self::stop_process`] correctly reports `None` when there is no handle,
+    /// and `None` there means "not mine to stop" — not "stopped". A server
+    /// restart or a `--node-start` from another process leaves exactly this
+    /// state: a node running with no `Child` anywhere here.
+    pub fn stop_recorded_pid(
+        &self,
+        process_id: &str,
+        pid: u32,
+        log_path: impl AsRef<Path>,
+    ) -> Option<ProcessStop> {
+        stop_by_pid(
+            process_id,
+            pid,
+            log_path.as_ref().to_path_buf(),
+            self.stop_grace_period,
+        )
     }
 
     pub fn restart(

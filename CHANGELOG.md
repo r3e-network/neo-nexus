@@ -50,6 +50,32 @@ open the printed address in a browser. The desktop GUI is removed.
     fleet's ports and the host's. Deletion is a two-step flow naming what else
     goes with the node. Registration, updates and deletions are journaled as
     `node-created`, `node-updated` and `node-deleted` events.
+- **Supervision engine** (`src/supervision.rs`): the background loop the
+  workbench had been missing. The desktop shell's frame tick was what drained
+  probe results, spawned interval probes, ran the watchdog and delivered alert
+  webhooks; removing `src/app/` removed the heartbeat but not the settings that
+  described it, so the workbench went on offering policies that nothing executed
+  — the Alerts page showed a delivery history that could never grow, and a node
+  that died stayed "Running" until someone looked. The engine now, on its own
+  tick: reaps finished processes and journals the exit, restarts crashed ones
+  within the watchdog policy, probes RPC health and federation peers on their
+  configured intervals, routes qualifying journal entries to the webhook, and
+  settles nodes that report Running without a process behind them. Policies are
+  re-read each tick, so a change in Settings applies without a restart. It shares
+  the server's one `ProcessSupervisor`, so a node the watchdog restarts is a node
+  the browser can stop.
+- Node launch and stop moved into that engine and the browser delegates to it,
+  replacing two copies of the pipeline with one: a manual start and an automatic
+  restart now take the same path against the same supervisor.
+- `ProcessSupervisor` gained `disown_all`/`disown`, because its `Drop` terminates
+  everything registered. A one-shot `--node-start` reported a node as launched and
+  then killed it on the way out of `main`; it now hands the process over
+  explicitly, and `--node-stop` reaches it by the pid the workspace recorded
+  rather than only rewriting the row. Stopping no longer waits out a grace period
+  on platforms where no graceful signal was actually sent.
+- `src/health_events.rs`: the status-to-severity and status-to-wording helpers the
+  engine needs, which had lived inside `src/app/` and were not about drawing a
+  window.
 - `--web` / `--bind` / `--port` / `--web-token` launch options. No options
   starts the web workbench (the default experience).
 - End-to-end web suite (`tests/web.rs`): real server on an ephemeral port,

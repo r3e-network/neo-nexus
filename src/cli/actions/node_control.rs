@@ -117,6 +117,15 @@ fn launch_node(
         }),
     );
 
+    // A one-shot command cannot supervise: `ProcessSupervisor` terminates
+    // everything still registered when it drops, which meant this reported the
+    // node as started and then killed it on the way out of `main`. Hand the
+    // process over instead of quietly dropping it; `--node-stop` reaches it by
+    // pid, since no handle survives this process.
+    if matches!(outcome, NodeLaunchOutcome::Started { .. }) {
+        supervisor.disown_all();
+    }
+
     Ok(match outcome {
         NodeLaunchOutcome::Started { pid, log_path } => CliAction::PrintWithExitCode {
             exit_code: 0,
@@ -134,17 +143,25 @@ fn launch_node(
     })
 }
 
-/// `--node-stop <db> <node-name>`: stop a node via the shared supervisor, then
-/// persist the stopped status, mirroring the GUI's stop path.
+/// `--node-stop <db> <node-name>`: stop a node and persist the stopped status.
+///
+/// A one-shot command cannot hold the handle of a process started by an earlier
+/// invocation, or by the workbench, so the recorded pid is the fallback —
+/// without it this reported "was not running" while the node kept running.
 pub(in crate::cli::actions) fn node_stop_action(args: &[String]) -> Result<CliAction> {
     require_arg_count(args, 4, "--node-stop")?;
     let repository = open_workspace(&args[2])?;
     let node = node_by_name(&repository, &args[3])?;
 
+    let log_path = log_path_for(workspace_child_dir(&repository, "logs"), &node);
     let mut supervisor = ProcessSupervisor::default();
     let stopped = supervisor
         .stop(&node.id)
-        .context("failed to stop the supervised process")?;
+        .context("failed to stop the supervised process")?
+        .or_else(|| {
+            node.pid
+                .and_then(|pid| supervisor.stop_recorded_pid(&node.id, pid, &log_path))
+        });
 
     repository
         .update_node_status(&node.id, NodeStatus::Stopped, None)
@@ -153,7 +170,10 @@ pub(in crate::cli::actions) fn node_stop_action(args: &[String]) -> Result<CliAc
     Ok(CliAction::PrintWithExitCode {
         exit_code: 0,
         text: match stopped {
-            Some(_) => format!("{} stopped", node.name),
+            Some(stop) if stop.forced => {
+                format!("{} stopped (forced, pid {})", node.name, stop.pid)
+            }
+            Some(stop) => format!("{} stopped (pid {})", node.name, stop.pid),
             None => format!("{} was not running", node.name),
         },
     })

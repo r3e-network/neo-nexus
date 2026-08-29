@@ -195,8 +195,18 @@ fn render_detail(state: &WebState, id: &str) -> anyhow::Result<String> {
         r#"<a class="btn" href="/nodes/{encoded}/edit">Edit</a><a class="btn" href="/logs?node={encoded}">Logs</a><a class="btn" href="/plugins?node={encoded}">Plugins</a>"#
     );
 
+    // Running is not the same as supervised: after a workbench restart, or when
+    // the CLI started the node, the row is true and the handle is not.
+    let supervision = if node.status.is_running() && !state.is_supervised(&node.id) {
+        html::notice(
+            "warn",
+            "Running, but not supervised by this workbench process. Stop can still reach it by pid; the watchdog here will not restart it.",
+        )
+    } else {
+        String::new()
+    };
     let config = format!(
-        "<h2>Configuration</h2>\n{facts}\n<h2>Launch command</h2>\n{command}",
+        "<h2>Configuration</h2>\n{facts}\n{supervision}<h2>Launch command</h2>\n{command}",
         facts = fact_rows(node),
         command = html::text_block(&command),
     );

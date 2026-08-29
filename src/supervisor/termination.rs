@@ -21,8 +21,15 @@ pub(super) fn stop_child(
 ) -> Result<ProcessStop> {
     let pid = child.id();
     let graceful_requested = request_graceful_termination(pid).is_ok();
+    // Waiting for an exit nobody requested just makes the operator watch a
+    // timeout, and guarantees the "forced" label. Graceful shutdown is only
+    // worth waiting for where a signal was actually delivered.
     let deadline = Instant::now() + grace_period;
-    let (forced, status) = match wait_until_exit(child, deadline)? {
+    let exited = graceful_requested
+        .then(|| wait_until_exit(child, deadline))
+        .transpose()?
+        .flatten();
+    let (forced, status) = match exited {
         Some(status) => (false, status),
         None => {
             child
@@ -62,6 +69,73 @@ fn wait_until_exit(child: &mut Child, deadline: Instant) -> Result<Option<ExitSt
         }
         thread::sleep(STOP_POLL_INTERVAL.min(deadline.saturating_duration_since(Instant::now())));
     }
+}
+
+/// Liveness checks refresh only the watched pid, so this can track the
+/// handle-based poll closely without scanning the whole process table.
+const UNMANAGED_POLL_INTERVAL: Duration = Duration::from_millis(50);
+
+/// Stop a process this supervisor holds no handle for.
+///
+/// A node started by an earlier `--node-start`, or one still running after a
+/// server restart, is recorded with a pid but has no `Child` anywhere in this
+/// process. Marking such a row `Stopped` without killing anything would leave
+/// the node running while the workbench said it was not.
+///
+/// `None` means the pid was already gone, so the caller can settle the recorded
+/// status without claiming to have stopped something.
+pub(super) fn stop_by_pid(
+    process_id: &str,
+    pid: u32,
+    log_path: PathBuf,
+    grace_period: Duration,
+) -> Option<ProcessStop> {
+    let mut system = sysinfo::System::new();
+    // Already gone: there is nothing here to stop.
+    live_process(&mut system, pid)?;
+
+    let graceful_requested = request_graceful_termination(pid).is_ok();
+    // As in `stop_child`: no signal sent means nothing to wait for.
+    let deadline = Instant::now() + grace_period;
+    while graceful_requested && live_process(&mut system, pid).is_some() {
+        if Instant::now() >= deadline {
+            break;
+        }
+        thread::sleep(UNMANAGED_POLL_INTERVAL);
+    }
+
+    let forced = live_process(&mut system, pid).is_some();
+    if forced {
+        live_process(&mut system, pid)?.kill();
+        // No handle to wait on, so the exit code is genuinely unknowable rather
+        // than absent by accident; `append_stop_log` records it as a signal.
+        let kill_deadline = Instant::now() + grace_period;
+        while live_process(&mut system, pid).is_some() && Instant::now() < kill_deadline {
+            thread::sleep(UNMANAGED_POLL_INTERVAL);
+        }
+    }
+
+    let stop = ProcessStop {
+        process_id: process_id.to_string(),
+        pid,
+        log_path,
+        graceful: graceful_requested && !forced,
+        forced,
+        exit_code: None,
+    };
+    append_stop_log(&stop, grace_period);
+    Some(stop)
+}
+
+fn live_process(system: &mut sysinfo::System, pid: u32) -> Option<&sysinfo::Process> {
+    let target = sysinfo::Pid::from_u32(pid);
+    system.refresh_processes(
+        sysinfo::ProcessesToUpdate::Some(&[target]),
+        // Without this, an exited pid would linger as a stale entry and the
+        // loop below would wait out its grace period for nothing.
+        true,
+    );
+    system.process(target)
 }
 
 fn append_stop_log(stop: &ProcessStop, grace_period: Duration) {
