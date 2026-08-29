@@ -21,7 +21,7 @@ use super::super::{
     html,
     jobs::JobStatus,
     runtime_ops::{self, LANE},
-    WebState,
+    time, WebState,
 };
 
 #[derive(Default, Deserialize)]
@@ -146,22 +146,27 @@ fn job_panel(state: &WebState) -> String {
                 html::raw_cell(&status_badge(&job.status)),
                 html::cell(&job.description),
                 html::cell(&job.detail),
-                html::cell(&job.started_at_unix.to_string()),
+                html::raw_cell(&time::time_cell(Some(job.started_at_unix))),
             ])
         })
         .collect::<Vec<_>>();
     let banner = if running > 0 {
         html::notice(
             "warn",
-            &format!("{running} job(s) running; this page can be reloaded at any time."),
+            &format!("{running} job(s) running; this page refreshes as each finishes."),
         )
     } else {
         String::new()
     };
-    format!(
-        "<h2>Background work</h2>\n{banner}\n{}",
-        html::table(&["State", "Work", "Result", "Started (unix)"], &rows)
-    )
+    let table = html::table(&["State", "Work", "Result", "Started"], &rows);
+    // The poll marker wraps only the running case: an idle page must not
+    // reload itself.
+    let body = if running > 0 {
+        format!(r#"<div data-job-poll="4000" aria-live="polite">{table}</div>"#)
+    } else {
+        table
+    };
+    format!("<h2>Background work</h2>\n{banner}\n{body}")
 }
 
 fn status_badge(status: &JobStatus) -> String {
@@ -318,7 +323,7 @@ fn installation_table(installations: &[RuntimeInstallation]) -> String {
                 html::cell(&short_hash(&installation.sha256)),
                 html::raw_cell(&verification_badge(installation.signature_verified)),
                 html::cell(&format_bytes(installation.bytes)),
-                html::cell(&installation.installed_at_unix.to_string()),
+                html::raw_cell(&time::time_cell(Some(installation.installed_at_unix))),
             ])
         })
         .collect::<Vec<_>>();
@@ -332,7 +337,7 @@ fn installation_table(installations: &[RuntimeInstallation]) -> String {
             "SHA-256",
             "Signature",
             "Size",
-            "Installed (unix)",
+            "Installed",
         ],
         &rows,
     )
@@ -357,11 +362,7 @@ fn profile_table(profiles: &[RuntimeCatalogProfile]) -> String {
                         "failed"
                     }
                 })),
-                html::cell(
-                    &profile
-                        .last_loaded_at_unix
-                        .map_or("—".to_string(), |loaded| loaded.to_string()),
-                ),
+                html::raw_cell(&time::time_cell(profile.last_loaded_at_unix)),
                 html::cell(&profile.last_bytes.map_or("—".to_string(), format_bytes)),
             ])
         })
@@ -373,7 +374,7 @@ fn profile_table(profiles: &[RuntimeCatalogProfile]) -> String {
             "Source",
             "Status",
             "Signature",
-            "Last loaded (unix)",
+            "Last loaded",
             "Last size",
         ],
         &rows,

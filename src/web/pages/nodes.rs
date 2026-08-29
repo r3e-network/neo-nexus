@@ -16,7 +16,7 @@ use crate::{
         node_health::node_rpc_health_history,
         operations::{EventKind, EventSeverity, NewRuntimeEvent},
     },
-    web::{fleet::Fleet, html, WebState},
+    web::{fleet::Fleet, html, time, WebState},
 };
 
 #[derive(Default, serde::Deserialize)]
@@ -179,7 +179,7 @@ fn render_detail(state: &WebState, id: &str) -> anyhow::Result<String> {
         .iter()
         .map(|record| {
             html::row(&[
-                html::cell(&record.checked_at_unix.to_string()),
+                html::raw_cell(&time::time_cell(Some(record.checked_at_unix))),
                 html::cell(record.status.label()),
                 html::cell(
                     &record
@@ -216,7 +216,7 @@ fn render_detail(state: &WebState, id: &str) -> anyhow::Result<String> {
         trend = if trend.is_empty() {
             html::note("No RPC probes recorded yet.")
         } else {
-            html::table(&["Checked (unix)", "Status", "Block", "Message"], &trend)
+            html::table(&["Checked", "Status", "Block", "Message"], &trend)
         },
     );
 

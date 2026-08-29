@@ -14,7 +14,7 @@ use crate::core::operations::{
     RemoteServerProfileFilter,
 };
 
-use super::super::{html, WebState};
+use super::super::{html, time, WebState};
 
 const PROBE_WINDOW: usize = 12;
 
@@ -115,12 +115,9 @@ fn profile_table(state: &WebState, profiles: &[RemoteServerProfile]) -> anyhow::
                     .map(|record| status_badge(record.status))
                     .unwrap_or_else(|| html::status_badge("Unknown")),
             ),
-            html::cell(
-                &probe
-                    .as_ref()
-                    .map(|record| record.checked_at_unix.to_string())
-                    .unwrap_or_else(|| "never".to_string()),
-            ),
+            html::raw_cell(&time::time_cell(
+                probe.as_ref().map(|record| record.checked_at_unix),
+            )),
             html::cell(
                 &probe
                     .as_ref()
@@ -154,7 +151,7 @@ fn profile_table(state: &WebState, profiles: &[RemoteServerProfile]) -> anyhow::
             "Base URL",
             "Status",
             "Last probe",
-            "Checked (unix)",
+            "Checked",
             "Nodes",
             "Running",
             "Message",
@@ -222,7 +219,7 @@ pub async fn probes(State(state): State<WebState>, Path(id): Path<String>) -> Re
             .iter()
             .map(|record| {
                 html::row(&[
-                    html::cell(&record.checked_at_unix.to_string()),
+                    html::raw_cell(&time::time_cell(Some(record.checked_at_unix))),
                     html::raw_cell(&status_badge(record.status)),
                     html::cell(&number(record.total_nodes)),
                     html::cell(&number(record.running_nodes)),
@@ -236,23 +233,17 @@ pub async fn probes(State(state): State<WebState>, Path(id): Path<String>) -> Re
             .collect::<Vec<_>>();
         Ok(format!(
             r#"<h1>{name} probe history</h1>
-<p><a href="/federation">&larr; All servers</a></p>
+{back}
 {table}"#,
             name = html::escape(&profile.name),
+            back = html::breadcrumb(&[("Federation", "/federation"), ("Probe history", "")]),
             table = if rows.is_empty() {
                 html::note("No probes have been recorded for this server yet.")
             } else {
                 html::table(
                     &[
-                        "Checked (unix)",
-                        "Status",
-                        "Nodes",
-                        "Running",
-                        "Syncing",
-                        "Error",
-                        "Blocks",
-                        "Peers",
-                        "Message",
+                        "Checked", "Status", "Nodes", "Running", "Syncing", "Error", "Blocks",
+                        "Peers", "Message",
                     ],
                     &rows,
                 )

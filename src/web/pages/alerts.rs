@@ -18,7 +18,7 @@ use crate::{
     repository::Repository,
 };
 
-use super::super::{html, WebState};
+use super::super::{html, time, WebState};
 
 const DELIVERY_WINDOW: usize = 50;
 
@@ -164,7 +164,7 @@ fn delivery_table(deliveries: &[AlertDelivery]) -> String {
         .iter()
         .map(|delivery| {
             html::row(&[
-                html::cell(&delivery.attempted_at_unix.to_string()),
+                html::raw_cell(&time::time_cell(Some(delivery.attempted_at_unix))),
                 html::raw_cell(&delivery_badge(delivery.status)),
                 html::cell(&delivery.route_label),
                 html::cell(&safe_target(&delivery.target)),
@@ -178,14 +178,7 @@ fn delivery_table(deliveries: &[AlertDelivery]) -> String {
         })
         .collect::<Vec<_>>();
     html::table(
-        &[
-            "Attempted (unix)",
-            "Status",
-            "Route",
-            "Target",
-            "HTTP",
-            "Message",
-        ],
+        &["Attempted", "Status", "Route", "Target", "HTTP", "Message"],
         &rows,
     )
 }
