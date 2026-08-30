@@ -76,6 +76,18 @@ open the printed address in a browser. The desktop GUI is removed.
 - `src/health_events.rs`: the status-to-severity and status-to-wording helpers the
   engine needs, which had lived inside `src/app/` and were not about drawing a
   window.
+- **Startup reconciliation** in the engine: nodes left recorded as Running by a
+  previous instance are checked against the host before anything is concluded.
+  One whose process is still alive keeps its status — a workbench killed with
+  SIGKILL leaves its nodes running, and clearing those rows would lose the only
+  handle on them, so the next Start would launch a second node onto the same
+  ports. One whose process is gone is settled and journaled as
+  `RuntimeRecovered`. A pid answered by a *different* program is settled too but
+  reported separately, because the number was recycled and the old process is
+  not coming back. `Repository::clear_transient_runtime_state`, which had no
+  production caller after the desktop shell went away, is deliberately not used
+  here: it clears every Running row unconditionally, which is correct for an app
+  that kills its own children on exit and wrong for a server.
 - **Controlled runtime installation** (`/runtimes`): browse an enabled catalog
   profile, review a release, then install it. The review shows the catalogue and
   source it came from, the package platform beside this host's, the size limit,
@@ -137,6 +149,13 @@ action on them:
   the machine.** Snapshot import and apply, wallet profile import, delivering a
   real alert (the page previews routing only), and private-network
   materialisation remain CLI/API operations.
+- **Scheduled runtime upgrades are not enforced.** The policy is stored,
+  validated and displayed, and `RuntimePackageManager::plan_node_upgrade`,
+  `plan_catalog_upgrade` and `plan_catalog_fleet_upgrades` all exist — but
+  nothing calls them, so no node is ever upgraded on an interval. The Settings
+  page now says so rather than implying the policy is live. The scheduler in
+  `src/app/runtime_upgrade_policy/execution.rs` went away with the desktop
+  shell and has not been replaced.
 - `/api/metrics-prometheus` sits behind the session cookie, so an external
   Prometheus scraper must authenticate as a browser does or scrape through an
   internal route.

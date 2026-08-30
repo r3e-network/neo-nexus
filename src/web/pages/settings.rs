@@ -182,11 +182,12 @@ fn upgrade_facts(policy: &RuntimeUpgradePolicy) -> String {
         .iter()
         .map(|(label, value)| html::row(&[html::cell(label), html::cell(value)]))
         .collect::<Vec<_>>();
-    format!(
-        "{}\n{}",
-        html::note("Scheduled upgrades are driven by the runtime catalog; edit this policy through the CLI or the Rust API."),
-        html::table(&["Setting", "Value"], &rows)
-    )
+    let caveat = html::notice(
+        "warn",
+        "Recorded, not enforced: no scheduler applies this policy yet, so nothing upgrades a node on this interval. The values below are shown as stored; editing them changes nothing until that scheduler exists.",
+    );
+    let table = html::table(&["Setting", "Value"], &rows);
+    format!("{caveat}\n{table}")
 }
 
 pub fn enabled_label(enabled: bool) -> &'static str {
