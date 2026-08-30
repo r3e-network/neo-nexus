@@ -40,8 +40,15 @@ one-job-per-lane registry, so it cannot time out a browser, survives a page
 reload, and cannot race a second install into the same directory. The Runtimes
 page reports the running and recent jobs.
 
+Before the first request is served, the engine reconciles any node still
+recorded as Running against the host: a live orphan keeps its status, a dead one
+is settled and journaled, and a recycled pid is settled but reported separately.
+A blanket clear would be wrong here — a workbench killed with SIGKILL leaves its
+nodes running, and dropping those rows loses the only handle on them.
+
 Policies are re-read each tick, so saving in Settings applies without restarting
-the server. The engine shares the server's single `ProcessSupervisor`: a node it
+the server. Scheduled runtime upgrades are the one policy the Settings page
+records but nothing yet enforces, and the page says so. The engine shares the server's single `ProcessSupervisor`: a node it
 restarts is a node the browser can stop, and a node recorded as running without a
 handle here is settled by pid rather than left claiming to run.
 

@@ -173,6 +173,36 @@ pub fn name_matches_binary(reported: &str, binary_path: &Path) -> bool {
     reported == expected || reported == format!("{expected}.exe")
 }
 
+/// Whether the process recorded for `node` is still alive **and still ours**.
+///
+/// Three answers, because the difference matters to a caller deciding whether a
+/// node is running: nothing at that pid, something at that pid that is a
+/// different program (the pid was recycled), or the node itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecordedProcess {
+    /// Nothing answers to the recorded pid.
+    Gone,
+    /// A process answers, but it is not the recorded binary.
+    Reused,
+    /// The recorded binary is alive.
+    Alive,
+}
+
+/// Classify the pid recorded for `node` without assuming it is still ours.
+pub fn recorded_process(node: &NodeConfig) -> RecordedProcess {
+    let Some(pid) = node.pid else {
+        return RecordedProcess::Gone;
+    };
+    if !process_is_live(pid) {
+        return RecordedProcess::Gone;
+    }
+    let mut system = sysinfo::System::new();
+    match identify_recorded_process(&mut system, node) {
+        Some(_) => RecordedProcess::Alive,
+        None => RecordedProcess::Reused,
+    }
+}
+
 /// Whether any process currently answers to this pid.
 ///
 /// `kill(pid, 0)` is the portable-by-convention probe on Unix: it performs the

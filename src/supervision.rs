@@ -43,7 +43,9 @@ use crate::{
     logs::LogReader,
     repository::Repository,
     rpc_health::probe_node_rpc,
-    supervisor::{live_pids, log_path_for, PidStop, ProcessSupervisor},
+    supervisor::{
+        live_pids, log_path_for, recorded_process, PidStop, ProcessSupervisor, RecordedProcess,
+    },
     types::NodeStatus,
     watchdog::{default_restart_policy, RestartOutcome, RestartPolicy, Watchdog},
 };
@@ -221,6 +223,10 @@ pub struct Engine {
 
 impl Engine {
     pub fn start(state: EngineState) -> Self {
+        // Before the first page can be served: a workspace reopened after a
+        // crash still claims nodes are Running, and the operator should never
+        // see a status the host does not back.
+        reconcile_startup(&state);
         let stop = Arc::new(AtomicBool::new(false));
         let closing = Arc::clone(&stop);
         let worker = thread::Builder::new()
@@ -246,6 +252,55 @@ impl Drop for Engine {
             let _ = worker.join();
         }
     }
+}
+
+/// Settle nodes whose recorded process no longer exists, and keep the ones that
+/// do.
+///
+/// Deliberately not a blanket "mark everything stopped": a workbench killed with
+/// SIGKILL leaves its nodes running as orphans. Clearing those rows would lose
+/// the only handle on them, and the next Start would launch a second node onto
+/// the same ports. A node whose pid is answered by a *different* program is
+/// settled too, but reported separately — the number was recycled, so the old
+/// process is gone and something unrelated now holds its identity.
+fn reconcile_startup(state: &EngineState) {
+    let mut settled = Vec::new();
+    let mut recycled = Vec::new();
+    for node in state.nodes() {
+        if !matches!(node.status, NodeStatus::Running | NodeStatus::Starting) {
+            continue;
+        }
+        // One classification per node: each probe reads the process table.
+        let verdict = recorded_process(&node);
+        if verdict == RecordedProcess::Alive {
+            continue;
+        }
+        let _ = state
+            .repository
+            .update_node_status(&node.id, NodeStatus::Stopped, None);
+        match verdict {
+            RecordedProcess::Reused => recycled.push(node.name),
+            _ => settled.push(node.name),
+        }
+    }
+    let total = settled.len() + recycled.len();
+    if total == 0 {
+        return;
+    }
+    let mut message = format!("Recovered {total} stale runtime state records");
+    if !recycled.is_empty() {
+        message.push_str(&format!(
+            "; {} pid(s) now belong to another program",
+            recycled.len()
+        ));
+    }
+    let _ = state.repository.record_event(NewRuntimeEvent {
+        node_id: None,
+        node_name: None,
+        kind: EventKind::RuntimeRecovered,
+        severity: EventSeverity::Warning,
+        message,
+    });
 }
 
 /// What the loop remembers between ticks. Policies are re-read every tick so a
