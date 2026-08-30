@@ -1077,3 +1077,96 @@ fn runtime_catalogue_browsing_requires_a_session() {
         "an unknown profile should be stated plainly"
     );
 }
+
+/// The lifecycle controls must leave an audit trail. The web workbench restored
+/// start/stop/restart but not the journal entries the desktop shell wrote, so
+/// "who stopped this node at 03:00" had no answer.
+#[test]
+fn lifecycle_controls_are_journaled() {
+    let server = spawn_supervised_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+
+    let (binary, args) = long_running_command();
+    let repository = Repository::open(&server.db_path).expect("open workspace");
+    let node = repository
+        .create_node(NewNode {
+            name: "audited".to_string(),
+            node_type: NodeType::NeoGo,
+            network: Network::Testnet,
+            binary_path: binary,
+            args,
+            runtime_version: "test".to_string(),
+            storage_engine: StorageEngine::LevelDb,
+            rpc_port: 52332,
+            p2p_port: 52333,
+            ws_port: None,
+        })
+        .expect("node creation");
+
+    for verb in ["start", "stop"] {
+        let response = into_response(
+            http.post(&format!("{base}/nodes/{}/{verb}", node.id))
+                .set("cookie", &session)
+                .call(),
+        );
+        assert_eq!(response.status(), 303, "{verb} should be accepted");
+    }
+
+    let journal = repository
+        .list_events(RuntimeEventFilter::new(None, "", 100))
+        .expect("events")
+        .iter()
+        .map(|event| format!("{}:: {}", event.kind, event.message))
+        .collect::<Vec<_>>();
+    let text = journal.join("\n");
+
+    assert!(
+        text.contains("node-started:: audited launched with PID"),
+        "no start entry; journal was:\n{text}"
+    );
+    assert!(
+        text.contains("node-stopped:: audited stopped"),
+        "no stop entry; journal was:\n{text}"
+    );
+    // Both entries carry the node id, so the trail is attributable rather than
+    // just present. Registration is covered by the create/edit/delete test; this
+    // node was inserted straight through the repository and so has no such entry.
+    let attributable = journal
+        .iter()
+        .filter(|entry| entry.contains("audited"))
+        .count();
+    assert_eq!(
+        attributable, 2,
+        "both lifecycle entries should name the node; journal was:\n{text}"
+    );
+}
+
+/// Policy changes need a trail too: a schedule that silently changed is an
+/// incident waiting to be reconstructed.
+#[test]
+fn policy_saves_are_journaled() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+
+    post_form_as(
+        &http,
+        &session,
+        &format!("{base}/settings/watchdog"),
+        "enabled=Enabled&max_restart_attempts=5&base_delay_seconds=4&max_delay_seconds=60",
+    );
+    let repository = Repository::open(&server.db_path).expect("reopen workspace");
+    let journal = repository
+        .list_events(RuntimeEventFilter::new(None, "", 50))
+        .expect("events")
+        .iter()
+        .map(|event| event.kind.to_string())
+        .collect::<Vec<_>>();
+    assert!(
+        journal.contains(&"watchdog-policy-updated".to_string()),
+        "a policy change wrote no journal entry; got {journal:?}"
+    );
+}

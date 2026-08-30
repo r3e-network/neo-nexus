@@ -10,7 +10,10 @@ use axum::{
 };
 
 use crate::{
-    catalog::PluginState, config::WorkspaceConfigExporter, core::workspace::ConfigExporter,
+    catalog::PluginState,
+    config::WorkspaceConfigExporter,
+    core::operations::{EventKind, EventSeverity, NewRuntimeEvent},
+    core::workspace::ConfigExporter,
     types::NodeConfig,
 };
 
@@ -139,12 +142,20 @@ pub async fn export_all(State(state): State<WebState>) -> Response {
             &paired,
             env!("CARGO_PKG_VERSION"),
         )?;
-        Ok(format!(
+        let message = format!(
             "exported {} node configs ({} files) to {}",
             export.report.node_count,
             export.report.exported_file_count,
             export.output_dir.display()
-        ))
+        );
+        let _ = state.repository.record_event(NewRuntimeEvent {
+            node_id: None,
+            node_name: None,
+            kind: EventKind::ConfigExported,
+            severity: EventSeverity::Info,
+            message: message.clone(),
+        });
+        Ok(message)
     })();
     let message = match outcome {
         Ok(message) => message,

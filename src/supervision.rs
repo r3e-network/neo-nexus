@@ -158,17 +158,33 @@ pub fn launch_node(
     drop(supervisor);
 
     match outcome {
-        crate::core::lifecycle::NodeLaunchOutcome::Started { pid, log_path } => Ok(format!(
-            "{}{} launched with PID {}; log {}",
-            if replaced {
-                "replaced an unmanaged process; "
-            } else {
-                ""
-            },
-            node.name,
-            pid,
-            log_path.display()
-        )),
+        crate::core::lifecycle::NodeLaunchOutcome::Started { pid, log_path } => {
+            let message = format!(
+                "{}{} launched with PID {}; log {}",
+                if replaced {
+                    "replaced an unmanaged process; "
+                } else {
+                    ""
+                },
+                node.name,
+                pid,
+                log_path.display()
+            );
+            // The journal records which control ran, so an operator asking
+            // "who started this at 03:00" gets one answer rather than a gap.
+            // A watchdog restart also lands here and adds its own entry above
+            // this one, so the trigger and the effect are both visible.
+            state.journal(
+                node,
+                match action {
+                    LaunchAction::Start => EventKind::NodeStarted,
+                    LaunchAction::Restart => EventKind::NodeRestarted,
+                },
+                EventSeverity::Info,
+                message.clone(),
+            );
+            Ok(message)
+        }
         crate::core::lifecycle::NodeLaunchOutcome::Failed { message } => {
             anyhow::bail!("{message}")
         }
@@ -192,11 +208,18 @@ pub fn stop_node(state: &EngineState, node: &NodeConfig) -> anyhow::Result<Strin
             state
                 .repository
                 .update_node_status(&node.id, NodeStatus::Stopped, None)?;
-            Ok(if stop.forced {
+            let message = if stop.forced {
                 format!("{} stopped (forced, pid {})", node.name, stop.pid)
             } else {
                 format!("{} stopped (pid {})", node.name, stop.pid)
-            })
+            };
+            state.journal(
+                node,
+                EventKind::NodeStopped,
+                EventSeverity::Info,
+                message.clone(),
+            );
+            Ok(message)
         }
         PidStop::AlreadyGone => {
             state

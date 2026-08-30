@@ -11,6 +11,7 @@ use serde::Deserialize;
 
 use crate::{
     catalog::{PluginCatalog, PluginId},
+    core::operations::{EventKind, EventSeverity, NewRuntimeEvent},
     types::NodeConfig,
 };
 
@@ -195,12 +196,22 @@ pub async fn toggle(
         state
             .repository
             .set_plugin_enabled(&node.id, plugin, wanted)?;
-        Ok(format!(
+        let message = format!(
             "{} {} on {}",
             plugin,
             if wanted { "enabled" } else { "disabled" },
             node.name
-        ))
+        );
+        // Enabling a governance plugin is an on-chain commitment, so the record
+        // of who flipped it matters more here than for most toggles.
+        let _ = state.repository.record_event(NewRuntimeEvent {
+            node_id: Some(node.id.clone()),
+            node_name: Some(node.name.clone()),
+            kind: EventKind::PluginUpdated,
+            severity: EventSeverity::Info,
+            message: message.clone(),
+        });
+        Ok(message)
     })();
     let message = match outcome {
         Ok(message) => message,
