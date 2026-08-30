@@ -16,8 +16,8 @@ use crate::{
     core::{
         lifecycle::LaunchAction,
         operations::{
-            AlertProvider, AlertRoutingPolicy, EventSeverity, RemoteFederationMonitorPolicy,
-            RpcHealthMonitorPolicy,
+            AlertProvider, AlertRoutingPolicy, EventKind, EventSeverity, NewRuntimeEvent,
+            RemoteFederationMonitorPolicy, RpcHealthMonitorPolicy,
         },
         runtime::RestartPolicy,
     },
@@ -115,6 +115,7 @@ pub async fn save_watchdog(
         .normalized();
         let message = format!("watchdog policy saved — {}", policy.describe());
         state.repository.save_watchdog_policy(policy)?;
+        journal_policy(&state, EventKind::WatchdogPolicyUpdated, &message);
         Ok(message)
     })();
     respond_to("/settings", outcome)
@@ -133,6 +134,7 @@ pub async fn save_rpc_health_monitor(
         .normalized();
         let message = format!("RPC health monitor saved — {}", policy.describe());
         state.repository.save_rpc_health_monitor_policy(policy)?;
+        journal_policy(&state, EventKind::RpcHealthMonitorPolicyUpdated, &message);
         Ok(message)
     })();
     respond_to("/settings", outcome)
@@ -153,6 +155,11 @@ pub async fn save_federation_monitor(
         state
             .repository
             .save_remote_federation_monitor_policy(policy)?;
+        journal_policy(
+            &state,
+            EventKind::RemoteFederationMonitorPolicyUpdated,
+            &message,
+        );
         Ok(message)
     })();
     respond_to("/settings", outcome)
@@ -212,6 +219,19 @@ pub async fn save_alert_routing(
         Ok(message)
     })();
     respond_to("/alerts", outcome)
+}
+
+/// Record a workspace-level change. Policies are not tied to a node, so the
+/// entry carries no node reference — but it must exist, or "when did this
+/// change and to what?" has no answer.
+fn journal_policy(state: &WebState, kind: EventKind, message: &str) {
+    let _ = state.repository.record_event(NewRuntimeEvent {
+        node_id: None,
+        node_name: None,
+        kind,
+        severity: EventSeverity::Info,
+        message: message.to_string(),
+    });
 }
 
 /// The shared tail of every settings-style control: describe the outcome and

@@ -76,6 +76,15 @@ open the printed address in a browser. The desktop GUI is removed.
 - `src/health_events.rs`: the status-to-severity and status-to-wording helpers the
   engine needs, which had lived inside `src/app/` and were not about drawing a
   window.
+- **Lifecycle and control audit trail.** Sweeping which event kinds still had a
+  producer turned up 52 of 65 with none, and the ones that mattered were actions
+  the workbench itself offers: Start, Stop and Restart wrote no journal entry, so
+  "who stopped this node at 03:00" had no answer; neither did the plugin toggle,
+  the workspace config export, or saving any of the four policies. All of them
+  are journaled now, carrying the node they refer to so an entry is
+  attributable rather than merely present. The remaining unproduced kinds belong
+  to capabilities that still have no frontend and are listed under Known gaps
+  rather than being quietly left out.
 - **Startup reconciliation** in the engine: nodes left recorded as Running by a
   previous instance are checked against the host before anything is concluded.
   One whose process is still alive keeps its status — a workbench killed with
@@ -149,6 +158,13 @@ action on them:
   the machine.** Snapshot import and apply, wallet profile import, delivering a
   real alert (the page previews routing only), and private-network
   materialisation remain CLI/API operations.
+- **Several desktop capabilities still have no frontend at all**, discoverable
+  as event kinds with no producer: role application (`RoleApplied`), plugin
+  package install (`PluginInstalled`), the snapshot lifecycle (`SnapshotSaved`,
+  `SnapshotVerified`, `SnapshotDownloaded`, `SnapshotCached`, `SnapshotApplied`),
+  wallet profile import and deletion, private-network materialisation with its
+  signer sidecars, backup export/import/validation, log clearing, and runtime
+  smoke tests. Each is implemented in the core layer; none is reachable.
 - **Scheduled runtime upgrades are not enforced.** The policy is stored,
   validated and displayed, and `RuntimePackageManager::plan_node_upgrade`,
   `plan_catalog_upgrade` and `plan_catalog_fleet_upgrades` all exist — but
