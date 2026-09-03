@@ -137,7 +137,9 @@ pub struct SignerPolicy {
     pub evm_max_gas_price: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub evm_max_gas_limit: Option<u64>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub evm_method_whitelist: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub evm_method_blacklist: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub evm_chain_id: Option<u64>,

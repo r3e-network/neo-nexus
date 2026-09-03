@@ -384,7 +384,8 @@ fn consensus_payload(sender: [u8; 20], height: u32) -> Vec<u8> {
     payload.extend(sender);
     let mut data = vec![0x21];
     data.extend(height.to_le_bytes());
-    data.extend([0, 0, 1]);
+    data.extend([0, 0]);
+    data.extend([1u8; 32]);
     payload.push(data.len() as u8);
     payload.extend(data);
     payload
