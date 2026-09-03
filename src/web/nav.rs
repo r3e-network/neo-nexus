@@ -89,6 +89,11 @@ const SECTIONS: &[Section] = &[
                 label: "Wallets",
             },
             Destination {
+                key: "signer",
+                href: "/signer",
+                label: "Signer",
+            },
+            Destination {
                 key: "config",
                 href: "/config",
                 label: "Config",

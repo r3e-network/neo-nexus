@@ -11,7 +11,7 @@ use axum::{
     Router,
 };
 
-use super::{api, control, health, pages, WebState};
+use super::{api, control, health, pages, signer_control, WebState};
 
 pub fn build_router(state: WebState) -> Router {
     let public = Router::new()
@@ -57,6 +57,38 @@ pub fn build_router(state: WebState) -> Router {
         .route("/runtimes/install", post(pages::runtimes::install))
         .route("/snapshots", get(pages::snapshots::snapshots))
         .route("/wallets", get(pages::wallets::wallets))
+        .route("/signer", get(pages::signer::signer))
+        .route("/signer/keys", post(signer_control::generate))
+        .route("/signer/keys/{id}", get(pages::signer::key_detail))
+        .route(
+            "/signer/keys/{id}/state",
+            post(signer_control::set_key_state),
+        )
+        .route(
+            "/signer/keys/{id}/policy",
+            post(signer_control::save_policy),
+        )
+        .route(
+            "/signer/keys/{id}/delete",
+            get(pages::signer::delete_key_page).post(signer_control::delete_key),
+        )
+        .route("/signer/callers", post(signer_control::create_caller))
+        .route(
+            "/signer/callers/workload",
+            post(signer_control::create_workload_caller),
+        )
+        .route(
+            "/signer/callers/{id}/rotate",
+            post(signer_control::rotate_caller),
+        )
+        .route(
+            "/signer/callers/{id}/state",
+            post(signer_control::set_caller_state),
+        )
+        .route(
+            "/signer/callers/{id}/delete",
+            post(signer_control::delete_caller),
+        )
         .route("/metrics", get(pages::metrics_page::metrics))
         .route("/settings", get(pages::settings::settings))
         .route("/settings/watchdog", post(control::save_watchdog))

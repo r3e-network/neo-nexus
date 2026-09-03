@@ -1,0 +1,12 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Public NEP-2 encrypted-wallet fixture used by two wallet parser tests."
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''(^|/)tests/domain\.rs$''',
+  '''(^|/)tests/unit/cli/tests\.rs$''',
+]
+regexes = ['''"key"[[:space:]]*:''']

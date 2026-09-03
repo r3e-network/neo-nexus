@@ -5,10 +5,10 @@
 
 use std::{
     path::PathBuf,
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard, OnceLock},
 };
 
-use crate::{repository::Repository, supervisor::ProcessSupervisor};
+use crate::{repository::Repository, signer_client::SignerClient, supervisor::ProcessSupervisor};
 
 use super::auth::AuthStore;
 use super::jobs::Jobs;
@@ -21,6 +21,7 @@ pub struct WebState {
     processes: Arc<Mutex<ProcessSupervisor>>,
     /// Long work that outlives the request which started it.
     pub jobs: Jobs,
+    signer: SignerHandle,
 }
 
 impl WebState {
@@ -49,7 +50,23 @@ impl WebState {
             auth,
             processes,
             jobs: Jobs::default(),
+            signer: SignerHandle::default(),
         }
+    }
+
+    /// Inject a configured signer client, primarily for composed deployments
+    /// and end-to-end tests that do not source process environment.
+    pub fn with_signer_client(mut self, client: SignerClient) -> Self {
+        self.signer = SignerHandle::configured(client);
+        self
+    }
+
+    /// Resolve the production signer profile lazily from process
+    /// configuration. Tests and embedded users stay explicitly unconfigured
+    /// unless they opt into this boundary.
+    pub fn with_signer_from_env(mut self) -> Self {
+        self.signer = SignerHandle::from_env();
+        self
     }
 
     /// A subdirectory beside the database, mirroring the GUI and CLI
@@ -97,5 +114,53 @@ impl WebState {
     /// stop can reach the process rather than only the row.
     pub fn is_supervised(&self, node_id: &str) -> bool {
         self.supervisor().is_managing(node_id)
+    }
+
+    /// Resolve the separately deployed custody client once.
+    ///
+    /// An absent or invalid signer configuration does not stop fleet
+    /// operations. The signer page reports it explicitly and every signer
+    /// control remains unavailable.
+    pub fn signer_client(&self) -> Result<Option<SignerClient>, String> {
+        self.signer.resolve()
+    }
+}
+
+#[derive(Clone)]
+struct SignerHandle {
+    resolved: Arc<OnceLock<Result<Option<SignerClient>, String>>>,
+}
+
+impl SignerHandle {
+    fn from_env() -> Self {
+        Self {
+            resolved: Arc::new(OnceLock::new()),
+        }
+    }
+
+    fn configured(client: SignerClient) -> Self {
+        let resolved = OnceLock::new();
+        let _ = resolved.set(Ok(Some(client)));
+        Self {
+            resolved: Arc::new(resolved),
+        }
+    }
+
+    fn resolve(&self) -> Result<Option<SignerClient>, String> {
+        self.resolved
+            .get_or_init(|| {
+                SignerClient::from_env("NEONEXUS_SIGNER_ADMIN").map_err(|error| error.to_string())
+            })
+            .clone()
+    }
+}
+
+impl Default for SignerHandle {
+    fn default() -> Self {
+        let resolved = OnceLock::new();
+        let _ = resolved.set(Ok(None));
+        Self {
+            resolved: Arc::new(resolved),
+        }
     }
 }
