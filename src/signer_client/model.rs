@@ -41,6 +41,8 @@ pub struct SignRequest {
     pub unsigned_hex: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chain_family: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -59,6 +61,10 @@ pub struct SignedWitness {
     pub digest: String,
     pub invocation_script: String,
     pub verification_script: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chain_family: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signature_hex: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -79,6 +85,8 @@ pub struct GenerateKeyRequest {
     pub network: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub network_magic: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chain_family: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -102,6 +110,8 @@ pub struct StateRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct SignerPolicy {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chain_family: Option<String>,
     pub allow_consensus: bool,
     pub allow_transfer: bool,
     pub allow_contract_call: bool,
@@ -122,6 +132,15 @@ pub struct SignerPolicy {
     pub max_system_fee: Option<String>,
     pub max_network_fee: Option<String>,
     pub max_signatures: Option<SignatureRateLimit>,
+    // EVM-specific policy fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evm_max_gas_price: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evm_max_gas_limit: Option<u64>,
+    pub evm_method_whitelist: Vec<String>,
+    pub evm_method_blacklist: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evm_chain_id: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -278,6 +297,44 @@ impl fmt::Debug for CreatedCaller {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct CreatedWorkloadCaller {
     pub caller: SignerCaller,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct OidcCallerRequest {
+    pub label: String,
+    pub key_grant: KeyGrant,
+    pub capabilities: Vec<String>,
+    pub allowed_origins: Vec<String>,
+    pub oidc_issuer: String,
+    pub oidc_audience: String,
+    pub oidc_subject_pattern: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ApiKeyCallerRequest {
+    pub label: String,
+    pub key_grant: KeyGrant,
+    pub capabilities: Vec<String>,
+    pub allowed_origins: Vec<String>,
+    pub expires_at: Option<u64>,
+}
+
+#[derive(Clone, PartialEq, Eq, Deserialize)]
+pub struct CreatedApiKeyCaller {
+    pub caller: SignerCaller,
+    pub key_id: String,
+    pub secret: String,
+}
+
+impl fmt::Debug for CreatedApiKeyCaller {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("CreatedApiKeyCaller")
+            .field("caller", &self.caller)
+            .field("key_id", &self.key_id)
+            .field("secret", &"[REDACTED]")
+            .finish()
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Deserialize)]

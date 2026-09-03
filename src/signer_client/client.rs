@@ -18,9 +18,10 @@ use uuid::Uuid;
 use super::{
     AuditBody, AuditEntry, AuditFilter, AuthHeaders, CallersBody, CreateCallerRequest,
     CreateWorkloadCallerRequest, CreatedCaller, CreatedWorkloadCaller, GenerateKeyRequest,
-    KeyPolicy, KeysBody, RawSignRequest, RawSignature, RemovedCaller, RemovedKey, RotatedCaller,
-    SavedPolicy, SignRequest, SignedWitness, SignerCaller, SignerClientConfig, SignerEndpoint,
-    SignerHealth, SignerKey, SignerOutcome, SignerPolicy, SignerRefusal, StateRequest,
+    KeyPolicy, KeysBody, OidcCallerRequest, ApiKeyCallerRequest, RawSignRequest, RawSignature,
+    RemovedCaller, RemovedKey, RotatedCaller, SavedPolicy, SignRequest, SignedWitness, SignerCaller,
+    SignerClientConfig, SignerEndpoint, SignerHealth, SignerKey, SignerOutcome, SignerPolicy,
+    SignerRefusal, StateRequest, CreatedApiKeyCaller,
 };
 
 const API: &str = "/signer/api/v1";
@@ -146,6 +147,20 @@ impl SignerClient {
         request: &CreateWorkloadCallerRequest,
     ) -> Result<SignerOutcome<CreatedWorkloadCaller>, SignerClientError> {
         self.post("/callers/workload", request)
+    }
+
+    pub fn create_oidc_caller(
+        &self,
+        request: &OidcCallerRequest,
+    ) -> Result<SignerOutcome<CreatedCaller>, SignerClientError> {
+        self.post("/callers/oidc", request)
+    }
+
+    pub fn create_api_key_caller(
+        &self,
+        request: &ApiKeyCallerRequest,
+    ) -> Result<SignerOutcome<CreatedApiKeyCaller>, SignerClientError> {
+        self.post("/callers/api-key", request)
     }
 
     pub fn list_callers(&self) -> Result<SignerOutcome<Vec<SignerCaller>>, SignerClientError> {

@@ -43,6 +43,7 @@ fn real_rust_signer_and_neonexus_client_agree() {
         label: "integration-validator".to_string(),
         network: "testnet".to_string(),
         network_magic: None,
+        chain_family: None,
     }));
     assert_eq!(allowed(admin.list_keys()).len(), 1);
     let closed = allowed(admin.key_policy(&key.key_id));
@@ -91,6 +92,7 @@ fn real_rust_signer_and_neonexus_client_agree() {
         key_id: key.key_id.clone(),
         unsigned_hex: lower_hex(&transaction),
         request_id: Some("integration-transfer-1".to_string()),
+        chain_family: None,
     };
     let witness = allowed(signer.sign_transaction(&transaction_request));
     assert_eq!(witness.key_id, key.key_id);
@@ -104,6 +106,7 @@ fn real_rust_signer_and_neonexus_client_agree() {
             key_id: key.key_id.clone(),
             unsigned_hex: lower_hex(&transfer_transaction(account, 100, 8)),
             request_id: transaction_request.request_id.clone(),
+            chain_family: None,
         })
         .expect("idempotency conflict");
     let conflict = match conflict {
@@ -120,6 +123,7 @@ fn real_rust_signer_and_neonexus_client_agree() {
         key_id: key.key_id.clone(),
         unsigned_hex: lower_hex(&consensus),
         request_id: Some("integration-consensus-1".to_string()),
+        chain_family: None,
     }));
     assert_eq!(consensus_witness.key_id, key.key_id);
 
@@ -127,6 +131,7 @@ fn real_rust_signer_and_neonexus_client_agree() {
         label: "integration-raw-role".to_string(),
         network: "testnet".to_string(),
         network_magic: None,
+        chain_family: None,
     }));
     allowed(admin.save_policy(
         &raw_key.key_id,

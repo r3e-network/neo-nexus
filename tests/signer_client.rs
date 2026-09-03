@@ -189,6 +189,7 @@ fn workload_authentication_binds_the_exact_request_body_and_route() {
             label: "validator".to_string(),
             network: "testnet".to_string(),
             network_magic: Some(894_710_606),
+            chain_family: None,
         })
         .expect("request reaches signer");
     let key = match outcome {
@@ -224,6 +225,7 @@ fn a_signing_refusal_is_data_and_is_not_retried() {
             key_id: "key-1".to_string(),
             unsigned_hex: "00".to_string(),
             request_id: None,
+            chain_family: None,
         })
         .expect("refusal is a valid signer response");
     let refusal = match outcome {

@@ -15,6 +15,8 @@ const WORKLOAD_PROTOCOL: &str = "neoos-workload-v1";
 pub enum SignerCredential {
     Bearer(BearerCredential),
     Workload(Box<WorkloadCredential>),
+    Oidc(OidcCredential),
+    ApiKey(ApiKeyCredential),
 }
 
 impl fmt::Debug for SignerCredential {
@@ -22,6 +24,8 @@ impl fmt::Debug for SignerCredential {
         match self {
             Self::Bearer(value) => value.fmt(formatter),
             Self::Workload(value) => value.fmt(formatter),
+            Self::Oidc(value) => value.fmt(formatter),
+            Self::ApiKey(value) => value.fmt(formatter),
         }
     }
 }
@@ -115,6 +119,69 @@ impl fmt::Debug for WorkloadCredential {
     }
 }
 
+/// OIDC credential for JWT token-based authentication.
+#[derive(Clone)]
+pub struct OidcCredential {
+    /// The full JWT token
+    pub token: Zeroizing<String>,
+    /// Optional token hash for storage/lookup
+    pub token_hash: Option<[u8; 32]>,
+}
+
+impl OidcCredential {
+    pub fn new(token: impl Into<String>) -> Result<Self> {
+        let token = Zeroizing::new(token.into());
+        if token.trim().is_empty() {
+            bail!("OIDC token is empty");
+        }
+        // Validate basic JWT structure (header.payload.signature)
+        let parts: Vec<&str> = token.split('.').collect();
+        if parts.len() != 3 {
+            bail!("OIDC token must have 3 parts (header.payload.signature)");
+        }
+        let token_bytes: &[u8] = token.as_bytes();
+        let token_hash = Some(Sha256::digest(token_bytes).into());
+        Ok(Self { token, token_hash })
+    }
+}
+
+impl fmt::Debug for OidcCredential {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("OidcCredential([REDACTED])")
+    }
+}
+
+/// API Key credential for key_id:secret authentication.
+#[derive(Clone)]
+pub struct ApiKeyCredential {
+    pub key_id: String,
+    pub secret: Zeroizing<String>,
+}
+
+impl ApiKeyCredential {
+    pub fn new(key_id: impl Into<String>, secret: impl Into<String>) -> Result<Self> {
+        let key_id = key_id.into();
+        if key_id.trim().is_empty() {
+            bail!("API key ID is empty");
+        }
+        let secret = Zeroizing::new(secret.into());
+        if secret.trim().is_empty() {
+            bail!("API key secret is empty");
+        }
+        Ok(Self { key_id, secret })
+    }
+}
+
+impl fmt::Debug for ApiKeyCredential {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ApiKeyCredential")
+            .field("key_id", &self.key_id)
+            .field("secret", &"[REDACTED]")
+            .finish()
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct AuthHeaders {
     pub authorization: Option<Zeroizing<String>>,
@@ -160,6 +227,27 @@ impl SignerCredential {
                     timestamp: Some(timestamp.to_string()),
                     nonce: Some(nonce.to_string()),
                     signature: Some(lower_hex(&signature.to_bytes())),
+                    ..AuthHeaders::default()
+                })
+            }
+            Self::Oidc(credential) => {
+                // OIDC tokens are passed as Bearer tokens
+                Ok(AuthHeaders {
+                    authorization: Some(Zeroizing::new(format!(
+                        "Bearer {}",
+                        credential.token.as_str()
+                    ))),
+                    ..AuthHeaders::default()
+                })
+            }
+            Self::ApiKey(credential) => {
+                // API Key uses custom scheme
+                Ok(AuthHeaders {
+                    authorization: Some(Zeroizing::new(format!(
+                        "ApiKey {}:{}",
+                        credential.key_id,
+                        credential.secret.as_str()
+                    ))),
                     ..AuthHeaders::default()
                 })
             }
