@@ -10,6 +10,7 @@ mod model;
 
 pub use auth::{
     body_sha256, workload_signing_message, BearerCredential, SignerCredential, WorkloadCredential,
+    OidcCredential, ApiKeyCredential,
 };
 pub use client::{SignerClient, SignerClientError, SignerClientErrorKind};
 pub use config::{SignerClientConfig, SignerEndpoint};

@@ -6,7 +6,7 @@ use anyhow::{bail, Context, Result};
 use url::{Host, Url};
 use zeroize::Zeroizing;
 
-use super::{BearerCredential, SignerCredential, WorkloadCredential};
+use super::{BearerCredential, OidcCredential, SignerCredential, WorkloadCredential, ApiKeyCredential};
 
 const URL_VARIABLE: &str = "NEONEXUS_SIGNER_URL";
 const MAX_SECRET_FILE_BYTES: u64 = 16 * 1024;
@@ -33,20 +33,35 @@ impl SignerClientConfig {
     /// For prefix `NEONEXUS_SIGNER_ADMIN`, bearer mode reads
     /// `_TOKEN_FILE`; workload mode reads `_CALLER_ID`,
     /// `_WORKLOAD_KEY_FILE`, and optional `_WORKLOAD_SUBJECT`.
+    ///
+    /// OIDC mode reads `_OIDC_TOKEN_FILE`.
+    /// API Key mode reads `_API_KEY_ID` and `_API_KEY_SECRET_FILE`.
     pub fn from_env(prefix: &str) -> Result<Option<Self>> {
         validate_prefix(prefix)?;
         let token_name = format!("{prefix}_TOKEN_FILE");
         let caller_name = format!("{prefix}_CALLER_ID");
         let key_name = format!("{prefix}_WORKLOAD_KEY_FILE");
         let subject_name = format!("{prefix}_WORKLOAD_SUBJECT");
+        let oidc_token_name = format!("{prefix}_OIDC_TOKEN_FILE");
+        let api_key_id_name = format!("{prefix}_API_KEY_ID");
+        let api_key_secret_name = format!("{prefix}_API_KEY_SECRET_FILE");
 
         let raw_url = env_text(URL_VARIABLE);
         let token_file = env_text(&token_name);
         let caller_id = env_text(&caller_name);
         let key_file = env_text(&key_name);
         let subject = env_text(&subject_name);
-        let any_credential =
-            token_file.is_some() || caller_id.is_some() || key_file.is_some() || subject.is_some();
+        let oidc_token_file = env_text(&oidc_token_name);
+        let api_key_id = env_text(&api_key_id_name);
+        let api_key_secret_file = env_text(&api_key_secret_name);
+
+        let any_credential = token_file.is_some()
+            || caller_id.is_some()
+            || key_file.is_some()
+            || subject.is_some()
+            || oidc_token_file.is_some()
+            || api_key_id.is_some()
+            || api_key_secret_file.is_some();
 
         if raw_url.is_none() && !any_credential {
             return Ok(None);
@@ -57,27 +72,43 @@ impl SignerClientConfig {
                 .ok_or_else(|| anyhow::anyhow!("{URL_VARIABLE} is required"))?,
         )?;
 
+        // Count credential types selected
         let bearer_selected = token_file.is_some();
         let workload_selected = caller_id.is_some() || key_file.is_some() || subject.is_some();
-        if bearer_selected == workload_selected {
-            bail!("{prefix} must configure exactly one of bearer token file or workload identity");
+        let oidc_selected = oidc_token_file.is_some();
+        let api_key_selected = api_key_id.is_some() || api_key_secret_file.is_some();
+
+        let selected_count = [bearer_selected, workload_selected, oidc_selected, api_key_selected]
+            .iter()
+            .filter(|&&x| x)
+            .count();
+
+        if selected_count == 0 {
+            bail!("{prefix} must configure exactly one credential type (bearer, workload, OIDC, or API key)");
+        }
+        if selected_count > 1 {
+            bail!("{prefix} must configure only one credential type");
         }
 
-        let credential = match token_file {
-            Some(path) => {
-                let token = read_secret_text(Path::new(&path), "signer bearer token")?;
-                SignerCredential::Bearer(BearerCredential::new(token.as_str())?)
-            }
-            None => {
-                let caller_id = caller_id
-                    .ok_or_else(|| anyhow::anyhow!("{caller_name} is required in workload mode"))?;
-                let key_file = key_file
-                    .ok_or_else(|| anyhow::anyhow!("{key_name} is required in workload mode"))?;
-                let seed = read_secret_text(Path::new(&key_file), "signer workload key")?;
-                SignerCredential::Workload(Box::new(WorkloadCredential::from_seed_hex(
-                    caller_id, subject, &seed,
-                )?))
-            }
+        let credential = if let Some(path) = token_file {
+            let token = read_secret_text(Path::new(&path), "signer bearer token")?;
+            SignerCredential::Bearer(BearerCredential::new(token.as_str())?)
+        } else if let Some(path) = oidc_token_file {
+            let token = read_secret_text(Path::new(&path), "OIDC token")?;
+            SignerCredential::Oidc(OidcCredential::new(token.as_str())?)
+        } else if let (Some(key_id), Some(secret_file)) = (&api_key_id, &api_key_secret_file) {
+            let secret = read_secret_text(Path::new(secret_file), "API key secret")?;
+            SignerCredential::ApiKey(ApiKeyCredential::new(key_id, secret.as_str())?)
+        } else {
+            // Workload mode
+            let caller_id = caller_id
+                .ok_or_else(|| anyhow::anyhow!("{caller_name} is required in workload mode"))?;
+            let key_file = key_file
+                .ok_or_else(|| anyhow::anyhow!("{key_name} is required in workload mode"))?;
+            let seed = read_secret_text(Path::new(&key_file), "signer workload key")?;
+            SignerCredential::Workload(Box::new(WorkloadCredential::from_seed_hex(
+                caller_id, subject, &seed,
+            )?))
         };
         Ok(Some(Self {
             endpoint,

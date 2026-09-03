@@ -40,6 +40,7 @@ pub async fn generate(
             label,
             network,
             network_magic,
+            chain_family: None, // Default to Neo N3
         })
     })();
     let outcome = match request {
@@ -336,6 +337,7 @@ fn parse_policy(input: PolicyForm) -> anyhow::Result<SignerPolicy> {
         _ => anyhow::bail!("signature window seconds and count must be set together"),
     };
     Ok(SignerPolicy {
+        chain_family: None, // Default to Neo N3
         allow_consensus,
         allow_transfer,
         allow_contract_call,
@@ -356,6 +358,12 @@ fn parse_policy(input: PolicyForm) -> anyhow::Result<SignerPolicy> {
         max_system_fee: optional_decimal(&input.max_system_fee, "system fee", 64)?,
         max_network_fee: optional_decimal(&input.max_network_fee, "network fee", 64)?,
         max_signatures,
+        // EVM fields - default to permissive (None/empty)
+        evm_max_gas_price: None,
+        evm_max_gas_limit: None,
+        evm_method_whitelist: Vec::new(),
+        evm_method_blacklist: Vec::new(),
+        evm_chain_id: None,
     })
 }
 
