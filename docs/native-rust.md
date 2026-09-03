@@ -127,6 +127,7 @@ src/
   launch.rs               runtime-specific launch plans
   supervisor.rs           native managed-process lifecycle
   wallet/                 encrypted Neo wallet validation and metadata import
+  signer_client/          client-only NeoOS custody API and workload authentication
   private_network/        role materialization and launch pack export
   source_purity.rs        executable Rust-only repository boundary
   source_quality.rs       production-source quality gate

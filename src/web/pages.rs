@@ -15,5 +15,6 @@ pub mod plugins;
 pub mod roles;
 pub mod runtimes;
 pub mod settings;
+pub mod signer;
 pub mod snapshots;
 pub mod wallets;

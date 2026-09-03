@@ -30,6 +30,7 @@ pub mod roles;
 pub mod rpc_health;
 pub mod runtime;
 pub mod runtime_smoke;
+pub mod signer_client;
 pub mod snapshots;
 pub mod source_purity;
 pub mod source_quality;

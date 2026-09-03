@@ -23,6 +23,7 @@ pub mod pages;
 pub mod router;
 pub mod runtime_ops;
 pub mod server;
+pub mod signer_control;
 pub mod state;
 pub mod time;
 

@@ -106,6 +106,7 @@ or not anyone remembers to write a test for it.
 | | `/plugins` | Plugins applicable to one node's runtime, enable/disable |
 | | `/snapshots` | Fast-sync archives and how far each has reached |
 | | `/wallets` | Validated wallet metadata — never keys, passwords, or wallet bytes |
+| | `/signer` | External NeoOS signer health, public key boundaries, callers, and audit |
 | | `/config` | Per-node managed config path and whether it was written |
 | Insights | `/metrics` | Metrics snapshot text + Prometheus exposition |
 | | `/settings` | Watchdog and monitor policies; runtime upgrade facts |
@@ -123,6 +124,13 @@ install as a background job; `POST /logout` ends the session.
 
 API: `GET /api/fleet`, `GET /api/readiness`, `GET /api/metrics-prometheus`.
 All require the session cookie except `/healthz`.
+
+The signer page is an operator client of the separately deployed Rust custody
+service. It can generate enclave-born keys and manage non-secret policy and
+caller metadata, but it contains no import, passphrase, transaction-signing,
+consensus-signing, or raw-signing browser form. Its server-to-server
+authentication and fail-closed URL rules are defined in
+[`signer-service.md`](signer-service.md).
 
 ## Cloud deployment sketch
 

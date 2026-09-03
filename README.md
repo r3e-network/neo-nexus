@@ -20,6 +20,8 @@ inside the binary — no Node toolchain, no external services, one executable.
   release package verification without opening a browser.
 - Import runtime catalogs, validate NEP-6 wallet profiles (metadata only), and
   validate private-network launch packs.
+- Operate a separately deployed NeoOS Rust signer without bringing Neo custody
+  keys, policy evaluation, or signer audit tables into this process.
 
 neo-rs is a first-class runtime target. NeoNexus recognizes the `neo-node`
 binary, validates RocksDB-oriented TOML configs, supports Fast Sync snapshot
@@ -161,6 +163,8 @@ The source tree is intentionally Rust-only:
   High-level operations live here: `core::lifecycle` (node start/stop/restart
   orchestration), `core::node_health` and `core::workspace_queries` (read APIs
   so a surface never queries the repository directly during rendering).
+- `src/signer_client/` is the client-only NeoOS custody boundary: validated
+  endpoint, bearer/workload authentication, wire types, and HTTP transport.
 - Domain modules such as `runtime`, `snapshots`, `config`, `launch`,
   `repository`, `backup`, `wallet`, `private_network`, `supervisor`,
   `source_purity`, `source_quality`, and `ci_policy` hold reusable behavior
@@ -194,6 +198,8 @@ Tests are kept out of `src/` so the source tree reads as production only:
   and release evidence expected before handoff.
 - [Operator Benchmarks](docs/operator-benchmarks.md) summarizes the node
   manager product patterns used to shape the workbench.
+- [NeoOS signer integration](docs/signer-service.md) defines the client-only
+  custody boundary, endpoint and workload authentication, API, and tests.
 - [Runtime catalog example](docs/runtime-catalog.example.json) and
   [snapshot catalog example](docs/snapshot-catalog.example.json) are importable
   schema samples for Runtime Manager and Fast Sync workflows.
