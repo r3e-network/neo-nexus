@@ -24,6 +24,8 @@ inside the binary — no Node toolchain, no external services, one executable.
   keys, policy evaluation, or signer audit tables into this process.
 - Recover crashed processes with bounded retries, protect against recycled PIDs,
   and retain alert delivery progress across workbench restarts.
+- Persist recovery budgets across workbench restarts, detect wrong-network RPC
+  connections and alert on host storage or available-memory pressure.
 - Review configuration conflicts before applying updates, select verified node
   versions, and manage neo-cli plugin versions and activation on disk.
 - Supervise an existing Hermes installation and grant its MCP client access to
@@ -93,6 +95,8 @@ the same Prometheus exposition the CLI exports.
 carry node scope and monitoring/operation permissions; web sign-in tokens cannot
 authorize MCP calls. [Audit coverage and boundaries](docs/node-operations-audit.md)
 describe what has been tested and where a native client adapter is still needed.
+See [operational resilience](docs/operational-resilience.md) for recovery, resource
+thresholds, chain observations and restore boundaries.
 
 ## Headless CLI
 
