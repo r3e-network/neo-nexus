@@ -41,6 +41,8 @@ pub(super) const KNOWN_OPTIONS: &[&str] = &[
     "--generate-node-config-json",
     "--validate-node-config",
     "--validate-node-config-json",
+    "--config-drift",
+    "--config-drift-json",
     "--export-backup",
     "--export-backup-json",
     "--import-backup",

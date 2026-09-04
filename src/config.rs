@@ -1,7 +1,10 @@
+mod drift;
 mod export;
 mod format;
 mod generator;
 mod validation;
+
+pub use drift::{line_drift, ConfigLineDrift};
 
 pub use self::export::{
     ConfigExport, ConfigExporter, NodeConfigExportReport, WorkspaceConfigExport,

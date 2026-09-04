@@ -18,6 +18,8 @@
 
 mod context;
 
+pub use context::generation_context_for_node;
+
 use std::path::{Path, PathBuf};
 
 use crate::{
