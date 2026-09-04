@@ -12,6 +12,7 @@ use super::super::{
 
 pub(super) struct InstallManifestRequest<'a> {
     pub(super) manifest: &'a PluginPackageManifest,
+    pub(super) release: Option<&'a crate::plugins::PluginReleaseMetadata>,
     pub(super) node: &'a NodeConfig,
     pub(super) source_path: &'a Path,
     pub(super) sha256: &'a str,
@@ -36,6 +37,7 @@ pub(super) fn write_install_manifest(request: InstallManifestRequest<'_>) -> Res
     }
     let manifest_text = serde_json::to_string_pretty(&InstalledPluginManifest {
         schema_version: 1,
+        release: request.release.cloned(),
         plugin_id: request.manifest.plugin_id.to_string(),
         label: request.manifest.label.trim().to_string(),
         node_id: request.node.id.clone(),

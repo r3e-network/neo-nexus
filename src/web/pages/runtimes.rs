@@ -7,7 +7,7 @@
 //! signature posture — before the button is offered.
 
 use axum::{
-    extract::{Form, Query, RawQuery, State},
+    extract::{Form, Path, Query, RawQuery, State},
     response::{Html, IntoResponse, Redirect, Response},
 };
 use serde::Deserialize;
@@ -104,6 +104,7 @@ fn render_body(state: &WebState, params: &RuntimeQuery) -> anyhow::Result<String
 {jobs}
 <h2>Installed binaries</h2>
 {installations}
+{selection}
 <h2>Catalog profiles</h2>
 {profiles}
 {staged}"#,
@@ -123,6 +124,7 @@ fn render_body(state: &WebState, params: &RuntimeQuery) -> anyhow::Result<String
         ]),
         jobs = job_panel(state),
         installations = installation_table(&installations),
+        selection = selection_forms(state, &installations)?,
         profiles = profile_table(&profiles),
         staged = catalogue_section(state, params)?,
     ))
@@ -407,4 +409,53 @@ fn short_hash(digest: &str) -> String {
     } else {
         head
     }
+}
+
+fn selection_forms(
+    state: &WebState,
+    installations: &[RuntimeInstallation],
+) -> anyhow::Result<String> {
+    let mut body = String::from("<h2>Node versions</h2><p>Stop a node before selecting an installed version. The selection checks the binary digest, plugin compatibility and local config conflicts. Older installed versions can be selected to roll back.</p>");
+    for node in state.repository.list_nodes()? {
+        let options = installations
+            .iter()
+            .filter(|installation| {
+                installation.node_type == node.node_type
+                    && installation.platform == RuntimePlatform::current()
+            })
+            .map(|installation| {
+                format!(
+                    r#"<option value="{}">{} ({})</option>"#,
+                    html::escape(&installation.package_id),
+                    html::escape(&installation.version),
+                    html::escape(&installation.label)
+                )
+            })
+            .collect::<String>();
+        if options.is_empty() {
+            continue;
+        }
+        body.push_str(&format!(r#"<form method="post" action="/runtimes/{id}/use"><label>{name} - current {version}<select name="package">{options}</select></label><button type="submit">Use selected version</button></form>"#,
+            id=html::escape(&node.id), name=html::escape(&node.name), version=html::escape(&node.runtime_version)));
+    }
+    Ok(body)
+}
+
+#[derive(Deserialize)]
+pub struct SelectRuntimeForm {
+    package: String,
+}
+
+pub async fn select_version(
+    State(state): State<WebState>,
+    Path(id): Path<String>,
+    Form(form): Form<SelectRuntimeForm>,
+) -> Response {
+    let message = runtime_ops::apply_installed(&state, &id, &form.package)
+        .unwrap_or_else(|error| format!("runtime not changed: {error}"));
+    Redirect::to(&format!(
+        "/runtimes?flash={}",
+        html::urlencoding_lite(&message)
+    ))
+    .into_response()
 }

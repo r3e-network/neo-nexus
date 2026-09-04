@@ -7,8 +7,9 @@ mod validation;
 pub use drift::{line_drift, ConfigLineDrift};
 
 pub use self::export::{
-    ConfigExport, ConfigExporter, NodeConfigExportReport, WorkspaceConfigExport,
-    WorkspaceConfigExporter, WorkspaceConfigReport,
+    config_conflict, list_config_conflicts, resolve_config_conflict, ConfigConflict, ConfigExport,
+    ConfigExporter, NodeConfigExportReport, WorkspaceConfigExport, WorkspaceConfigExporter,
+    WorkspaceConfigReport,
 };
 pub use self::format::{
     neox_block_period_secs, neox_bootnodes, neox_chain_id, neox_genesis_hash, neox_reth_chain,
@@ -20,3 +21,5 @@ pub use self::generator::{ConfigGenerator, PluginSidecar};
 pub use self::validation::{
     ConfigValidationCheck, ConfigValidationReport, ConfigValidationSeverity, ConfigValidator,
 };
+
+pub(crate) use export::{prepare_plugin_config, stage_plugin_config};

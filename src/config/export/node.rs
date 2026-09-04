@@ -1,16 +1,13 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use crate::{
     catalog::PluginState,
     types::{NodeConfig, NodeType},
 };
 
-use super::model::ConfigExport;
+use super::{managed, model::ConfigExport};
 use crate::config::{
     format::{config_filename, GenerationContext, RuntimeConfigProfile},
     generator::ConfigGenerator,
@@ -20,6 +17,31 @@ use crate::config::{
 pub struct ConfigExporter;
 
 impl ConfigExporter {
+    /// Stage candidates for operator review without changing any active file.
+    pub fn review_node_config(
+        path: &Path,
+        node: &NodeConfig,
+        plugins: &[PluginState],
+        context: &GenerationContext,
+    ) -> Result<usize> {
+        let rendered = ConfigGenerator::render_for_node_with_context(node, plugins, None, context)?;
+        let mut count = usize::from(!managed::prepare(
+            path,
+            rendered.text.as_bytes(),
+            &node.runtime_version,
+        )?);
+        if let Some(directory) = path.parent() {
+            for sidecar in ConfigGenerator::sidecars_for_node(node, plugins) {
+                count += usize::from(!managed::prepare(
+                    &directory.join(sidecar.relative_path),
+                    sidecar.text.as_bytes(),
+                    &node.runtime_version,
+                )?);
+            }
+        }
+        Ok(count)
+    }
+
     pub fn target_path(base_dir: impl AsRef<Path>, node: &NodeConfig) -> PathBuf {
         base_dir.as_ref().join(config_filename(node))
     }
@@ -97,69 +119,47 @@ impl ConfigExporter {
         }
 
         let path = path.as_ref().to_path_buf();
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).with_context(|| {
-                format!("failed to create config directory {}", parent.display())
-            })?;
+        if node.node_type == NodeType::NeoCli {
+            if let Some(directory) = path.parent() {
+                for plugin in plugins.iter().filter(|plugin| plugin.enabled) {
+                    let manifest = directory
+                        .join("Plugins")
+                        .join(plugin.plugin_id.to_string())
+                        .join(".neonexus/manifest.json");
+                    if manifest.is_file() {
+                        if let Some(release) = crate::plugins::installed_plugin_release(&manifest)?
+                        {
+                            release.validate_for(node)?;
+                        }
+                    }
+                }
+            }
         }
-        fs::write(&path, rendered.text.as_bytes())
-            .with_context(|| format!("failed to write config {}", path.display()))?;
-
-        restrict_permissions(&path);
-
-        let sidecars = Self::write_plugin_sidecars(&path, node, plugins)?;
+        let mut files = vec![(path.clone(), rendered.text)];
+        if let Some(node_dir) = path.parent() {
+            files.extend(
+                ConfigGenerator::sidecars_for_node(node, plugins)
+                    .into_iter()
+                    .map(|sidecar| (node_dir.join(sidecar.relative_path), sidecar.text)),
+            );
+        }
+        let mut conflicts = Vec::new();
+        for (file, text) in &files {
+            if !managed::prepare(file, text.as_bytes(), &node.runtime_version)? {
+                conflicts.push(file.display().to_string());
+            }
+        }
+        if !conflicts.is_empty() {
+            anyhow::bail!("configuration conflicts: {}. Active files were preserved. Review local and candidate files in /config before retrying", conflicts.join(", "));
+        }
+        for (file, text) in &files {
+            managed::publish(file, text.as_bytes(), &node.runtime_version)?;
+        }
 
         Ok(ConfigExport {
-            bytes_written: rendered.text.len() + sidecars.bytes_written,
-            sidecar_paths: sidecars.paths,
+            bytes_written: files.iter().map(|(_, text)| text.len()).sum(),
+            sidecar_paths: files.into_iter().skip(1).map(|(path, _)| path).collect(),
             path,
         })
     }
-
-    /// Writes each enabled plugin's own configuration file beside the primary
-    /// one. neo-cli configures the RPC listener, the oracle service, the state
-    /// service and dBFT in `Plugins/<Name>/<Name>.json`, not in `config.json`,
-    /// so an export that skips these configures none of them.
-    fn write_plugin_sidecars(
-        primary: &Path,
-        node: &NodeConfig,
-        plugins: &[PluginState],
-    ) -> Result<WrittenSidecars> {
-        let Some(node_dir) = primary.parent() else {
-            return Ok(WrittenSidecars::default());
-        };
-        let mut written = WrittenSidecars::default();
-        for sidecar in ConfigGenerator::sidecars_for_node(node, plugins) {
-            let path = node_dir.join(&sidecar.relative_path);
-            if let Some(parent) = path.parent() {
-                fs::create_dir_all(parent).with_context(|| {
-                    format!("failed to create plugin directory {}", parent.display())
-                })?;
-            }
-            fs::write(&path, sidecar.text.as_bytes())
-                .with_context(|| format!("failed to write plugin config {}", path.display()))?;
-            restrict_permissions(&path);
-            written.bytes_written += sidecar.text.len();
-            written.paths.push(path);
-        }
-        Ok(written)
-    }
-}
-
-#[derive(Default)]
-struct WrittenSidecars {
-    paths: Vec<PathBuf>,
-    bytes_written: usize,
-}
-
-/// Config files carry network magic, seed addresses and validator keys, and a
-/// plugin file may carry an RPC password, so they stay owner-only on Unix.
-fn restrict_permissions(path: &Path) {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o600));
-    }
-    #[cfg(not(unix))]
-    let _ = path;
 }

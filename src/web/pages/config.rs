@@ -76,6 +76,7 @@ fn render_body(state: &WebState, nodes: &[NodeConfig]) -> String {
         r#"<h1>Config</h1>
 {tiles}
 {table}
+{conflicts}
 <h2>Workspace export</h2>
 {export_note}
 {export_form}"#,
@@ -93,9 +94,11 @@ fn render_body(state: &WebState, nodes: &[NodeConfig]) -> String {
                 "Plugins enabled",
                 "Managed config",
                 "Written",
+                "Review",
             ],
             &rows.iter().map(config_row).collect::<Vec<_>>(),
         ),
+        conflicts = nodes.iter().map(|node| super::config_conflicts::render(state, node)).collect::<String>(),
         export_note = html::note(
             "Export writes every node runtime config plus report files — the same artifact --export-node-configs produces.",
         ),
@@ -124,6 +127,11 @@ fn config_row(row: &ConfigRow) -> String {
         } else {
             "no"
         }),
+        html::raw_cell(&html::control_form(
+            &format!("/config/{}/review", row.node.id),
+            &[],
+            "Review config",
+        )),
     ])
 }
 

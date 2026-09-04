@@ -26,6 +26,96 @@ use super::WebState;
 /// installs could interleave writes into the same tree.
 pub const LANE: &str = "runtime";
 
+/// Select a verified installed version, including an explicit rollback. Config
+/// reviews happen against the proposed version before the node record changes.
+pub fn apply_installed(
+    state: &WebState,
+    node_id: &str,
+    package_id: &str,
+) -> anyhow::Result<String> {
+    let supervisor = state.supervisor();
+    let mut node = state
+        .repository
+        .list_nodes()?
+        .into_iter()
+        .find(|node| node.id == node_id)
+        .ok_or_else(|| anyhow::anyhow!("node not found"))?;
+    if node.status.is_running() || node.pid.is_some() || supervisor.is_managing(node_id) {
+        anyhow::bail!("stop the node before changing runtime versions");
+    }
+    let installation = state
+        .repository
+        .list_runtime_installations()?
+        .into_iter()
+        .find(|installation| installation.package_id == package_id)
+        .ok_or_else(|| anyhow::anyhow!("installed runtime package not found"))?;
+    if installation.node_type != node.node_type
+        || installation.platform != RuntimePlatform::current()
+    {
+        anyhow::bail!("installed runtime does not match this node type and host platform");
+    }
+    let (sha, bytes) = crate::snapshots::sha256_file(&installation.binary_path)?;
+    if sha != installation.sha256 || bytes != installation.bytes {
+        anyhow::bail!("installed binary changed since verification; reinstall before selecting it");
+    }
+    let previous = node.runtime_version.clone();
+    node.runtime_version = installation.version;
+    node.binary_path = installation.binary_path;
+    let plugins = state.repository.list_plugin_states(node_id)?;
+    for installed in state.repository.list_plugin_installations(node_id)? {
+        if plugins
+            .iter()
+            .any(|plugin| plugin.plugin_id == installed.plugin_id && plugin.enabled)
+        {
+            if let Some(release) =
+                crate::plugins::installed_plugin_release(&installed.manifest_path)?
+            {
+                release.validate_for(&node)?;
+            }
+        }
+    }
+    if crate::launch::runtime_args_include_config(node.node_type, &node.args) {
+        anyhow::bail!("this node uses an external config; review that config and change the runtime through the node editor");
+    }
+    let path = crate::config::ConfigExporter::managed_target_path(
+        state.workspace_child_dir("nodes").join(node_id),
+        &node,
+    );
+    let context = crate::node_lifecycle::generation_context_for_node(&state.repository, &node);
+    let count =
+        crate::config::ConfigExporter::review_node_config(&path, &node, &plugins, &context)?;
+    if count > 0 {
+        anyhow::bail!("{count} configuration conflict(s) require review in /config; runtime selection was preserved");
+    }
+    state.repository.update_node(
+        node_id,
+        crate::types::NewNode {
+            name: node.name.clone(),
+            node_type: node.node_type,
+            network: node.network,
+            binary_path: node.binary_path.clone(),
+            args: node.args,
+            runtime_version: node.runtime_version.clone(),
+            storage_engine: node.storage_engine,
+            rpc_port: node.rpc_port,
+            p2p_port: node.p2p_port,
+            ws_port: node.ws_port,
+        },
+    )?;
+    let message = format!(
+        "{} runtime changed from {} to {}; start the node to activate",
+        node.name, previous, node.runtime_version
+    );
+    let _ = state.repository.record_event(NewRuntimeEvent {
+        node_id: Some(node.id),
+        node_name: Some(node.name),
+        kind: EventKind::RuntimeApplied,
+        severity: EventSeverity::Info,
+        message: message.clone(),
+    });
+    Ok(message)
+}
+
 /// A release the operator has chosen, resolved from the catalogue.
 pub struct Staged {
     pub profile: RuntimeCatalogProfile,

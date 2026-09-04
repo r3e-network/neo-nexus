@@ -69,6 +69,28 @@ pub fn execute_node_launch(
     action: LaunchAction,
     managed_config: Option<ManagedConfig<'_>>,
 ) -> NodeLaunchOutcome {
+    // neo-cli discovers plugins from disk, so repository flags must reach the
+    // loader tree. A live restart never moves loaded assemblies: require Stop
+    // when activation changed, preserving the current process on a failed review.
+    let plugin_state =
+        if supervisor.is_managing(&node.id) || node.status.is_running() || node.pid.is_some() {
+            crate::plugins::PluginPackageManager::validate_enabled_layout(
+                repository,
+                &plan.working_dir,
+                node,
+            )
+        } else {
+            crate::plugins::PluginPackageManager::synchronize_enabled(
+                repository,
+                &plan.working_dir,
+                node,
+            )
+        };
+    if let Err(error) = plugin_state {
+        return NodeLaunchOutcome::Failed {
+            message: error.to_string(),
+        };
+    }
     if let Some(config) = managed_config {
         // Rendered for the duty the workspace records, not as a bare relay. A
         // context-free render here silently overwrote the section an operator

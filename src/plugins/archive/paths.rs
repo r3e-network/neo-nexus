@@ -19,6 +19,7 @@ pub(super) fn safe_archive_relative_path(path: &Path) -> Result<Option<PathBuf>>
                     || text == "."
                     || text == ".."
                     || text.is_empty()
+                    || text.to_ascii_lowercase().contains(".neonexus-")
                 {
                     anyhow::bail!(
                         "plugin package entry {} contains an unsafe path component",
