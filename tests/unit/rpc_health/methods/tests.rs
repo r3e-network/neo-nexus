@@ -39,7 +39,14 @@ fn a_syncing_verdict_distinguishes_head_from_catch_up() {
         })),
         Some(true)
     );
-    for not_a_verdict in [json!(true), json!(null), json!("false"), json!(7)] {
+    for not_a_verdict in [
+        json!(true),
+        json!(null),
+        json!("false"),
+        json!(7),
+        json!({}),
+        json!({"currentBlock":"0x1"}),
+    ] {
         assert_eq!(
             syncing_verdict(&not_a_verdict),
             None,
@@ -76,7 +83,7 @@ fn an_evm_block_number_is_decoded_and_turned_into_a_count() {
     let neox = probe_methods(ChainFamily::NeoX);
     assert_eq!(neox.block_count(&json!("0x0")), Some(1));
     assert_eq!(neox.block_count(&json!("0x10")), Some(17));
-    assert_eq!(neox.block_count(&json!("0X10")), Some(17));
+    assert_eq!(neox.block_count(&json!("0X10")), None);
 }
 
 /// A decimal string is not a valid EVM QUANTITY. Guessing at one would turn
@@ -84,7 +91,14 @@ fn an_evm_block_number_is_decoded_and_turned_into_a_count() {
 #[test]
 fn a_malformed_evm_quantity_is_reported_as_unknown_rather_than_guessed() {
     let neox = probe_methods(ChainFamily::NeoX);
-    for malformed in [json!("10"), json!("0xzz"), json!(17), json!(null)] {
+    for malformed in [
+        json!("10"),
+        json!("0xzz"),
+        json!(17),
+        json!(null),
+        json!("0x"),
+        json!("0x01"),
+    ] {
         assert_eq!(neox.block_count(&malformed), None, "{malformed}");
     }
 }

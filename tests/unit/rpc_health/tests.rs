@@ -9,6 +9,8 @@ use anyhow::Result;
 
 use super::{probe_rpc_endpoint, RpcHealthStatus};
 
+mod protocol;
+
 #[test]
 fn rpc_health_reports_healthy_node() -> Result<()> {
     let endpoint = spawn_rpc_server(ServerMode::Healthy)?;

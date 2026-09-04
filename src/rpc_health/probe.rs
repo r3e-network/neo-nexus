@@ -38,18 +38,48 @@ pub fn probe_rpc_endpoint_for(
     let methods = probe_methods(family);
     let normalized_endpoint = normalize_endpoint(endpoint);
     let agent = ureq::AgentBuilder::new()
+        .redirects(0)
         .timeout_connect(timeout)
         .timeout_read(timeout)
         .timeout_write(timeout)
         .build();
 
-    let version_health = call_method(&agent, &normalized_endpoint, methods.version);
-    let block_health = call_method(&agent, &normalized_endpoint, methods.height);
-    let syncing = methods.syncing.and_then(|method| {
-        call_method(&agent, &normalized_endpoint, method)
-            .ok()
-            .and_then(|value| methods::syncing_verdict(&value))
+    let version_health =
+        call_method(&agent, &normalized_endpoint, methods.version).and_then(|value| {
+            let valid = match family {
+                ChainFamily::NeoN3 => {
+                    value.is_object()
+                        && summarize_version(&value).is_some_and(|text| !text.trim().is_empty())
+                }
+                ChainFamily::NeoX => value.as_str().is_some_and(|text| !text.trim().is_empty()),
+            };
+            if valid {
+                Ok(value)
+            } else {
+                anyhow::bail!("invalid client version response")
+            }
+        });
+    let block_health =
+        call_method(&agent, &normalized_endpoint, methods.height).and_then(|value| {
+            if methods.block_count(&value).is_some() {
+                Ok(value)
+            } else {
+                anyhow::bail!("invalid block count response")
+            }
+        });
+    let sync_health = methods.syncing.map(|method| {
+        call_method(&agent, &normalized_endpoint, method).and_then(|value| {
+            if methods::syncing_verdict(&value).is_some() {
+                Ok(value)
+            } else {
+                anyhow::bail!("invalid synchronization response")
+            }
+        })
     });
+    let syncing = sync_health
+        .as_ref()
+        .and_then(|result| result.as_ref().ok())
+        .and_then(methods::syncing_verdict);
 
     let version = version_health.as_ref().ok().and_then(summarize_version);
     let block_count = block_health
@@ -57,17 +87,22 @@ pub fn probe_rpc_endpoint_for(
         .ok()
         .and_then(|value| methods.block_count(value));
 
-    let methods = vec![
+    let mut method_reports = vec![
         method_health(methods.version, &version_health),
         method_health(methods.height, &block_health),
     ];
-    let ok_count = methods.iter().filter(|method| method.ok).count();
+    let ok_count = method_reports.iter().filter(|method| method.ok).count();
     let mut status = match ok_count {
         2 => RpcHealthStatus::Healthy,
         1 => RpcHealthStatus::Degraded,
         _ => RpcHealthStatus::Unreachable,
     };
-    if syncing == Some(true) && status == RpcHealthStatus::Healthy {
+    if let (Some(method), Some(result)) = (methods.syncing, &sync_health) {
+        method_reports.push(method_health(method, result));
+    }
+    if (syncing == Some(true) || sync_health.as_ref().is_some_and(Result::is_err))
+        && status == RpcHealthStatus::Healthy
+    {
         // A reachable node that is still catching up is not Healthy: both
         // scored methods answer while the chain it serves is behind.
         status = RpcHealthStatus::Degraded;
@@ -79,6 +114,6 @@ pub fn probe_rpc_endpoint_for(
         version,
         block_count,
         syncing,
-        methods,
+        methods: method_reports,
     }
 }

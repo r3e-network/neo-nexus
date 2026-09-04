@@ -28,9 +28,6 @@ pub(super) fn summarize_version(value: &Value) -> Option<String> {
     if let Some(version) = value.get("version").and_then(Value::as_str) {
         return Some(version.to_string());
     }
-    if value.is_object() {
-        return Some(summarize_value(value));
-    }
     value.as_str().map(ToString::to_string)
 }
 
