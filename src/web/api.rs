@@ -82,13 +82,20 @@ pub async fn readiness(State(state): State<WebState>) -> Response {
 }
 
 pub async fn metrics_prometheus(State(state): State<WebState>) -> Response {
-    match metrics_page::collect_snapshot(&state.repository) {
-        Ok(snapshot) => (
+    let metrics = metrics_page::collect_snapshot(&state.repository).and_then(|snapshot| {
+        Ok(format!(
+            "{}{}",
+            snapshot.to_prometheus_text(),
+            super::pages::resources::prometheus(&state.repository)?
+        ))
+    });
+    match metrics {
+        Ok(text) => (
             [(
                 axum::http::header::CONTENT_TYPE,
                 "text/plain; version=0.0.4",
             )],
-            snapshot.to_prometheus_text(),
+            text,
         )
             .into_response(),
         Err(error) => error_response(&error),

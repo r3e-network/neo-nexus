@@ -1,4 +1,30 @@
 use super::*;
+
+#[test]
+fn host_resources_require_explicit_fleet_scope() {
+    let (_directory, state, node, id, token) = fixture(false);
+    assert_eq!(
+        tool(&state, &token, "fleet_resources", json!({}))["result"]["isError"],
+        true
+    );
+    let (_, fleet_token) = state
+        .repository
+        .connect_assistant(AssistantDraft {
+            id,
+            name: "Fleet observer".into(),
+            agent_id: "hermes".into(),
+            node_ids: vec![node.id],
+            all_nodes: true,
+            can_operate: false,
+        })
+        .unwrap();
+    let response = tool(&state, &fleet_token, "fleet_resources", json!({}));
+    assert_eq!(response["result"]["isError"], false);
+    let data = tool_data(&response);
+    assert_eq!(data["fresh"], false);
+    assert!(!data.to_string().contains("worker.db"));
+    assert!(!data.to_string().contains("storage_paths"));
+}
 use crate::{
     agents::{AgentKind, AgentProfile, AgentRecord, AgentStatus},
     assistants::AssistantDraft,

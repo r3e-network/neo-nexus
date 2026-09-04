@@ -100,7 +100,7 @@ fn render(
         })
         .unwrap_or_default();
     body.push_str(&format!(r#"</select></label><label>NeoNexus MCP address<input id="assistant-endpoint" name="endpoint" type="url" value="{}" required placeholder="http://127.0.0.1:8080/mcp"></label><p>Use the address this Hermes process can reach. HTTPS or loopback HTTP is required.</p><fieldset><legend>Node scope</legend>"#, html::escape(&endpoint)));
-    body.push_str(&format!(r#"<label><input type="checkbox" name="all_nodes" value="true" {}>All current and future nodes</label>"#, if selected.is_some_and(|profile| profile.all_nodes) { "checked" } else { "" }));
+    body.push_str(&format!(r#"<label><input type="checkbox" name="all_nodes" value="true" {}>All current and future nodes, including host resource monitoring</label>"#, if selected.is_some_and(|profile| profile.all_nodes) { "checked" } else { "" }));
     for node in nodes {
         body.push_str(&format!(
             r#"<label><input type="checkbox" name="node_{}" value="true" {}>{}</label>"#,

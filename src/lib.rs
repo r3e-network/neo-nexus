@@ -29,6 +29,7 @@ pub mod readiness_report;
 pub mod redaction;
 pub mod release_pack;
 pub mod repository;
+pub mod resource_health;
 pub mod roles;
 pub mod rpc_health;
 pub mod runtime;

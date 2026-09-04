@@ -16,6 +16,7 @@ pub mod node_editor;
 pub mod nodes;
 pub mod operations;
 pub mod plugins;
+pub mod resources;
 pub mod roles;
 pub mod runtimes;
 pub mod settings;

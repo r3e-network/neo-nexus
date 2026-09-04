@@ -35,6 +35,8 @@ macro_rules! define_event_kinds {
 define_event_kinds! {
     ChainProgressStalled => "chain-progress-stalled",
     ChainProgressRecovered => "chain-progress-recovered",
+    HostResourcesChanged => "host-resources-changed",
+    ResourcePolicyUpdated => "resource-policy-updated",
     AssistantConfigured => "assistant-configured",
     AssistantToolCalled => "assistant-tool-called",
     AgentSaved => "agent-saved",

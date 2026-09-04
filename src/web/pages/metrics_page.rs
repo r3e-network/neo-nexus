@@ -26,9 +26,7 @@ pub async fn metrics(State(state): State<WebState>) -> Response {
 }
 
 fn render(repository: &crate::repository::Repository) -> anyhow::Result<String> {
-    let nodes = repository.list_nodes()?;
-    let mut collector = MetricsCollector::new(Duration::ZERO);
-    let snapshot = collector.refresh(&nodes, Instant::now());
+    let snapshot = collect_snapshot(repository)?;
     Ok(format!(
         r#"<h1>Metrics</h1>
 <h2>Snapshot</h2>
@@ -37,7 +35,14 @@ fn render(repository: &crate::repository::Repository) -> anyhow::Result<String> 
 <pre>{prom}</pre>
 <p class="muted">Scrape the same exposition from <code>/api/metrics-prometheus</code>.</p>"#,
         text = html::escape(snapshot.to_cli_text().trim_end()),
-        prom = html::escape(snapshot.to_prometheus_text().trim_end()),
+        prom = html::escape(
+            format!(
+                "{}{}",
+                snapshot.to_prometheus_text(),
+                super::resources::prometheus(repository)?
+            )
+            .trim_end()
+        ),
     ))
 }
 

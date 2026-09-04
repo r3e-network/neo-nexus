@@ -30,7 +30,7 @@ pub async fn monitor(
     State(state): State<WebState>,
     Query(params): Query<MonitorQuery>,
 ) -> Response {
-    let body = match collect_snapshot(&state.repository) {
+    let mut body = match collect_snapshot(&state.repository) {
         Ok(snapshot) => {
             let rows = filter_process_rows(
                 &snapshot.node_processes,
@@ -41,6 +41,10 @@ pub async fn monitor(
         }
         Err(error) => html::note(&format!("failed to collect metrics: {error}")),
     };
+    body.push_str(
+        &super::resources::summary(&state.repository)
+            .unwrap_or_else(|error| html::note(&error.to_string())),
+    );
     Html(html::layout("Monitor", "monitor", "", &body)).into_response()
 }
 
