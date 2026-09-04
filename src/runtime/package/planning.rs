@@ -76,7 +76,10 @@ impl RuntimePackageManager {
             })
             .max_by(|left, right| compare_installations(left, right))?;
 
-        if node.runtime_version == best.version && node.binary_path == best.binary_path {
+        if compare_versions(&best.version, &node.runtime_version) == Ordering::Less
+            || (compare_versions(&best.version, &node.runtime_version) == Ordering::Equal
+                && node.binary_path == best.binary_path)
+        {
             return None;
         }
 
