@@ -15,6 +15,39 @@ fn each_family_is_asked_the_methods_its_clients_answer() {
     assert_eq!(neox.height, "eth_blockNumber");
 }
 
+/// Only Neo X has a sync call to ask: Neo N3 reports catch-up through its
+/// block count, not through a dedicated method.
+#[test]
+fn only_the_evm_family_has_a_syncing_call() {
+    assert!(probe_methods(ChainFamily::NeoN3).syncing.is_none());
+    assert_eq!(
+        probe_methods(ChainFamily::NeoX).syncing,
+        Some("eth_syncing")
+    );
+}
+
+/// `eth_syncing` answers `false` at head, or an object of block numbers while
+/// catching up. A healthy probe must tell the two apart.
+#[test]
+fn a_syncing_verdict_distinguishes_head_from_catch_up() {
+    assert_eq!(syncing_verdict(&json!(false)), Some(false));
+    assert_eq!(
+        syncing_verdict(&json!({
+            "startingBlock": "0x10",
+            "currentBlock": "0x14",
+            "highestBlock": "0x40"
+        })),
+        Some(true)
+    );
+    for not_a_verdict in [json!(true), json!(null), json!("false"), json!(7)] {
+        assert_eq!(
+            syncing_verdict(&not_a_verdict),
+            None,
+            "{not_a_verdict} is not a verdict"
+        );
+    }
+}
+
 /// No method name may be shared: if one leaked across, the bug would only show
 /// up against a live node of the other family.
 #[test]

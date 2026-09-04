@@ -45,6 +45,11 @@ pub fn probe_rpc_endpoint_for(
 
     let version_health = call_method(&agent, &normalized_endpoint, methods.version);
     let block_health = call_method(&agent, &normalized_endpoint, methods.height);
+    let syncing = methods.syncing.and_then(|method| {
+        call_method(&agent, &normalized_endpoint, method)
+            .ok()
+            .and_then(|value| methods::syncing_verdict(&value))
+    });
 
     let version = version_health.as_ref().ok().and_then(summarize_version);
     let block_count = block_health
@@ -57,17 +62,23 @@ pub fn probe_rpc_endpoint_for(
         method_health(methods.height, &block_health),
     ];
     let ok_count = methods.iter().filter(|method| method.ok).count();
-    let status = match ok_count {
+    let mut status = match ok_count {
         2 => RpcHealthStatus::Healthy,
         1 => RpcHealthStatus::Degraded,
         _ => RpcHealthStatus::Unreachable,
     };
+    if syncing == Some(true) && status == RpcHealthStatus::Healthy {
+        // A reachable node that is still catching up is not Healthy: both
+        // scored methods answer while the chain it serves is behind.
+        status = RpcHealthStatus::Degraded;
+    }
 
     RpcHealthReport {
         endpoint: normalized_endpoint,
         status,
         version,
         block_count,
+        syncing,
         methods,
     }
 }
