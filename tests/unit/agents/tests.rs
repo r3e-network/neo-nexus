@@ -184,3 +184,45 @@ fn restart_budget_is_bounded_and_persistent() {
     assert!(!record.desired_running);
     assert!(record.restart_after.is_none());
 }
+
+#[test]
+fn launch_intent_is_durable_and_rejects_stale_or_duplicate_controllers() {
+    let (_dir, state, profile) = fixture();
+    save(&state, profile).unwrap();
+    let original = state.repository.list_agents().unwrap().remove(0);
+    let mut edited = original.clone();
+    edited.profile.name = "Reviewed companion".into();
+    state.repository.put_agent(&edited).unwrap();
+    assert!(state.repository.claim_agent_start(&original, true).is_err());
+    let claimed = state.repository.claim_agent_start(&edited, true).unwrap();
+    assert_eq!(claimed.status, AgentStatus::Starting);
+    assert!(claimed.desired_running);
+    let reopened = crate::repository::Repository::open(state.repository.db_path()).unwrap();
+    assert_eq!(reopened.list_agents().unwrap()[0], claimed);
+    assert!(reopened.claim_agent_start(&edited, true).is_err());
+    assert!(reopened.claim_agent_start(&claimed, true).is_err());
+    assert!(start(&state, "worker").is_err());
+    stop(&state, "worker").unwrap();
+    assert!(!reopened.list_agents().unwrap()[0].desired_running);
+}
+
+#[test]
+fn failed_launch_intent_write_cannot_spawn_or_overwrite_the_profile() {
+    let (_dir, state, profile) = fixture();
+    save(&state, profile).unwrap();
+    let original = state.repository.list_agents().unwrap().remove(0);
+    let database = rusqlite::Connection::open(state.repository.db_path()).unwrap();
+    database
+        .execute_batch(
+            "CREATE TRIGGER reject_start_intent BEFORE UPDATE ON managed_agents
+        WHEN json_extract(NEW.record, '$.status') = 'Starting'
+        BEGIN SELECT RAISE(ABORT, 'test intent write failure'); END;",
+        )
+        .unwrap();
+    assert!(start(&state, "worker")
+        .unwrap_err()
+        .to_string()
+        .contains("test intent write failure"));
+    assert_eq!(state.repository.list_agents().unwrap()[0], original);
+    assert!(!state.supervisor.lock().unwrap().is_managing("agent:worker"));
+}

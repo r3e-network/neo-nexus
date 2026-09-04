@@ -80,10 +80,9 @@ pub(super) fn start_inner(state: &EngineState, id: &str, manual: bool) -> Result
     if record.pid.is_some() || supervisor.is_managing(&record.profile.process_id()) {
         bail!("agent already has a recorded process; stop it before starting again");
     }
-    if manual {
-        record.restart_attempts = 0;
-    }
-    record.desired_running = true;
+    // Persist intent before deriving arguments from associated node settings.
+    // A failed claim must never enter the failure handler with a stale record.
+    record = state.repository.claim_agent_start(&record, manual)?;
     let outcome = (|| {
         record.profile.validate(&state.repository)?;
         if code_digest(&record.profile)? != record.profile.binary_sha256 {
@@ -116,12 +115,28 @@ pub(super) fn start_inner(state: &EngineState, id: &str, manual: bool) -> Result
         record.healthy = None;
         record.last_health_at = 0;
         if let Err(error) = state.repository.put_agent(&record) {
-            let _ = supervisor.stop_process(&spec.id);
+            if let Err(stop_error) = supervisor.stop_process(&spec.id) {
+                anyhow::bail!("could not persist agent PID {} ({error}); stopping that process also failed ({stop_error}); process handle retained", started.pid);
+            }
             return Err(error);
         }
         Ok(())
     })();
     if let Err(error) = outcome {
+        if supervisor.is_managing(&record.profile.process_id()) {
+            record.status = AgentStatus::Error;
+            record.desired_running = false;
+            record.restart_after = None;
+            let _ = state.repository.put_agent(&record);
+            journal(
+                state,
+                &record,
+                EventKind::AgentStartFailed,
+                EventSeverity::Critical,
+                &format!("start failed with a retained process: {error}"),
+            );
+            return Err(error);
+        }
         record.pid = None;
         record.process_started_at = None;
         record.status = AgentStatus::Error;
