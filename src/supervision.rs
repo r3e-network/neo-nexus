@@ -68,6 +68,10 @@ const JOURNAL_SCAN_LIMIT: usize = 25;
 /// due and is picked up on the next ticks.
 const MAX_RPC_PROBES_PER_TICK: usize = 8;
 const MAX_ALERT_DELIVERIES_PER_TICK: usize = 8;
+/// How many ticks a failed webhook delivery is retried before the event is
+/// given up. Every attempt is a row in the deliveries table an operator can
+/// read; holding the cursor forever would silence the newer events behind it.
+const ALERT_DELIVERY_MAX_ATTEMPTS: usize = 3;
 
 /// Everything the engine needs, deliberately not called `WebState`: the
 /// supervisor is shared with the browser, and the repository is opened per call
@@ -348,6 +352,10 @@ struct LoopState {
     /// so starting the workbench cannot deliver a webhook for events from weeks
     /// ago.
     last_routed_event: i64,
+    /// Delivery attempts per still-undelivered event. A failed webhook is
+    /// retried on the next ticks up to [`ALERT_DELIVERY_MAX_ATTEMPTS`]; the
+    /// map only ever holds the events between retries, so it stays tiny.
+    alert_failures: BTreeMap<i64, usize>,
 }
 
 impl LoopState {
@@ -367,6 +375,7 @@ impl LoopState {
             rpc_last_probe: BTreeMap::new(),
             federation_last_probe: BTreeMap::new(),
             last_routed_event: newest.unwrap_or_default(),
+            alert_failures: BTreeMap::new(),
         }
     }
 
@@ -665,9 +674,11 @@ impl LoopState {
     /// Offer anything new since the last scan to the configured alert route.
     /// Up to [`MAX_ALERT_DELIVERIES_PER_TICK`] deliveries per tick, oldest
     /// first, so a burst of events drains instead of queuing behind one-per-
-    /// second. The first failed delivery ends the tick: a webhook that is down
-    /// must not be hammered for the whole batch, and the journal keeps the
-    /// backlog visible until the next ticks catch up.
+    /// second. A failed delivery is retried on later ticks up to
+    /// [`ALERT_DELIVERY_MAX_ATTEMPTS`] attempts — each one a row in the
+    /// deliveries table — and the first failure ends the tick, so a webhook
+    /// that just went down is not hammered for the whole batch. The journal
+    /// keeps the backlog visible throughout.
     fn route_alerts(&mut self, state: &EngineState) {
         let Ok(policy) = state.repository.load_alert_routing_policy() else {
             return;
@@ -689,15 +700,32 @@ impl LoopState {
         pending.sort_by_key(|event| event.id);
 
         for event in pending.into_iter().take(MAX_ALERT_DELIVERIES_PER_TICK) {
-            self.last_routed_event = event.id;
             if !should_route_alert(&policy, &event) {
+                self.last_routed_event = event.id;
                 continue;
             }
             let report = deliver_webhook_alert(&policy, &event, env!("CARGO_PKG_VERSION"));
             if state.repository.record_alert_delivery(&report).is_err() {
                 return;
             }
-            if report.status == AlertDeliveryStatus::Failed {
+            if report.status != AlertDeliveryStatus::Failed {
+                self.alert_failures.remove(&event.id);
+                self.last_routed_event = event.id;
+                continue;
+            }
+            let attempts = self.alert_failures.entry(event.id).or_insert(0);
+            *attempts += 1;
+            if *attempts >= ALERT_DELIVERY_MAX_ATTEMPTS {
+                // Given up: every attempt is on record in the deliveries
+                // table, and holding the cursor here would silence every
+                // newer event behind a webhook that is down.
+                self.alert_failures.remove(&event.id);
+                self.last_routed_event = event.id;
+            } else {
+                // Wind the cursor back so this exact event is retried first
+                // on the next tick, and stop delivering for this tick — a
+                // webhook that just failed does not need hammering.
+                self.last_routed_event = event.id - 1;
                 break;
             }
         }
