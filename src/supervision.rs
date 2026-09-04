@@ -32,7 +32,7 @@ use crate::{
         node::NodeConfig,
         operations::{evaluate_launch_readiness, evaluate_restart_readiness},
     },
-    events::{EventKind, EventSeverity, NewRuntimeEvent, RuntimeEventFilter},
+    events::{EventKind, EventSeverity, NewRuntimeEvent},
     federation::RemoteFederationClient,
     health_events::{
         exit_notice, exit_was_clean, remote_probe_event_severity, remote_probe_notice,
@@ -49,6 +49,8 @@ use crate::{
     types::NodeStatus,
     watchdog::{default_restart_policy, RestartOutcome, RestartPolicy, Watchdog},
 };
+
+mod startup;
 
 /// How often the loop wakes. Every interval it enforces is a multiple of this
 /// or is compared against `Instant`, so a second keeps latency invisible while
@@ -123,6 +125,17 @@ pub fn launch_node(
     node: &NodeConfig,
     action: LaunchAction,
 ) -> anyhow::Result<String> {
+    launch_node_guarded(state, node, action, || Ok(()))
+}
+
+/// Recheck a caller's authority after waiting for process control and before
+/// writing configuration or signalling a process.
+pub(crate) fn launch_node_guarded(
+    state: &EngineState,
+    node: &NodeConfig,
+    action: LaunchAction,
+    authorize: impl FnOnce() -> anyhow::Result<()>,
+) -> anyhow::Result<String> {
     let plugins = state.repository.list_plugin_states(&node.id)?;
     let work_dir = state.workspace_child_dir("nodes").join(&node.id);
     let managed_config_path = ConfigExporter::managed_target_path(&work_dir, node);
@@ -150,11 +163,19 @@ pub fn launch_node(
 
     let plan = LaunchPlanner::plan(node, &managed_config_path, &work_dir);
     let mut supervisor = state.supervisor();
+    if !state.nodes().iter().any(|current| current == node) {
+        anyhow::bail!("node state changed while preparing launch; reload and retry");
+    }
+    authorize()?;
+    if state.repository.list_plugin_states(&node.id)? != plugins {
+        anyhow::bail!("plugin configuration changed while preparing launch; reload and retry");
+    }
     // A restart stops by handle. If the running process came from an earlier
     // session, quiesce it by pid or this would start a second node on the same
     // ports.
     let replaced = action == LaunchAction::Restart
-        && crate::node_lifecycle::quiesce_before_restart(&mut supervisor, node, &log_path);
+        && !supervisor.is_managing(&node.id)
+        && crate::supervisor::recorded_process(node) == crate::supervisor::RecordedProcess::Alive;
     let outcome = execute_node_launch(
         &state.repository,
         &mut supervisor,
@@ -207,13 +228,24 @@ pub fn launch_node(
 /// it. Marks the row stopped only after the process is confirmed gone or was
 /// already absent.
 pub fn stop_node(state: &EngineState, node: &NodeConfig) -> anyhow::Result<String> {
+    stop_node_guarded(state, node, || Ok(()))
+}
+
+pub(crate) fn stop_node_guarded(
+    state: &EngineState,
+    node: &NodeConfig,
+    authorize: impl FnOnce() -> anyhow::Result<()>,
+) -> anyhow::Result<String> {
     let log_path = log_path_for(state.workspace_child_dir("logs"), node);
-    let outcome = {
-        let mut supervisor = state.supervisor();
-        match supervisor.stop(&node.id)? {
-            Some(stop) => PidStop::Stopped(stop),
-            None => supervisor.stop_recorded_pid(node, &log_path),
-        }
+    let mut supervisor = state.supervisor();
+    if !state.nodes().iter().any(|current| current == node) {
+        anyhow::bail!("node state changed before stop; reload and retry");
+    }
+    authorize()?;
+    // Keep process control and the persisted status in the same critical section.
+    let outcome = match supervisor.stop(&node.id)? {
+        Some(stop) => PidStop::Stopped(stop),
+        None => supervisor.stop_recorded_pid(node, &log_path)?,
     };
     match outcome {
         PidStop::Stopped(stop) => {
@@ -261,13 +293,13 @@ impl Engine {
         // Before the first page can be served: a workspace reopened after a
         // crash still claims nodes are Running, and the operator should never
         // see a status the host does not back.
-        reconcile_startup(&state);
+        let mut loop_state = LoopState::bootstrap(&state);
+        loop_state.reconcile_startup(&state);
         let stop = Arc::new(AtomicBool::new(false));
         let closing = Arc::clone(&stop);
         let worker = thread::Builder::new()
             .name("neonexus-supervision".to_string())
             .spawn(move || {
-                let mut loop_state = LoopState::bootstrap(&state);
                 while !closing.load(Ordering::Relaxed) {
                     loop_state.tick(&state);
                     thread::sleep(TICK);
@@ -289,68 +321,19 @@ impl Drop for Engine {
     }
 }
 
-/// Settle nodes whose recorded process no longer exists, and keep the ones that
-/// do.
-///
-/// Deliberately not a blanket "mark everything stopped": a workbench killed with
-/// SIGKILL leaves its nodes running as orphans. Clearing those rows would lose
-/// the only handle on them, and the next Start would launch a second node onto
-/// the same ports. A node whose pid is answered by a *different* program is
-/// settled too, but reported separately — the number was recycled, so the old
-/// process is gone and something unrelated now holds its identity.
-fn reconcile_startup(state: &EngineState) {
-    let mut settled = Vec::new();
-    let mut recycled = Vec::new();
-    for node in state.nodes() {
-        if !matches!(node.status, NodeStatus::Running | NodeStatus::Starting) {
-            continue;
-        }
-        // One classification per node: each probe reads the process table.
-        let verdict = recorded_process(&node);
-        if verdict == RecordedProcess::Alive {
-            continue;
-        }
-        let _ = state
-            .repository
-            .update_node_status(&node.id, NodeStatus::Stopped, None);
-        match verdict {
-            RecordedProcess::Reused => recycled.push(node.name),
-            _ => settled.push(node.name),
-        }
-    }
-    let total = settled.len() + recycled.len();
-    if total == 0 {
-        return;
-    }
-    let mut message = format!("Recovered {total} stale runtime state records");
-    if !recycled.is_empty() {
-        message.push_str(&format!(
-            "; {} pid(s) now belong to another program",
-            recycled.len()
-        ));
-    }
-    let _ = state.repository.record_event(NewRuntimeEvent {
-        node_id: None,
-        node_name: None,
-        kind: EventKind::RuntimeRecovered,
-        severity: EventSeverity::Warning,
-        message,
-    });
-}
-
 /// What the loop remembers between ticks. Policies are re-read every tick so a
 /// change made in Settings takes effect without a restart; these are the things
 /// that cannot be re-derived from the database.
 struct LoopState {
+    signer: crate::signer_client::SignerMonitor,
     watchdog: Watchdog,
     /// The policy the watchdog is running under, so a tick that reads an
     /// unchanged policy leaves scheduled restarts alone.
     applied_policy: RestartPolicy,
     rpc_last_probe: BTreeMap<String, Instant>,
     federation_last_probe: BTreeMap<String, Instant>,
-    /// Highest journal id already offered to the alert route. Seeded at startup
-    /// so starting the workbench cannot deliver a webhook for events from weeks
-    /// ago.
+    /// Highest journal id already offered to the alert route. New workspaces
+    /// begin at the latest event; unreadable progress replays retained events.
     last_routed_event: i64,
     /// Delivery attempts per still-undelivered event. A failed webhook is
     /// retried on the next ticks up to [`ALERT_DELIVERY_MAX_ATTEMPTS`]; the
@@ -364,26 +347,25 @@ impl LoopState {
             .repository
             .load_watchdog_policy()
             .unwrap_or_else(|_| default_restart_policy());
-        let newest = state
-            .repository
-            .list_events(RuntimeEventFilter::new(None, "", 1))
-            .ok()
-            .and_then(|events| events.first().map(|event| event.id));
+        let (cursor, alert_failures) = startup::alert_progress(state);
         Self {
+            signer: crate::signer_client::SignerMonitor::bootstrap(),
             watchdog: Watchdog::new(policy),
             applied_policy: policy,
             rpc_last_probe: BTreeMap::new(),
             federation_last_probe: BTreeMap::new(),
-            last_routed_event: newest.unwrap_or_default(),
-            alert_failures: BTreeMap::new(),
+            last_routed_event: cursor,
+            alert_failures,
         }
     }
 
     fn tick(&mut self, state: &EngineState) {
         self.sync_policy(state);
         self.reconcile_exits(state);
+        crate::agents::tick(state);
         self.run_due_restarts(state);
         self.watch_external_processes(state);
+        self.signer.tick(state);
         self.probe_rpc_health(state);
         self.probe_federation(state);
         self.route_alerts(state);
@@ -414,27 +396,43 @@ impl LoopState {
         if exits.is_empty() {
             return;
         }
-        let nodes = state.nodes();
         for exit in exits {
-            let Some(node) = nodes.iter().find(|node| node.id == exit.node_id) else {
-                continue;
-            };
-            if exit_was_clean(&exit) {
-                self.watchdog.clear(&node.id);
-                let _ = state
-                    .repository
-                    .update_node_status(&node.id, NodeStatus::Stopped, None);
-                state.journal(
-                    node,
-                    EventKind::NodeExited,
-                    EventSeverity::Info,
-                    exit_notice(&node.name, &exit),
-                );
+            if crate::agents::observe_exit(state, &exit) {
                 continue;
             }
-            let reason = self.exit_notice_with_log(node, &exit, &state.workspace_child_dir("logs"));
-            self.schedule_restart(state, node, &reason);
+            self.reconcile_node_exit(state, &exit);
         }
+    }
+
+    fn reconcile_node_exit(&mut self, state: &EngineState, exit: &crate::supervisor::ProcessExit) {
+        let supervisor = state.supervisor();
+        let Some(node) = state
+            .nodes()
+            .into_iter()
+            .find(|node| node.id == exit.node_id)
+        else {
+            return;
+        };
+        // Reaping releases the lock before observation. A new process may
+        // already own this node, so an old exit must not clear its PID.
+        if node.pid != Some(exit.pid) || supervisor.is_managing(&node.id) {
+            return;
+        }
+        if exit_was_clean(exit) {
+            self.watchdog.clear(&node.id);
+            let _ = state
+                .repository
+                .update_node_status(&node.id, NodeStatus::Stopped, None);
+            state.journal(
+                &node,
+                EventKind::NodeExited,
+                EventSeverity::Info,
+                exit_notice(&node.name, exit),
+            );
+            return;
+        }
+        let reason = self.exit_notice_with_log(&node, exit, &state.workspace_child_dir("logs"));
+        self.schedule_restart(state, &node, &reason);
     }
 
     /// A crash message is worth more with the log's own diagnosis attached: the
@@ -466,6 +464,10 @@ impl LoopState {
         let _ = state
             .repository
             .update_node_status(&node.id, NodeStatus::Crashed, None);
+        self.queue_restart(state, node, reason);
+    }
+
+    fn queue_restart(&mut self, state: &EngineState, node: &NodeConfig, reason: &str) {
         match self.watchdog.record_failure(&node.id, Instant::now()) {
             RestartOutcome::Scheduled { attempt, delay } => state.journal(
                 node,
@@ -496,25 +498,51 @@ impl LoopState {
         if due.is_empty() {
             return;
         }
-        let nodes = state.nodes();
         for attempt in due {
-            let Some(node) = nodes.iter().find(|node| node.id == attempt.node_id) else {
+            let Some(node) = state
+                .nodes()
+                .into_iter()
+                .find(|node| node.id == attempt.node_id)
+            else {
                 self.watchdog.clear(&attempt.node_id);
                 continue;
             };
-            match launch_node(state, node, LaunchAction::Start) {
+            // An explicit stop cancels a pending restart; a manual start has
+            // already fulfilled it. Neither should be undone by the watchdog.
+            if node.pid.is_some() || !matches!(node.status, NodeStatus::Crashed | NodeStatus::Error)
+            {
+                self.watchdog.clear(&node.id);
+                continue;
+            }
+            match launch_node(state, &node, LaunchAction::Start) {
                 Ok(message) => state.journal(
-                    node,
+                    &node,
                     EventKind::WatchdogRestarted,
                     EventSeverity::Warning,
                     format!("watchdog attempt {}: {message}", attempt.attempt),
                 ),
-                Err(error) => state.journal(
-                    node,
-                    EventKind::NodeStartFailed,
-                    EventSeverity::Critical,
-                    format!("watchdog attempt {} failed: {error}", attempt.attempt),
-                ),
+                Err(error) => {
+                    state.journal(
+                        &node,
+                        EventKind::NodeStartFailed,
+                        EventSeverity::Critical,
+                        format!("watchdog attempt {} failed: {error}", attempt.attempt),
+                    );
+                    let _supervisor = state.supervisor();
+                    if state.nodes().iter().any(|current| {
+                        current.id == node.id
+                            && current.pid.is_none()
+                            && matches!(current.status, NodeStatus::Crashed | NodeStatus::Error)
+                    }) {
+                        let _ =
+                            state
+                                .repository
+                                .update_node_status(&node.id, NodeStatus::Error, None);
+                        self.queue_restart(state, &node, "automatic launch failed");
+                    } else {
+                        self.watchdog.clear(&node.id);
+                    }
+                }
             }
         }
     }
@@ -539,20 +567,44 @@ impl LoopState {
         // One pass over the process table for the whole tick, not one per node.
         let alive = live_pids(&candidates.iter().map(|(_, pid)| *pid).collect::<Vec<_>>());
         for (node, pid) in candidates {
-            if alive.contains(&pid) {
+            let supervisor = state.supervisor();
+            // A concurrent browser stop/restart may already have replaced this PID.
+            if supervisor.is_managing(&node.id)
+                || !state.nodes().iter().any(|current| {
+                    current.id == node.id && current.pid == Some(pid) && current.status.is_running()
+                })
+            {
                 continue;
             }
-            let _ = state
-                .repository
-                .update_node_status(&node.id, NodeStatus::Stopped, None);
+            let identity = if alive.contains(&pid) {
+                recorded_process(&node)
+            } else {
+                RecordedProcess::Gone
+            };
+            if identity == RecordedProcess::Alive {
+                continue;
+            }
+            if identity == RecordedProcess::Reused {
+                let _ = state
+                    .repository
+                    .update_node_status(&node.id, NodeStatus::Error, Some(pid));
+                state.journal(&node, EventKind::NodeExited, EventSeverity::Critical,
+                    format!("{} recorded PID {pid} belongs to another executable; automatic restart blocked", node.name));
+                continue;
+            }
             state.journal(
                 &node,
                 EventKind::NodeExited,
-                EventSeverity::Warning,
+                EventSeverity::Critical,
                 format!(
                     "{} is no longer running (pid {pid}); it was not supervised by this server",
                     node.name
                 ),
+            );
+            self.schedule_restart(
+                state,
+                &node,
+                "recorded process disappeared; exit code unavailable",
             );
         }
     }
@@ -572,7 +624,7 @@ impl LoopState {
         }
         let interval = policy.interval_duration();
         let now = Instant::now();
-        let due: Vec<NodeConfig> = state
+        let mut due: Vec<NodeConfig> = state
             .nodes()
             .into_iter()
             .filter(|node| {
@@ -580,18 +632,41 @@ impl LoopState {
                     && self.due(self.rpc_last_probe.get(&node.id).copied(), now, interval)
             })
             .collect();
-        // Every due node is probed, not one per tick: with more running nodes
-        // than ticks in the policy interval, one-per-tick silently stretched
-        // the real interval to fleet-size seconds.
-        for node in due.into_iter().take(MAX_RPC_PROBES_PER_TICK) {
-            self.probe_one_rpc_health(state, node, now);
+        // Oldest/unprobed first: slow endpoints must not starve the tail of a fleet.
+        due.sort_by_key(|node| self.rpc_last_probe.get(&node.id).copied());
+        let reports = thread::scope(|scope| {
+            let jobs: Vec<_> = due
+                .into_iter()
+                .take(MAX_RPC_PROBES_PER_TICK)
+                .map(|node| {
+                    scope.spawn(move || {
+                        let report = probe_node_rpc(&node, RPC_HEALTH_TIMEOUT);
+                        (node, report)
+                    })
+                })
+                .collect();
+            jobs.into_iter()
+                .filter_map(|job| job.join().ok())
+                .collect::<Vec<_>>()
+        });
+        for (node, report) in reports {
+            self.record_rpc_health(state, node, report, now);
         }
     }
 
-    fn probe_one_rpc_health(&mut self, state: &EngineState, node: NodeConfig, now: Instant) {
-        self.rpc_last_probe.insert(node.id.clone(), now);
+    fn record_rpc_health(
+        &mut self,
+        state: &EngineState,
+        node: NodeConfig,
+        report: crate::rpc_health::RpcHealthReport,
+        now: Instant,
+    ) {
+        let _supervisor = state.supervisor();
+        if !state.nodes().iter().any(|current| current == &node) {
+            self.rpc_last_probe.remove(&node.id);
+            return;
+        }
 
-        let report = probe_node_rpc(&node, RPC_HEALTH_TIMEOUT);
         let previous = state
             .repository
             .latest_rpc_health(&node.id)
@@ -601,6 +676,7 @@ impl LoopState {
         if state.repository.record_rpc_health(&node, &report).is_err() {
             return;
         }
+        self.rpc_last_probe.insert(node.id.clone(), now);
         let _ = state
             .repository
             .prune_rpc_health_keep_recent_per_node(RPC_HEALTH_RETAIN_PER_NODE);
@@ -624,9 +700,10 @@ impl LoopState {
         }
         let interval = policy.interval_duration();
         let now = Instant::now();
-        let Ok(profiles) = state.repository.list_remote_servers() else {
+        let Ok(mut profiles) = state.repository.list_remote_servers() else {
             return;
         };
+        profiles.sort_by_key(|profile| self.federation_last_probe.get(&profile.id).copied());
         let Some(profile) = profiles.into_iter().find(|profile| {
             profile.enabled
                 && self.due(
@@ -686,25 +763,21 @@ impl LoopState {
         let Ok(policy) = state.repository.load_alert_routing_policy() else {
             return;
         };
-        let Ok(events) =
-            state
-                .repository
-                .list_events(RuntimeEventFilter::new(None, "", JOURNAL_SCAN_LIMIT))
+        let Ok(events) = state
+            .repository
+            .list_events_after(self.last_routed_event, JOURNAL_SCAN_LIMIT)
         else {
             return;
         };
-        let mut pending: Vec<_> = events
-            .into_iter()
-            .filter(|event| event.id > self.last_routed_event)
-            .collect();
-        if pending.is_empty() {
+        if events.is_empty() {
             return;
         }
-        pending.sort_by_key(|event| event.id);
 
-        for event in pending.into_iter().take(MAX_ALERT_DELIVERIES_PER_TICK) {
+        for event in events.into_iter().take(MAX_ALERT_DELIVERIES_PER_TICK) {
             if !should_route_alert(&policy, &event) {
+                self.alert_failures.remove(&event.id);
                 self.last_routed_event = event.id;
+                self.persist_alert_progress(state);
                 continue;
             }
             let report = deliver_webhook_alert(&policy, &event, env!("CARGO_PKG_VERSION"));
@@ -714,6 +787,7 @@ impl LoopState {
             if report.status != AlertDeliveryStatus::Failed {
                 self.alert_failures.remove(&event.id);
                 self.last_routed_event = event.id;
+                self.persist_alert_progress(state);
                 continue;
             }
             let attempts = self.alert_failures.entry(event.id).or_insert(0);
@@ -729,8 +803,10 @@ impl LoopState {
                 // on the next tick, and stop delivering for this tick — a
                 // webhook that just failed does not need hammering.
                 self.last_routed_event = event.id - 1;
+                self.persist_alert_progress(state);
                 break;
             }
+            self.persist_alert_progress(state);
         }
         let _ = state
             .repository
@@ -738,4 +814,17 @@ impl LoopState {
         // A failed delivery is recorded in the deliveries table, which the
         // Alerts page already renders; the journal is for state changes.
     }
+
+    fn persist_alert_progress(&self, state: &EngineState) {
+        if let Err(error) = state
+            .repository
+            .save_alert_progress(self.last_routed_event, &self.alert_failures)
+        {
+            eprintln!("neo-nexus: cannot persist alert progress: {error}");
+        }
+    }
 }
+
+#[cfg(test)]
+#[path = "../tests/unit/supervision/tests.rs"]
+mod tests;

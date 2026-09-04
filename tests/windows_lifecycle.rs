@@ -120,7 +120,7 @@ fn cli(db: &Path, operation: &str) -> Output {
     });
     receiver
         .recv_timeout(Duration::from_secs(20))
-        .unwrap_or_else(|_| panic!("{operation} did not close its output pipes within 20 seconds"))
+        .expect("CLI operation did not close its output pipes within 20 seconds")
         .unwrap()
 }
 
