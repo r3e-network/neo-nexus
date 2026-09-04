@@ -48,12 +48,7 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
 
       - name: Test
-        run: |
-          cargo test --lib
-          cargo test --test ci_policy
-          cargo test --test domain
-          cargo test --test repository
-          cargo test --test web
+        run: cargo test --all-targets
 
 
       - name: Debug binary smoke

@@ -70,7 +70,7 @@ jobs:
 }
 
 #[test]
-fn ci_policy_rejects_ambiguous_integration_test_target() -> anyhow::Result<()> {
+fn ci_policy_rejects_selecting_only_a_fixed_set_of_test_targets() -> anyhow::Result<()> {
     let workflow = r#"
 name: Rust CI
 
@@ -84,7 +84,10 @@ jobs:
       - run: cargo check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test --lib
-      - run: cargo test --tests
+      - run: cargo test --test ci_policy
+      - run: cargo test --test domain
+      - run: cargo test --test repository
+      - run: cargo test --test web
 "#;
 
     let report =
@@ -94,15 +97,7 @@ jobs:
     assert!(report
         .missing_commands
         .iter()
-        .any(|command| command == "cargo-test-ci-policy"));
-    assert!(report
-        .missing_commands
-        .iter()
-        .any(|command| command == "cargo-test-domain"));
-    assert!(report
-        .missing_commands
-        .iter()
-        .any(|command| command == "cargo-test-repository"));
+        .any(|command| command == "cargo-test-all-targets"));
 
     Ok(())
 }
