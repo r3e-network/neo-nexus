@@ -20,7 +20,15 @@ pub(in crate::backup) fn import_backup(
     repository: &Repository,
     backup: &WorkspaceBackup,
 ) -> Result<WorkspaceBackupImport> {
+    repository.in_restore_transaction(|repository| apply_backup(repository, backup))
+}
+
+fn apply_backup(
+    repository: &Repository,
+    backup: &WorkspaceBackup,
+) -> Result<WorkspaceBackupImport> {
     let validation = validate_backup_summary(backup)?;
+    super::preflight::validate_target(repository, backup)?;
     let workspace_setting_count = restore_workspace_settings(repository, backup)?;
     let profile_counts = restore_profiles(repository, backup)?;
     let node_counts = restore_nodes(repository, backup)?;

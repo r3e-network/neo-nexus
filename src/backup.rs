@@ -2,6 +2,7 @@ mod discovery;
 mod export;
 mod restore;
 mod schema;
+mod secrets;
 mod validation;
 mod workspace_exporter;
 mod workspace_importer;

@@ -21,7 +21,7 @@ impl Repository {
 }
 
 fn restored_runtime_event_exists(
-    transaction: &rusqlite::Transaction<'_>,
+    transaction: &Connection,
     restored_event: &RestoredRuntimeEvent,
 ) -> Result<bool> {
     Ok(transaction
@@ -50,7 +50,7 @@ fn restored_runtime_event_exists(
 }
 
 fn insert_restored_runtime_event(
-    transaction: &rusqlite::Transaction<'_>,
+    transaction: &Connection,
     restored_event: &RestoredRuntimeEvent,
 ) -> Result<()> {
     transaction.execute(

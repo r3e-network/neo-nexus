@@ -9,6 +9,7 @@ use crate::backup::schema::WorkspaceBackup;
 pub(in crate::backup) fn validate_backup_collections(
     backup: &WorkspaceBackup,
 ) -> Result<BackupValidationCounts> {
+    crate::backup::secrets::validate_reference_credentials(backup)?;
     validate_backup_profiles(backup)?;
     super::agents::validate_agents(backup)?;
     validate_backup_events(backup)?;

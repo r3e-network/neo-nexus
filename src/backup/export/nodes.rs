@@ -13,6 +13,12 @@ pub(in crate::backup) fn node_backup(
     repository: &Repository,
     node: NodeConfig,
 ) -> Result<NodeBackup> {
+    if super::super::secrets::secret_arguments(node.node_type, &node.args) {
+        anyhow::bail!(
+            "node {} contains secret arguments; use credential file references before exporting",
+            node.id
+        );
+    }
     let plugins = repository
         .list_plugin_states(&node.id)?
         .into_iter()
@@ -30,6 +36,18 @@ pub(in crate::backup) fn node_backup(
         .load_node_role(&node.id)?
         .map(|role| role.persist_key().to_string());
     let wallet_profile_id = repository.load_node_wallet(&node.id)?;
+    if let Some(id) = wallet_profile_id.as_deref() {
+        if !repository
+            .list_neo_wallet_profiles()?
+            .iter()
+            .any(|profile| profile.id == id)
+        {
+            anyhow::bail!(
+                "node {} references a wallet profile absent from the workspace",
+                node.id
+            );
+        }
+    }
 
     Ok(NodeBackup {
         id: node.id,

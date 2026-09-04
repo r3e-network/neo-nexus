@@ -10,6 +10,7 @@ use super::{
 };
 
 mod apply;
+mod preflight;
 mod reader;
 mod summary;
 
@@ -41,6 +42,17 @@ impl WorkspaceBackupImporter {
 
     pub fn validate(backup: &WorkspaceBackup) -> Result<WorkspaceBackupValidation> {
         summary::validate_backup_summary(backup)
+    }
+
+    /// Preview compatibility with a target workspace without changing it.
+    /// Import repeats these checks inside its transaction to avoid stale review.
+    pub fn validate_target(
+        repository: &Repository,
+        backup: &WorkspaceBackup,
+    ) -> Result<WorkspaceBackupValidation> {
+        let validation = Self::validate(backup)?;
+        preflight::validate_target(repository, backup)?;
+        Ok(validation)
     }
 
     pub fn import(

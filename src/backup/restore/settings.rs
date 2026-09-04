@@ -11,6 +11,10 @@ pub(in crate::backup) fn restored_workspace_setting(
         anyhow::bail!("backup workspace setting key is required");
     }
     validate_backup_setting_key(&backup.key)?;
+    if backup.key == "resource_health.policy" {
+        serde_json::from_str::<crate::resource_health::ResourcePolicy>(&backup.value)?
+            .validate()?;
+    }
     Ok(WorkspaceSetting {
         key: backup.key.clone(),
         value: backup.value.clone(),

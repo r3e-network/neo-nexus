@@ -57,7 +57,7 @@ pub(super) fn workspace_backup_snapshot(
         .map(fast_sync_snapshot_backup)
         .collect();
 
-    Ok(WorkspaceBackup {
+    let backup = WorkspaceBackup {
         schema_version: 8,
         application: "NeoNexus".to_string(),
         application_version: application_version.to_string(),
@@ -75,5 +75,7 @@ pub(super) fn workspace_backup_snapshot(
             .collect(),
         nodes,
         events,
-    })
+    };
+    super::super::secrets::validate_reference_credentials(&backup)?;
+    Ok(backup)
 }

@@ -52,7 +52,7 @@ impl Repository {
     }
 }
 
-fn check_agent_node(transaction: &rusqlite::Transaction<'_>, profile: &AgentProfile) -> Result<()> {
+fn check_agent_node(transaction: &Connection, profile: &AgentProfile) -> Result<()> {
     if let Some(id) = &profile.node_id {
         let exists: bool = transaction.query_row(
             "SELECT EXISTS(SELECT 1 FROM nodes WHERE id = ?1)",

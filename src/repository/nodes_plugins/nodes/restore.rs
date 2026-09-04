@@ -9,6 +9,21 @@ impl Repository {
         validate_node_config(node)?;
         let mut connection = self.connection()?;
         let transaction = connection.transaction()?;
+        let active: bool = transaction.query_row(
+            "SELECT EXISTS(SELECT 1 FROM nodes WHERE id = ?1 AND (pid IS NOT NULL OR lower(status) IN ('running','starting')))",
+            params![node.id], |row| row.get(0))?;
+        if active {
+            anyhow::bail!(
+                "stop node {} before restoring its configuration; its process state was preserved",
+                node.id
+            );
+        }
+        validate_restore_dependencies(&transaction, &node.id)?;
+        // Restore is always a stopped inventory operation, even when called
+        // directly with a NodeConfig that came from a live source workspace.
+        if node.pid.is_some() || node.status != NodeStatus::Stopped {
+            anyhow::bail!("restored nodes must be stopped and have no recorded PID");
+        }
         let existed = transaction
             .query_row(
                 "SELECT 1 FROM nodes WHERE id = ?1",
@@ -64,6 +79,7 @@ impl Repository {
                 params![node.id, plugin.plugin_id.to_string(), plugin.enabled],
             )?;
         }
+        Self::sync_node_recovery_status(&transaction, &node.id, NodeStatus::Stopped, None)?;
         transaction.commit()?;
 
         Ok(if existed {
@@ -72,4 +88,40 @@ impl Repository {
             RestoreNodeOutcome::Created
         })
     }
+}
+
+fn validate_restore_dependencies(connection: &Connection, node_id: &str) -> Result<()> {
+    let recovery: Option<String> = connection
+        .query_row(
+            "SELECT value FROM workspace_settings WHERE key = ?1",
+            params![format!("watchdog.recovery.{node_id}")],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if let Some(recovery) = recovery {
+        let recovery: crate::watchdog::RecoveryState = serde_json::from_str(&recovery)
+            .context("invalid node recovery record; stop the node before restoring")?;
+        recovery.validate()?;
+        if recovery.next_attempt_at_unix_ms.is_some() || recovery.claim.is_some() {
+            anyhow::bail!(
+                "stop node {node_id} to cancel its pending automatic recovery before restoring"
+            );
+        }
+    }
+    let mut statement = connection.prepare("SELECT record FROM managed_agents")?;
+    let rows = statement.query_map([], |row| row.get::<_, String>(0))?;
+    for row in rows {
+        let agent: crate::agents::AgentRecord =
+            serde_json::from_str(&row?).context("invalid managed agent record")?;
+        if agent.profile.node_id.as_deref() == Some(node_id)
+            && (agent.pid.is_some()
+                || agent.desired_running
+                || agent.status == crate::agents::AgentStatus::Running)
+        {
+            anyhow::bail!(
+                "stop the agent associated with node {node_id} before restoring that node"
+            );
+        }
+    }
+    Ok(())
 }

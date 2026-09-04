@@ -12,8 +12,8 @@
 
 use super::*;
 
-/// `node_wallets` stores a profile id and has no foreign key to the profile
-/// table, so the binding can be asserted without building a real NEP-6 wallet.
+/// Backups carry the wallet metadata alongside each binding, preventing a
+/// target workspace's unrelated same-ID wallet from supplying the identity.
 const WALLET_PROFILE_ID: &str = "wallet-profile-1";
 
 /// The shared `create_node` helper puts every node on 10332, and the backup
@@ -42,6 +42,25 @@ fn node_on(repo: &Repository, name: &str, node_type: NodeType, offset: u16) -> S
 fn duties_and_wallet_bindings_survive_a_backup_round_trip() {
     let temp = tempfile::tempdir().unwrap();
     let source = Repository::open(temp.path().join("source.db")).unwrap();
+    source
+        .upsert_neo_wallet_profile(&neo_nexus::wallet::NeoWalletProfile {
+            id: WALLET_PROFILE_ID.into(),
+            label: "Validator wallet".into(),
+            source_path: "/wallets/validator.json".into(),
+            wallet_version: Some("3.0".into()),
+            primary_address: "AQLASLtT6pWbThcSCYU1biVqhMnzhTgLFq".into(),
+            contract_public_keys: vec![
+                "036dc4bf8f0405dcf5d12a38487b359cb4bd693357a387d74fc438ffc7757948b0".into(),
+            ],
+            wallet_sha256: "e".repeat(64),
+            account_count: 1,
+            encrypted_account_count: 1,
+            default_account_count: 1,
+            watch_only_account_count: 0,
+            validated_at_unix: 1,
+            last_used_at_unix: None,
+        })
+        .unwrap();
 
     let assignments = [
         ("validator-01", NodeType::NeoGo, NodeRole::Consensus),
