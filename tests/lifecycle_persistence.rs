@@ -77,7 +77,7 @@ fn workspace() -> (tempfile::TempDir, Repository, NodeConfig, LaunchPlan) {
 }
 
 #[test]
-fn a_rejected_running_status_stops_the_real_new_child() {
+fn a_rejected_running_status_stops_the_real_new_child() -> anyhow::Result<()> {
     let (dir, repository, node, plan) = workspace();
     let connection = rusqlite::Connection::open(repository.db_path()).unwrap();
     connection
@@ -97,7 +97,7 @@ fn a_rejected_running_status_stops_the_real_new_child() {
         None,
     );
     let NodeLaunchOutcome::Failed { message } = outcome else {
-        panic!("database rejection must fail the launch")
+        anyhow::bail!("database rejection must fail the launch")
     };
     let pid: u32 = message
         .strip_prefix("failed to persist running process ")
@@ -118,6 +118,7 @@ fn a_rejected_running_status_stops_the_real_new_child() {
         NodeStatus::Error
     );
     assert!(repository.list_nodes().unwrap()[0].pid.is_none());
+    Ok(())
 }
 
 #[test]
