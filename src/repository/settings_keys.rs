@@ -57,6 +57,7 @@ pub(in crate::repository) const SETTING_WORKSPACE_INSPECTOR_VISIBLE: &str =
 pub(in crate::repository) const SETTING_WORKSPACE_LAST_VIEW: &str = "workspace.last_view";
 
 pub(in crate::repository) const WORKSPACE_BACKUP_SETTING_KEYS: &[&str] = &[
+    "resource_health.policy",
     SETTING_WATCHDOG_ENABLED,
     SETTING_WATCHDOG_MAX_ATTEMPTS,
     SETTING_WATCHDOG_BASE_DELAY_SECONDS,

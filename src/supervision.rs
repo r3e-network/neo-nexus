@@ -326,6 +326,7 @@ impl Drop for Engine {
 /// recovery changes are re-read so browser or CLI controls take effect next tick.
 struct LoopState {
     signer: crate::signer_client::SignerMonitor,
+    resources: crate::resource_health::ResourceMonitor,
     watchdog: Watchdog,
     recovery_error: Option<String>,
     rpc_last_probe: BTreeMap<String, Instant>,
@@ -348,6 +349,7 @@ impl LoopState {
         let (cursor, alert_failures) = startup::alert_progress(state);
         let mut engine = Self {
             signer: crate::signer_client::SignerMonitor::bootstrap(),
+            resources: crate::resource_health::ResourceMonitor::default(),
             watchdog: Watchdog::new(policy),
             recovery_error: None,
             rpc_last_probe: BTreeMap::new(),
@@ -368,6 +370,7 @@ impl LoopState {
         self.signer.tick(state);
         self.probe_rpc_health(state);
         self.probe_federation(state);
+        self.resources.tick(&state.repository);
         self.route_alerts(state);
     }
 

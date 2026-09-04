@@ -24,6 +24,8 @@ const TOKEN: &str = "web-suite-token";
 mod assistant_tests;
 #[path = "web/agents.rs"]
 mod companion_tests;
+#[path = "web/resources.rs"]
+mod resource_tests;
 
 struct Server {
     base_url: String,

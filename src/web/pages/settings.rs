@@ -45,6 +45,7 @@ fn render_body(repository: &Repository) -> anyhow::Result<String> {
 {watchdog}
 {rpc_health}
 {federation}
+{resources}
 <h2>Runtime upgrades</h2>
 {upgrade}"#,
         engine_note = html::notice(
@@ -71,6 +72,7 @@ fn render_body(repository: &Repository) -> anyhow::Result<String> {
             RemoteFederationMonitorPolicy::MAX_INTERVAL_SECONDS,
         ),
         upgrade = upgrade_facts(&upgrade),
+        resources = super::resources::form(repository)?,
     ))
 }
 
