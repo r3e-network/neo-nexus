@@ -12,14 +12,15 @@ fn webhook(expected: usize) -> (String, thread::JoinHandle<usize>) {
         let deadline = Instant::now() + Duration::from_secs(10);
         let mut received = 0;
         while received < expected && Instant::now() < deadline {
-            let mut stream = match listener.accept() {
-                Ok((stream, _)) => stream,
-                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    thread::sleep(Duration::from_millis(10));
-                    continue;
-                }
-                Err(error) => panic!("webhook accept failed: {error}"),
-            };
+            let accepted = listener.accept();
+            if accepted
+                .as_ref()
+                .is_err_and(|error| error.kind() == std::io::ErrorKind::WouldBlock)
+            {
+                thread::sleep(Duration::from_millis(10));
+                continue;
+            }
+            let (mut stream, _) = accepted.expect("webhook accept failed");
             stream
                 .set_read_timeout(Some(Duration::from_secs(1)))
                 .unwrap();
