@@ -10,12 +10,15 @@ use anyhow::{Context, Result};
 
 use crate::core::{
     distribution::{ReleasePackageVerifier, ReleasePackager},
-    node::{validate_node_ports, Network, NodeConfig, NodeStatus, NodeType, StorageEngine},
+    node::{
+        validate_node_ports, ChainFamily, Network, NodeConfig, NodeStatus, NodeType, StorageEngine,
+    },
     operations::{
-        evaluate_fleet, event_export_filter, preview_alert_route, probe_rpc_endpoint,
+        evaluate_fleet, event_export_filter, preview_alert_route, probe_rpc_endpoint_for,
         AlertPreviewReport, AlertProvider, EventJournalReporter, EventKind, EventSeverity,
-        FleetDiagnostics, MetricsCollector, MetricsSnapshot, RpcHealthReport, RpcHealthStatus,
-        RuntimeEvent, RuntimeEventFilter, DEFAULT_EVENT_EXPORT_LIMIT, MAX_EVENT_EXPORT_LIMIT,
+        FleetDiagnostics, MetricsCollector, MetricsSnapshot, NewRuntimeEvent, RpcHealthReport,
+        RpcHealthStatus, RuntimeEvent, RuntimeEventFilter, DEFAULT_EVENT_EXPORT_LIMIT,
+        MAX_EVENT_EXPORT_LIMIT,
     },
     quality::{CiPolicyChecker, SourcePurityChecker, SourceQualityChecker},
     runtime::{smoke_runtime_command, RuntimeSmokeReport},
@@ -74,4 +77,25 @@ fn require_arg_count(args: &[String], expected: usize, option: &str) -> Result<(
             anyhow::bail!("{option} does not accept extra arguments")
         }
     }
+}
+
+/// Journal a workspace-level CLI operation into the database it acted on.
+///
+/// Exports and imports are custody-adjacent: someone took a copy of the
+/// workspace or replaced one. The web workbench journals its equivalents, and
+/// a scripted run deserves the same answer to "when did this happen?".
+/// Journaling never fails the operation that already succeeded.
+pub(super) fn journal_workspace_event(
+    repository: &Repository,
+    kind: EventKind,
+    severity: EventSeverity,
+    message: String,
+) {
+    let _ = repository.record_event(NewRuntimeEvent {
+        node_id: None,
+        node_name: None,
+        kind,
+        severity,
+        message,
+    });
 }

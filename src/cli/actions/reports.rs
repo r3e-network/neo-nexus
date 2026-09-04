@@ -21,14 +21,26 @@ pub(in crate::cli::actions) fn export_event_journal_text(args: &[String]) -> Res
     let events = repository
         .list_events(filter.clone())
         .with_context(|| format!("failed to export runtime events from {}", db_path.display()))?;
+    let events_len = events.len();
     let export = EventJournalReporter::write(
-        output_dir,
+        output_dir.clone(),
         &db_path,
         events,
         matched_event_count,
         &filter,
         env!("CARGO_PKG_VERSION"),
     )?;
+    journal_workspace_event(
+        &repository,
+        EventKind::EventJournalExported,
+        EventSeverity::Info,
+        format!(
+            "event journal exported to {} ({} of {} event(s) matched)",
+            output_dir.display(),
+            events_len,
+            matched_event_count
+        ),
+    );
     Ok(export.to_cli_text())
 }
 
@@ -101,10 +113,17 @@ fn export_support_bundle(args: &[String], option: &str) -> Result<WorkspaceSuppo
     }
     let repository = Repository::open(&db_path)
         .with_context(|| format!("failed to open workspace database {}", db_path.display()))?;
-    WorkspaceSupportBundleExporter::write(
+    let export = WorkspaceSupportBundleExporter::write(
         &repository,
         &db_path,
         PathBuf::from(&args[3]),
         env!("CARGO_PKG_VERSION"),
-    )
+    )?;
+    journal_workspace_event(
+        &repository,
+        EventKind::SupportBundleExported,
+        EventSeverity::Info,
+        format!("support bundle exported to {}", args[3]),
+    );
+    Ok(export)
 }
