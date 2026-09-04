@@ -23,7 +23,7 @@ fn backup_export_cli_writes_workspace_backup_summary() -> Result<()> {
     assert_eq!(backup_files.len(), 1);
     let validation = WorkspaceBackupImporter::validate_path(&backup_files[0])?;
     assert_eq!(validation.node_count, 1);
-    assert_eq!(validation.schema_version, 7);
+    assert_eq!(validation.schema_version, 8);
     Ok(())
 }
 
@@ -46,7 +46,7 @@ fn backup_export_json_cli_writes_backup_and_reports_machine_readable_summary() -
     let value: serde_json::Value = serde_json::from_str(&text)?;
     assert_eq!(value["schema_version"], 1);
     assert_eq!(value["status"], "ok");
-    assert_eq!(value["export"]["schema_version"], 7);
+    assert_eq!(value["export"]["schema_version"], 8);
     assert_eq!(
         value["export"]["application_version"],
         env!("CARGO_PKG_VERSION")

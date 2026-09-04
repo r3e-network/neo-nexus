@@ -24,6 +24,10 @@ pub(in crate::backup) fn import_backup(
     let workspace_setting_count = restore_workspace_settings(repository, backup)?;
     let profile_counts = restore_profiles(repository, backup)?;
     let node_counts = restore_nodes(repository, backup)?;
+    let mut agent_count = 0;
+    for profile in &backup.agents {
+        agent_count += usize::from(repository.restore_agent_profile(profile)?);
+    }
     let event_count = restore_events(repository, backup)?;
 
     Ok(WorkspaceBackupImport {
@@ -40,6 +44,7 @@ pub(in crate::backup) fn import_backup(
         runtime_signer_profile_count: profile_counts.runtime_signer_profile_count,
         neo_wallet_profile_count: profile_counts.neo_wallet_profile_count,
         fast_sync_snapshot_count: profile_counts.fast_sync_snapshot_count,
+        agent_count,
         event_count,
         schema_version: validation.schema_version,
         exported_at_unix: validation.exported_at_unix,

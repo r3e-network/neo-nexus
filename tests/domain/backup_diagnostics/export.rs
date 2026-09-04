@@ -11,7 +11,7 @@ fn workspace_backup_exports_nodes_and_plugin_state() {
 
     let backup = WorkspaceBackupExporter::snapshot(&repo, "2.5.3-test", 1_800_000_000).unwrap();
 
-    assert_eq!(backup.schema_version, 7);
+    assert_eq!(backup.schema_version, 8);
     assert_eq!(backup.application, "NeoNexus");
     assert_eq!(backup.application_version, "2.5.3-test");
     assert_eq!(backup.exported_at_unix, 1_800_000_000);
@@ -88,7 +88,7 @@ fn workspace_backup_exports_nodes_and_plugin_state() {
     assert_eq!(parsed.neo_wallet_profiles.len(), 1);
     assert_eq!(parsed.fast_sync_snapshots.len(), 1);
     assert_eq!(validation.source_path, None);
-    assert_eq!(validation.schema_version, 7);
+    assert_eq!(validation.schema_version, 8);
     assert_eq!(validation.node_count, 1);
     assert_eq!(validation.plugin_state_count, 2);
     assert_eq!(validation.plugin_installation_count, 1);

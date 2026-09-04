@@ -23,6 +23,7 @@ pub(super) fn backup_export_summary(
         runtime_signer_profile_count: backup.runtime_signer_profiles.len(),
         neo_wallet_profile_count: backup.neo_wallet_profiles.len(),
         fast_sync_snapshot_count: backup.fast_sync_snapshots.len(),
+        agent_count: backup.agents.len(),
         event_count: backup.events.len(),
     }
 }

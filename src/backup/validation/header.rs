@@ -3,9 +3,9 @@ use anyhow::Result;
 use crate::backup::schema::WorkspaceBackup;
 
 pub(in crate::backup) fn validate_backup_header(backup: &WorkspaceBackup) -> Result<()> {
-    if !matches!(backup.schema_version, 2..=7) {
+    if !matches!(backup.schema_version, 2..=8) {
         anyhow::bail!(
-            "unsupported backup schema version {}; expected 2, 3, 4, 5, 6, or 7",
+            "unsupported backup schema version {}; expected 2, 3, 4, 5, 6, 7, or 8",
             backup.schema_version
         );
     }

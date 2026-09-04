@@ -58,7 +58,7 @@ pub(super) fn workspace_backup_snapshot(
         .collect();
 
     Ok(WorkspaceBackup {
-        schema_version: 7,
+        schema_version: 8,
         application: "NeoNexus".to_string(),
         application_version: application_version.to_string(),
         exported_at_unix,
@@ -68,6 +68,11 @@ pub(super) fn workspace_backup_snapshot(
         runtime_signer_profiles,
         neo_wallet_profiles,
         fast_sync_snapshots,
+        agents: repository
+            .list_agents()?
+            .into_iter()
+            .map(|record| record.profile)
+            .collect(),
         nodes,
         events,
     })

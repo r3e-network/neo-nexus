@@ -56,7 +56,7 @@ fn backup_import_json_cli_reports_machine_readable_summary() -> Result<()> {
     assert_eq!(value["status"], "ok");
     assert_eq!(value["target_database"], target_arg);
     assert_eq!(value["import"]["source_path"], backup_arg);
-    assert_eq!(value["import"]["schema_version"], 7);
+    assert_eq!(value["import"]["schema_version"], 8);
     assert_eq!(value["import"]["created_nodes"], 1);
     assert_eq!(value["import"]["updated_nodes"], 0);
     assert_eq!(value["import"]["plugin_state_count"], 0);
