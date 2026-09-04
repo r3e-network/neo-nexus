@@ -22,6 +22,21 @@ pub(super) fn stop_child(
     grace_period: Duration,
 ) -> Result<ProcessStop> {
     let pid = child.id();
+    if let Some(status) = child
+        .try_wait()
+        .context("failed to inspect stopping process")?
+    {
+        let stop = ProcessStop {
+            process_id: process_id.to_string(),
+            pid,
+            log_path,
+            graceful: false,
+            forced: false,
+            exit_code: status.code(),
+        };
+        append_stop_log(&stop, grace_period);
+        return Ok(stop);
+    }
     let graceful_requested = request_graceful_termination(pid).is_ok();
     // Waiting for an exit nobody requested just makes the operator watch a
     // timeout, and guarantees the "forced" label. Graceful shutdown is only
@@ -98,16 +113,20 @@ pub enum PidStop {
 /// The pid is only trusted after the process behind it is checked against the
 /// binary the workspace recorded. Pids are reused, and signalling whatever
 /// happens to hold the number now is far worse than refusing to act.
-pub(super) fn stop_by_pid(node: &NodeConfig, log_path: PathBuf, grace_period: Duration) -> PidStop {
+pub(super) fn stop_by_pid(
+    node: &NodeConfig,
+    log_path: PathBuf,
+    grace_period: Duration,
+) -> Result<PidStop> {
     let Some(pid) = node.pid else {
-        return PidStop::AlreadyGone;
+        return Ok(PidStop::AlreadyGone);
     };
     let mut system = sysinfo::System::new();
     match identify_recorded_process(&mut system, node) {
         Some(_) => {}
-        None if !process_is_live(pid) => return PidStop::AlreadyGone,
+        None if !process_is_live(pid) => return Ok(PidStop::AlreadyGone),
         // Something answers to that pid, but it is not our node.
-        None => return PidStop::PidReused,
+        None => return Ok(PidStop::PidReused),
     }
 
     let graceful_requested = request_graceful_termination(pid).is_ok();
@@ -122,12 +141,23 @@ pub(super) fn stop_by_pid(node: &NodeConfig, log_path: PathBuf, grace_period: Du
 
     let forced = process_is_live(pid);
     if forced {
-        identify_recorded_process(&mut system, node).map(sysinfo::Process::kill);
+        match identify_recorded_process(&mut system, node) {
+            Some(process) => {
+                if !process.kill() && process_is_live(pid) {
+                    anyhow::bail!("failed to force stop pid {pid}; node status is unchanged");
+                }
+            }
+            None if process_is_live(pid) => return Ok(PidStop::PidReused),
+            None => {}
+        }
         // No handle to wait on, so the exit code is genuinely unknowable rather
         // than absent by accident; `append_stop_log` records it as a signal.
-        let kill_deadline = Instant::now() + grace_period;
+        let kill_deadline = Instant::now() + grace_period.max(Duration::from_secs(1));
         while process_is_live(pid) && Instant::now() < kill_deadline {
             thread::sleep(UNMANAGED_POLL_INTERVAL);
+        }
+        if process_is_live(pid) {
+            anyhow::bail!("pid {pid} is still alive after force stop; node status is unchanged");
         }
     }
 
@@ -140,7 +170,7 @@ pub(super) fn stop_by_pid(node: &NodeConfig, log_path: PathBuf, grace_period: Du
         exit_code: None,
     };
     append_stop_log(&stop, grace_period);
-    PidStop::Stopped(stop)
+    Ok(PidStop::Stopped(stop))
 }
 
 /// The live process behind the node's recorded pid, but only if it is the
@@ -155,22 +185,23 @@ fn identify_recorded_process<'a>(
 }
 
 fn process_matches_binary(process: &sysinfo::Process, binary_path: &Path) -> bool {
-    name_matches_binary(&process.name().to_string_lossy(), binary_path)
-}
-
-/// Whether a name the OS reports is the executable at `binary_path`.
-///
-/// Comparison is by file stem, case-insensitively, tolerating the `.exe` the
-/// Windows process list appends and the extension a recorded path may lack.
-/// A path with no usable stem is refused: guessing at identity is exactly what
-/// this check exists to avoid.
-pub fn name_matches_binary(reported: &str, binary_path: &Path) -> bool {
-    let Some(stem) = binary_path.file_stem().and_then(|stem| stem.to_str()) else {
+    let (Some(actual), Ok(expected)) = (process.exe(), binary_path.canonicalize()) else {
         return false;
     };
-    let reported = reported.trim().to_ascii_lowercase();
-    let expected = stem.to_ascii_lowercase();
-    reported == expected || reported == format!("{expected}.exe")
+    let Ok(actual) = actual.canonicalize() else {
+        return false;
+    };
+    // Basenames are not identities: two node installations can have the same
+    // filename. Resolve symlinks and compare the executable's complete path.
+    #[cfg(windows)]
+    {
+        actual.as_os_str().to_string_lossy().to_lowercase()
+            == expected.as_os_str().to_string_lossy().to_lowercase()
+    }
+    #[cfg(not(windows))]
+    {
+        actual == expected
+    }
 }
 
 /// Whether the process recorded for `node` is still alive **and still ours**.
@@ -307,7 +338,12 @@ fn request_graceful_termination(pid: u32) -> std::io::Result<()> {
     }
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
+fn request_graceful_termination(pid: u32) -> std::io::Result<()> {
+    super::windows_console::request_break(pid)
+}
+
+#[cfg(not(any(unix, windows)))]
 fn request_graceful_termination(_pid: u32) -> std::io::Result<()> {
     Err(std::io::Error::new(
         std::io::ErrorKind::Unsupported,

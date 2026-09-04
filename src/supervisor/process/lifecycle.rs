@@ -26,12 +26,23 @@ impl ProcessSupervisor {
         spec: &ManagedProcessSpec,
         log_path: impl AsRef<Path>,
     ) -> Result<ProcessStart> {
+        self.start_process_with_env(spec, log_path, &[])
+    }
+
+    /// Launch with environment overrides scoped to this child. Values are not
+    /// put in the display command or process log (they may contain credentials).
+    pub fn start_process_with_env(
+        &mut self,
+        spec: &ManagedProcessSpec,
+        log_path: impl AsRef<Path>,
+        environment: &[(String, String)],
+    ) -> Result<ProcessStart> {
         if let Some(start) = self.reuse_running_child(spec)? {
             return Ok(start);
         }
 
         let log_path = log_path.as_ref().to_path_buf();
-        let (managed, start) = spawn_managed_child(spec, log_path)?;
+        let (managed, start) = spawn_managed_child(spec, log_path, environment)?;
         self.children.insert(spec.id.clone(), managed);
         Ok(start)
     }
@@ -41,7 +52,7 @@ impl ProcessSupervisor {
     }
 
     pub fn stop_process(&mut self, process_id: &str) -> Result<Option<ProcessStop>> {
-        if let Some(mut managed) = self.children.remove(process_id) {
+        if let Some(managed) = self.children.get_mut(process_id) {
             let log_path = managed.log_path().clone();
             let stop = stop_child(
                 process_id,
@@ -49,6 +60,8 @@ impl ProcessSupervisor {
                 log_path,
                 self.stop_grace_period,
             )?;
+            // Keep control of a still-running child when stop fails.
+            self.children.remove(process_id);
             return Ok(Some(stop));
         }
         Ok(None)
@@ -61,7 +74,11 @@ impl ProcessSupervisor {
     /// and `None` there means "not mine to stop" — not "stopped". A server
     /// restart or a `--node-start` from another process leaves exactly this
     /// state: a node running with no `Child` anywhere here.
-    pub fn stop_recorded_pid(&self, node: &NodeConfig, log_path: impl AsRef<Path>) -> PidStop {
+    pub fn stop_recorded_pid(
+        &self,
+        node: &NodeConfig,
+        log_path: impl AsRef<Path>,
+    ) -> Result<PidStop> {
         stop_by_pid(
             node,
             log_path.as_ref().to_path_buf(),

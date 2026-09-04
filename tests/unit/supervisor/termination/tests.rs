@@ -5,63 +5,9 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    supervisor::{recorded_process, termination::name_matches_binary, RecordedProcess},
+    supervisor::{recorded_process, termination::stop_by_pid, PidStop, RecordedProcess},
     types::NodeConfig,
 };
-
-fn matches(reported: &str, binary: &str) -> bool {
-    name_matches_binary(reported, Path::new(binary))
-}
-
-#[test]
-fn an_exact_name_matches() {
-    assert!(matches("neo-go", "/usr/local/bin/neo-go"));
-    assert!(matches("neo-go", "/opt/neo/neo-go"));
-}
-
-#[test]
-fn the_windows_extension_is_tolerated_on_both_sides() {
-    // Forward slashes are separators on every platform this suite runs on, so
-    // the `.exe` tolerance is genuinely exercised on Linux and Windows alike.
-    assert!(matches("neo-go.exe", "/opt/neo/neo-go.exe"));
-    assert!(matches("neo-go", "/opt/neo/neo-go.exe"));
-    assert!(matches("neo-go.exe", "/opt/neo/neo-go"));
-}
-
-#[test]
-#[cfg(windows)]
-fn a_backslash_recorded_path_resolves_on_windows() {
-    // Windows accepts both separators; POSIX platforms do not treat a backslash
-    // as one, so this case only means something there.
-    assert!(matches("neo-go", r"C:\neo\neo-go.exe"));
-    assert!(matches("neo-go.exe", r"C:\neo\neo-go"));
-}
-
-#[test]
-fn comparison_ignores_case() {
-    assert!(matches("Neo-Go", "/opt/neo/neo-go"));
-    assert!(matches("neo-go", "/opt/neo/NEO-GO"));
-}
-
-#[test]
-fn a_different_program_never_matches() {
-    // The recycled-pid case this check exists for.
-    assert!(!matches("postgres", "/opt/neo/neo-go"));
-    assert!(!matches("sleep", "ping.exe"));
-    // A prefix is not an identity.
-    assert!(!matches("neo-gosh", "/opt/neo/neo-go"));
-}
-
-#[test]
-fn an_unusable_recorded_path_is_refused() {
-    assert!(!matches("anything", ""));
-    assert!(!matches("anything", "/"));
-}
-
-#[test]
-fn surrounding_whitespace_in_the_reported_name_is_ignored() {
-    assert!(matches("  neo-go  ", "/opt/neo/neo-go"));
-}
 
 /// A process that stays alive long enough to be classified.
 fn spawn_witness() -> std::process::Child {
@@ -132,6 +78,37 @@ fn a_live_process_is_ours_only_when_the_binary_matches() {
     // blanket "it is running" would be wrong and a kill would hit a stranger.
     let recycled = node_recorded_as("/opt/someone/else/entirely", Some(pid));
     assert_eq!(recorded_process(&recycled), RecordedProcess::Reused);
+
+    // Matching the basename would confuse distinct node installations. The
+    // alternative exists and contains the same executable bytes, but its path
+    // does not own this PID and must never be signalled.
+    let dir = tempfile::tempdir().unwrap();
+    let alternative = dir.path().join(Path::new(binary).file_name().unwrap());
+    std::fs::copy(binary, &alternative).unwrap();
+    let other_installation = node_recorded_as(alternative.to_str().unwrap(), Some(pid));
+    assert_eq!(
+        recorded_process(&other_installation),
+        RecordedProcess::Reused
+    );
+    assert_eq!(
+        stop_by_pid(
+            &other_installation,
+            dir.path().join("stop.log"),
+            std::time::Duration::ZERO
+        )
+        .unwrap(),
+        PidStop::PidReused
+    );
+    assert!(witness.try_wait().unwrap().is_none());
+
+    let mut supervisor = crate::supervisor::ProcessSupervisor::default();
+    assert!(crate::node_lifecycle::quiesce_before_restart(
+        &mut supervisor,
+        &other_installation,
+        dir.path().join("stop.log")
+    )
+    .is_err());
+    assert!(witness.try_wait().unwrap().is_none());
 
     let _ = witness.kill();
     let _ = witness.wait();

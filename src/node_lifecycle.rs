@@ -88,6 +88,14 @@ pub fn execute_node_launch(
         }
     }
 
+    if action == LaunchAction::Restart {
+        if let Err(error) = quiesce_before_restart(supervisor, node, log_path.as_ref()) {
+            return NodeLaunchOutcome::Failed {
+                message: error.to_string(),
+            };
+        }
+    }
+
     let start = match action {
         LaunchAction::Start => supervisor.start(node, plan, log_path.as_ref()),
         LaunchAction::Restart => supervisor.restart(node, plan, log_path.as_ref()),
@@ -126,20 +134,23 @@ pub fn quiesce_before_restart(
     supervisor: &mut ProcessSupervisor,
     node: &NodeConfig,
     log_path: impl AsRef<Path>,
-) -> bool {
+) -> anyhow::Result<bool> {
     if supervisor.is_managing(&node.id) {
         // `restart` will stop and replace it through the handle it owns.
-        return false;
+        return Ok(false);
     }
     if node.pid.is_none() {
-        return false;
+        return Ok(false);
     }
     // Only a genuine stop counts as quiescing: a pid that turned out to belong
     // to another process must not be papered over by restarting on top of it.
-    matches!(
-        supervisor.stop_recorded_pid(node, log_path),
-        crate::supervisor::PidStop::Stopped(_)
-    )
+    match supervisor.stop_recorded_pid(node, log_path)? {
+        crate::supervisor::PidStop::Stopped(_) => Ok(true),
+        crate::supervisor::PidStop::AlreadyGone => Ok(false),
+        crate::supervisor::PidStop::PidReused => anyhow::bail!(
+            "recorded pid belongs to a different process; restart refused and status unchanged"
+        ),
+    }
 }
 
 /// The managed config to write before launching, with the plugins needed to

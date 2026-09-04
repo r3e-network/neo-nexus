@@ -31,6 +31,8 @@ fn status_badge_labels_itself_for_the_polling_script() {
         "{running}"
     );
     assert!(html::status_badge("Deploying").contains(r#"class="badge stopped""#));
+    assert!(html::status_badge("Crashed").contains(r#"class="badge crashed""#));
+    assert!(!html::status_badge(r#"<script>""#).contains("<script>"));
 }
 
 #[test]

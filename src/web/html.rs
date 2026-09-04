@@ -18,8 +18,10 @@ pub fn status_badge(status: &str) -> String {
         "Running" => "badge running",
         "Starting" => "badge starting",
         "Error" => "badge error",
+        "Crashed" => "badge crashed",
         _ => "badge stopped",
     };
+    let status = escape(status);
     format!(r#"<span class="{class}" data-node-status="{status}">{status}</span>"#)
 }
 
