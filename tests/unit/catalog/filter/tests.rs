@@ -35,6 +35,7 @@ fn plugin_filter_matches_operator_fields() {
         &states,
         PluginDefinitionFilter::new(None, None, "restart required"),
         &[
+            PluginId::SignClient,
             PluginId::RpcServer,
             PluginId::RestServer,
             PluginId::ApplicationLogs,

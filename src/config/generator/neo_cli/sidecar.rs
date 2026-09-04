@@ -57,6 +57,7 @@ fn configuration(node: &NodeConfig, plugin: PluginId) -> Option<Value> {
         PluginId::DBFTPlugin => Some(dbft()),
         PluginId::ApplicationLogs => Some(application_logs()),
         PluginId::TokensTracker => Some(tokens_tracker()),
+        PluginId::SignClient => Some(crate::plugins::SignClientSettings::default().configuration()),
         PluginId::LevelDbStore | PluginId::RocksDbStore => None,
     }
 }

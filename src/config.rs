@@ -22,4 +22,4 @@ pub use self::validation::{
     ConfigValidationCheck, ConfigValidationReport, ConfigValidationSeverity, ConfigValidator,
 };
 
-pub(crate) use export::{prepare_plugin_config, stage_plugin_config};
+pub(crate) use export::{prepare_plugin_config, stage_plugin_config, write_config_override};

@@ -57,6 +57,7 @@ pub fn build_router(state: WebState) -> Router {
         .route("/plugins", get(pages::plugins::plugins))
         .route("/plugins/{id}/toggle", post(pages::plugins::toggle))
         .route("/plugins/{id}/install", post(pages::plugins::install))
+        .route("/plugins/{id}/signclient", post(pages::plugins::configure_signclient))
         .route("/runtimes", get(pages::runtimes::runtimes))
         .route("/runtimes/install", post(pages::runtimes::install))
         .route("/runtimes/{id}/use", post(pages::runtimes::select_version))

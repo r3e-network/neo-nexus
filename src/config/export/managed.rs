@@ -290,6 +290,39 @@ pub fn resolve_config_conflict(
     Ok(backup)
 }
 
+/// Apply an explicit typed operator edit while retaining the generated baseline
+/// used at future starts. Original content is backed up before replacement.
+pub(crate) fn write_config_override(
+    path: &Path,
+    generated: &[u8],
+    custom: &[u8],
+    version: &str,
+) -> Result<Option<PathBuf>> {
+    real_path(path)?;
+    let backup = if let Some(current) = read(path)? {
+        if current != custom {
+            let backup = control(path, &format!("backup-{}", uuid::Uuid::new_v4()));
+            write(&backup, &current)?;
+            Some(backup)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    write(path, custom)?;
+    write(
+        &control(path, "baseline.json"),
+        &serde_json::to_vec(&Baseline {
+            generated: hash(generated),
+            accepted: hash(custom),
+            version: version.into(),
+        })?,
+    )?;
+    clear(path);
+    Ok(backup)
+}
+
 fn clear(path: &Path) {
     let _ = fs::remove_file(control(path, "conflict.json"));
     let _ = fs::remove_file(control(path, "candidate"));

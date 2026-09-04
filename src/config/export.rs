@@ -13,4 +13,4 @@ pub use managed::{
     config_conflict, list_config_conflicts, resolve_config_conflict, ConfigConflict,
 };
 
-pub(crate) use managed::{prepare_plugin_config, stage_plugin_config};
+pub(crate) use managed::{prepare_plugin_config, stage_plugin_config, write_config_override};
