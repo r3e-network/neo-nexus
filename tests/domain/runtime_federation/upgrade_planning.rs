@@ -40,6 +40,15 @@ fn runtime_upgrade_plan_prefers_latest_matching_platform_installation() {
     assert_eq!(plan.from_version, "v1.0.0");
     assert_eq!(plan.to_version, "v1.10.0");
     assert_eq!(plan.to_binary_path, newer.binary_path);
+
+    let ahead = NodeConfig {
+        runtime_version: "v2.0.0".into(),
+        ..node
+    };
+    assert!(
+        RuntimePackageManager::plan_node_upgrade(&ahead, &[newer], &platform).is_none(),
+        "automatic upgrade planning must not downgrade a newer external runtime"
+    );
 }
 
 #[test]
