@@ -99,6 +99,7 @@ fn snapshot_from_system(
         system: system_metrics,
         node_processes,
         missing_processes,
+        chain: Vec::new(),
     }
 }
 

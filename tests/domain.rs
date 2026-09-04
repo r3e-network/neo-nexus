@@ -43,7 +43,7 @@ use neo_nexus::{
     roles::{
         role_availability, NodeRole, PrivateNetworkPlanner, PrivateNetworkTemplate, RolePlanner,
     },
-    rpc_health::RpcHealthMonitorPolicy,
+    rpc_health::{RpcHealthMonitorPolicy, RpcHealthRecord, RpcHealthStatus},
     runtime::{
         validate_catalog_load_request, validate_download_request, validate_https_redirect,
         validate_runtime_signer_profile, validate_runtime_upgrade_policy,

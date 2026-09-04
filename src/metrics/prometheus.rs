@@ -10,5 +10,6 @@ pub(super) fn snapshot_to_text(snapshot: &MetricsSnapshot) -> String {
     families::push_system_metrics(&mut output, snapshot);
     families::push_node_process_metrics(&mut output, snapshot);
     families::push_missing_process_metrics(&mut output, snapshot);
+    families::push_chain_health_metrics(&mut output, snapshot);
     output
 }

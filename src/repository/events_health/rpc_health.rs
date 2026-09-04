@@ -70,6 +70,30 @@ impl Repository {
             .context("failed to load RPC health records")
     }
 
+    /// The newest probe verdict of every probed node, one row each.
+    ///
+    /// This is what the Prometheus exposition needs: block height and health
+    /// per node without walking the fleet node by node. A node that has never
+    /// been probed has no series here — Prometheus treats an absent sample and
+    /// a never-observed one the same way.
+    pub fn latest_rpc_health_all_nodes(&self) -> Result<Vec<RpcHealthRecord>> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT r.id, r.checked_at_unix, r.node_id, r.node_name, r.endpoint, r.status,
+                    r.version, r.block_count, r.message
+             FROM rpc_health_checks r
+             JOIN (
+                 SELECT node_id, MAX(id) AS id
+                 FROM rpc_health_checks
+                 GROUP BY node_id
+             ) latest ON latest.id = r.id
+             ORDER BY r.node_name",
+        )?;
+        let rows = statement.query_map([], rpc_health_record_from_row)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .context("failed to load latest RPC health records")
+    }
+
     pub fn prune_rpc_health_keep_recent_per_node(&self, keep_recent: usize) -> Result<usize> {
         let mut connection = self.connection()?;
         let node_ids = {
