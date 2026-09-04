@@ -29,6 +29,7 @@ pub fn build_router(state: WebState) -> Router {
             get(pages::node_editor::new_form).post(pages::node_editor::create),
         )
         .route("/nodes/{id}", get(pages::nodes::node_detail))
+        .route("/nodes/{id}/chain", get(pages::chain::node_chain))
         .route(
             "/nodes/{id}/edit",
             get(pages::node_editor::edit_form).post(pages::node_editor::update),
