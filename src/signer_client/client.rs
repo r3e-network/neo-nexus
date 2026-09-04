@@ -68,7 +68,16 @@ impl SignerClient {
     }
 
     pub fn health(&self) -> Result<SignerHealth, SignerClientError> {
-        self.get_plain("/health")
+        self.health_with_timeout(REQUEST_TIMEOUT)
+    }
+
+    /// Probe custody without sending an authentication credential. Background
+    /// monitors use a shorter deadline than interactive management requests.
+    pub fn health_with_timeout(
+        &self,
+        timeout: Duration,
+    ) -> Result<SignerHealth, SignerClientError> {
+        self.get_plain("/health", timeout)
     }
 
     pub fn sign_transaction(
@@ -321,12 +330,16 @@ impl SignerClient {
         parse_outcome(transport_response(result)?)
     }
 
-    fn get_plain<T: DeserializeOwned>(&self, route: &str) -> Result<T, SignerClientError> {
+    fn get_plain<T: DeserializeOwned>(
+        &self,
+        route: &str,
+        timeout: Duration,
+    ) -> Result<T, SignerClientError> {
         let url = self
             .endpoint
             .request_url(route)
             .map_err(SignerClientError::configuration)?;
-        let response = transport_response(self.agent.get(url.as_str()).call())?;
+        let response = transport_response(self.agent.get(url.as_str()).timeout(timeout).call())?;
         if !(200..300).contains(&response.status()) {
             return Err(SignerClientError::protocol(format!(
                 "signer health returned HTTP {}",

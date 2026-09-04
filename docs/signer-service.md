@@ -265,16 +265,20 @@ Neo transaction signature without transaction policy evaluation.
 
 ### Workbench journal
 
-The workbench journals custody activity into its own runtime event log, so the
-separately deployed signer — which no supervision loop watches — is still
-visible to the operations journal and to alert routing:
+The workbench and background supervision loop journal custody activity into
+the runtime event log, making the separately deployed signer visible to
+operations and alert routing without keeping a page open:
 
 - every management operation (key generate/state/delete, caller
   create/rotate/state/delete, policy save) is recorded at Info, or Warning when
   destructive (key or caller deletion);
 - a refused or failed signer request is recorded as a `signer-request-failed`
-  Warning — the only signal a misbehaving custody service raises while it is
-  being used;
+  Warning;
+- the supervision loop probes `/health` every 30 seconds with a two-second
+  deadline, without sending credentials or following redirects. A changed
+  verdict emits `signer-health-changed` at Info for recovery and Warning for
+  degraded/unreachable states. Unconfigured deployments stay silent; invalid
+  monitoring configuration produces one warning;
 - each signer page view records a health observation, and only a change of
   verdict (ok / degraded / unreachable) becomes a `signer-health-changed`
   event, at Info / Warning / Critical respectively.
