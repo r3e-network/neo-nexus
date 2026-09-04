@@ -204,7 +204,7 @@ pub(in crate::cli::actions) fn node_stop_action(args: &[String]) -> Result<CliAc
         .context("failed to stop the supervised process")?
     {
         Some(stop) => PidStop::Stopped(stop),
-        None => supervisor.stop_recorded_pid(&node, &log_path),
+        None => supervisor.stop_recorded_pid(&node, &log_path)?,
     };
     if matches!(outcome, PidStop::PidReused) {
         // The number belongs to something else now: nothing was signalled and

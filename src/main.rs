@@ -1,6 +1,10 @@
 use neo_nexus::manager::ManagerAction;
 
 fn main() {
+    #[cfg(windows)]
+    if let Some(code) = neo_nexus::supervisor::console_break_helper_from_args() {
+        std::process::exit(code);
+    }
     match neo_nexus::manager::action_from_args(std::env::args()) {
         Ok(ManagerAction::ServeWeb(launch)) => {
             if let Err(error) = neo_nexus::web::run_web_server(launch) {
