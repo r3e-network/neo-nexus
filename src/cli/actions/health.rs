@@ -45,6 +45,24 @@ pub(in crate::cli::actions) fn rpc_health_json_action(args: &[String]) -> Result
 
 fn rpc_health_report(args: &[String]) -> Result<RpcHealthReport> {
     let option = args.get(1).map_or("--rpc-health", String::as_str);
-    require_arg_count(args, 3, option)?;
-    Ok(probe_rpc_endpoint(&args[2], Duration::from_secs(3)))
+    if args.len() < 3 {
+        anyhow::bail!("{option} is missing required arguments; run neo-nexus --help for usage");
+    }
+    if args.len() > 4 {
+        anyhow::bail!("{option} does not accept extra arguments");
+    }
+    // A bare endpoint cannot be told apart by probing, so the family is an
+    // argument: the N3 default keeps every existing invocation correct, and a
+    // Neo X endpoint probed as N3 would misreport an outage.
+    let family = match args.get(3).map(String::as_str) {
+        Some(slug) => ChainFamily::from_slug(slug).with_context(|| {
+            format!("{option}: unknown chain family '{slug}'; use neo-n3 or neo-x")
+        })?,
+        None => ChainFamily::NeoN3,
+    };
+    Ok(probe_rpc_endpoint_for(
+        family,
+        &args[2],
+        Duration::from_secs(3),
+    ))
 }

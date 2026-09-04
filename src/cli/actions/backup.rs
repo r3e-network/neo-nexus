@@ -43,11 +43,18 @@ fn export_backup(args: &[String], option: &str) -> Result<WorkspaceBackupExport>
     }
     let repository = Repository::open(&db_path)
         .with_context(|| format!("failed to open workspace database {}", db_path.display()))?;
-    WorkspaceBackupExporter::write(
+    let export = WorkspaceBackupExporter::write(
         &repository,
         PathBuf::from(&args[3]),
         env!("CARGO_PKG_VERSION"),
-    )
+    )?;
+    journal_workspace_event(
+        &repository,
+        EventKind::BackupExported,
+        EventSeverity::Info,
+        format!("backup exported to {}", args[3]),
+    );
+    Ok(export)
 }
 
 fn import_backup(args: &[String], option: &str) -> Result<(PathBuf, WorkspaceBackupImport)> {
@@ -58,7 +65,13 @@ fn import_backup(args: &[String], option: &str) -> Result<(PathBuf, WorkspaceBac
     let repository = Repository::open(&db_path)
         .with_context(|| format!("failed to open workspace database {}", db_path.display()))?;
     ensure_no_active_nodes_for_backup_import(&repository, &db_path)?;
-    let import = WorkspaceBackupImporter::import_path(&repository, backup_path)?;
+    let import = WorkspaceBackupImporter::import_path(&repository, &backup_path)?;
+    journal_workspace_event(
+        &repository,
+        EventKind::BackupImported,
+        EventSeverity::Warning,
+        format!("backup imported from {}", backup_path.display()),
+    );
     Ok((db_path, import))
 }
 

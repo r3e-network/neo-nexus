@@ -25,6 +25,12 @@ pub(in crate::cli::actions) fn import_wallet_profile_action(args: &[String]) -> 
     let profile =
         NeoWalletValidator::profile_from_path(&args[3], &args[4], &args[5], current_unix_time()?)?;
     repository.upsert_neo_wallet_profile(&profile)?;
+    journal_workspace_event(
+        &repository,
+        EventKind::NeoWalletProfileImported,
+        EventSeverity::Info,
+        format!("wallet profile {} ({}) imported", profile.id, profile.label),
+    );
     Ok(CliAction::PrintWithExitCode {
         exit_code: 0,
         text: wallet_profile_import_text(&profile),
