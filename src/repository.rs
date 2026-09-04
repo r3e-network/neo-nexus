@@ -37,6 +37,8 @@ use crate::{
     watchdog::{default_restart_policy, RestartPolicy},
 };
 
+mod agents;
+mod assistants;
 mod events_health;
 mod helpers;
 mod model;

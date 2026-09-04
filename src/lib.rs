@@ -1,5 +1,7 @@
+pub mod agents;
 pub mod alerts;
 pub mod argv;
+pub mod assistants;
 pub mod backup;
 pub mod catalog;
 pub mod chain_state;
