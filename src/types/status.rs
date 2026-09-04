@@ -8,10 +8,17 @@ pub enum NodeStatus {
     Starting,
     Running,
     Error,
+    Crashed,
 }
 
 impl NodeStatus {
-    pub const ALL: [Self; 4] = [Self::Running, Self::Starting, Self::Stopped, Self::Error];
+    pub const ALL: [Self; 5] = [
+        Self::Running,
+        Self::Starting,
+        Self::Stopped,
+        Self::Error,
+        Self::Crashed,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
@@ -19,6 +26,7 @@ impl NodeStatus {
             Self::Starting => "Starting",
             Self::Stopped => "Stopped",
             Self::Error => "Error",
+            Self::Crashed => "Crashed",
         }
     }
 
@@ -37,6 +45,10 @@ impl NodeStatus {
     pub fn is_stopped(self) -> bool {
         self == Self::Stopped
     }
+
+    pub fn is_crashed(self) -> bool {
+        self == Self::Crashed
+    }
 }
 
 impl fmt::Display for NodeStatus {
@@ -46,6 +58,7 @@ impl fmt::Display for NodeStatus {
             Self::Starting => "starting",
             Self::Running => "running",
             Self::Error => "error",
+            Self::Crashed => "crashed",
         })
     }
 }
@@ -59,6 +72,7 @@ impl FromStr for NodeStatus {
             "starting" => Ok(Self::Starting),
             "running" => Ok(Self::Running),
             "error" => Ok(Self::Error),
+            "crashed" => Ok(Self::Crashed),
             other => anyhow::bail!("unsupported node status: {other}"),
         }
     }

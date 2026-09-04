@@ -101,6 +101,7 @@ fn status_rank(status: NodeStatus) -> u8 {
         NodeStatus::Running => 0,
         NodeStatus::Starting => 1,
         NodeStatus::Error => 2,
+        NodeStatus::Crashed => 2,
         NodeStatus::Stopped => 3,
     }
 }

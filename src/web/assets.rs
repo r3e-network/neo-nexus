@@ -98,6 +98,8 @@ td.path, td.mono { font-family: var(--mono); font-size: 12.5px; color: var(--mut
   border-color: rgba(217,161,59,.3); }
 .badge.error { background: rgba(224,86,77,.14); color: var(--bad);
   border-color: rgba(224,86,77,.32); }
+.badge.crashed { background: rgba(224,86,77,.26); color: var(--bad);
+  border-color: rgba(224,86,77,.55); font-weight: 700; }
 .badge.stopped { background: rgba(107,114,128,.14); color: var(--idle);
   border-color: rgba(107,114,128,.3); }
 .badge.unknown { background: rgba(154,161,178,.12); color: var(--muted);

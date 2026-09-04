@@ -37,6 +37,7 @@ impl Fleet {
                 crate::types::NodeStatus::Running => counts.running += 1,
                 crate::types::NodeStatus::Starting => counts.starting += 1,
                 crate::types::NodeStatus::Error => counts.error += 1,
+                crate::types::NodeStatus::Crashed => counts.crashed += 1,
                 crate::types::NodeStatus::Stopped => counts.stopped += 1,
             }
         }
@@ -52,6 +53,7 @@ pub struct FleetCounts {
     pub starting: usize,
     pub stopped: usize,
     pub error: usize,
+    pub crashed: usize,
 }
 
 fn latest_health_label(repository: &Repository, node_id: &str) -> String {
