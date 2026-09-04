@@ -24,6 +24,9 @@ pub struct WorkspaceBackup {
     pub neo_wallet_profiles: Vec<NeoWalletProfileBackup>,
     #[serde(default)]
     pub fast_sync_snapshots: Vec<FastSyncSnapshotBackup>,
+    /// References only: never runtime PIDs, restart intent, logs, or config bytes.
+    #[serde(default)]
+    pub agents: Vec<crate::agents::AgentProfile>,
     pub nodes: Vec<NodeBackup>,
     pub events: Vec<EventBackup>,
 }

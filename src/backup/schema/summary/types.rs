@@ -18,6 +18,7 @@ pub struct WorkspaceBackupExport {
     pub runtime_signer_profile_count: usize,
     pub neo_wallet_profile_count: usize,
     pub fast_sync_snapshot_count: usize,
+    pub agent_count: usize,
     pub event_count: usize,
 }
 
@@ -39,6 +40,7 @@ pub struct WorkspaceBackupImport {
     pub runtime_signer_profile_count: usize,
     pub neo_wallet_profile_count: usize,
     pub fast_sync_snapshot_count: usize,
+    pub agent_count: usize,
     pub event_count: usize,
     pub schema_version: u16,
     pub exported_at_unix: u64,
@@ -59,5 +61,6 @@ pub struct WorkspaceBackupValidation {
     pub runtime_signer_profile_count: usize,
     pub neo_wallet_profile_count: usize,
     pub fast_sync_snapshot_count: usize,
+    pub agent_count: usize,
     pub event_count: usize,
 }

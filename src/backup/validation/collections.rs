@@ -10,6 +10,7 @@ pub(in crate::backup) fn validate_backup_collections(
     backup: &WorkspaceBackup,
 ) -> Result<BackupValidationCounts> {
     validate_backup_profiles(backup)?;
+    super::agents::validate_agents(backup)?;
     validate_backup_events(backup)?;
     validate_backup_nodes(backup)
 }

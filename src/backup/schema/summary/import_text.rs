@@ -34,6 +34,7 @@ impl WorkspaceBackupImport {
             ),
             format!("neo-wallet-profiles: {}", self.neo_wallet_profile_count),
             format!("fast-sync-snapshots: {}", self.fast_sync_snapshot_count),
+            format!("agent-profiles: {}", self.agent_count),
             format!("events: {}", self.event_count),
             String::new(),
         ]);

@@ -35,7 +35,7 @@ fn backup_validation_json_cli_reports_machine_readable_summary() -> Result<()> {
     let value: serde_json::Value = serde_json::from_str(&text)?;
     assert_eq!(value["schema_version"], 1);
     assert_eq!(value["status"], "ok");
-    assert_eq!(value["validation"]["schema_version"], 7);
+    assert_eq!(value["validation"]["schema_version"], 8);
     assert_eq!(value["validation"]["application_version"], "test");
     assert_eq!(value["validation"]["node_count"], 1);
     assert_eq!(value["validation"]["source_path"], backup_arg);
