@@ -22,6 +22,50 @@ The boundary is intentionally asymmetric:
   malformed-response failures are client errors and never become an implicit
   local-signing fallback.
 
+## Node signer compatibility
+
+Managing a custody key in `/signer` does **not** attach it to a running node.
+Launch-pack wallet paths, signer endpoints and sidecar commands are provisioning
+metadata; the generator does not currently write a native signer binding. The
+launch verifier reports this as `signer-integration` warning even when all files
+and endpoints are valid.
+
+| Node | Native signing boundary observed | NeoNexus integration status |
+| --- | --- | --- |
+| neo-cli | The sibling NeoOS signer has an official Neo SignClient gRPC bridge for N3 payload/block signing | SignClient plugin installation and its native endpoint configuration are still required; the current plugin catalog does not include SignClient |
+| neo-rs | Wallet and HSM consensus signer interfaces | Wallet metadata can be validated; no NeoOS HTTP/gRPC consensus adapter is injected |
+| neogo | `Consensus.UnlockWallet` in upstream configuration | Wallet metadata can be validated; no remote custody adapter is injected |
+| geth-neox | `accounts/external` speaks Clef JSON-RPC; dBFT uses native wallet sign callbacks | NeoOS HTTP transaction signing works independently; its REST endpoint is not a Clef or NeoX dBFT endpoint |
+| neox-rs | Validator startup loads `--validator.ecdsa-key` and separate Anti-MEV/DKG material | No remote validator adapter is injected; a custody transaction signature cannot substitute for block, payload, or DKG signing |
+
+The N3 SignClient bridge is configured in the signer process with
+`SIGNER_SERVICE_SIGNCLIENT_PORT`, `SIGNER_SERVICE_SIGNCLIENT_KEY_ID`, and
+`SIGNER_SERVICE_SIGNCLIENT_CALLER_TOKEN`. It binds only to loopback because the
+native protocol has no authentication field. Configure and verify the matching
+node plugin separately; never put the caller token into a generated node config,
+launch manifest, or command argument.
+
+This audit used the sibling signer at `b8ab09d`, neo-rs at `b31a7fe8`, neox-rs at
+`01214d856e`, and geth-neox checkout at `f0e2368`. NeoGo's current
+[consensus configuration](https://github.com/nspcc-dev/neo-go/blob/master/pkg/config/consensus.go)
+uses its [internal wallet service configuration](https://github.com/nspcc-dev/neo-go/blob/master/pkg/config/internal_service.go).
+Runtime integration must be checked against the installed release, especially
+for consensus and Anti-MEV changes.
+
+The September 2026 audit ran both real-process tests in
+`tests/signer_service_contract.rs` against the sibling Windows signer binary:
+N3 management, transaction/consensus/raw signing and workload-v2 authentication;
+and a private NeoX key with chain id `4294967300`, policy update, complete signed
+transaction, idempotent replay, and mismatched-chain refusal. Transport/Web
+tests also cover canonical and legacy transaction fields, request/reply family
+checks, and unsupported identity providers. These verify the custody client;
+they do not claim five-node consensus or native SignClient/Clef integration.
+
+Custody private keys stay in the signer. NEP-6 imports into NeoNexus store only
+validated encrypted-wallet metadata, not wallet bytes, passphrases, or decrypted
+keys. EVM keystore provisioning and validator/DKG secrets remain external;
+NeoNexus does not export custody keys to satisfy a node's local-key interface.
+
 The first integration increment covers endpoint validation, bearer and
 Ed25519 workload authentication, health, all non-secret management operations,
 transaction/consensus/raw signing, caller provisioning, and audit reads. The
@@ -98,8 +142,15 @@ raw-only keys. They must never share a transaction or consensus authority key.
 
 ### Workload assertion
 
+Only bearer tokens and Ed25519 workload identities are implemented by the
+current custody service. Legacy OIDC/API-key client types remain source-visible,
+but profile loading, credential transmission, and caller provisioning reject
+those modes locally. They must not be treated as available identity providers.
+
 Every workload-authenticated request carries:
 
+- `X-NeoOS-Workload-Protocol: neoos-workload-v2`
+- `X-NeoOS-Audience`: the canonical signer origin
 - `X-NeoOS-Caller`
 - `X-NeoOS-Timestamp`
 - `X-NeoOS-Nonce`
@@ -108,7 +159,8 @@ Every workload-authenticated request carries:
 The Ed25519 signature covers the exact UTF-8 bytes below:
 
 ```text
-neoos-workload-v1
+neoos-workload-v2
+audience:<canonical-signer-origin>
 caller:<caller-id>
 subject:<configured-subject-or-empty>
 timestamp:<unix-seconds>
@@ -123,6 +175,12 @@ NeoNexus serializes a request body once, hashes those exact bytes, signs the
 canonical message, and sends the same bytes. It does not serialize a value
 again after calculating the assertion. Server-to-server requests send no
 `Origin`.
+
+The audience comes from the validated `NEONEXUS_SIGNER_URL`, including its
+non-default port, with no path or trailing slash. Configure the service's
+`SIGNER_SERVICE_WORKLOAD_AUDIENCE` to this same public origin behind a TLS
+proxy. Assertions cannot be replayed against a different signer origin.
+NeoNexus never falls back to audience-less v1 after a refusal.
 
 ### Client outcomes
 
@@ -261,16 +319,37 @@ A raw compatibility client instead uses `raw_sign` and an
 ### Request a transaction signature from Rust
 
 ```rust
-let outcome = client.sign_transaction(SignRequest {
+let outcome = client.sign_transaction(&SignRequest {
     key_id: "key-validator-1".to_string(),
     unsigned_hex: unsigned_transaction_hex,
     request_id: Some("payment-job-018f".to_string()),
+    chain_family: None,
+    chain_id: None,
 })?;
 match outcome {
     SignerOutcome::Allowed(witness) => install_witness(witness),
     SignerOutcome::Refused(refusal) => stop_with_code(refusal.code),
 }
 ```
+
+For NeoX, set `chain_family: Some("neox".into())` and the exact `chain_id`.
+The custody API spells this family `neox`; NeoNexus's UI and persisted node
+family use `neo-x`, which the Web controls translate at the API boundary.
+`SignedWitness::signed_transaction` contains the complete serialized EVM
+transaction for `eth_sendRawTransaction`; the deprecated `signature_hex`
+service field is a compatibility alias for these same bytes. The client
+rejects conflicting aliases, missing transaction bytes, and replies for a
+different key or family. Cryptographic transaction verification and broadcast
+remain the caller's responsibility.
+
+Key generation accepts `chain_id: Option<u64>` for NeoX and
+`network_magic: Option<u32>` for Neo N3. Private NeoX keys require an explicit
+chain id. Key pages retain and display the service's immutable family and chain
+identity instead of labeling an EVM key with N3 network magic.
+
+`sign_consensus` and `sign_raw` are N3-only service routes. NeoNexus rejects
+NeoX requests to either before sending them. The local `RawSignRequest` family
+guard is never serialized because the raw API does not accept that field.
 
 The client does not retry this call automatically and has no local private-key
 fallback. After an unknown transport outcome, the caller may retry the exact

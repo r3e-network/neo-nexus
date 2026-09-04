@@ -177,7 +177,7 @@ fn render_overview(endpoint: &str, snapshot: Overview) -> String {
 <h2>Recent signer audit</h2>
 {audit}"#,
         boundary = html::note(
-            "NeoNexus is a client only. Custody, policy decisions, limits, and audit storage stay in the separately deployed Rust signer.",
+            "NeoNexus is a client only. Custody, policy decisions, limits, and audit storage stay in the separately deployed Rust signer. Managing a custody key here does not attach it to a node; consensus signing requires the node's compatible wallet or signer adapter.",
         ),
         cards = html::cards(&[
             ("Keys", key_count.to_string()),
@@ -230,6 +230,7 @@ fn generate_form() -> String {
 {chain_family}
 {network}
 {magic}
+{chain_id}
 <button type="submit">Generate in signer</button>
 </form>
 {note}"#,
@@ -241,6 +242,14 @@ fn generate_form() -> String {
             name: "network_magic",
             value: "",
             help: Some("Neo N3 only; leave blank for mainnet/testnet canonical magic."),
+            ..html::TextField::default()
+        }
+        .render(),
+        chain_id = html::TextField {
+            label: "EVM chain id",
+            name: "chain_id",
+            value: "",
+            help: Some("Neo X only; required for private chains. Leave blank for canonical mainnet/testnet."),
             ..html::TextField::default()
         }
         .render(),
@@ -277,7 +286,7 @@ fn key_table(keys: Vec<SignerKey>) -> String {
             html::row(&[
                 html::cell(&key.label),
                 html::cell(&key.network),
-                html::cell(&key.network_magic.to_string()),
+                html::cell(&key_chain_identity(key)),
                 html::cell(&key.address),
                 html::cell(&short(&key.public_key, 18)),
                 html::cell(if key.signing_enabled {
@@ -294,7 +303,7 @@ fn key_table(keys: Vec<SignerKey>) -> String {
         &[
             "Label",
             "Network",
-            "Magic",
+            "Chain identity",
             "Address",
             "Public key",
             "State",
@@ -441,10 +450,22 @@ fn audit_table(entries: Vec<AuditEntry>) -> String {
     )
 }
 
+fn key_chain_identity(key: &SignerKey) -> String {
+    match key.chain_family.as_deref() {
+        Some("neox") => format!(
+            "Neo X / chain id {}",
+            key.chain_id
+                .map_or_else(|| "unknown".to_string(), |id| id.to_string())
+        ),
+        None | Some("neo-n3") => format!("Neo N3 / magic {}", key.network_magic),
+        Some(family) => format!("Unknown family: {family}"),
+    }
+}
+
 fn policy_page(detail: &KeyPolicy) -> String {
     let key = &detail.key;
     let policy = &detail.policy;
-    let network = format!("{} ({})", key.network, key.network_magic);
+    let network = format!("{} ({})", key.network, key_chain_identity(key));
     let advice = if detail.problems.is_empty() {
         html::notice("ok", "The signer reports no boundary-shape warnings.")
     } else {
@@ -555,7 +576,10 @@ fn policy_form(key_id: &str, policy: &SignerPolicy) -> String {
             "Chain family",
             "chain_family",
             &families,
-            policy.chain_family.as_deref().unwrap_or("neo-n3"),
+            match policy.chain_family.as_deref() {
+                Some("neox") => "neo-x",
+                family => family.unwrap_or("neo-n3"),
+            },
         ),
         switches = [
             checkbox(

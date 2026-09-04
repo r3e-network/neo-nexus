@@ -28,6 +28,8 @@ pub struct GenerateKeyForm {
     network_magic: String,
     #[serde(default)]
     chain_family: String,
+    #[serde(default)]
+    chain_id: String,
 }
 
 pub async fn generate(
@@ -42,15 +44,23 @@ pub async fn generate(
         }
         let network_magic = optional_number::<u32>(&input.network_magic, "network magic")?;
         let family = chain_family(&input.chain_family)?;
+        let chain_id = optional_number::<u64>(&input.chain_id, "EVM chain id")?;
         if family.is_some_and(ChainFamily::is_evm) && network_magic.is_some() {
             anyhow::bail!("a Neo X key has no network magic; leave it blank");
+        }
+        if !family.is_some_and(ChainFamily::is_evm) && chain_id.is_some() {
+            anyhow::bail!("an EVM chain id is valid only for Neo X");
+        }
+        if family.is_some_and(ChainFamily::is_evm) && network == "private" && chain_id.is_none() {
+            anyhow::bail!("a private Neo X key requires its EVM chain id");
         }
         Ok(GenerateKeyRequest {
             label,
             network,
             network_magic,
             // Neo N3 stays `None` so pre-Neo-X payloads remain byte-identical.
-            chain_family: family.map(|family| family.slug().to_string()),
+            chain_family: family.map(|family| signer_family(family).to_string()),
+            chain_id,
         })
     })();
     let outcome = match request {
@@ -58,7 +68,7 @@ pub async fn generate(
             let family = request
                 .chain_family
                 .as_deref()
-                .and_then(ChainFamily::from_slug)
+                .and_then(|family| chain_family(family).ok().flatten())
                 .map_or("Neo N3", ChainFamily::label)
                 .to_string();
             request_and_journal(
@@ -389,9 +399,20 @@ fn chain_family(raw: &str) -> anyhow::Result<Option<ChainFamily>> {
     if slug.is_empty() {
         return Ok(None);
     }
+    if slug == "neox" {
+        return Ok(Some(ChainFamily::NeoX));
+    }
     ChainFamily::from_slug(slug)
         .map(Some)
         .ok_or_else(|| anyhow::anyhow!("chain family must be neo-n3 or neo-x"))
+}
+
+// UI/persistence uses neo-x; the custody API's canonical identifier is neox.
+fn signer_family(family: ChainFamily) -> &'static str {
+    match family {
+        ChainFamily::NeoN3 => "neo-n3",
+        ChainFamily::NeoX => "neox",
+    }
 }
 
 fn parse_policy(input: PolicyForm) -> anyhow::Result<SignerPolicy> {
@@ -427,7 +448,7 @@ fn parse_policy(input: PolicyForm) -> anyhow::Result<SignerPolicy> {
         _ => anyhow::bail!("signature window seconds and count must be set together"),
     };
     Ok(SignerPolicy {
-        chain_family: family.map(|family| family.slug().to_string()),
+        chain_family: family.map(|family| signer_family(family).to_string()),
         allow_consensus,
         allow_transfer,
         allow_contract_call,

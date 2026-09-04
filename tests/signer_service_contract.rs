@@ -44,6 +44,7 @@ fn real_rust_signer_and_neonexus_client_agree() {
         network: "testnet".to_string(),
         network_magic: None,
         chain_family: None,
+        chain_id: None,
     }));
     assert_eq!(allowed(admin.list_keys()).len(), 1);
     let closed = allowed(admin.key_policy(&key.key_id));
@@ -93,6 +94,7 @@ fn real_rust_signer_and_neonexus_client_agree() {
         unsigned_hex: lower_hex(&transaction),
         request_id: Some("integration-transfer-1".to_string()),
         chain_family: None,
+        chain_id: None,
     };
     let witness = allowed(signer.sign_transaction(&transaction_request));
     assert_eq!(witness.key_id, key.key_id);
@@ -107,6 +109,7 @@ fn real_rust_signer_and_neonexus_client_agree() {
             unsigned_hex: lower_hex(&transfer_transaction(account, 100, 8)),
             request_id: transaction_request.request_id.clone(),
             chain_family: None,
+            chain_id: None,
         })
         .expect("idempotency conflict");
     let conflict = match conflict {
@@ -124,6 +127,7 @@ fn real_rust_signer_and_neonexus_client_agree() {
         unsigned_hex: lower_hex(&consensus),
         request_id: Some("integration-consensus-1".to_string()),
         chain_family: None,
+        chain_id: None,
     }));
     assert_eq!(consensus_witness.key_id, key.key_id);
 
@@ -132,6 +136,7 @@ fn real_rust_signer_and_neonexus_client_agree() {
         network: "testnet".to_string(),
         network_magic: None,
         chain_family: None,
+        chain_id: None,
     }));
     allowed(admin.save_policy(
         &raw_key.key_id,
@@ -233,6 +238,73 @@ fn real_rust_signer_and_neonexus_client_agree() {
     allowed(admin.delete_key(&key.key_id));
     allowed(admin.delete_key(&raw_key.key_id));
     assert!(allowed(admin.list_keys()).is_empty());
+}
+
+#[test]
+#[ignore = "requires the sibling neo-os-services signer binary"]
+fn real_signer_preserves_private_neox_chain_and_complete_transaction() {
+    let binary = signer_binary();
+    let home = tempfile::tempdir().expect("signer workspace");
+    let token = provision_admin(&binary, home.path());
+    let port = unused_port();
+    let _process = SignerProcess::start(&binary, home.path(), port);
+    let endpoint = format!("http://127.0.0.1:{port}");
+    let admin = bearer_client(&endpoint, &token);
+    wait_until_healthy(&admin);
+    let chain_id = 4_294_967_300;
+    let key = allowed(admin.generate_key(&GenerateKeyRequest {
+        label: "private-neox".to_string(),
+        network: "private".to_string(),
+        network_magic: None,
+        chain_family: Some("neox".to_string()),
+        chain_id: Some(chain_id),
+    }));
+    assert_eq!(key.chain_family.as_deref(), Some("neox"));
+    assert_eq!(key.chain_id, Some(chain_id));
+    assert!(key.address.starts_with("0x"));
+    allowed(admin.save_policy(
+        &key.key_id,
+        &SignerPolicy {
+            chain_family: Some("neox".to_string()),
+            allow_transfer: true,
+            evm_chain_id: Some(chain_id),
+            evm_max_gas_price: Some("2".to_string()),
+            evm_max_gas_limit: Some(21_000),
+            ..SignerPolicy::default()
+        },
+    ));
+    let caller = allowed(admin.create_caller(&CreateCallerRequest {
+        label: "private-neox-caller".to_string(),
+        key_grant: KeyGrant::only(vec![key.key_id.clone()]),
+        capabilities: vec!["sign".to_string()],
+        allowed_origins: Vec::new(),
+    }));
+    let signer = bearer_client(&endpoint, &caller.token);
+    // EIP-1559 type + RLP([4294967300, 1, 1, 2, 21000, 0x22..22, 60, "", []]).
+    let request = SignRequest {
+        key_id: key.key_id.clone(),
+        unsigned_hex: format!("02e485010000000401010282520894{}3c80c0", "22".repeat(20)),
+        request_id: Some("private-neox-1".to_string()),
+        chain_family: Some("neox".to_string()),
+        chain_id: Some(chain_id),
+    };
+    let witness = allowed(signer.sign_transaction(&request));
+    assert!(witness
+        .signed_transaction
+        .as_deref()
+        .unwrap()
+        .starts_with("0x02"));
+    assert_eq!(witness.signed_transaction, witness.signature_hex);
+    assert_eq!(allowed(signer.sign_transaction(&request)), witness);
+    let wrong_chain = SignRequest {
+        chain_id: Some(chain_id + 1),
+        request_id: Some("wrong-chain".to_string()),
+        ..request
+    };
+    assert!(matches!(
+        signer.sign_transaction(&wrong_chain).unwrap(),
+        SignerOutcome::Refused(_)
+    ));
 }
 
 fn signer_binary() -> PathBuf {

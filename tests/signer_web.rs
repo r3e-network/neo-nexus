@@ -503,7 +503,7 @@ fn neo_x_key_generation_and_evm_policy_fields_cross_the_boundary() {
         .expect("generate lock")
         .clone()
         .expect("generate reached the signer");
-    assert_eq!(generate_body["chain_family"], "neo-x");
+    assert_eq!(generate_body["chain_family"], "neox");
     let events = rig
         .repository
         .list_recent_events(50)
@@ -529,12 +529,44 @@ fn neo_x_key_generation_and_evm_policy_fields_cross_the_boundary() {
         .expect("policy lock")
         .clone()
         .expect("policy reached the signer");
-    assert_eq!(policy["chain_family"], "neo-x");
+    assert_eq!(policy["chain_family"], "neox");
     assert_eq!(policy["evm_chain_id"], 12227332);
     assert_eq!(policy["evm_max_gas_price"], "50000000000");
     assert_eq!(policy["evm_max_gas_limit"], 30000000);
     assert_eq!(policy["evm_method_whitelist"][0], "0xabc:transfer");
     assert_eq!(policy["evm_method_blacklist"][0], "0xdef:kill");
+}
+
+#[test]
+fn private_neox_key_generation_requires_and_forwards_u64_chain_id() {
+    let rig = spawn();
+    let http = agent();
+    let session = login(&http, &rig.base_url);
+    for fields in [
+        "chain_family=neo-x&chain_id=",
+        "chain_family=neo-n3&chain_id=4294967300",
+        "chain_family=neo-x&chain_id=4294967300&network_magic=123",
+    ] {
+        response(
+            http.post(&format!("{}/signer/keys", rig.base_url))
+                .set("cookie", &session)
+                .set("content-type", "application/x-www-form-urlencoded")
+                .send_string(&format!("label=private-validator&network=private&{fields}")),
+        );
+        assert!(rig.signer.last_generate.lock().unwrap().is_none());
+    }
+    response(
+        http.post(&format!("{}/signer/keys", rig.base_url))
+            .set("cookie", &session)
+            .set("content-type", "application/x-www-form-urlencoded")
+            .send_string(
+                "label=private-validator&network=private&chain_family=neo-x&chain_id=4294967300",
+            ),
+    );
+    let body = rig.signer.last_generate.lock().unwrap().clone().unwrap();
+    assert_eq!(body["chain_family"], "neox");
+    assert_eq!(body["chain_id"], 4_294_967_300u64);
+    assert!(body.get("network_magic").is_none());
 }
 
 #[test]

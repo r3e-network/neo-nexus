@@ -6,9 +6,7 @@ use anyhow::{bail, Context, Result};
 use url::{Host, Url};
 use zeroize::Zeroizing;
 
-use super::{
-    ApiKeyCredential, BearerCredential, OidcCredential, SignerCredential, WorkloadCredential,
-};
+use super::{BearerCredential, SignerCredential, WorkloadCredential};
 
 const URL_VARIABLE: &str = "NEONEXUS_SIGNER_URL";
 const MAX_SECRET_FILE_BYTES: u64 = 16 * 1024;
@@ -36,8 +34,8 @@ impl SignerClientConfig {
     /// `_TOKEN_FILE`; workload mode reads `_CALLER_ID`,
     /// `_WORKLOAD_KEY_FILE`, and optional `_WORKLOAD_SUBJECT`.
     ///
-    /// OIDC mode reads `_OIDC_TOKEN_FILE`.
-    /// API Key mode reads `_API_KEY_ID` and `_API_KEY_SECRET_FILE`.
+    /// OIDC and API-key profiles are rejected: the current custody service
+    /// implements bearer and workload authentication only.
     pub fn from_env(prefix: &str) -> Result<Option<Self>> {
         validate_prefix(prefix)?;
         let token_name = format!("{prefix}_TOKEN_FILE");
@@ -57,13 +55,12 @@ impl SignerClientConfig {
         let api_key_id = env_text(&api_key_id_name);
         let api_key_secret_file = env_text(&api_key_secret_name);
 
-        let any_credential = token_file.is_some()
-            || caller_id.is_some()
-            || key_file.is_some()
-            || subject.is_some()
-            || oidc_token_file.is_some()
-            || api_key_id.is_some()
-            || api_key_secret_file.is_some();
+        if oidc_token_file.is_some() || api_key_id.is_some() || api_key_secret_file.is_some() {
+            bail!("the NeoOS signer does not support OIDC or API-key authentication; configure a bearer or workload profile");
+        }
+
+        let any_credential =
+            token_file.is_some() || caller_id.is_some() || key_file.is_some() || subject.is_some();
 
         if raw_url.is_none() && !any_credential {
             return Ok(None);
@@ -77,21 +74,13 @@ impl SignerClientConfig {
         // Count credential types selected
         let bearer_selected = token_file.is_some();
         let workload_selected = caller_id.is_some() || key_file.is_some() || subject.is_some();
-        let oidc_selected = oidc_token_file.is_some();
-        let api_key_selected = api_key_id.is_some() || api_key_secret_file.is_some();
-
-        let selected_count = [
-            bearer_selected,
-            workload_selected,
-            oidc_selected,
-            api_key_selected,
-        ]
-        .iter()
-        .filter(|&&x| x)
-        .count();
+        let selected_count = [bearer_selected, workload_selected]
+            .iter()
+            .filter(|&&x| x)
+            .count();
 
         if selected_count == 0 {
-            bail!("{prefix} must configure exactly one credential type (bearer, workload, OIDC, or API key)");
+            bail!("{prefix} must configure exactly one credential type (bearer or workload)");
         }
         if selected_count > 1 {
             bail!("{prefix} must configure only one credential type");
@@ -100,12 +89,6 @@ impl SignerClientConfig {
         let credential = if let Some(path) = token_file {
             let token = read_secret_text(Path::new(&path), "signer bearer token")?;
             SignerCredential::Bearer(BearerCredential::new(token.as_str())?)
-        } else if let Some(path) = oidc_token_file {
-            let token = read_secret_text(Path::new(&path), "OIDC token")?;
-            SignerCredential::Oidc(OidcCredential::new(token.as_str())?)
-        } else if let (Some(key_id), Some(secret_file)) = (&api_key_id, &api_key_secret_file) {
-            let secret = read_secret_text(Path::new(secret_file), "API key secret")?;
-            SignerCredential::ApiKey(ApiKeyCredential::new(key_id, secret.as_str())?)
         } else {
             // Workload mode
             let caller_id = caller_id

@@ -18,9 +18,9 @@ use axum::{
 };
 use ed25519_dalek::{Signature, Signer as _, SigningKey, Verifier as _, VerifyingKey};
 use neo_nexus::signer_client::{
-    body_sha256, workload_signing_message, BearerCredential, GenerateKeyRequest, SignRequest,
-    SignerClient, SignerClientConfig, SignerClientErrorKind, SignerCredential, SignerEndpoint,
-    SignerOutcome, WorkloadCredential,
+    body_sha256, workload_signing_message, workload_signing_message_v2, BearerCredential,
+    GenerateKeyRequest, RawSignRequest, SignRequest, SignerClient, SignerClientConfig,
+    SignerClientErrorKind, SignerCredential, SignerEndpoint, SignerOutcome, WorkloadCredential,
 };
 use serde_json::json;
 
@@ -89,6 +89,54 @@ fn authentication_secrets_are_redacted_from_debug_output() {
     assert!(workload_debug.contains("REDACTED"));
 }
 
+#[test]
+fn unsupported_identity_providers_fail_before_any_credential_is_sent() {
+    use neo_nexus::signer_client::{
+        ApiKeyCallerRequest, ApiKeyCredential, KeyGrant, OidcCallerRequest, OidcCredential,
+    };
+    for credential in [
+        SignerCredential::Oidc(OidcCredential::new("oidc.test.token").unwrap()),
+        SignerCredential::ApiKey(ApiKeyCredential::new("api-id", "api-secret").unwrap()),
+    ] {
+        let error = client("http://127.0.0.1:1", credential)
+            .list_keys()
+            .unwrap_err();
+        assert_eq!(error.kind(), SignerClientErrorKind::Configuration);
+        assert!(error.to_string().contains("does not support"));
+        assert!(!error.to_string().contains("oidc.test.token"));
+        assert!(!error.to_string().contains("api-secret"));
+    }
+    let client = client("http://127.0.0.1:1", bearer());
+    assert_eq!(
+        client
+            .create_api_key_caller(&ApiKeyCallerRequest {
+                label: "api".to_string(),
+                key_grant: KeyGrant::any(),
+                capabilities: vec![],
+                allowed_origins: vec![],
+                expires_at: None,
+            })
+            .unwrap_err()
+            .kind(),
+        SignerClientErrorKind::Request
+    );
+    assert_eq!(
+        client
+            .create_oidc_caller(&OidcCallerRequest {
+                label: "oidc".to_string(),
+                key_grant: KeyGrant::any(),
+                capabilities: vec![],
+                allowed_origins: vec![],
+                oidc_issuer: "https://issuer.example".to_string(),
+                oidc_audience: "audience".to_string(),
+                oidc_subject_pattern: None,
+            })
+            .unwrap_err()
+            .kind(),
+        SignerClientErrorKind::Request
+    );
+}
+
 #[derive(Clone)]
 struct WorkloadState {
     verifying_key: VerifyingKey,
@@ -154,7 +202,20 @@ fn verify_workload_request(key: &VerifyingKey, headers: &HeaderMap, body: &[u8])
     {
         return false;
     }
-    let message = workload_signing_message(
+    let Some(audience) = text("x-neoos-audience") else {
+        return false;
+    };
+    if text("x-neoos-workload-protocol").as_deref() != Some("neoos-workload-v2")
+        || Some(audience.as_str())
+            != text("host")
+                .as_ref()
+                .map(|host| format!("http://{host}"))
+                .as_deref()
+    {
+        return false;
+    }
+    let message = workload_signing_message_v2(
+        &audience,
         &caller_id,
         Some("neo-nexus:test"),
         timestamp,
@@ -190,6 +251,7 @@ fn workload_authentication_binds_the_exact_request_body_and_route() {
             network: "testnet".to_string(),
             network_magic: Some(894_710_606),
             chain_family: None,
+            chain_id: None,
         })
         .expect("request reaches signer");
     let key = match outcome {
@@ -226,6 +288,7 @@ fn a_signing_refusal_is_data_and_is_not_retried() {
             unsigned_hex: "00".to_string(),
             request_id: None,
             chain_family: None,
+            chain_id: None,
         })
         .expect("refusal is a valid signer response");
     let refusal = match outcome {
@@ -240,6 +303,157 @@ fn a_signing_refusal_is_data_and_is_not_retried() {
     assert_eq!(refusal.status, 503);
     assert_eq!(refusal.code, "signer-not-provisioned");
     assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+fn evm_request() -> SignRequest {
+    SignRequest {
+        key_id: "evm-key".to_string(),
+        unsigned_hex: "02c0".to_string(),
+        request_id: Some("evm-request-1".to_string()),
+        chain_family: Some("neox".to_string()),
+        chain_id: Some(4_294_967_300),
+    }
+}
+
+fn evm_witness() -> serde_json::Value {
+    // SignatureBody in neo-os-services/workers/neo-signer/src/api.rs.
+    json!({
+        "allowed": true, "key_id": "evm-key", "script_hash": "0x00",
+        "address": "0x1111111111111111111111111111111111111111",
+        "digest": "abcd", "invocation_script": "", "verification_script": "",
+        "chain_family": "neox", "signed_transaction": "0x02c0"
+    })
+}
+
+#[test]
+fn neox_transaction_names_chain_and_preserves_canonical_signed_bytes() {
+    let router = Router::new().route(
+        "/signer/api/v1/sign/transaction",
+        post(|Json(body): Json<serde_json::Value>| async move {
+            assert_eq!(
+                body,
+                json!({
+                    "key_id": "evm-key", "unsigned_hex": "02c0", "request_id": "evm-request-1",
+                    "chain_family": "neox", "chain_id": 4_294_967_300u64
+                })
+            );
+            Json(evm_witness())
+        }),
+    );
+    let (endpoint, _runtime) = spawn(router);
+    let signed = client(&endpoint, bearer())
+        .sign_transaction(&evm_request())
+        .expect("NeoX response")
+        .allowed()
+        .expect("allowed");
+    assert_eq!(signed.signed_transaction.as_deref(), Some("0x02c0"));
+    assert!(signed.signature_hex.is_none());
+}
+
+#[test]
+fn neox_witness_rejects_wrong_identity_missing_bytes_and_conflicting_alias() {
+    for (field, value) in [
+        ("key_id", json!("different-key")),
+        ("chain_family", json!("neo-n3")),
+        ("signed_transaction", serde_json::Value::Null),
+        ("signed_transaction", json!("0xnot-hex")),
+        ("signature_hex", json!("0xdeadbeef")),
+    ] {
+        let mut response = evm_witness();
+        response[field] = value;
+        let router = Router::new().route(
+            "/signer/api/v1/sign/transaction",
+            post(move || {
+                let response = response.clone();
+                async move { Json(response) }
+            }),
+        );
+        let (endpoint, _runtime) = spawn(router);
+        assert_eq!(
+            client(&endpoint, bearer())
+                .sign_transaction(&evm_request())
+                .expect_err(field)
+                .kind(),
+            SignerClientErrorKind::Protocol
+        );
+    }
+}
+
+#[test]
+fn neox_legacy_transaction_alias_is_read_without_treating_it_as_a_signature() {
+    let mut response = evm_witness();
+    response
+        .as_object_mut()
+        .unwrap()
+        .remove("signed_transaction");
+    response["signature_hex"] = json!("0x02c0");
+    let router = Router::new().route(
+        "/signer/api/v1/sign/transaction",
+        post(move || {
+            let response = response.clone();
+            async move { Json(response) }
+        }),
+    );
+    let (endpoint, _runtime) = spawn(router);
+    let signed = client(&endpoint, bearer())
+        .sign_transaction(&evm_request())
+        .expect("legacy reply")
+        .allowed()
+        .unwrap();
+    assert_eq!(signed.signed_transaction.as_deref(), Some("0x02c0"));
+}
+
+#[test]
+fn unsupported_signing_lanes_and_missing_chain_ids_fail_before_transport() {
+    let client = client("http://127.0.0.1:1", bearer());
+    let request = evm_request();
+    assert_eq!(
+        client.sign_consensus(&request).unwrap_err().kind(),
+        SignerClientErrorKind::Request
+    );
+    let mut missing = request.clone();
+    missing.chain_id = None;
+    assert_eq!(
+        client.sign_transaction(&missing).unwrap_err().kind(),
+        SignerClientErrorKind::Request
+    );
+    let mut n3 = request;
+    n3.chain_family = None;
+    assert_eq!(
+        client.sign_transaction(&n3).unwrap_err().kind(),
+        SignerClientErrorKind::Request
+    );
+    let raw = RawSignRequest {
+        key_id: "raw-key".to_string(),
+        data_hex: "ab".to_string(),
+        request_id: None,
+        chain_family: Some("neox".to_string()),
+    };
+    assert_eq!(
+        client.sign_raw(&raw).unwrap_err().kind(),
+        SignerClientErrorKind::Request
+    );
+    let n3_raw = RawSignRequest {
+        chain_family: Some("neo-n3".to_string()),
+        ..raw
+    };
+    assert_eq!(
+        serde_json::to_value(n3_raw).unwrap(),
+        json!({"key_id": "raw-key", "data_hex": "ab"})
+    );
+}
+
+#[test]
+fn signer_key_metadata_keeps_evm_chain_identity_separate_from_network_magic() {
+    let key: neo_nexus::signer_client::SignerKey = serde_json::from_value(json!({
+        "key_id": "evm-key", "label": "private validator", "network": "private",
+        "chain_family": "neox", "chain_id": 4_294_967_300u64, "network_magic": 5195086,
+        "public_key": "02ab", "script_hash": "0x00", "address": "0x01",
+        "verification_script": "", "signing_enabled": true
+    }))
+    .unwrap();
+    assert_eq!(key.chain_family.as_deref(), Some("neox"));
+    assert_eq!(key.chain_id, Some(4_294_967_300));
 }
 
 #[test]
@@ -329,6 +543,37 @@ fn canonical_workload_message_matches_the_service_protocol() {
     assert!(String::from_utf8(message)
         .expect("canonical message is UTF-8")
         .starts_with("neoos-workload-v1\ncaller:caller-1\nsubject:neo-nexus:test\n"));
+}
+
+#[test]
+fn workload_v2_signature_is_bound_to_the_exact_signer_origin() {
+    let signing_key = SigningKey::from_bytes(&[3u8; 32]);
+    let digest = body_sha256(b"request-body");
+    let message = |audience: &str| {
+        workload_signing_message_v2(
+            audience,
+            "caller-1",
+            Some("neo-nexus:test"),
+            1_700_000_000,
+            "0123456789abcdef",
+            "post",
+            "/signer/api/v1/sign/transaction",
+            &digest,
+        )
+    };
+    let original = message("https://signer.example");
+    assert!(String::from_utf8(original.clone())
+        .unwrap()
+        .starts_with("neoos-workload-v2\naudience:https://signer.example\ncaller:caller-1\n"));
+    let signature = signing_key.sign(&original);
+    assert!(signing_key
+        .verifying_key()
+        .verify(&original, &signature)
+        .is_ok());
+    assert!(signing_key
+        .verifying_key()
+        .verify(&message("https://other.example"), &signature)
+        .is_err());
 }
 
 #[test]
