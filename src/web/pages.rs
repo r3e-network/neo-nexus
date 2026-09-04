@@ -1,6 +1,8 @@
 //! Page handlers, grouped per workbench destination.
 
+pub mod agents;
 pub mod alerts;
+pub mod assistants;
 pub mod chain;
 pub mod config;
 pub mod config_conflicts;

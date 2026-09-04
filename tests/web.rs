@@ -20,6 +20,11 @@ use ureq::AgentBuilder;
 
 const TOKEN: &str = "web-suite-token";
 
+#[path = "web/assistants.rs"]
+mod assistant_tests;
+#[path = "web/agents.rs"]
+mod companion_tests;
+
 struct Server {
     base_url: String,
     db_path: PathBuf,
@@ -939,9 +944,17 @@ fn the_watchdog_notices_a_crash_and_restarts_the_node() {
 /// A node recorded Running that this server holds no handle for must not stay
 /// Running once its process is gone.
 #[test]
-fn an_unmanaged_node_is_settled_once_its_process_disappears() {
+fn an_unmanaged_node_is_crashed_once_its_process_disappears() {
     let server = spawn_supervised_server();
     let repository = Repository::open(&server.db_path).expect("open workspace");
+    repository
+        .save_watchdog_policy(RestartPolicy::with_enabled(
+            false,
+            3,
+            Duration::from_secs(1),
+            Duration::from_secs(1),
+        ))
+        .expect("disable recovery to inspect the crash state");
     let (binary, args) = crashing_command();
     let node = repository
         .create_node(NewNode {
@@ -973,9 +986,19 @@ fn an_unmanaged_node_is_settled_once_its_process_disappears() {
             .unwrap_or_default()
             .iter()
             .find(|stored| stored.id == node.id)
-            .is_some_and(|stored| stored.status == neo_nexus::types::NodeStatus::Stopped)
+            .is_some_and(|stored| {
+                stored.status == neo_nexus::types::NodeStatus::Crashed && stored.pid.is_none()
+            })
     });
-    assert!(settled, "a stale Running row was never settled");
+    assert!(settled, "a missing process was not marked Crashed");
+    assert!(repository
+        .list_node_events(&node.id, 20)
+        .unwrap()
+        .iter()
+        .any(
+            |event| event.kind == neo_nexus::events::EventKind::NodeExited
+                && event.severity == neo_nexus::events::EventSeverity::Critical
+        ));
 }
 
 /// The install endpoint is a host-mutating action, so it cannot be reachable
