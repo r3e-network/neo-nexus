@@ -1,6 +1,6 @@
 # NeoNexus
 
-NeoNexus is a pure Rust operations workbench for Neo N3 node fleets. One
+NeoNexus is a pure Rust operations workbench for Neo N3 and Neo X node fleets. One
 binary starts a **web workbench**: open the printed address in a browser and
 operate your node fleet from anywhere — a laptop, a bastion host, or a cloud
 server. The same binary also exposes the full headless CLI for scripts and CI.
@@ -11,7 +11,7 @@ inside the binary — no Node toolchain, no external services, one executable.
 
 ## What Operators Can Do
 
-- Manage neo-cli, neo-go, neo-rs, and Neo X node definitions from the browser
+- Manage neo-cli, neo-go, neo-rs, neox-rs, and neox-geth node definitions from the browser
   or the CLI.
 - Launch, stop, restart, and inspect supervised node processes through the
   shared core pipeline (readiness → managed config → supervise → persist).
@@ -22,6 +22,12 @@ inside the binary — no Node toolchain, no external services, one executable.
   validate private-network launch packs.
 - Operate a separately deployed NeoOS Rust signer without bringing Neo custody
   keys, policy evaluation, or signer audit tables into this process.
+- Recover crashed processes with bounded retries, protect against recycled PIDs,
+  and retain alert delivery progress across workbench restarts.
+- Review configuration conflicts before applying updates, select verified node
+  versions, and manage neo-cli plugin versions and activation on disk.
+- Supervise an existing Hermes installation and grant its MCP client access to
+  selected nodes. Conversation channels, including Telegram, stay in Hermes.
 
 neo-rs is a first-class runtime target. NeoNexus recognizes the `neo-node`
 binary, validates RocksDB-oriented TOML configs, supports Fast Sync snapshot
@@ -33,12 +39,9 @@ workflow used for neo-cli and neo-go.
 - Rust 1.91 or newer.
 - Linux, macOS, or Windows.
 - Optional node binaries if you want to start real processes:
-  `neo-cli`, `neo-go`, or neo-rs `neo-node`.
-
-Linux development packages used by CI include ALSA, Fontconfig, X11, cursor,
-keyboard, RandR, and OpenGL development headers (the GUI toolkit is gone, but
-transitive skia/geometry crates in the tree may still expect them until the
-4.x dependency audit lands — CI installs them today).
+  `neo-cli`, `neo-go`, neo-rs `neo-node`, neox-rs, or geth-neox.
+- Optional Hermes integration: an existing hermes-agent installation, its Python
+  interpreter and configured `config.yaml`. See [Hermes setup](docs/hermes-agent.md).
 
 ## Run The Web Workbench
 
@@ -75,12 +78,21 @@ operators see the same workspace.
 | **Home** | Fleet counts, host CPU/memory pressure, fleet table with live status polling |
 | **Nodes** | Node list, per-node config facts, RPC health trend, Start/Stop/Restart controls |
 | **Operations** | Fleet readiness evaluation and the runtime event journal |
+| **Agents** | Hermes, signer and companion process profiles, lifecycle, health and logs |
+| **Assistants** | Connect Hermes to selected node tools, rotate or revoke access |
+| **Config / Runtimes** | Review local configuration conflicts and select installed versions |
+| **Plugins** | Install compatible neo-cli packages, change activation and configure SignClient |
 | **Metrics** | Workspace metrics snapshot and the Prometheus exposition |
 
 Status badges poll `/api/fleet` every 5 seconds; every control also works
 without JavaScript (plain form posts with flash messages). `/healthz` is a
 public liveness endpoint for load balancers. `/api/metrics-prometheus` serves
 the same Prometheus exposition the CLI exports.
+
+`/mcp` is a separate bearer-authenticated endpoint for Hermes. Its credentials
+carry node scope and monitoring/operation permissions; web sign-in tokens cannot
+authorize MCP calls. [Audit coverage and boundaries](docs/node-operations-audit.md)
+describe what has been tested and where a native client adapter is still needed.
 
 ## Headless CLI
 
