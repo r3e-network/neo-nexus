@@ -21,7 +21,7 @@ use std::{
         Arc, Mutex,
     },
     thread::{self, JoinHandle},
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use crate::{
@@ -59,7 +59,7 @@ mod startup;
 const TICK: Duration = Duration::from_secs(1);
 const RPC_HEALTH_TIMEOUT: Duration = Duration::from_secs(3);
 const FEDERATION_TIMEOUT: Duration = Duration::from_secs(5);
-const RPC_HEALTH_RETAIN_PER_NODE: usize = 24;
+const RPC_HEALTH_RETAIN_PER_NODE: usize = crate::chain_progress::OBSERVATION_HISTORY_LIMIT;
 const ALERT_DELIVERY_RETAIN: usize = 50;
 const LOG_MAX_BYTES: usize = 64 * 1024;
 const JOURNAL_SCAN_LIMIT: usize = 25;
@@ -583,8 +583,18 @@ impl LoopState {
                 .filter_map(|job| job.join().ok())
                 .collect::<Vec<_>>()
         });
+        if reports.is_empty() {
+            return;
+        }
         for (node, report) in reports {
             self.record_rpc_health(state, node, report, now);
+        }
+        // Evaluate the batch once. Its transaction rechecks node and observation
+        // identity, so concurrent stops or fresh probes cannot commit stale alarms.
+        if let Ok(elapsed) = SystemTime::now().duration_since(UNIX_EPOCH) {
+            if let Err(error) = crate::chain_progress::check(&state.repository, elapsed.as_secs()) {
+                eprintln!("neo-nexus: chain progress check failed: {error}");
+            }
         }
     }
 
@@ -601,12 +611,7 @@ impl LoopState {
             return;
         }
 
-        let previous = state
-            .repository
-            .latest_rpc_health(&node.id)
-            .ok()
-            .flatten()
-            .map(|record| record.status);
+        let previous = state.repository.latest_rpc_health(&node.id).ok().flatten();
         if state.repository.record_rpc_health(&node, &report).is_err() {
             return;
         }
@@ -614,12 +619,23 @@ impl LoopState {
         let _ = state
             .repository
             .prune_rpc_health_keep_recent_per_node(RPC_HEALTH_RETAIN_PER_NODE);
-        if should_record_rpc_health_event(previous, report.status) {
+        let identity_changed = previous
+            .as_ref()
+            .is_some_and(|old| old.network.identity_status() != report.network.identity_status());
+        if should_record_rpc_health_event(previous.as_ref().map(|old| old.status), report.status)
+            || identity_changed
+        {
             let message = rpc_health_notice(&report);
             state.journal(
                 &node,
                 EventKind::RpcHealthChecked,
-                rpc_health_event_severity(report.status),
+                if report.network.identity_status()
+                    == crate::rpc_health::RpcIdentityStatus::Mismatch
+                {
+                    EventSeverity::Critical
+                } else {
+                    rpc_health_event_severity(report.status)
+                },
                 format!("Automatic RPC health: {message}"),
             );
         }

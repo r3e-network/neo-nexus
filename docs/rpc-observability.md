@@ -35,6 +35,22 @@ count, network identifier/check status, synchronization, observation age and
 checked-at time; unknown optional values have no sample. Alert rules must check
 observation age as well as the stored verdict.
 
+The background monitor also raises `chain-progress-stalled` (Warning) when a
+Running public node has not advanced its block count for at least 15 minutes.
+The observation window must contain fresh, successful block and matching network
+identity observations for the same PID, endpoint and reported client version.
+An unreachable observation, changed height or a gap longer than three configured
+probe intervals breaks that window. Private chains are excluded. This check does
+not restart nodes: stalled consensus, synchronization and a crashed process need
+different responses. An increased count after an active stall raises
+`chain-progress-recovered` (Info); repeated observations do not repeat alerts.
+The configured alert route and severity threshold control delivery of both events.
+
+The engine retains 100 RPC observations per node, enough to cover the stall window
+at the minimum supported 10-second interval. A persistent runtime marker commits
+atomically with each event to prevent duplicate alarms after a workbench restart.
+Markers are deleted with their node and are not part of workspace backups.
+
 Protocol sources checked during implementation:
 
 - [N3 getversion](https://docs.neo.org/docs/n3/reference/rpc/getversion.html)

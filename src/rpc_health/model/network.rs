@@ -1,5 +1,20 @@
 use serde::{Deserialize, Serialize};
 
+pub fn expected_public_identity(
+    family: crate::types::ChainFamily,
+    network: crate::types::Network,
+) -> Option<u64> {
+    use crate::types::{ChainFamily, Network};
+    match (family, network) {
+        (ChainFamily::NeoN3, Network::Mainnet) => Some(860_833_102),
+        (ChainFamily::NeoN3, Network::Testnet) => Some(894_710_606),
+        (ChainFamily::NeoX, network @ (Network::Mainnet | Network::Testnet)) => {
+            Some(crate::config::neox_chain_id(network, None))
+        }
+        (_, Network::Private) => None,
+    }
+}
+
 /// The identifier reported by the RPC server. Matching an identifier does not
 /// prove a common genesis or protect against an RPC server lying about its chain.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -132,16 +132,9 @@ fn probe_rpc_endpoint_for_network(
             ChainFamily::NeoX => RpcIdentityKind::EvmChainId,
         }),
         actual_identity,
-        expected_identity: match (family, network) {
-            (ChainFamily::NeoN3, Some(Network::Mainnet)) => Some(860_833_102),
-            (ChainFamily::NeoN3, Some(Network::Testnet)) => Some(894_710_606),
-            (ChainFamily::NeoX, Some(network @ (Network::Mainnet | Network::Testnet))) => {
-                Some(crate::config::neox_chain_id(network, None))
-            }
-            // A private profile may override network magic/chain ID, and bare
-            // endpoints do not declare a desired chain. Never invent an anchor.
-            _ => None,
-        },
+        // Private profiles and bare endpoints have no inferred identity anchor.
+        expected_identity: network
+            .and_then(|network| super::expected_public_identity(family, network)),
         peer_count: peer_health
             .as_ref()
             .ok()

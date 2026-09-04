@@ -209,6 +209,42 @@ fn a_stale_rpc_result_does_not_write_health_or_postpone_the_new_process_probe() 
 }
 
 #[test]
+fn wrong_network_alerts_even_when_rpc_was_already_degraded_and_deduplicates() {
+    use crate::rpc_health::{
+        RpcHealthReport, RpcHealthStatus, RpcIdentityKind, RpcNetworkObservation,
+    };
+    let (_dir, state) = fixture();
+    let node = node(&state, "wrong-chain", NodeStatus::Running, Some(4_000_000));
+    let mut engine = LoopState::bootstrap(&state);
+    let mut report = RpcHealthReport {
+        endpoint: "http://127.0.0.1:0".into(),
+        status: RpcHealthStatus::Degraded,
+        version: None,
+        block_count: None,
+        syncing: None,
+        methods: vec![],
+        network: RpcNetworkObservation {
+            identity_kind: Some(RpcIdentityKind::N3NetworkMagic),
+            actual_identity: Some(894_710_606),
+            expected_identity: Some(894_710_606),
+            peer_count: Some(0),
+            peers_expected: true,
+        },
+    };
+    state.repository.record_rpc_health(&node, &report).unwrap();
+    report.network.actual_identity = Some(860_833_102);
+    engine.record_rpc_health(&state, node.clone(), report.clone(), Instant::now());
+    engine.record_rpc_health(&state, node.clone(), report.clone(), Instant::now());
+    let events = state.repository.list_recent_events(20).unwrap();
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].severity, EventSeverity::Critical);
+    assert!(events[0].message.contains("wrong network"));
+    report.network.actual_identity = report.network.expected_identity;
+    engine.record_rpc_health(&state, node, report, Instant::now());
+    assert_eq!(state.repository.list_recent_events(20).unwrap().len(), 2);
+}
+
+#[test]
 fn rpc_batches_prioritize_the_unprobed_tail_even_when_old_nodes_are_due_again() {
     let (_dir, state) = fixture();
     for index in 0..9 {
