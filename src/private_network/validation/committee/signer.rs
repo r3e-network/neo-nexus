@@ -16,6 +16,15 @@ pub(super) fn check_committee_signer(
     if let Some(command) = &signer.signer_command {
         check_signer_sidecar(checks, root_path, signer, command);
     }
+    if signer.wallet_path.is_some() || signer.signer_endpoint.is_some() {
+        add_check(
+            checks,
+            "signer-integration",
+            &signer.label,
+            LaunchPackValidationStatus::Warn,
+            "wallet and signer endpoint references are provisioning metadata; generated node configs do not bind a native consensus signer. Configure and verify the node-specific wallet or signer adapter before validator operation".to_string(),
+        );
+    }
 }
 
 fn check_signer_key(
