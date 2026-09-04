@@ -142,11 +142,10 @@ pub(super) fn stop_by_pid(
     let forced = process_is_live(pid);
     if forced {
         match identify_recorded_process(&mut system, node) {
-            Some(process) => {
-                if !process.kill() && process_is_live(pid) {
-                    anyhow::bail!("failed to force stop pid {pid}; node status is unchanged");
-                }
+            Some(process) if !process.kill() && process_is_live(pid) => {
+                anyhow::bail!("failed to force stop pid {pid}; node status is unchanged");
             }
+            Some(_) => {}
             None if process_is_live(pid) => return Ok(PidStop::PidReused),
             None => {}
         }
@@ -241,8 +240,22 @@ pub fn recorded_process(node: &NodeConfig) -> RecordedProcess {
 /// means the process exists, just not for us to signal.
 #[cfg(unix)]
 pub fn process_is_live(pid: u32) -> bool {
+    if pid == 0 || pid > i32::MAX as u32 {
+        return false;
+    }
     let probe = unsafe { libc::kill(pid as libc::pid_t, 0) };
     if probe == 0 {
+        #[cfg(target_os = "linux")]
+        if let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) {
+            // A terminated orphan can remain a zombie until its parent reaps
+            // it. kill(pid, 0) still succeeds, but a stop has already completed.
+            // The command name can contain ')', so split at the final one.
+            if stat.rsplit_once(')').is_some_and(|(_, tail)| {
+                matches!(tail.trim_start().chars().next(), Some('Z' | 'X'))
+            }) {
+                return false;
+            }
+        }
         return true;
     }
     std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
