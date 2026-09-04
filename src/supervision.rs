@@ -25,7 +25,7 @@ use std::{
 };
 
 use crate::{
-    alerts::{deliver_webhook_alert, should_route_alert},
+    alerts::{deliver_webhook_alert, should_route_alert, AlertDeliveryStatus},
     config::ConfigExporter,
     core::{
         lifecycle::{execute_node_launch, LaunchAction},
@@ -60,6 +60,14 @@ const RPC_HEALTH_RETAIN_PER_NODE: usize = 24;
 const ALERT_DELIVERY_RETAIN: usize = 50;
 const LOG_MAX_BYTES: usize = 64 * 1024;
 const JOURNAL_SCAN_LIMIT: usize = 25;
+/// How many due nodes one tick may probe, and how many journal events one tick
+/// may offer to the alert route. Both bound the worst case of a tick — every
+/// probe is a request that can wait out its full timeout, every delivery a
+/// webhook that can do the same — so one dead endpoint or down webhook costs
+/// the loop at most this much per second, and whatever exceeds the bound stays
+/// due and is picked up on the next ticks.
+const MAX_RPC_PROBES_PER_TICK: usize = 8;
+const MAX_ALERT_DELIVERIES_PER_TICK: usize = 8;
 
 /// Everything the engine needs, deliberately not called `WebState`: the
 /// supervisor is shared with the browser, and the repository is opened per call
@@ -552,12 +560,23 @@ impl LoopState {
         }
         let interval = policy.interval_duration();
         let now = Instant::now();
-        let Some(node) = state.nodes().into_iter().find(|node| {
-            node.status.is_running()
-                && self.due(self.rpc_last_probe.get(&node.id).copied(), now, interval)
-        }) else {
-            return;
-        };
+        let due: Vec<NodeConfig> = state
+            .nodes()
+            .into_iter()
+            .filter(|node| {
+                node.status.is_running()
+                    && self.due(self.rpc_last_probe.get(&node.id).copied(), now, interval)
+            })
+            .collect();
+        // Every due node is probed, not one per tick: with more running nodes
+        // than ticks in the policy interval, one-per-tick silently stretched
+        // the real interval to fleet-size seconds.
+        for node in due.into_iter().take(MAX_RPC_PROBES_PER_TICK) {
+            self.probe_one_rpc_health(state, node, now);
+        }
+    }
+
+    fn probe_one_rpc_health(&mut self, state: &EngineState, node: NodeConfig, now: Instant) {
         self.rpc_last_probe.insert(node.id.clone(), now);
 
         let report = probe_node_rpc(&node, RPC_HEALTH_TIMEOUT);
@@ -644,8 +663,11 @@ impl LoopState {
     }
 
     /// Offer anything new since the last scan to the configured alert route.
-    /// One delivery per tick: a webhook that is down should not hold up the
-    /// rest of the loop, and the journal keeps the backlog visible.
+    /// Up to [`MAX_ALERT_DELIVERIES_PER_TICK`] deliveries per tick, oldest
+    /// first, so a burst of events drains instead of queuing behind one-per-
+    /// second. The first failed delivery ends the tick: a webhook that is down
+    /// must not be hammered for the whole batch, and the journal keeps the
+    /// backlog visible until the next ticks catch up.
     fn route_alerts(&mut self, state: &EngineState) {
         let Ok(policy) = state.repository.load_alert_routing_policy() else {
             return;
@@ -657,37 +679,32 @@ impl LoopState {
         else {
             return;
         };
-        let newest = events
-            .iter()
-            .map(|event| event.id)
-            .max()
-            .unwrap_or_default();
-        let Some(event) = events
+        let mut pending: Vec<_> = events
             .into_iter()
             .filter(|event| event.id > self.last_routed_event)
-            .min_by_key(|event| event.id)
-        else {
-            if newest > self.last_routed_event {
-                self.last_routed_event = newest;
-            }
-            return;
-        };
-
-        if !should_route_alert(&policy, &event) {
-            self.last_routed_event = event.id;
+            .collect();
+        if pending.is_empty() {
             return;
         }
-        self.last_routed_event = event.id;
+        pending.sort_by_key(|event| event.id);
 
-        let report = deliver_webhook_alert(&policy, &event, env!("CARGO_PKG_VERSION"));
-        if state.repository.record_alert_delivery(&report).is_err() {
-            return;
+        for event in pending.into_iter().take(MAX_ALERT_DELIVERIES_PER_TICK) {
+            self.last_routed_event = event.id;
+            if !should_route_alert(&policy, &event) {
+                continue;
+            }
+            let report = deliver_webhook_alert(&policy, &event, env!("CARGO_PKG_VERSION"));
+            if state.repository.record_alert_delivery(&report).is_err() {
+                return;
+            }
+            if report.status == AlertDeliveryStatus::Failed {
+                break;
+            }
         }
         let _ = state
             .repository
             .prune_alert_deliveries_keep_recent(ALERT_DELIVERY_RETAIN);
         // A failed delivery is recorded in the deliveries table, which the
         // Alerts page already renders; the journal is for state changes.
-        let _ = report.status;
     }
 }
