@@ -460,9 +460,12 @@ impl LoopState {
     }
 
     fn schedule_restart(&mut self, state: &EngineState, node: &NodeConfig, reason: &str) {
+        // Crashed, not Error: a dirty exit and a launch that never got off the
+        // ground are different failures an operator triages differently, and
+        // one shared status made them indistinguishable.
         let _ = state
             .repository
-            .update_node_status(&node.id, NodeStatus::Error, None);
+            .update_node_status(&node.id, NodeStatus::Crashed, None);
         match self.watchdog.record_failure(&node.id, Instant::now()) {
             RestartOutcome::Scheduled { attempt, delay } => state.journal(
                 node,

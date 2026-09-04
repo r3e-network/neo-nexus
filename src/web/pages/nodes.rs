@@ -93,6 +93,7 @@ fn status_tiles(fleet: &Fleet) -> String {
         ("Running", counts.running.to_string()),
         ("Stopped", counts.stopped.to_string()),
         ("Error", counts.error.to_string()),
+        ("Crashed", counts.crashed.to_string()),
     ])
 }
 
@@ -106,6 +107,7 @@ fn status_filter(raw: &str) -> Option<NodeStatus> {
         "starting" => Some(NodeStatus::Starting),
         "stopped" => Some(NodeStatus::Stopped),
         "error" => Some(NodeStatus::Error),
+        "crashed" => Some(NodeStatus::Crashed),
         _ => None,
     }
 }
@@ -191,8 +193,15 @@ fn render_detail(state: &WebState, id: &str) -> anyhow::Result<String> {
         })
         .collect::<Vec<_>>();
 
+    // Governance and designation are N3 reads; the chain page explains itself
+    // on a Neo X node, so the shortcut is only offered where it can work.
+    let chain_link = if node.node_type.family() == crate::types::ChainFamily::NeoN3 {
+        format!(r#"<a class="btn" href="/nodes/{encoded}/chain">Chain</a>"#)
+    } else {
+        String::new()
+    };
     let header_actions = format!(
-        r#"<a class="btn" href="/nodes/{encoded}/edit">Edit</a><a class="btn" href="/logs?node={encoded}">Logs</a><a class="btn" href="/plugins?node={encoded}">Plugins</a>"#
+        r#"<a class="btn" href="/nodes/{encoded}/edit">Edit</a>{chain_link}<a class="btn" href="/logs?node={encoded}">Logs</a><a class="btn" href="/plugins?node={encoded}">Plugins</a>"#
     );
 
     // Running is not the same as supervised: after a workbench restart, or when

@@ -29,6 +29,12 @@ pub(in crate::diagnostics) fn launch_lifecycle_checks(node: &NodeConfig) -> Vec<
             "Node is stopped and eligible for start.",
             DiagnosticResolution::Operations,
         )],
+        NodeStatus::Crashed => vec![DiagnosticCheck::new(
+            CheckSeverity::Warning,
+            "Launch lifecycle",
+            "Node crashed; a successful start will replace the failed session.",
+            DiagnosticResolution::Logs,
+        )],
     }
 }
 
@@ -56,6 +62,12 @@ pub(in crate::diagnostics) fn restart_lifecycle_checks(node: &NodeConfig) -> Vec
             CheckSeverity::Critical,
             "Restart lifecycle",
             "Node is stopped; use Start instead of Restart.",
+            DiagnosticResolution::Operations,
+        )],
+        NodeStatus::Crashed => vec![DiagnosticCheck::new(
+            CheckSeverity::Pass,
+            "Restart lifecycle",
+            "Node crashed; a managed restart brings it back.",
             DiagnosticResolution::Operations,
         )],
     }
@@ -115,6 +127,12 @@ pub(in crate::diagnostics) fn status_check(node: &NodeConfig) -> DiagnosticCheck
             CheckSeverity::Critical,
             "Lifecycle",
             "Node is in error state.",
+            DiagnosticResolution::Logs,
+        ),
+        (NodeStatus::Crashed, _) => DiagnosticCheck::new(
+            CheckSeverity::Critical,
+            "Lifecycle",
+            "Node crashed; the log carries the exit diagnosis.",
             DiagnosticResolution::Logs,
         ),
     }
