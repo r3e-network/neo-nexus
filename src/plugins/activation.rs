@@ -4,7 +4,7 @@ use crate::{
     repository::Repository,
     types::{NodeConfig, NodeType},
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -66,7 +66,12 @@ impl PluginPackageManager {
         if target.exists() {
             anyhow::bail!("both active and disabled copies of {plugin} exist; reconcile the package directories before toggling");
         }
-        ensure_real_directory_exists(target.parent().unwrap(), "plugin activation directory")?;
+        ensure_real_directory_exists(
+            target
+                .parent()
+                .context("plugin activation directory has no parent")?,
+            "plugin activation directory",
+        )?;
         fs::rename(source, target)?;
         Ok(())
     }

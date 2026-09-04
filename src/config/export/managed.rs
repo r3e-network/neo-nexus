@@ -160,7 +160,11 @@ pub(super) fn publish(path: &Path, generated: &[u8], version: &str) -> Result<()
         write(path, generated)?;
     }
     let accepted = if keep {
-        hash(current.as_ref().unwrap())
+        hash(
+            current
+                .as_ref()
+                .context("accepted configuration disappeared")?,
+        )
     } else {
         generated_hash.clone()
     };
