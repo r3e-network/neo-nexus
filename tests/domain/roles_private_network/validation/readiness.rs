@@ -13,6 +13,13 @@ fn private_network_launch_pack_validator_reports_operator_readiness() {
     let ready = PrivateNetworkLaunchPackVerifier::validate(&export.root_path).unwrap();
 
     assert!(ready.is_success(), "{}", ready.to_cli_text());
+    assert!(ready.checks.iter().any(|check| {
+        check.category == "signer-integration"
+            && check.status == LaunchPackValidationStatus::Warn
+            && check
+                .message
+                .contains("do not bind a native consensus signer")
+    }));
     assert_eq!(ready.schema_version, 10);
     assert!(ready
         .checks

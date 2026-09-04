@@ -25,6 +25,49 @@ fn neo_rs_has_no_neo_cli_plugin_catalog_entries() {
 }
 
 #[test]
+fn every_validator_role_explains_its_native_signer_boundary() {
+    for node_type in NodeType::ALL {
+        let plan = RolePlanner::plan_for(
+            node_type,
+            node_type.default_storage_engine(),
+            NodeRole::Consensus,
+        );
+        assert!(
+            plan.notes
+                .iter()
+                .any(|note| note.contains("Neither proves that a native signing key is attached")),
+            "{node_type}"
+        );
+        let expected = match node_type {
+            NodeType::NeoCli => "SignClient",
+            NodeType::NeoGo => "UnlockWallet",
+            NodeType::NeoRs => "wallet/HSM",
+            NodeType::NeoXGeth => "Clef",
+            NodeType::NeoXReth => "--validator.ecdsa-key",
+        };
+        assert!(
+            plan.notes.iter().any(|note| note.contains(expected)),
+            "{node_type}"
+        );
+        if node_type.family().is_evm() {
+            assert!(!plan
+                .notes
+                .iter()
+                .any(|note| note.contains("Enabled through the Consensus service")));
+        }
+    }
+}
+
+#[test]
+fn wallet_export_context_debug_never_prints_its_password() {
+    let context = GenerationContext::for_role(NodeRole::Consensus)
+        .with_wallet(ServiceWallet::at("wallet.json").unlocked_with("sensitive-export-password"));
+    let debug = format!("{context:?}");
+    assert!(debug.contains("[REDACTED]"));
+    assert!(!debug.contains("sensitive-export-password"));
+}
+
+#[test]
 fn role_planner_enables_neo_cli_indexer_plugins_and_storage() {
     let repo = create_repo();
     let node_id = create_node(&repo, "neo-cli indexer", NodeType::NeoCli);

@@ -21,7 +21,11 @@ pub(super) fn runtime_managed_plan(
         Some(reason) => notes.push(reason),
         None => {
             notes.push(runtime_note);
-            notes.push(service_note(role));
+            if role == NodeRole::Consensus && node_type.family().is_evm() {
+                notes.push("Neo X validator keys and Anti-MEV/DKG material must be provisioned through the runtime's native interfaces; consensus membership is verified on-chain.");
+            } else {
+                notes.push(service_note(role));
+            }
         }
     }
 

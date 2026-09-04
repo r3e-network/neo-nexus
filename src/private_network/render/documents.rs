@@ -50,6 +50,11 @@ pub(in crate::private_network) fn render_runbook(manifest: &DeploymentManifest) 
     ));
     if !manifest.committee.signers.is_empty() {
         text.push_str("## Committee References\n\n");
+        text.push_str(concat!(
+            "Wallet and signer endpoint references below are provisioning metadata. ",
+            "Generated node configs do not bind a native consensus signer; configure ",
+            "and verify each node's wallet or compatible signer adapter before validator operation.\n\n",
+        ));
         for signer in &manifest.committee.signers {
             let sidecar_plan = signer
                 .signer_command_plan

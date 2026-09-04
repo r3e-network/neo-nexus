@@ -10,7 +10,7 @@
 use crate::roles::NodeRole;
 
 /// The wallet a signing service unlocks at startup.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct ServiceWallet {
     /// Path to the NEP-6 wallet file, from the profile assigned to the node.
     pub path: String,
@@ -23,6 +23,16 @@ pub struct ServiceWallet {
     /// the service is written with its path and left disabled, so the operator
     /// fills in one field rather than learning the schema.
     pub password: Option<String>,
+}
+
+impl std::fmt::Debug for ServiceWallet {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ServiceWallet")
+            .field("path", &self.path)
+            .field("password", &self.password.as_ref().map(|_| "[REDACTED]"))
+            .finish()
+    }
 }
 
 impl ServiceWallet {
