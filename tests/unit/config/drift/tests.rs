@@ -28,7 +28,10 @@ fn a_hand_edited_line_is_unexpected_and_quoted() {
     );
     assert_eq!(drift.unexpected_lines, 2);
     assert_eq!(drift.missing_lines, 1);
-    assert_eq!(drift.unexpected_samples, vec!["beta = 99", "legacy = true"]);
+    assert_eq!(
+        drift.unexpected_samples,
+        vec!["beta: [value redacted]", "legacy: [value redacted]"]
+    );
 }
 
 #[test]
@@ -46,7 +49,7 @@ fn a_duplicated_line_counts_each_extra_occurrence() {
     let drift = line_drift("seed = a\n", "seed = a\nseed = a\nseed = a\n");
     assert_eq!(drift.unexpected_lines, 2);
     assert_eq!(drift.missing_lines, 0);
-    assert_eq!(drift.unexpected_samples, vec!["seed = a"]);
+    assert_eq!(drift.unexpected_samples, vec!["seed: [value redacted]"]);
 }
 
 #[test]
@@ -56,6 +59,20 @@ fn samples_stop_at_three_and_long_lines_are_truncated() {
     let drift = line_drift("", &disk);
     assert_eq!(drift.unexpected_lines, 5);
     assert_eq!(drift.unexpected_samples.len(), 3);
-    assert_eq!(drift.unexpected_samples[2].chars().count(), 81);
-    assert!(drift.unexpected_samples[2].ends_with('…'));
+    assert!(drift
+        .unexpected_samples
+        .iter()
+        .all(|sample| sample == "[configuration content redacted]"));
+}
+
+#[test]
+fn sensitive_values_never_appear_in_drift_reports() {
+    let secret = "private-key-very-secret";
+    let drift = line_drift(
+        "",
+        &format!("Password = \"{secret}\"\n\"wallet\": \"{secret}\"\n  - {secret}\n"),
+    );
+    let report = serde_json::to_string(&drift).unwrap();
+    assert!(!report.contains(secret));
+    assert!(report.contains("Password"));
 }
