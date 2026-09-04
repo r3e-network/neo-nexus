@@ -120,7 +120,7 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], wanted: &str) -> String {
 <div class="actions">{picker}</div>
 {tiles}
 {table}
-{install}"#,
+{install}{signclient}"#,
         picker = node_picker(nodes, node),
         tiles = html::cards(&[
             ("Node", node.name.clone()),
@@ -139,7 +139,8 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], wanted: &str) -> String {
                     .to_string(),
             ),
         ]),
-        install = format!("{}{}", install_form(node), signclient_form(state, node)),
+        install = install_form(node),
+        signclient = signclient_form(state, node),
         table = html::table(
             &[
                 "Plugin",

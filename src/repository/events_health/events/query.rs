@@ -1,6 +1,17 @@
 use super::{filter::*, *};
 
 impl Repository {
+    pub fn list_node_events(&self, node_id: &str, limit: usize) -> Result<Vec<RuntimeEvent>> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT id, occurred_at_unix, node_id, node_name, kind, severity, message
+             FROM runtime_events WHERE node_id=?1 ORDER BY id DESC LIMIT ?2",
+        )?;
+        let rows = statement.query_map(params![node_id, limit.min(200) as i64], event_from_row)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .context("failed to load node events")
+    }
+
     /// Consume the journal by insertion id, independently of wall-clock changes.
     pub fn list_events_after(&self, after_id: i64, limit: usize) -> Result<Vec<RuntimeEvent>> {
         let connection = self.connection()?;

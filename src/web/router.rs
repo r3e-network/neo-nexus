@@ -19,7 +19,11 @@ pub fn build_router(state: WebState) -> Router {
             "/login",
             get(pages::login::login_page).post(pages::login::login_submit),
         )
-        .route("/healthz", get(health::healthz));
+        .route("/healthz", get(health::healthz))
+        .route(
+            "/mcp",
+            post(super::mcp::post).layer(axum::extract::DefaultBodyLimit::max(64 * 1024)),
+        );
 
     let protected = Router::new()
         .route("/", get(pages::home::home))
@@ -42,6 +46,13 @@ pub fn build_router(state: WebState) -> Router {
         .route("/nodes/{id}/stop", post(control::node_stop))
         .route("/nodes/{id}/restart", post(control::node_restart))
         .route("/monitor", get(pages::monitor::monitor))
+        .route("/agents", get(pages::agents::page))
+        .route("/agents/save", post(pages::agents::save))
+        .route("/agents/{id}/logs", get(pages::agents::logs))
+        .route("/agents/{id}/{action}", post(pages::agents::control))
+        .route("/assistants", get(pages::assistants::page))
+        .route("/assistants/connect", post(pages::assistants::connect))
+        .route("/assistants/{id}/revoke", post(pages::assistants::revoke))
         .route("/logs", get(pages::logs::logs))
         .route("/operations", get(pages::operations::operations))
         .route("/alerts", get(pages::alerts::alerts))
@@ -52,12 +63,18 @@ pub fn build_router(state: WebState) -> Router {
         .route("/roles", get(pages::roles::roles))
         .route("/config", get(pages::config::config))
         .route("/config/export", post(pages::config::export_all))
-        .route("/config/{id}/resolve", post(pages::config_conflicts::resolve))
+        .route(
+            "/config/{id}/resolve",
+            post(pages::config_conflicts::resolve),
+        )
         .route("/config/{id}/review", post(pages::config_conflicts::review))
         .route("/plugins", get(pages::plugins::plugins))
         .route("/plugins/{id}/toggle", post(pages::plugins::toggle))
         .route("/plugins/{id}/install", post(pages::plugins::install))
-        .route("/plugins/{id}/signclient", post(pages::plugins::configure_signclient))
+        .route(
+            "/plugins/{id}/signclient",
+            post(pages::plugins::configure_signclient),
+        )
         .route("/runtimes", get(pages::runtimes::runtimes))
         .route("/runtimes/install", post(pages::runtimes::install))
         .route("/runtimes/{id}/use", post(pages::runtimes::select_version))

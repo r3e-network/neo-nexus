@@ -34,6 +34,16 @@ const SECTIONS: &[Section] = &[
                 label: "Monitor",
             },
             Destination {
+                key: "agents",
+                href: "/agents",
+                label: "Agents",
+            },
+            Destination {
+                key: "assistants",
+                href: "/assistants",
+                label: "Assistants",
+            },
+            Destination {
                 key: "logs",
                 href: "/logs",
                 label: "Logs",
