@@ -116,7 +116,10 @@ fn validate_restore_dependencies(connection: &Connection, node_id: &str) -> Resu
         if agent.profile.node_id.as_deref() == Some(node_id)
             && (agent.pid.is_some()
                 || agent.desired_running
-                || agent.status == crate::agents::AgentStatus::Running)
+                || matches!(
+                    agent.status,
+                    crate::agents::AgentStatus::Running | crate::agents::AgentStatus::Starting
+                ))
         {
             anyhow::bail!(
                 "stop the agent associated with node {node_id} before restoring that node"
