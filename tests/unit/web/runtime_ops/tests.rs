@@ -118,3 +118,81 @@ fn a_profile_without_a_signer_key_says_so_instead_of_implying_verification() {
         "with a key configured the wording must change",
     );
 }
+
+#[test]
+fn selecting_a_runtime_checks_config_conflicts_and_binary_integrity_for_all_clients() {
+    use crate::{
+        config::ConfigExporter,
+        repository::Repository,
+        runtime::RuntimeInstallation,
+        types::{Network, NewNode},
+        web::{auth::AuthStore, runtime_ops::apply_installed, WebState},
+    };
+    for node_type in NodeType::ALL {
+        let directory = tempfile::tempdir().unwrap();
+        let repository = Repository::open(directory.path().join("neonexus.db")).unwrap();
+        let node = repository
+            .create_node(NewNode {
+                name: "version test".into(),
+                node_type,
+                network: Network::Mainnet,
+                binary_path: "old-node".into(),
+                args: Vec::new(),
+                runtime_version: "1.0".into(),
+                storage_engine: node_type.default_storage_engine(),
+                rpc_port: 10332,
+                p2p_port: 10333,
+                ws_port: None,
+            })
+            .unwrap();
+        let binary = directory.path().join("node-binary");
+        std::fs::write(&binary, b"version two").unwrap();
+        let (sha256, bytes) = crate::snapshots::sha256_file(&binary).unwrap();
+        repository
+            .upsert_runtime_installation(&RuntimeInstallation {
+                package_id: "v2".into(),
+                label: "version two".into(),
+                node_type,
+                version: "2.0".into(),
+                platform: RuntimePlatform::current(),
+                binary_path: binary.clone(),
+                sha256,
+                bytes,
+                signature_verified: false,
+                signer_public_key: None,
+                installed_at_unix: 1,
+            })
+            .unwrap();
+        let state = WebState::new(
+            repository.clone(),
+            directory.path().into(),
+            AuthStore::from_token("test"),
+        );
+        let path = ConfigExporter::managed_target_path(
+            directory.path().join("nodes").join(&node.id),
+            &node,
+        );
+        ConfigExporter::write_node_config_to_path(&path, &node, &[]).unwrap();
+        let edited = format!(
+            "{}\n# local customization",
+            std::fs::read_to_string(&path).unwrap()
+        );
+        std::fs::write(&path, &edited).unwrap();
+        assert!(apply_installed(&state, &node.id, "v2")
+            .unwrap_err()
+            .to_string()
+            .contains("configuration conflict"));
+        assert_eq!(repository.list_nodes().unwrap()[0].runtime_version, "1.0");
+        let conflict = crate::config::config_conflict(&path).unwrap().unwrap();
+        assert_eq!(conflict.to_version, "2.0");
+        crate::config::resolve_config_conflict(&path, &conflict.token, true).unwrap();
+        apply_installed(&state, &node.id, "v2").unwrap();
+        assert_eq!(repository.list_nodes().unwrap()[0].runtime_version, "2.0");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), edited);
+        std::fs::write(&binary, b"tampered").unwrap();
+        assert!(apply_installed(&state, &node.id, "v2")
+            .unwrap_err()
+            .to_string()
+            .contains("changed since verification"));
+    }
+}

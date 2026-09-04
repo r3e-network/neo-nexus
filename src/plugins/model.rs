@@ -29,6 +29,7 @@ pub struct PluginInstallation {
 #[derive(Serialize)]
 pub(super) struct InstalledPluginManifest {
     pub(super) schema_version: u32,
+    pub(super) release: Option<super::PluginReleaseMetadata>,
     pub(super) plugin_id: String,
     pub(super) label: String,
     pub(super) node_id: String,

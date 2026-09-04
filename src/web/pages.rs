@@ -3,6 +3,7 @@
 pub mod alerts;
 pub mod chain;
 pub mod config;
+pub mod config_conflicts;
 pub mod federation;
 pub mod home;
 pub mod login;

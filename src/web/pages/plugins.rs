@@ -12,7 +12,11 @@ use serde::Deserialize;
 use crate::{
     catalog::{PluginCatalog, PluginId},
     core::operations::{EventKind, EventSeverity, NewRuntimeEvent},
-    types::NodeConfig,
+    plugins::{
+        installed_plugin_release, PluginPackageManager, PluginPackageManifest,
+        PluginReleaseMetadata,
+    },
+    types::{NodeConfig, NodeType},
 };
 
 use super::super::{html, WebState};
@@ -55,6 +59,10 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], wanted: &str) -> String {
         Ok(states) => states,
         Err(error) => return html::note(&format!("failed to load plugin state: {error}")),
     };
+    let installations = state
+        .repository
+        .list_plugin_installations(&node.id)
+        .unwrap_or_default();
     let rows = applicable
         .iter()
         .map(|definition| {
@@ -65,6 +73,37 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], wanted: &str) -> String {
                 html::cell(definition.name),
                 html::cell(&definition.category.to_string()),
                 html::cell(definition.description),
+                html::cell(
+                    &installations
+                        .iter()
+                        .find(|installation| installation.plugin_id == definition.id)
+                        .map(|installation| {
+                            match installed_plugin_release(&installation.manifest_path) {
+                                Ok(Some(release)) => format!(
+                                    "{}; neo-cli {}; {}",
+                                    release.version,
+                                    release.compatible_runtime_versions.join(", "),
+                                    if release.validate_for(node).is_ok() {
+                                        "compatible"
+                                    } else {
+                                        "incompatible"
+                                    }
+                                ),
+                                Ok(None) => format!(
+                                    "unversioned; sha256 {}",
+                                    installation.sha256.chars().take(12).collect::<String>()
+                                ),
+                                Err(error) => format!("manifest unavailable: {error}"),
+                            }
+                        })
+                        .unwrap_or_else(|| {
+                            if node.node_type == NodeType::NeoCli {
+                                "not installed".into()
+                            } else {
+                                "built in".into()
+                            }
+                        }),
+                ),
                 html::cell(if definition.requires_restart {
                     "restart"
                 } else {
@@ -80,7 +119,8 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], wanted: &str) -> String {
         r#"<h1>Plugins</h1>
 <div class="actions">{picker}</div>
 {tiles}
-{table}"#,
+{table}
+{install}"#,
         picker = node_picker(nodes, node),
         tiles = html::cards(&[
             ("Node", node.name.clone()),
@@ -99,8 +139,17 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], wanted: &str) -> String {
                     .to_string(),
             ),
         ]),
+        install = install_form(node),
         table = html::table(
-            &["Plugin", "Category", "Purpose", "Reload", "State", "Control"],
+            &[
+                "Plugin",
+                "Category",
+                "Purpose",
+                "Installed version",
+                "Reload",
+                "State",
+                "Control"
+            ],
             &rows,
         ),
     )
@@ -193,6 +242,15 @@ pub async fn toggle(
             .into_iter()
             .any(|record| record.plugin_id == plugin && record.enabled);
         let wanted = !currently_enabled;
+        let _supervisor = state.supervisor();
+        if node.node_type == NodeType::NeoCli {
+            if node.status.is_running() || node.pid.is_some() || _supervisor.is_managing(&node.id) {
+                anyhow::bail!("stop the neo-cli node before enabling or disabling plugin packages");
+            }
+            let work = state.workspace_child_dir("nodes").join(&node.id);
+            PluginPackageManager::set_enabled(&work, plugin, wanted)?;
+            PluginPackageManager::refresh_installation_paths(&state.repository, &work, &node.id)?;
+        }
         state
             .repository
             .set_plugin_enabled(&node.id, plugin, wanted)?;
@@ -217,6 +275,98 @@ pub async fn toggle(
         Ok(message) => message,
         Err(error) => format!("not changed: {error}"),
     };
+    Redirect::to(&format!(
+        "/plugins?node={}&flash={}",
+        html::urlencoding_lite(&id),
+        html::urlencoding_lite(&message)
+    ))
+    .into_response()
+}
+
+fn install_form(node: &NodeConfig) -> String {
+    if node.node_type != NodeType::NeoCli {
+        return String::new();
+    }
+    let options = PluginCatalog
+        .for_node_type(node.node_type)
+        .iter()
+        .map(|plugin| {
+            format!(
+                r#"<option value="{}">{}</option>"#,
+                plugin.id,
+                html::escape(plugin.name)
+            )
+        })
+        .collect::<String>();
+    format!(
+        r#"<h2>Install or change plugin version</h2>
+<p>Stop the node first. Choose a verified local ZIP package and its declared compatible neo-cli version. Existing configuration changes require review in <a href="/config">Config</a>. Installing an older compatible package restores that version.</p>
+<form method="post" action="/plugins/{id}/install">
+<label>Plugin<select name="plugin">{options}</select></label>
+<label>Plugin version<input name="version" required></label>
+<label>Compatible neo-cli version<input name="runtime_version" value="{version}" required></label>
+<label>Local ZIP path<input name="source" required></label>
+<label>Expected SHA-256<input name="sha256" required minlength="64" maxlength="64"></label>
+<button type="submit">Verify and install plugin</button></form>"#,
+        id = html::escape(&node.id),
+        version = html::escape(&node.runtime_version)
+    )
+}
+
+#[derive(Deserialize)]
+pub struct InstallPluginForm {
+    plugin: String,
+    version: String,
+    runtime_version: String,
+    source: String,
+    sha256: String,
+}
+
+pub async fn install(
+    State(state): State<WebState>,
+    Path(id): Path<String>,
+    Form(input): Form<InstallPluginForm>,
+) -> Response {
+    let outcome = (|| -> anyhow::Result<String> {
+        // Serialize package publication with node starts and watchdog restarts.
+        let supervisor = state.supervisor();
+        let node = state
+            .repository
+            .list_nodes()?
+            .into_iter()
+            .find(|node| node.id == id)
+            .ok_or_else(|| anyhow::anyhow!("node not found"))?;
+        if supervisor.is_managing(&id) {
+            anyhow::bail!("stop the node before installing plugins");
+        }
+        let plugin_id = input.plugin.parse::<PluginId>()?;
+        let release = PluginReleaseMetadata {
+            version: input.version.trim().into(),
+            compatible_runtime_versions: vec![input.runtime_version.trim().into()],
+        };
+        let installation = PluginPackageManager::install_with_release(
+            &PluginPackageManifest {
+                plugin_id,
+                label: format!("{plugin_id} {}", release.version),
+                source_path: input.source.trim().into(),
+                expected_sha256: input.sha256,
+            },
+            &node,
+            state.workspace_child_dir("nodes").join(&node.id),
+            Some(&release),
+        )?;
+        state.repository.upsert_plugin_installation(&installation)?;
+        let message = format!("installed {plugin_id} {} on {}", release.version, node.name);
+        let _ = state.repository.record_event(NewRuntimeEvent {
+            node_id: Some(node.id),
+            node_name: Some(node.name),
+            kind: EventKind::PluginUpdated,
+            severity: EventSeverity::Info,
+            message: message.clone(),
+        });
+        Ok(message)
+    })();
+    let message = outcome.unwrap_or_else(|error| format!("plugin not installed: {error}"));
     Redirect::to(&format!(
         "/plugins?node={}&flash={}",
         html::urlencoding_lite(&id),

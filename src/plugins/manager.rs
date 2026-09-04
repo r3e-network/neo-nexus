@@ -32,7 +32,22 @@ impl PluginPackageManager {
         node: &NodeConfig,
         node_work_dir: impl AsRef<Path>,
     ) -> Result<PluginInstallation> {
+        Self::install_with_release(manifest, node, node_work_dir, None)
+    }
+
+    pub fn install_with_release(
+        manifest: &PluginPackageManifest,
+        node: &NodeConfig,
+        node_work_dir: impl AsRef<Path>,
+        release: Option<&super::PluginReleaseMetadata>,
+    ) -> Result<PluginInstallation> {
         validate_plugin_package_manifest(manifest)?;
+        if node.status.is_running() || node.pid.is_some() {
+            anyhow::bail!("stop the node before installing plugin packages");
+        }
+        if let Some(release) = release {
+            release.validate_for(node)?;
+        }
         if node.node_type != NodeType::NeoCli {
             anyhow::bail!("plugin packages are supported for neo-cli nodes only");
         }
@@ -64,7 +79,12 @@ impl PluginPackageManager {
         ensure_real_directory_exists(&plugins_root, "neo-cli plugins directory")?;
 
         let plugin_dir_name = manifest.plugin_id.to_string();
-        let target_dir = plugins_root.join(&plugin_dir_name);
+        let disabled_dir = super::activation::disabled_path(node_work_dir, manifest.plugin_id);
+        let target_dir = if disabled_dir.is_dir() {
+            disabled_dir
+        } else {
+            plugins_root.join(&plugin_dir_name)
+        };
         let control_root = plugins_root.join(PLUGIN_CONTROL_DIR);
         ensure_real_directory_exists(&control_root, "NeoNexus plugin control directory")?;
         let staging_dir = staging_dir(&control_root, &plugin_dir_name, installed_at_unix);
@@ -83,7 +103,18 @@ impl PluginPackageManager {
             anyhow::bail!("plugin package did not contain installable files");
         }
 
+        let version = release
+            .map(|release| release.version.as_str())
+            .unwrap_or(&sha256);
+        if let Err(error) =
+            super::configuration::preserve_configuration(&target_dir, &staging_dir, version)
+        {
+            let _ = fs::remove_dir_all(&staging_dir);
+            return Err(error);
+        }
+
         write_install_manifest(InstallManifestRequest {
+            release,
             manifest,
             node,
             source_path: &source_path,
