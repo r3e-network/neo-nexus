@@ -127,20 +127,64 @@ fn launch_node(
     }
 
     Ok(match outcome {
-        NodeLaunchOutcome::Started { pid, log_path } => CliAction::PrintWithExitCode {
-            exit_code: 0,
-            text: format!(
-                "{} {verb_past} with PID {}; log {}",
-                node.name,
-                pid,
-                log_path.display()
-            ),
-        },
-        NodeLaunchOutcome::Failed { message } => CliAction::PrintWithExitCode {
-            exit_code: 1,
-            text: format!("{} {fail_verb}: {message}", node.name),
-        },
+        NodeLaunchOutcome::Started { pid, log_path } => {
+            journal_node_event(
+                repository,
+                node,
+                match action {
+                    LaunchAction::Start => EventKind::NodeStarted,
+                    LaunchAction::Restart => EventKind::NodeRestarted,
+                },
+                EventSeverity::Info,
+                format!(
+                    "{name} {verb_past} with pid {pid} (headless CLI)",
+                    name = node.name
+                ),
+            );
+            CliAction::PrintWithExitCode {
+                exit_code: 0,
+                text: format!(
+                    "{} {verb_past} with PID {}; log {}",
+                    node.name,
+                    pid,
+                    log_path.display()
+                ),
+            }
+        }
+        NodeLaunchOutcome::Failed { message } => {
+            journal_node_event(
+                repository,
+                node,
+                EventKind::NodeStartFailed,
+                EventSeverity::Warning,
+                format!("{} {fail_verb}: {message} (headless CLI)", node.name),
+            );
+            CliAction::PrintWithExitCode {
+                exit_code: 1,
+                text: format!("{} {fail_verb}: {message}", node.name),
+            }
+        }
     })
+}
+
+/// The same journal entries the web engine writes for the same operations, so
+/// a scripted start and a browser start leave identical audit trails — the
+/// message names the headless CLI so the two origins stay distinguishable.
+/// A journaling failure never fails the operation that already succeeded.
+fn journal_node_event(
+    repository: &Repository,
+    node: &NodeConfig,
+    kind: EventKind,
+    severity: EventSeverity,
+    message: String,
+) {
+    let _ = repository.record_event(NewRuntimeEvent {
+        node_id: Some(node.id.clone()),
+        node_name: Some(node.name.clone()),
+        kind,
+        severity,
+        message,
+    });
 }
 
 /// `--node-stop <db> <node-name>`: stop a node and persist the stopped status.
@@ -177,6 +221,20 @@ pub(in crate::cli::actions) fn node_stop_action(args: &[String]) -> Result<CliAc
     repository
         .update_node_status(&node.id, NodeStatus::Stopped, None)
         .context("failed to persist stopped status")?;
+    if let PidStop::Stopped(stop) = &outcome {
+        journal_node_event(
+            &repository,
+            &node,
+            EventKind::NodeStopped,
+            EventSeverity::Info,
+            format!(
+                "{} stopped ({}pid {}) (headless CLI)",
+                node.name,
+                if stop.forced { "forced, " } else { "" },
+                stop.pid
+            ),
+        );
+    }
     let _ = supervisor;
     Ok(CliAction::PrintWithExitCode {
         exit_code: 0,
