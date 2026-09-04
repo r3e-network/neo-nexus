@@ -54,6 +54,8 @@ pub(in crate::cli) fn action_from_args_vec(args: &[String]) -> Result<CliAction>
         "--generate-node-config-json" => generate_node_config_json_action(args),
         "--validate-node-config" => validate_node_config_action(args),
         "--validate-node-config-json" => validate_node_config_json_action(args),
+        "--config-drift" => Ok(CliAction::Print(config_drift_text(args)?)),
+        "--config-drift-json" => config_drift_json_action(args),
         "--export-backup" => Ok(CliAction::Print(export_backup_text(args)?)),
         "--export-backup-json" => Ok(CliAction::Print(export_backup_json_text(args)?)),
         "--import-backup" => Ok(CliAction::Print(import_backup_text(args)?)),
