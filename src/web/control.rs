@@ -216,6 +216,9 @@ pub async fn save_alert_routing(
         }
         let message = format!("alert routing saved — {}", policy.describe());
         state.repository.save_alert_routing_policy(policy)?;
+        // Same trail the CLI records; a routing change that no journal shows
+        // would make "why did alerts stop?" unanswerable.
+        journal_policy(&state, EventKind::AlertRoutingPolicyUpdated, &message);
         Ok(message)
     })();
     respond_to("/alerts", outcome)
