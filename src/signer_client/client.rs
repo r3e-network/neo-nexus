@@ -75,20 +75,38 @@ impl SignerClient {
         &self,
         request: &SignRequest,
     ) -> Result<SignerOutcome<SignedWitness>, SignerClientError> {
-        self.post("/sign/transaction", request)
+        let evm = request_family(request.chain_family.as_deref())?;
+        if evm != request.chain_id.is_some() {
+            return Err(SignerClientError::request(
+                "chain_id is required for NeoX transactions and must be absent for Neo N3",
+            ));
+        }
+        let outcome = self.post("/sign/transaction", request)?;
+        validate_witness(outcome, &request.key_id, evm)
     }
 
     pub fn sign_consensus(
         &self,
         request: &SignRequest,
     ) -> Result<SignerOutcome<SignedWitness>, SignerClientError> {
-        self.post("/sign/consensus", request)
+        if request_family(request.chain_family.as_deref())? || request.chain_id.is_some() {
+            return Err(SignerClientError::request(
+                "consensus signing supports only Neo N3; NeoX consensus requires a native adapter",
+            ));
+        }
+        let outcome = self.post("/sign/consensus", request)?;
+        validate_witness(outcome, &request.key_id, false)
     }
 
     pub fn sign_raw(
         &self,
         request: &RawSignRequest,
     ) -> Result<SignerOutcome<RawSignature>, SignerClientError> {
+        if request_family(request.chain_family.as_deref())? {
+            return Err(SignerClientError::request(
+                "raw signing supports only Neo N3",
+            ));
+        }
         self.post("/sign/raw", request)
     }
 
@@ -100,6 +118,17 @@ impl SignerClient {
         &self,
         request: &GenerateKeyRequest,
     ) -> Result<SignerOutcome<SignerKey>, SignerClientError> {
+        let evm = request_family(request.chain_family.as_deref())?;
+        if (evm && request.network_magic.is_some()) || (!evm && request.chain_id.is_some()) {
+            return Err(SignerClientError::request(
+                "use network_magic for Neo N3 keys and chain_id for NeoX keys",
+            ));
+        }
+        if evm && request.network == "private" && request.chain_id.is_none() {
+            return Err(SignerClientError::request(
+                "a private NeoX key requires chain_id",
+            ));
+        }
         self.post("/keys", request)
     }
 
@@ -151,16 +180,20 @@ impl SignerClient {
 
     pub fn create_oidc_caller(
         &self,
-        request: &OidcCallerRequest,
+        _request: &OidcCallerRequest,
     ) -> Result<SignerOutcome<CreatedCaller>, SignerClientError> {
-        self.post("/callers/oidc", request)
+        Err(SignerClientError::request(
+            "the NeoOS signer does not implement OIDC caller provisioning",
+        ))
     }
 
     pub fn create_api_key_caller(
         &self,
-        request: &ApiKeyCallerRequest,
+        _request: &ApiKeyCallerRequest,
     ) -> Result<SignerOutcome<CreatedApiKeyCaller>, SignerClientError> {
-        self.post("/callers/api-key", request)
+        Err(SignerClientError::request(
+            "the NeoOS signer does not implement API-key caller provisioning",
+        ))
     }
 
     pub fn list_callers(&self) -> Result<SignerOutcome<Vec<SignerCaller>>, SignerClientError> {
@@ -267,7 +300,12 @@ impl SignerClient {
         let exact_body = body.unwrap_or_default();
         let headers = self
             .credential
-            .headers(method, route, exact_body, timestamp, nonce)
+            .headers(
+                (self.endpoint.as_str(), method, route),
+                exact_body,
+                timestamp,
+                nonce,
+            )
             .map_err(SignerClientError::configuration)?;
         let url = self
             .endpoint
@@ -354,6 +392,12 @@ impl std::error::Error for SignerClientError {}
 
 fn apply_headers(mut request: Request, headers: &AuthHeaders) -> Request {
     request = request.set("accept", "application/json");
+    if let Some(value) = headers.workload_protocol.as_deref() {
+        request = request.set("x-neoos-workload-protocol", value);
+    }
+    if let Some(value) = headers.audience.as_deref() {
+        request = request.set("x-neoos-audience", value);
+    }
     if let Some(value) = headers.authorization.as_deref() {
         request = request.set("authorization", value);
     }
@@ -457,6 +501,71 @@ fn map_outcome<T, U>(outcome: SignerOutcome<T>, map: impl FnOnce(T) -> U) -> Sig
         SignerOutcome::Allowed(value) => SignerOutcome::Allowed(map(value)),
         SignerOutcome::Refused(refusal) => SignerOutcome::Refused(refusal),
     }
+}
+
+fn request_family(family: Option<&str>) -> Result<bool, SignerClientError> {
+    match family {
+        None | Some("neo-n3") => Ok(false),
+        Some("neox") => Ok(true),
+        _ => Err(SignerClientError::request(
+            "signer chain_family must be neo-n3 or neox",
+        )),
+    }
+}
+
+fn validate_witness(
+    outcome: SignerOutcome<SignedWitness>,
+    key_id: &str,
+    evm: bool,
+) -> Result<SignerOutcome<SignedWitness>, SignerClientError> {
+    let SignerOutcome::Allowed(mut witness) = outcome else {
+        return Ok(outcome);
+    };
+    let family_matches = if evm {
+        witness.chain_family.as_deref() == Some("neox")
+    } else {
+        matches!(witness.chain_family.as_deref(), None | Some("neo-n3"))
+    };
+    if witness.key_id != key_id || !family_matches {
+        return Err(SignerClientError::protocol(
+            "signer witness key or chain family does not match the request",
+        ));
+    }
+    if evm {
+        let transaction = witness
+            .signed_transaction
+            .as_deref()
+            .or(witness.signature_hex.as_deref());
+        let Some(transaction) = transaction else {
+            return Err(SignerClientError::protocol(
+                "NeoX signer response has no signed_transaction",
+            ));
+        };
+        let hex = transaction.strip_prefix("0x").unwrap_or(transaction);
+        if hex.is_empty()
+            || !hex.len().is_multiple_of(2)
+            || !hex.bytes().all(|byte| byte.is_ascii_hexdigit())
+        {
+            return Err(SignerClientError::protocol(
+                "NeoX signed_transaction is not hexadecimal bytes",
+            ));
+        }
+        if let (Some(canonical), Some(alias)) =
+            (&witness.signed_transaction, &witness.signature_hex)
+        {
+            if !canonical.eq_ignore_ascii_case(alias) {
+                return Err(SignerClientError::protocol(
+                    "NeoX signed_transaction conflicts with its compatibility alias",
+                ));
+            }
+        }
+        witness.signed_transaction = Some(transaction.to_string());
+    } else if witness.signed_transaction.is_some() || witness.signature_hex.is_some() {
+        return Err(SignerClientError::protocol(
+            "Neo N3 signer returned an EVM transaction",
+        ));
+    }
+    Ok(SignerOutcome::Allowed(witness))
 }
 
 fn unix_now() -> Result<u64, SignerClientError> {

@@ -43,6 +43,9 @@ pub struct SignRequest {
     pub request_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chain_family: Option<String>,
+    /// Required for NeoX transaction signing; omitted for Neo N3.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chain_id: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -51,8 +54,8 @@ pub struct RawSignRequest {
     pub data_hex: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
-    /// Same convention as [`SignRequest::chain_family`]: absent means Neo N3.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Local family guard only. The N3-only raw route has no chain-family field.
+    #[serde(skip)]
     pub chain_family: Option<String>,
 }
 
@@ -66,6 +69,9 @@ pub struct SignedWitness {
     pub verification_script: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chain_family: Option<String>,
+    /// Complete serialized EVM transaction, ready for eth_sendRawTransaction.
+    pub signed_transaction: Option<String>,
+    /// Deprecated service alias for signed_transaction, not a bare signature.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signature_hex: Option<String>,
 }
@@ -90,6 +96,9 @@ pub struct GenerateKeyRequest {
     pub network_magic: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chain_family: Option<String>,
+    /// NeoX chain identity, including custom private-chain ids.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chain_id: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -97,6 +106,9 @@ pub struct SignerKey {
     pub key_id: String,
     pub label: String,
     pub network: String,
+    /// Absent on older Neo N3 signer versions.
+    pub chain_family: Option<String>,
+    pub chain_id: Option<u64>,
     pub network_magic: u32,
     pub public_key: String,
     pub script_hash: String,

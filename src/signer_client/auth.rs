@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 use zeroize::{Zeroize, Zeroizing};
 
 const WORKLOAD_PROTOCOL: &str = "neoos-workload-v1";
+const WORKLOAD_PROTOCOL_V2: &str = "neoos-workload-v2";
 
 #[derive(Clone)]
 pub enum SignerCredential {
@@ -184,6 +185,8 @@ impl fmt::Debug for ApiKeyCredential {
 
 #[derive(Default)]
 pub(crate) struct AuthHeaders {
+    pub workload_protocol: Option<String>,
+    pub audience: Option<String>,
     pub authorization: Option<Zeroizing<String>>,
     pub caller_id: Option<String>,
     pub timestamp: Option<String>,
@@ -194,12 +197,12 @@ pub(crate) struct AuthHeaders {
 impl SignerCredential {
     pub(crate) fn headers(
         &self,
-        method: &str,
-        route: &str,
+        target: (&str, &str, &str),
         body: &[u8],
         timestamp: u64,
         nonce: &str,
     ) -> Result<AuthHeaders> {
+        let (audience, method, route) = target;
         match self {
             Self::Bearer(credential) => Ok(AuthHeaders {
                 authorization: Some(Zeroizing::new(format!(
@@ -212,7 +215,9 @@ impl SignerCredential {
                 validate_line_value("workload request route", route)?;
                 validate_line_value("workload request nonce", nonce)?;
                 let digest = body_sha256(body);
-                let message = workload_signing_message(
+                validate_line_value("workload request audience", audience)?;
+                let message = workload_signing_message_v2(
+                    audience,
                     credential.caller_id(),
                     credential.subject(),
                     timestamp,
@@ -223,6 +228,8 @@ impl SignerCredential {
                 );
                 let signature = credential.signing_key.sign(&message);
                 Ok(AuthHeaders {
+                    workload_protocol: Some(WORKLOAD_PROTOCOL_V2.to_string()),
+                    audience: Some(audience.to_string()),
                     caller_id: Some(credential.caller_id.clone()),
                     timestamp: Some(timestamp.to_string()),
                     nonce: Some(nonce.to_string()),
@@ -230,27 +237,7 @@ impl SignerCredential {
                     ..AuthHeaders::default()
                 })
             }
-            Self::Oidc(credential) => {
-                // OIDC tokens are passed as Bearer tokens
-                Ok(AuthHeaders {
-                    authorization: Some(Zeroizing::new(format!(
-                        "Bearer {}",
-                        credential.token.as_str()
-                    ))),
-                    ..AuthHeaders::default()
-                })
-            }
-            Self::ApiKey(credential) => {
-                // API Key uses custom scheme
-                Ok(AuthHeaders {
-                    authorization: Some(Zeroizing::new(format!(
-                        "ApiKey {}:{}",
-                        credential.key_id,
-                        credential.secret.as_str()
-                    ))),
-                    ..AuthHeaders::default()
-                })
-            }
+            Self::Oidc(_) | Self::ApiKey(_) => bail!("the NeoOS signer does not support OIDC or API-key authentication; use bearer or workload authentication"),
         }
     }
 }
@@ -259,6 +246,7 @@ pub fn body_sha256(body: &[u8]) -> [u8; 32] {
     Sha256::digest(body).into()
 }
 
+/// Legacy v1 framing for offline compatibility checks. Live requests use v2.
 pub fn workload_signing_message(
     caller_id: &str,
     subject: Option<&str>,
@@ -270,6 +258,28 @@ pub fn workload_signing_message(
 ) -> Vec<u8> {
     format!(
         "{WORKLOAD_PROTOCOL}\ncaller:{caller_id}\nsubject:{}\ntimestamp:{timestamp}\nnonce:{nonce}\nmethod:{}\nroute:{route}\nbody-sha256:{}\norigin:",
+        subject.unwrap_or_default(),
+        method.to_ascii_uppercase(),
+        lower_hex(body_digest),
+    )
+    .into_bytes()
+}
+
+/// Audience-bound framing from the signer's WorkloadSigningMessage contract.
+/// The audience must be the canonical, path-free signer origin.
+#[allow(clippy::too_many_arguments)]
+pub fn workload_signing_message_v2(
+    audience: &str,
+    caller_id: &str,
+    subject: Option<&str>,
+    timestamp: u64,
+    nonce: &str,
+    method: &str,
+    route: &str,
+    body_digest: &[u8; 32],
+) -> Vec<u8> {
+    format!(
+        "{WORKLOAD_PROTOCOL_V2}\naudience:{audience}\ncaller:{caller_id}\nsubject:{}\ntimestamp:{timestamp}\nnonce:{nonce}\nmethod:{}\nroute:{route}\nbody-sha256:{}\norigin:",
         subject.unwrap_or_default(),
         method.to_ascii_uppercase(),
         lower_hex(body_digest),
