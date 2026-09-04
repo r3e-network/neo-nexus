@@ -57,6 +57,24 @@ fn a_pid_that_nothing_answers_is_gone() {
     );
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn an_exited_unreaped_process_is_not_still_running() {
+    let mut child = std::process::Command::new("/bin/sh")
+        .args(["-c", "exit 0"])
+        .spawn()
+        .unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    while crate::supervisor::process_is_live(child.id()) {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "an unreaped zombie must count as exited"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert!(child.wait().unwrap().success());
+}
+
 #[test]
 fn a_live_process_is_ours_only_when_the_binary_matches() {
     let mut witness = spawn_witness();
