@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::Result;
-use rusqlite::{Connection, Transaction};
+use rusqlite::Connection;
 
 use crate::repository::helpers::{
     load_setting, optional_setting, parse_bool_setting, save_setting,
@@ -36,12 +36,12 @@ where
         .and_then(|value| value.parse::<T>().ok()))
 }
 
-pub(super) fn save_bool(transaction: &Transaction<'_>, key: &str, value: bool) -> Result<()> {
+pub(super) fn save_bool(transaction: &Connection, key: &str, value: bool) -> Result<()> {
     save_setting(transaction, key, if value { "true" } else { "false" })
 }
 
 pub(super) fn save_display(
-    transaction: &Transaction<'_>,
+    transaction: &Connection,
     key: &str,
     value: impl ToString,
 ) -> Result<()> {
@@ -49,7 +49,7 @@ pub(super) fn save_display(
 }
 
 pub(super) fn save_optional_display<T>(
-    transaction: &Transaction<'_>,
+    transaction: &Connection,
     key: &str,
     value: Option<T>,
 ) -> Result<()>

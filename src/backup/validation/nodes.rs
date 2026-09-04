@@ -19,6 +19,24 @@ pub(super) fn validate_backup_nodes(backup: &WorkspaceBackup) -> Result<BackupVa
     let mut counts = BackupValidationCounts::default();
 
     for node_backup in &backup.nodes {
+        if node_backup.wallet_profile_id.as_deref().is_some_and(|id| {
+            !id.trim().is_empty()
+                && !backup
+                    .neo_wallet_profiles
+                    .iter()
+                    .any(|wallet| wallet.id == id.trim())
+        }) {
+            anyhow::bail!(
+                "backup node {} references a wallet profile absent from the backup",
+                node_backup.id
+            );
+        }
+        if super::super::secrets::secret_arguments(
+            node_backup.node_type.parse()?,
+            &node_backup.args,
+        ) {
+            anyhow::bail!("backup node {} contains secret arguments; use credential file references before exporting", node_backup.id);
+        }
         validate_backup_node(node_backup, &mut node_ids, &mut ports, &mut counts)?;
     }
 

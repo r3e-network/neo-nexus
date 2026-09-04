@@ -7,7 +7,7 @@ const KEY: &str = "alert_routing.progress";
 impl Repository {
     /// Operational delivery state is excluded from portable workspace backups.
     pub fn load_alert_progress(&self) -> Result<Option<AlertProgress>> {
-        load_setting(&self.connection()?, KEY)?
+        load_setting(&*self.connection()?, KEY)?
             .map(|text| serde_json::from_str(&text).context("invalid alert delivery progress"))
             .transpose()
     }

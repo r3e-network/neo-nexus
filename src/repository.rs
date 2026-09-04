@@ -59,6 +59,9 @@ use self::settings_keys::*;
 #[derive(Debug, Clone)]
 pub struct Repository {
     db_path: PathBuf,
+    // Only populated for an atomic backup import; ordinary handles continue
+    // opening independent connections as before.
+    restore_connection: Option<std::sync::Arc<std::sync::Mutex<Connection>>>,
 }
 
 impl Repository {
@@ -69,7 +72,10 @@ impl Repository {
                 .with_context(|| format!("failed to create data directory {}", parent.display()))?;
         }
 
-        let repository = Self { db_path };
+        let repository = Self {
+            db_path,
+            restore_connection: None,
+        };
         repository.initialize()?;
         Ok(repository)
     }

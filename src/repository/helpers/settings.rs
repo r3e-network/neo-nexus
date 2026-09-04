@@ -20,7 +20,7 @@ pub(in crate::repository) fn load_setting(
 }
 
 pub(in crate::repository) fn save_setting(
-    transaction: &rusqlite::Transaction<'_>,
+    transaction: &Connection,
     key: &str,
     value: &str,
 ) -> Result<()> {

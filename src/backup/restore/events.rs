@@ -20,7 +20,7 @@ pub(in crate::backup) fn restored_event(backup: &EventBackup) -> Result<Restored
                 .with_context(|| format!("backup event {} has invalid kind", backup.id))?,
             severity: EventSeverity::from_str(&backup.severity)
                 .with_context(|| format!("backup event {} has invalid severity", backup.id))?,
-            message: backup.message.clone(),
+            message: crate::redaction::redact_sensitive_text(&backup.message),
         },
     })
 }
