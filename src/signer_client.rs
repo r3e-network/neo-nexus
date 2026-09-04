@@ -7,6 +7,7 @@ mod auth;
 mod client;
 mod config;
 mod model;
+mod monitor;
 
 pub use auth::{
     body_sha256, workload_signing_message, workload_signing_message_v2, ApiKeyCredential,
@@ -15,5 +16,6 @@ pub use auth::{
 pub use client::{SignerClient, SignerClientError, SignerClientErrorKind};
 pub use config::{SignerClientConfig, SignerEndpoint};
 pub use model::*;
+pub use monitor::SignerMonitor;
 
 pub(crate) use auth::AuthHeaders;
