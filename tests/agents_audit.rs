@@ -84,9 +84,16 @@ fn corrupt_agent_record_is_not_silently_replaced_by_profile_save() {
     let profile = profile(dir.path(), node(&state));
     agents::save(&state, profile.clone()).unwrap();
     let connection = rusqlite::Connection::open(dir.path().join("test.db")).unwrap();
-    connection.execute("UPDATE managed_agents SET record = 'broken' WHERE id = ?1", [&profile.id]).unwrap();
+    connection
+        .execute(
+            "UPDATE managed_agents SET record = 'broken' WHERE id = ?1",
+            [&profile.id],
+        )
+        .unwrap();
     assert!(agents::save(&state, profile).is_err());
-    let record: String = connection.query_row("SELECT record FROM managed_agents", [], |row| row.get(0)).unwrap();
+    let record: String = connection
+        .query_row("SELECT record FROM managed_agents", [], |row| row.get(0))
+        .unwrap();
     assert_eq!(record, "broken");
 }
 
@@ -108,11 +115,30 @@ fn managed_handle_prevents_edit_and_delete_even_without_a_recorded_pid() {
         working_dir: dir.path().into(),
         display_command: "test fixture --list".into(),
     };
-    state.supervisor.lock().unwrap().start_process(&spec, dir.path().join("fixture.log")).unwrap();
-    assert!(agents::save(&state, profile).unwrap_err().to_string().contains("stop the agent"));
-    assert!(agents::delete(&state, "companion").unwrap_err().to_string().contains("stop the agent"));
-    assert!(agents::forget_stale(&state, "companion").unwrap_err().to_string().contains("managed agent"));
-    state.supervisor.lock().unwrap().stop_process(&spec.id).unwrap();
+    state
+        .supervisor
+        .lock()
+        .unwrap()
+        .start_process(&spec, dir.path().join("fixture.log"))
+        .unwrap();
+    assert!(agents::save(&state, profile)
+        .unwrap_err()
+        .to_string()
+        .contains("stop the agent"));
+    assert!(agents::delete(&state, "companion")
+        .unwrap_err()
+        .to_string()
+        .contains("stop the agent"));
+    assert!(agents::forget_stale(&state, "companion")
+        .unwrap_err()
+        .to_string()
+        .contains("managed agent"));
+    state
+        .supervisor
+        .lock()
+        .unwrap()
+        .stop_process(&spec.id)
+        .unwrap();
     agents::delete(&state, "companion").unwrap();
     assert!(state.repository.list_agents().unwrap().is_empty());
 }
@@ -127,18 +153,28 @@ fn stale_pid_recovery_never_releases_a_matching_live_process() {
     let system = sysinfo::System::new_with_specifics(
         sysinfo::RefreshKind::nothing().with_processes(sysinfo::ProcessRefreshKind::nothing()),
     );
-    let started = system.process(sysinfo::Pid::from_u32(pid)).unwrap().start_time();
+    let started = system
+        .process(sysinfo::Pid::from_u32(pid))
+        .unwrap()
+        .start_time();
     record.pid = Some(pid);
     record.process_started_at = Some(started);
     record.status = AgentStatus::Running;
     record.desired_running = true;
     let connection = rusqlite::Connection::open(dir.path().join("test.db")).unwrap();
     let write_record = |record: &neo_nexus::agents::AgentRecord| {
-        connection.execute("UPDATE managed_agents SET record = ?1 WHERE id = ?2",
-            rusqlite::params![serde_json::to_string(record).unwrap(), "companion"]).unwrap();
+        connection
+            .execute(
+                "UPDATE managed_agents SET record = ?1 WHERE id = ?2",
+                rusqlite::params![serde_json::to_string(record).unwrap(), "companion"],
+            )
+            .unwrap();
     };
     write_record(&record);
-    assert!(agents::forget_stale(&state, "companion").unwrap_err().to_string().contains("still alive"));
+    assert!(agents::forget_stale(&state, "companion")
+        .unwrap_err()
+        .to_string()
+        .contains("still alive"));
     assert_eq!(state.repository.list_agents().unwrap()[0].pid, Some(pid));
     record.process_started_at = Some(started.saturating_sub(1));
     write_record(&record);

@@ -13,7 +13,7 @@ fn backup_validation_cli_reports_valid_backup_summary() -> Result<()> {
     let action = action_from_args(["neo-nexus", "--validate-backup", &backup_arg])?;
 
     assert!(
-        matches!(action, CliAction::Print(text) if text.contains("backup-validation: ok") && text.contains("nodes: 1") && text.contains("schema-version: 7"))
+        matches!(action, CliAction::Print(text) if text.contains("backup-validation: ok") && text.contains("nodes: 1") && text.contains("schema-version: 8"))
     );
     Ok(())
 }

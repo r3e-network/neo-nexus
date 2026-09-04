@@ -1,3 +1,5 @@
+pub mod agents;
+pub mod assistants;
 pub mod distribution;
 pub mod lifecycle;
 pub mod node;

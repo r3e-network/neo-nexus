@@ -15,7 +15,7 @@ fn backup_export_cli_writes_workspace_backup_summary() -> Result<()> {
     let action = action_from_args(["neo-nexus", "--export-backup", &db_arg, &output_arg])?;
 
     assert!(
-        matches!(action, CliAction::Print(text) if text.contains("backup-export: ok") && text.contains("schema-version: 7") && text.contains("nodes: 1") && text.contains("bytes-written:"))
+        matches!(action, CliAction::Print(text) if text.contains("backup-export: ok") && text.contains("schema-version: 8") && text.contains("nodes: 1") && text.contains("bytes-written:"))
     );
     let backup_files = std::fs::read_dir(&output_dir)?
         .map(|entry| entry.map(|entry| entry.path()))

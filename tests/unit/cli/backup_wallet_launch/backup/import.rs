@@ -15,7 +15,7 @@ fn backup_import_cli_restores_workspace_backup_summary() -> Result<()> {
     let action = action_from_args(["neo-nexus", "--import-backup", &target_arg, &backup_arg])?;
 
     assert!(
-        matches!(action, CliAction::Print(text) if text.contains("backup-import: ok") && text.contains("target-database:") && text.contains("created-nodes: 1") && text.contains("updated-nodes: 0") && text.contains("schema-version: 7"))
+        matches!(action, CliAction::Print(text) if text.contains("backup-import: ok") && text.contains("target-database:") && text.contains("created-nodes: 1") && text.contains("updated-nodes: 0") && text.contains("schema-version: 8"))
     );
     let target = Repository::open(target_path)?;
     let nodes = target.list_nodes()?;

@@ -33,6 +33,15 @@ macro_rules! define_event_kinds {
 }
 
 define_event_kinds! {
+    AssistantConfigured => "assistant-configured",
+    AssistantToolCalled => "assistant-tool-called",
+    AgentSaved => "agent-saved",
+    AgentStarted => "agent-started",
+    AgentStopped => "agent-stopped",
+    AgentExited => "agent-exited",
+    AgentStartFailed => "agent-start-failed",
+    AgentHealthChanged => "agent-health-changed",
+    AgentDeleted => "agent-deleted",
     NodeCreated => "node-created",
     NodeUpdated => "node-updated",
     NodeDeleted => "node-deleted",
