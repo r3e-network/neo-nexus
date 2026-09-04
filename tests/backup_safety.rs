@@ -430,3 +430,51 @@ fn catalog_credentials_are_blocked_on_export_and_import_and_trust_changes_requir
         .to_string()
         .contains("local trusted key"));
 }
+
+#[test]
+fn repeated_exports_preserve_previous_files_and_discovery_ignores_partial_writes() {
+    let dir = tempfile::tempdir().unwrap();
+    let repository = Repository::open(dir.path().join("test.db")).unwrap();
+    node(&repository, NodeType::NeoRs, vec![]);
+    let output = dir.path().join("backups");
+    WorkspaceBackupExporter::write(&repository, &output, "first").unwrap();
+    let first = WorkspaceBackupImporter::latest_backup_path(&output)
+        .unwrap()
+        .unwrap();
+    let first_bytes = std::fs::read(&first).unwrap();
+    WorkspaceBackupExporter::write(&repository, &output, "second").unwrap();
+    assert_eq!(std::fs::read(&first).unwrap(), first_bytes);
+    let files: Vec<_> = std::fs::read_dir(&output)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .collect();
+    assert_eq!(files.len(), 2);
+    for file in files {
+        WorkspaceBackupImporter::validate_path(file).unwrap();
+    }
+    let latest = WorkspaceBackupImporter::latest_backup_path(&output)
+        .unwrap()
+        .unwrap();
+    std::fs::write(
+        output.join(".neonexus-backup-9999999999-pending.tmp"),
+        "partial",
+    )
+    .unwrap();
+    std::fs::create_dir(output.join("neonexus-backup-9999999999.json")).unwrap();
+    assert_eq!(
+        WorkspaceBackupImporter::latest_backup_path(&output)
+            .unwrap()
+            .unwrap(),
+        latest
+    );
+    // The original timestamp-only naming remains discoverable.
+    std::fs::write(output.join("neonexus-backup-9999999998.json"), &first_bytes).unwrap();
+    assert_eq!(
+        WorkspaceBackupImporter::latest_backup_path(&output)
+            .unwrap()
+            .unwrap()
+            .file_name()
+            .unwrap(),
+        "neonexus-backup-9999999998.json"
+    );
+}
