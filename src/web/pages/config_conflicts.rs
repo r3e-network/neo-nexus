@@ -127,3 +127,7 @@ pub async fn review(State(state): State<WebState>, Path(id): Path<String>) -> Re
     ))
     .into_response()
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/web/config_conflicts.rs"]
+mod tests;
