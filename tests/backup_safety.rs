@@ -312,14 +312,14 @@ fn pending_recovery_blocks_restore_and_inactive_budget_is_cleared() {
 }
 
 #[test]
-fn associated_running_agent_blocks_node_restore_without_touching_its_record() {
+fn associated_running_or_starting_agent_blocks_restore_without_touching_its_record() {
     use neo_nexus::agents::{AgentKind, AgentProfile, AgentRecord, AgentStatus};
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("test.db");
     let repository = Repository::open(&path).unwrap();
     let id = node(&repository, NodeType::NeoRs, vec![]);
     let backup = snapshot(&repository);
-    let record = AgentRecord {
+    let mut record = AgentRecord {
         profile: AgentProfile {
             id: "sidecar".into(),
             name: "sidecar".into(),
@@ -344,29 +344,39 @@ fn associated_running_agent_blocks_node_restore_without_touching_its_record() {
         healthy: Some(true),
         last_health_at: 123,
     };
-    let encoded = serde_json::to_string(&record).unwrap();
     let connection = rusqlite::Connection::open(&path).unwrap();
-    connection
+    for (status, pid, desired) in [
+        (AgentStatus::Running, Some(987654), true),
+        (AgentStatus::Starting, None, true),
+        (AgentStatus::Starting, None, false),
+    ] {
+        record.status = status;
+        record.pid = pid;
+        record.desired_running = desired;
+        record.process_started_at = pid.map(|_| 42);
+        let encoded = serde_json::to_string(&record).unwrap();
+        connection
         .execute(
-            "INSERT INTO managed_agents(id,record) VALUES ('sidecar',?1)",
+            "INSERT INTO managed_agents(id,record) VALUES ('sidecar',?1) ON CONFLICT(id) DO UPDATE SET record=excluded.record",
             [&encoded],
         )
         .unwrap();
-    assert!(WorkspaceBackupImporter::import(&repository, &backup)
-        .unwrap_err()
-        .to_string()
-        .contains("associated with node"));
-    assert_eq!(
-        connection
-            .query_row("SELECT record FROM managed_agents", [], |row| row
-                .get::<_, String>(0))
-            .unwrap(),
-        encoded
-    );
-    let mut stopped = repository.list_nodes().unwrap().remove(0);
-    stopped.name = "direct restore".into();
-    assert!(repository.restore_node_with_plugins(&stopped, &[]).is_err());
-    assert_eq!(repository.list_nodes().unwrap()[0].name, "restore fixture");
+        assert!(WorkspaceBackupImporter::import(&repository, &backup)
+            .unwrap_err()
+            .to_string()
+            .contains("associated with node"));
+        assert_eq!(
+            connection
+                .query_row("SELECT record FROM managed_agents", [], |row| row
+                    .get::<_, String>(0))
+                .unwrap(),
+            encoded
+        );
+        let mut stopped = repository.list_nodes().unwrap().remove(0);
+        stopped.name = "direct restore".into();
+        assert!(repository.restore_node_with_plugins(&stopped, &[]).is_err());
+        assert_eq!(repository.list_nodes().unwrap()[0].name, "restore fixture");
+    }
 }
 
 #[test]

@@ -30,7 +30,10 @@ pub(super) fn validate_target(repository: &Repository, backup: &WorkspaceBackup)
             agent.profile.node_id.as_deref() == Some(&incoming.id)
                 && (agent.pid.is_some()
                     || agent.desired_running
-                    || matches!(agent.status, crate::agents::AgentStatus::Running))
+                    || matches!(
+                        agent.status,
+                        crate::agents::AgentStatus::Running | crate::agents::AgentStatus::Starting
+                    ))
         }) {
             bail!(
                 "stop the agent associated with node {} before restoring that node",
