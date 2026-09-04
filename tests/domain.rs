@@ -16,8 +16,9 @@ use neo_nexus::{
     },
     catalog::{PluginCatalog, PluginId, PluginState},
     config::{
-        ConfigExporter, ConfigFormat, ConfigGenerator, ConfigValidationSeverity, ConfigValidator,
-        GenerationContext, RuntimeConfigProfile, ServiceWallet, WorkspaceConfigExporter,
+        line_drift, ConfigExporter, ConfigFormat, ConfigGenerator, ConfigValidationSeverity,
+        ConfigValidator, GenerationContext, RuntimeConfigProfile, ServiceWallet,
+        WorkspaceConfigExporter,
     },
     dashboard::DashboardSummary,
     diagnostics::{
@@ -162,3 +163,6 @@ mod plugins_snapshots;
 mod roles_private_network;
 #[path = "domain/runtime_federation.rs"]
 mod runtime_federation;
+
+#[path = "domain/fleet_matrix.rs"]
+mod fleet_matrix;
