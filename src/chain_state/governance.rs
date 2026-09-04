@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 
 use super::{
     model::{CandidateStanding, ChainQueryError, GovernanceSnapshot},
-    rpc::{agent, call},
+    rpc::{agent, call, require_neo_n3},
 };
 
 /// Reads the committee, the next round's validators, and the candidate vote.
@@ -19,6 +19,7 @@ pub fn governance_snapshot(
     timeout: Duration,
 ) -> Result<GovernanceSnapshot, ChainQueryError> {
     let agent = agent(timeout);
+    require_neo_n3(&agent, endpoint)?;
     let committee = public_key_list(
         &call(&agent, endpoint, "getcommittee", json!([]))?,
         "getcommittee",

@@ -13,7 +13,7 @@ use crate::roles::ChainRole;
 
 use super::{
     model::{ChainQueryError, DesignationStatus, RoleDesignation},
-    rpc::{agent, call, invocation_stack},
+    rpc::{agent, call, invocation_stack, require_neo_n3},
 };
 
 /// The `RoleManagement` native contract. Its hash is fixed by the protocol and
@@ -31,6 +31,7 @@ pub fn designation_status(
     timeout: Duration,
 ) -> DesignationStatus {
     let agent = agent(timeout);
+    require_neo_n3(&agent, endpoint)?;
     let height = block_count(&agent, endpoint)?;
     let result = call(
         &agent,

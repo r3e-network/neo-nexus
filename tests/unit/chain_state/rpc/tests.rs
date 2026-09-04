@@ -1,4 +1,4 @@
-use super::{invocation_stack, parse_result};
+use super::{invocation_stack, n3_guard_verdict, parse_result};
 use crate::chain_state::ChainQueryError;
 
 #[test]
@@ -62,4 +62,39 @@ fn a_halted_invocation_yields_its_first_stack_item() {
     });
     let item = invocation_stack("getDesignatedByRole", &result).expect("HALT yields a stack");
     assert_eq!(item["type"], "Array");
+}
+
+/// A Neo X endpoint answers every N3 read with `-32601`. The guard's job is to
+/// turn that pile of "unexpected" failures into the one true sentence before
+/// any of the reads run.
+#[test]
+fn a_non_n3_answer_becomes_a_family_verdict_not_a_shape_error() {
+    let error = n3_guard_verdict(parse_result(
+        "getversion",
+        r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}"#,
+    ))
+    .expect_err("an endpoint that cannot answer getversion is not an N3 node");
+    assert!(matches!(error, ChainQueryError::Unexpected(_)));
+    assert!(error.message().contains("governance and designation"));
+    assert!(error.message().contains("Neo X"));
+}
+
+/// A transport failure stays an unreachable verdict: "the wire is down" and
+/// "this is the wrong chain family" call for different operator responses.
+#[test]
+fn an_unreachable_probe_stays_unreachable() {
+    let verdict = n3_guard_verdict(Err(ChainQueryError::Unreachable(
+        "getversion: connection refused".into(),
+    )))
+    .expect_err("a dead endpoint must not pass the guard");
+    assert!(matches!(verdict, ChainQueryError::Unreachable(_)));
+}
+
+#[test]
+fn a_getversion_answer_passes_the_guard() {
+    let verdict = n3_guard_verdict(parse_result(
+        "getversion",
+        r#"{"jsonrpc":"2.0","id":1,"result":{"useragent":"/Neo:3.7.5/"}}"#,
+    ));
+    assert!(verdict.is_ok());
 }

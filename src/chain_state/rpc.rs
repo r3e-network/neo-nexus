@@ -78,6 +78,30 @@ pub(super) fn invocation_stack(method: &str, result: &Value) -> Result<Value, Ch
         .ok_or_else(|| ChainQueryError::Unexpected(format!("{method} returned an empty stack")))
 }
 
+/// Confirms an endpoint speaks Neo N3 JSON-RPC before the N3-only reads run.
+///
+/// Governance and designation are N3-native methods (`getcommittee`,
+/// `invokefunction` on a native hash). Pointed at a Neo X endpoint they would
+/// each answer `-32601`, and the operator would read a pile of "unexpected"
+/// failures instead of the one true sentence — that this endpoint is not a
+/// Neo N3 node.
+pub(super) fn require_neo_n3(agent: &ureq::Agent, endpoint: &str) -> Result<(), ChainQueryError> {
+    n3_guard_verdict(call(agent, endpoint, "getversion", json!([])))
+}
+
+/// The guard's decision, separated from the network call so tests stay offline.
+fn n3_guard_verdict(probe: Result<Value, ChainQueryError>) -> Result<(), ChainQueryError> {
+    match probe {
+        Ok(_) => Ok(()),
+        Err(ChainQueryError::Unreachable(message)) => Err(ChainQueryError::Unreachable(message)),
+        Err(ChainQueryError::Unexpected(_)) => Err(ChainQueryError::Unexpected(
+            "the endpoint did not answer getversion: governance and designation reads exist \
+             only on Neo N3, and a Neo X endpoint speaks Ethereum JSON-RPC instead"
+                .to_string(),
+        )),
+    }
+}
+
 #[cfg(test)]
 #[path = "../../tests/unit/chain_state/rpc/tests.rs"]
 mod tests;
