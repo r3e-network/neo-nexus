@@ -19,6 +19,7 @@ impl From<PluginId> for &'static str {
             PluginId::DBFTPlugin => "DBFTPlugin",
             PluginId::OracleService => "OracleService",
             PluginId::TokensTracker => "TokensTracker",
+            PluginId::SignClient => "SignClient",
         }
     }
 }

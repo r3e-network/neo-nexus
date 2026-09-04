@@ -5,7 +5,15 @@ use super::{PluginCategory, PluginDefinition, PluginId};
 const NEO_CLI_ONLY: &[NodeType] = &[NodeType::NeoCli];
 const BUILT_IN_RPC: &[NodeType] = &[NodeType::NeoCli, NodeType::NeoGo];
 
-pub(in crate::catalog) static PLUGIN_DEFINITIONS: [PluginDefinition; 9] = [
+pub(in crate::catalog) static PLUGIN_DEFINITIONS: [PluginDefinition; 10] = [
+    PluginDefinition {
+        id: PluginId::SignClient,
+        name: "Remote signer (SignClient)",
+        category: PluginCategory::Governance,
+        description: "Use the official Neo SignClient gRPC bridge without exporting custody keys. Consensus requires an explicit start consensus SignClient command.",
+        node_types: NEO_CLI_ONLY,
+        requires_restart: true,
+    },
     PluginDefinition {
         id: PluginId::RpcServer,
         name: "JSON-RPC API",

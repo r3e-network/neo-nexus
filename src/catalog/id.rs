@@ -14,6 +14,7 @@ pub enum PluginId {
     TokensTracker,
     LevelDbStore,
     RocksDbStore,
+    SignClient,
 }
 
 impl fmt::Display for PluginId {
@@ -28,6 +29,7 @@ impl fmt::Display for PluginId {
             Self::TokensTracker => "TokensTracker",
             Self::LevelDbStore => "LevelDBStore",
             Self::RocksDbStore => "RocksDBStore",
+            Self::SignClient => "SignClient",
         })
     }
 }
@@ -46,6 +48,7 @@ impl FromStr for PluginId {
             "TokensTracker" => Ok(Self::TokensTracker),
             "LevelDBStore" => Ok(Self::LevelDbStore),
             "RocksDBStore" => Ok(Self::RocksDbStore),
+            "SignClient" => Ok(Self::SignClient),
             other => anyhow::bail!("unsupported plugin id: {other}"),
         }
     }

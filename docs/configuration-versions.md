@@ -75,6 +75,24 @@ workbench does not infer archive layouts or a .NET distribution's dependencies.
 
 Explicit external configuration arguments bypass managed generation; automatic
 version selection directs these nodes to the node editor for a manual external
-config review. The existing plugin catalogue contains the nine listed Neo N3
-plugins and does not yet include automatic SignClient installation or remote
-signer configuration injection.
+config review. The plugin catalogue includes SignClient for neo-cli. Its typed configuration
+writes only the signer name and a loopback HTTP gRPC endpoint; custody key IDs
+and caller tokens remain in the separately provisioned bridge process.
+
+## Neo SignClient connection
+
+In **Plugins**, install a compatible SignClient ZIP, enable it while the node is
+stopped, and set **SignClient bridge** to the bridge's actual loopback port.
+`Plugins/SignClient/SignClient.json` receives `PluginConfiguration.Name` and
+`Endpoint`, matching the [official v3.10.1 configuration](https://github.com/neo-project/neo-node/blob/v3.10.1/plugins/SignClient/SignClient.json).
+The separately provisioned NeoOS bridge binds one caller/key; the client sends
+public keys obtained from the validator set rather than a custody key ID.
+
+Connection configuration does not automatically start a signing duty. The
+[upstream DBFT plugin](https://github.com/neo-project/neo-node/blob/v3.10.1/plugins/DBFTPlugin/DBFTPlugin.cs)
+selects the remote signer via the explicit interactive command
+`start consensus SignClient` (substitute the configured signer name).
+Its `AutoStart` path still starts the wallet when the wallet opens. NeoNexus's
+managed process currently provides no unattended interactive consensus-start
+channel; configuring or enabling SignClient must not be interpreted as proof
+that consensus is running. Check the node's actual chain status and logs.

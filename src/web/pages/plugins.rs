@@ -139,7 +139,7 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], wanted: &str) -> String {
                     .to_string(),
             ),
         ]),
-        install = install_form(node),
+        install = format!("{}{}", install_form(node), signclient_form(state, node)),
         table = html::table(
             &[
                 "Plugin",
@@ -367,6 +367,82 @@ pub async fn install(
         Ok(message)
     })();
     let message = outcome.unwrap_or_else(|error| format!("plugin not installed: {error}"));
+    Redirect::to(&format!(
+        "/plugins?node={}&flash={}",
+        html::urlencoding_lite(&id),
+        html::urlencoding_lite(&message)
+    ))
+    .into_response()
+}
+
+fn signclient_form(state: &WebState, node: &NodeConfig) -> String {
+    if node.node_type != NodeType::NeoCli {
+        return String::new();
+    }
+    let settings = crate::plugins::SignClientSettings::read_for_node(
+        &state.workspace_child_dir("nodes").join(&node.id),
+    )
+    .unwrap_or_default();
+    format!(
+        r#"<h2>SignClient bridge</h2>
+<p>Install and enable a compatible SignClient package first. This connection uses the signer service's local gRPC bridge. The bridge selects the custody key; no private key or caller token is written into node configuration. Start consensus explicitly with <code>start consensus SignClient</code> (substitute the configured signer name); enabling this plugin does not start consensus automatically.</p>
+<form method="post" action="/plugins/{id}/signclient">
+<label>Signer name<input name="name" value="{name}" required></label>
+<label>Local bridge endpoint<input name="endpoint" value="{endpoint}" required></label>
+<button type="submit">Save SignClient configuration</button></form>"#,
+        id = html::escape(&node.id),
+        name = html::escape(&settings.name),
+        endpoint = html::escape(&settings.endpoint)
+    )
+}
+
+#[derive(Deserialize)]
+pub struct SignClientForm {
+    name: String,
+    endpoint: String,
+}
+
+pub async fn configure_signclient(
+    State(state): State<WebState>,
+    Path(id): Path<String>,
+    Form(input): Form<SignClientForm>,
+) -> Response {
+    let outcome = (|| -> anyhow::Result<String> {
+        let supervisor = state.supervisor();
+        let node = state
+            .repository
+            .list_nodes()?
+            .into_iter()
+            .find(|node| node.id == id)
+            .ok_or_else(|| anyhow::anyhow!("node not found"))?;
+        if node.status.is_running() || node.pid.is_some() || supervisor.is_managing(&id) {
+            anyhow::bail!("stop the node before changing its SignClient settings");
+        }
+        let settings = crate::plugins::SignClientSettings {
+            name: input.name.trim().into(),
+            endpoint: input.endpoint.trim().into(),
+        };
+        let backup =
+            settings.write_for_node(&state.workspace_child_dir("nodes").join(&id), &node)?;
+        let message = format!(
+            "SignClient endpoint configured for {}; start consensus explicitly with signer {}{}",
+            node.name,
+            settings.name,
+            backup
+                .map(|path| format!("; previous config backed up to {}", path.display()))
+                .unwrap_or_default()
+        );
+        let _ = state.repository.record_event(NewRuntimeEvent {
+            node_id: Some(node.id),
+            node_name: Some(node.name),
+            kind: EventKind::PluginUpdated,
+            severity: EventSeverity::Info,
+            message: message.clone(),
+        });
+        Ok(message)
+    })();
+    let message =
+        outcome.unwrap_or_else(|error| format!("SignClient configuration not changed: {error}"));
     Redirect::to(&format!(
         "/plugins?node={}&flash={}",
         html::urlencoding_lite(&id),
