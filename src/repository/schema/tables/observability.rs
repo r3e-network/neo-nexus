@@ -62,6 +62,15 @@ pub(super) fn create_observability_tables(connection: &Connection) -> Result<()>
             syncing INTEGER,
             network_observation TEXT NOT NULL DEFAULT '{}',
             observed_pid INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS chain_progress_markers (
+            node_id TEXT PRIMARY KEY,
+            observed_pid INTEGER NOT NULL,
+            identity INTEGER NOT NULL,
+            last_observation_id INTEGER NOT NULL,
+            last_checked_at_unix INTEGER NOT NULL,
+            stalled_block_count INTEGER,
+            FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
         );",
     )?;
     Ok(())

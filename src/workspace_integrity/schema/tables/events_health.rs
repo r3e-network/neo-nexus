@@ -2,6 +2,17 @@ use super::RequiredTable;
 
 pub(super) const EVENTS_HEALTH_TABLES: &[RequiredTable] = &[
     RequiredTable {
+        name: "chain_progress_markers",
+        columns: &[
+            "node_id",
+            "observed_pid",
+            "identity",
+            "last_observation_id",
+            "last_checked_at_unix",
+            "stalled_block_count",
+        ],
+    },
+    RequiredTable {
         name: "runtime_events",
         columns: &[
             "id",

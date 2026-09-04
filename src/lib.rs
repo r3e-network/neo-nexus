@@ -4,6 +4,7 @@ pub mod argv;
 pub mod assistants;
 pub mod backup;
 pub mod catalog;
+pub mod chain_progress;
 pub mod chain_state;
 pub mod ci_policy;
 pub mod cli;
