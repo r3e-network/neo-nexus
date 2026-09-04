@@ -74,6 +74,7 @@ fn metrics_format_pressure_and_node_totals_are_stable() {
             node_name: "gamma".to_string(),
             pid: 102,
         }],
+        chain: Vec::new(),
     };
 
     assert_eq!(snapshot.node_process("node-a").unwrap().pid, 100);
@@ -106,6 +107,7 @@ fn metrics_format_pressure_and_node_totals_are_stable() {
             status: "idle".to_string(),
         }],
         missing_processes: Vec::new(),
+        chain: Vec::new(),
     };
 
     assert_eq!(quiet_snapshot.total_node_cpu_usage_percent(), 0.0);
@@ -142,6 +144,17 @@ fn metrics_prometheus_text_escapes_labels_and_reports_health() {
             node_name: "gamma\nline\\tail".to_string(),
             pid: 102,
         }],
+        chain: vec![RpcHealthRecord {
+            id: 1,
+            checked_at_unix: 1_800_000_000,
+            node_id: "node-a".to_string(),
+            node_name: "alpha \"one\"".to_string(),
+            endpoint: "http://127.0.0.1:10332".to_string(),
+            status: RpcHealthStatus::Healthy,
+            version: Some("/Neo:3.7.5/".to_string()),
+            block_count: Some(8_123_456),
+            message: "RPC health healthy".to_string(),
+        }],
     };
 
     let text = snapshot.to_prometheus_text();
@@ -156,5 +169,14 @@ fn metrics_prometheus_text_escapes_labels_and_reports_health() {
     ));
     assert!(text.contains(
         "neonexus_node_missing_process{node_id=\"node-c\",node_name=\"gamma\\nline\\\\tail\",pid=\"102\"} 1\n"
+    ));
+    assert!(text.contains(
+        "neonexus_node_rpc_health_status{node_id=\"node-a\",node_name=\"alpha \\\"one\\\"\",endpoint=\"http://127.0.0.1:10332\"} 2\n"
+    ));
+    assert!(text.contains(
+        "neonexus_node_block_height{node_id=\"node-a\",node_name=\"alpha \\\"one\\\"\",endpoint=\"http://127.0.0.1:10332\"} 8123456\n"
+    ));
+    assert!(text.contains(
+        "neonexus_node_rpc_checked_at_unix{node_id=\"node-a\",node_name=\"alpha \\\"one\\\"\",endpoint=\"http://127.0.0.1:10332\"} 1800000000\n"
     ));
 }

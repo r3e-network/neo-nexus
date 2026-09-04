@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+use crate::rpc_health::RpcHealthRecord;
+
 use super::{MissingProcessMetric, NodeProcessMetrics, SystemMetrics};
 
 mod summary;
@@ -11,6 +13,11 @@ pub struct MetricsSnapshot {
     pub system: SystemMetrics,
     pub node_processes: Vec<NodeProcessMetrics>,
     pub missing_processes: Vec<MissingProcessMetric>,
+    /// The newest RPC verdict of every probed node, so the Prometheus
+    /// exposition carries block height and health rather than process
+    /// numbers alone. Populated from the workspace database by the snapshot
+    /// builders; the process collector itself never reads the repository.
+    pub chain: Vec<RpcHealthRecord>,
 }
 
 impl MetricsSnapshot {
@@ -27,6 +34,7 @@ impl MetricsSnapshot {
             },
             node_processes: Vec::new(),
             missing_processes: Vec::new(),
+            chain: Vec::new(),
         }
     }
 }

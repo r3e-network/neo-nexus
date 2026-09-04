@@ -1,6 +1,8 @@
+use serde::Serialize;
+
 use super::RpcHealthStatus;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RpcHealthRecord {
     pub id: i64,
     pub checked_at_unix: u64,

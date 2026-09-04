@@ -47,5 +47,7 @@ pub fn collect_snapshot(
 ) -> anyhow::Result<MetricsSnapshot> {
     let nodes = repository.list_nodes()?;
     let mut collector = MetricsCollector::new(Duration::ZERO);
-    Ok(collector.refresh(&nodes, Instant::now()))
+    let mut snapshot = collector.refresh(&nodes, Instant::now());
+    snapshot.chain = repository.latest_rpc_health_all_nodes()?;
+    Ok(snapshot)
 }
