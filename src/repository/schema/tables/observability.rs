@@ -58,7 +58,10 @@ pub(super) fn create_observability_tables(connection: &Connection) -> Result<()>
             status TEXT NOT NULL,
             version TEXT,
             block_count INTEGER,
-            message TEXT NOT NULL
+            message TEXT NOT NULL,
+            syncing INTEGER,
+            network_observation TEXT NOT NULL DEFAULT '{}',
+            observed_pid INTEGER
         );",
     )?;
     Ok(())

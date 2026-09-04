@@ -9,6 +9,7 @@ use anyhow::Result;
 
 use super::{probe_rpc_endpoint, RpcHealthStatus};
 
+mod network;
 mod protocol;
 
 #[test]
@@ -54,7 +55,7 @@ fn spawn_rpc_server(mode: ServerMode) -> Result<String> {
     let listener = TcpListener::bind("127.0.0.1:0")?;
     let address = listener.local_addr()?;
     thread::spawn(move || {
-        for _ in 0..2 {
+        for _ in 0..3 {
             let Ok((mut stream, _peer)) = listener.accept() else {
                 return;
             };
@@ -62,8 +63,10 @@ fn spawn_rpc_server(mode: ServerMode) -> Result<String> {
                 return;
             };
             let body = if request.contains("getversion") {
-                r#"{"jsonrpc":"2.0","id":"neonexus-health","result":{"useragent":"neo-rs-test"}}"#
+                r#"{"jsonrpc":"2.0","id":"neonexus-health","result":{"useragent":"neo-rs-test","protocol":{"network":860833102}}}"#
                     .to_string()
+            } else if request.contains("getconnectioncount") {
+                r#"{"jsonrpc":"2.0","id":"neonexus-health","result":3}"#.to_string()
             } else if matches!(mode, ServerMode::BlockCountError) {
                 r#"{"jsonrpc":"2.0","id":"neonexus-health","error":{"code":-1,"message":"not ready"}}"#
                     .to_string()

@@ -22,6 +22,11 @@ impl RpcHealthMonitorPolicy {
         Duration::from_secs(self.interval_seconds)
     }
 
+    /// Allow two missed intervals before presenting an observation as stale.
+    pub fn observation_max_age_seconds(self) -> u64 {
+        self.normalized().interval_seconds.saturating_mul(3)
+    }
+
     pub fn normalized(self) -> Self {
         Self {
             enabled: self.enabled,

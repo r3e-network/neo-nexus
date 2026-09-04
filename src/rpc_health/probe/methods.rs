@@ -23,6 +23,8 @@ pub(super) struct ProbeMethods {
     /// The "am I still catching up" call, where the family has one. A height
     /// alone cannot tell "at head" from "stalled a few blocks behind".
     pub(super) syncing: Option<&'static str>,
+    pub(super) identity: Option<&'static str>,
+    pub(super) peers: &'static str,
     family: ChainFamily,
 }
 
@@ -32,18 +34,28 @@ pub(super) fn probe_methods(family: ChainFamily) -> ProbeMethods {
             version: "getversion",
             height: "getblockcount",
             syncing: None,
+            identity: None,
+            peers: "getconnectioncount",
             family,
         },
         ChainFamily::NeoX => ProbeMethods {
             version: "web3_clientVersion",
             height: "eth_blockNumber",
             syncing: Some("eth_syncing"),
+            identity: Some("eth_chainId"),
+            peers: "net_peerCount",
             family,
         },
     }
 }
 
 impl ProbeMethods {
+    pub(super) fn peer_count(self, value: &Value) -> Option<u64> {
+        match self.family {
+            ChainFamily::NeoN3 => value.as_u64(),
+            ChainFamily::NeoX => hex_quantity(value),
+        }
+    }
     /// The number of blocks the node holds, from whichever answer it gave.
     ///
     /// The two families do not report the same quantity: `getblockcount` is a
@@ -79,7 +91,7 @@ pub(super) fn syncing_verdict(value: &Value) -> Option<bool> {
 }
 
 /// An EVM `QUANTITY`: `0x`-prefixed, minimal-length hex.
-fn hex_quantity(value: &Value) -> Option<u64> {
+pub(super) fn hex_quantity(value: &Value) -> Option<u64> {
     let text = value.as_str()?;
     let digits = text.strip_prefix("0x")?;
     if digits.is_empty() || digits.len() > 1 && digits.starts_with('0') {

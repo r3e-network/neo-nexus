@@ -22,7 +22,7 @@ fn rpc_health_json_cli_reports_unreachable_endpoint() -> Result<()> {
     assert_eq!(value["success"], false);
     assert_eq!(value["report"]["endpoint"], "http://127.0.0.1:1");
     assert_eq!(value["report"]["status"], "unreachable");
-    assert_eq!(value["report"]["methods"].as_array().map(Vec::len), Some(2));
+    assert_eq!(value["report"]["methods"].as_array().map(Vec::len), Some(3));
     assert_eq!(value["report"]["methods"][0]["method"], "getversion");
     assert_eq!(value["report"]["methods"][0]["ok"], false);
     Ok(())

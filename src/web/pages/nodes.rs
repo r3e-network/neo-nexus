@@ -188,6 +188,13 @@ fn render_detail(state: &WebState, id: &str) -> anyhow::Result<String> {
                         .block_count
                         .map_or_else(|| "—".to_string(), |block| block.to_string()),
                 ),
+                html::cell(&record.network.identity_summary()),
+                html::cell(&record.network.peer_summary()),
+                html::cell(match record.syncing {
+                    Some(true) => "syncing",
+                    Some(false) => "not syncing",
+                    None => "not reported",
+                }),
                 html::cell(&record.message),
             ])
         })
@@ -225,7 +232,18 @@ fn render_detail(state: &WebState, id: &str) -> anyhow::Result<String> {
         trend = if trend.is_empty() {
             html::note("No RPC probes recorded yet.")
         } else {
-            html::table(&["Checked", "Status", "Block", "Message"], &trend)
+            html::table(
+                &[
+                    "Checked",
+                    "Status",
+                    "Block",
+                    "Network identity",
+                    "Peers",
+                    "Sync",
+                    "Message",
+                ],
+                &trend,
+            )
         },
     );
 

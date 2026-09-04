@@ -38,6 +38,9 @@ pub(super) const EVENTS_HEALTH_TABLES: &[RequiredTable] = &[
             "version",
             "block_count",
             "message",
+            "syncing",
+            "network_observation",
+            "observed_pid",
         ],
     },
 ];

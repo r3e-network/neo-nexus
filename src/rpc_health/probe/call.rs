@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
+use std::time::Instant;
 
 use super::summary::compact_json;
 
@@ -7,7 +8,12 @@ pub(super) fn call_method(
     agent: &ureq::Agent,
     endpoint: &str,
     method: &'static str,
+    deadline: Instant,
 ) -> Result<Value> {
+    let remaining = deadline.saturating_duration_since(Instant::now());
+    if remaining.is_zero() {
+        anyhow::bail!("RPC probe deadline exceeded before {method}");
+    }
     let body = json!({
         "jsonrpc": "2.0",
         "id": "neonexus-health",
@@ -16,6 +22,7 @@ pub(super) fn call_method(
     });
     let response = agent
         .post(endpoint)
+        .timeout(remaining)
         .set("Content-Type", "application/json")
         .send_string(&body.to_string())
         .with_context(|| format!("failed to call {method} at {endpoint}"))?;

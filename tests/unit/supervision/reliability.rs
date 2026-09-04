@@ -171,6 +171,7 @@ fn a_stale_rpc_result_does_not_write_health_or_postpone_the_new_process_probe() 
             version: None,
             block_count: None,
             syncing: None,
+            network: Default::default(),
             methods: vec![],
         },
         Instant::now(),

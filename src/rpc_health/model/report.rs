@@ -19,6 +19,7 @@ pub struct RpcHealthReport {
     /// family has no syncing call, or the call did not give a verdict.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub syncing: Option<bool>,
+    pub network: super::RpcNetworkObservation,
     pub methods: Vec<RpcMethodHealth>,
 }
 
@@ -28,13 +29,28 @@ impl RpcHealthReport {
     }
 
     pub fn message(&self) -> String {
+        if self.status == RpcHealthStatus::Degraded {
+            if matches!(
+                self.network.identity_status(),
+                super::RpcIdentityStatus::Unknown | super::RpcIdentityStatus::Mismatch
+            ) {
+                return self.network.identity_summary();
+            }
+            if self.network.peers_expected && self.network.peer_count == Some(0) {
+                return self.network.peer_summary();
+            }
+        }
         match self.status {
             RpcHealthStatus::Healthy => {
                 let block_count = self
                     .block_count
                     .map_or_else(|| "unknown".to_string(), |value| value.to_string());
                 let version = self.version.as_deref().unwrap_or("unknown version");
-                format!("{version}; block-count {block_count}")
+                format!(
+                    "{version}; block-count {block_count}; {}; {}",
+                    self.network.identity_summary(),
+                    self.network.peer_summary()
+                )
             }
             RpcHealthStatus::Degraded | RpcHealthStatus::Unreachable => {
                 match self.methods.iter().find(|method| !method.ok) {
@@ -64,6 +80,11 @@ impl RpcHealthReport {
         if let Some(syncing) = self.syncing {
             lines.push(format!("syncing: {syncing}"));
         }
+        lines.push(format!(
+            "network-identity: {}",
+            self.network.identity_summary()
+        ));
+        lines.push(format!("network-peers: {}", self.network.peer_summary()));
         for method in &self.methods {
             lines.push(format!(
                 "method-{}: {}",

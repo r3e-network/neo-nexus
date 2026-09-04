@@ -5,7 +5,7 @@
 //! exactly the failure process metrics cannot see.
 
 use crate::metrics::types::MetricsSnapshot;
-use crate::rpc_health::{RpcHealthRecord, RpcHealthStatus};
+use crate::rpc_health::{RpcHealthRecord, RpcHealthStatus, RpcIdentityStatus};
 
 use super::super::text::{push_header, push_sample};
 
@@ -58,6 +58,52 @@ pub(in crate::metrics::prometheus) fn push_chain_health_metrics(
             "neonexus_node_rpc_checked_at_unix",
             &labels(record),
             record.checked_at_unix,
+        );
+    }
+
+    push_header(output, "neonexus_node_peer_count", "Connected peers reported by the latest RPC probe; absent means unknown, zero is an observed count.");
+    push_header(output, "neonexus_node_network_identity_status", "Network identifier check: 0 unavailable, 1 observed without expected identity, 2 matched, 3 mismatch. This does not verify genesis.");
+    push_header(
+        output,
+        "neonexus_node_network_identity",
+        "Network magic (N3) or chain ID (Neo X) reported by RPC; absent means unknown.",
+    );
+    push_header(
+        output,
+        "neonexus_node_syncing",
+        "EVM synchronization observation: 1 syncing, 0 not syncing; absent means not reported.",
+    );
+    push_header(output, "neonexus_node_rpc_observation_age_seconds", "Age of the latest stored RPC observation at collection time. Alert on age independently of the stored verdict.");
+    for record in &snapshot.chain {
+        let labels = labels(record);
+        if let Some(peers) = record.network.peer_count {
+            push_sample(output, "neonexus_node_peer_count", &labels, peers);
+        }
+        let identity_status = match record.network.identity_status() {
+            RpcIdentityStatus::Unknown => 0,
+            RpcIdentityStatus::Unverified => 1,
+            RpcIdentityStatus::Matched => 2,
+            RpcIdentityStatus::Mismatch => 3,
+        };
+        push_sample(
+            output,
+            "neonexus_node_network_identity_status",
+            &labels,
+            identity_status,
+        );
+        if let Some(identity) = record.network.actual_identity {
+            push_sample(output, "neonexus_node_network_identity", &labels, identity);
+        }
+        if let Some(syncing) = record.syncing {
+            push_sample(output, "neonexus_node_syncing", &labels, u8::from(syncing));
+        }
+        push_sample(
+            output,
+            "neonexus_node_rpc_observation_age_seconds",
+            &labels,
+            snapshot
+                .captured_at_unix
+                .saturating_sub(record.checked_at_unix),
         );
     }
 }

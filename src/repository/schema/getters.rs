@@ -42,7 +42,7 @@ impl Repository {
         connection
             .query_row(
                 "SELECT id, checked_at_unix, node_id, node_name, endpoint, status,
-                        version, block_count, message
+                        version, block_count, message, syncing, network_observation, observed_pid
                  FROM rpc_health_checks
                  WHERE id = ?1",
                 params![id],

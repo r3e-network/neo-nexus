@@ -178,6 +178,7 @@ fn mcp_read_scope_hides_arguments_and_health_credentials_and_refuses_operations(
                 version: Some("node password=version-secret".into()),
                 block_count: Some(42),
                 syncing: None,
+                network: Default::default(),
                 methods: vec![],
             },
         )

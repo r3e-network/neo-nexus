@@ -3,11 +3,11 @@ mod endpoint;
 mod methods;
 mod summary;
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use crate::types::{ChainFamily, NodeConfig};
+use crate::types::{ChainFamily, Network, NodeConfig};
 
-use super::{RpcHealthReport, RpcHealthStatus};
+use super::{RpcHealthReport, RpcHealthStatus, RpcIdentityKind, RpcNetworkObservation};
 use call::call_method;
 use endpoint::normalize_endpoint;
 use methods::probe_methods;
@@ -19,7 +19,12 @@ pub fn node_rpc_endpoint(node: &NodeConfig) -> String {
 
 /// Probes a managed node, asking the methods its own chain family answers.
 pub fn probe_node_rpc(node: &NodeConfig, timeout: Duration) -> RpcHealthReport {
-    probe_rpc_endpoint_for(node.node_type.family(), &node_rpc_endpoint(node), timeout)
+    probe_rpc_endpoint_for_network(
+        node.node_type.family(),
+        Some(node.network),
+        &node_rpc_endpoint(node),
+        timeout,
+    )
 }
 
 /// Probes a bare endpoint with no node behind it — a remote federation peer,
@@ -35,7 +40,18 @@ pub fn probe_rpc_endpoint_for(
     endpoint: &str,
     timeout: Duration,
 ) -> RpcHealthReport {
+    probe_rpc_endpoint_for_network(family, None, endpoint, timeout)
+}
+
+fn probe_rpc_endpoint_for_network(
+    family: ChainFamily,
+    network: Option<Network>,
+    endpoint: &str,
+    timeout: Duration,
+) -> RpcHealthReport {
     let methods = probe_methods(family);
+    let started = Instant::now();
+    let deadline = started.checked_add(timeout).unwrap_or(started);
     let normalized_endpoint = normalize_endpoint(endpoint);
     let agent = ureq::AgentBuilder::new()
         .redirects(0)
@@ -44,8 +60,8 @@ pub fn probe_rpc_endpoint_for(
         .timeout_write(timeout)
         .build();
 
-    let version_health =
-        call_method(&agent, &normalized_endpoint, methods.version).and_then(|value| {
+    let version_health = call_method(&agent, &normalized_endpoint, methods.version, deadline)
+        .and_then(|value| {
             let valid = match family {
                 ChainFamily::NeoN3 => {
                     value.is_object()
@@ -59,8 +75,8 @@ pub fn probe_rpc_endpoint_for(
                 anyhow::bail!("invalid client version response")
             }
         });
-    let block_health =
-        call_method(&agent, &normalized_endpoint, methods.height).and_then(|value| {
+    let block_health = call_method(&agent, &normalized_endpoint, methods.height, deadline)
+        .and_then(|value| {
             if methods.block_count(&value).is_some() {
                 Ok(value)
             } else {
@@ -68,7 +84,7 @@ pub fn probe_rpc_endpoint_for(
             }
         });
     let sync_health = methods.syncing.map(|method| {
-        call_method(&agent, &normalized_endpoint, method).and_then(|value| {
+        call_method(&agent, &normalized_endpoint, method, deadline).and_then(|value| {
             if methods::syncing_verdict(&value).is_some() {
                 Ok(value)
             } else {
@@ -80,6 +96,58 @@ pub fn probe_rpc_endpoint_for(
         .as_ref()
         .and_then(|result| result.as_ref().ok())
         .and_then(methods::syncing_verdict);
+
+    let identity_health = methods.identity.map(|method| {
+        call_method(&agent, &normalized_endpoint, method, deadline).and_then(|value| {
+            if methods::hex_quantity(&value).is_some() {
+                Ok(value)
+            } else {
+                anyhow::bail!("invalid chain identity response")
+            }
+        })
+    });
+    let peer_health =
+        call_method(&agent, &normalized_endpoint, methods.peers, deadline).and_then(|value| {
+            if methods.peer_count(&value).is_some() {
+                Ok(value)
+            } else {
+                anyhow::bail!("invalid peer count response")
+            }
+        });
+    let actual_identity = match family {
+        ChainFamily::NeoN3 => version_health
+            .as_ref()
+            .ok()
+            .and_then(|value| value.pointer("/protocol/network"))
+            .and_then(serde_json::Value::as_u64)
+            .filter(|number| u32::try_from(*number).is_ok()),
+        ChainFamily::NeoX => identity_health
+            .as_ref()
+            .and_then(|result| result.as_ref().ok())
+            .and_then(methods::hex_quantity),
+    };
+    let observation = RpcNetworkObservation {
+        identity_kind: Some(match family {
+            ChainFamily::NeoN3 => RpcIdentityKind::N3NetworkMagic,
+            ChainFamily::NeoX => RpcIdentityKind::EvmChainId,
+        }),
+        actual_identity,
+        expected_identity: match (family, network) {
+            (ChainFamily::NeoN3, Some(Network::Mainnet)) => Some(860_833_102),
+            (ChainFamily::NeoN3, Some(Network::Testnet)) => Some(894_710_606),
+            (ChainFamily::NeoX, Some(network @ (Network::Mainnet | Network::Testnet))) => {
+                Some(crate::config::neox_chain_id(network, None))
+            }
+            // A private profile may override network magic/chain ID, and bare
+            // endpoints do not declare a desired chain. Never invent an anchor.
+            _ => None,
+        },
+        peer_count: peer_health
+            .as_ref()
+            .ok()
+            .and_then(|value| methods.peer_count(value)),
+        peers_expected: matches!(network, Some(Network::Mainnet | Network::Testnet)),
+    };
 
     let version = version_health.as_ref().ok().and_then(summarize_version);
     let block_count = block_health
@@ -100,7 +168,13 @@ pub fn probe_rpc_endpoint_for(
     if let (Some(method), Some(result)) = (methods.syncing, &sync_health) {
         method_reports.push(method_health(method, result));
     }
-    if (syncing == Some(true) || sync_health.as_ref().is_some_and(Result::is_err))
+    if let (Some(method), Some(result)) = (methods.identity, &identity_health) {
+        method_reports.push(method_health(method, result));
+    }
+    method_reports.push(method_health(methods.peers, &peer_health));
+    if (syncing == Some(true)
+        || sync_health.as_ref().is_some_and(Result::is_err)
+        || observation.requires_attention())
         && status == RpcHealthStatus::Healthy
     {
         // A reachable node that is still catching up is not Healthy: both
@@ -114,6 +188,7 @@ pub fn probe_rpc_endpoint_for(
         version,
         block_count,
         syncing,
+        network: observation,
         methods: method_reports,
     }
 }

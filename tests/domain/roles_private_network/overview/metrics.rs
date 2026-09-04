@@ -145,6 +145,15 @@ fn metrics_prometheus_text_escapes_labels_and_reports_health() {
             pid: 102,
         }],
         chain: vec![RpcHealthRecord {
+            syncing: Some(false),
+            network: neo_nexus::rpc_health::RpcNetworkObservation {
+                identity_kind: Some(neo_nexus::rpc_health::RpcIdentityKind::N3NetworkMagic),
+                actual_identity: Some(860_833_102),
+                expected_identity: Some(860_833_102),
+                peer_count: Some(0),
+                peers_expected: true,
+            },
+            observed_pid: None,
             id: 1,
             checked_at_unix: 1_800_000_000,
             node_id: "node-a".to_string(),
@@ -179,4 +188,15 @@ fn metrics_prometheus_text_escapes_labels_and_reports_health() {
     assert!(text.contains(
         "neonexus_node_rpc_checked_at_unix{node_id=\"node-a\",node_name=\"alpha \\\"one\\\"\",endpoint=\"http://127.0.0.1:10332\"} 1800000000\n"
     ));
+    for (metric, value) in [
+        ("neonexus_node_peer_count", "0"),
+        ("neonexus_node_network_identity_status", "2"),
+        ("neonexus_node_network_identity", "860833102"),
+        ("neonexus_node_syncing", "0"),
+    ] {
+        assert!(text
+            .lines()
+            .any(|line| line.starts_with(&format!("{metric}{{"))
+                && line.ends_with(&format!(" {value}"))));
+    }
 }
