@@ -1170,3 +1170,105 @@ fn policy_saves_are_journaled() {
         "a policy change wrote no journal entry; got {journal:?}"
     );
 }
+
+#[test]
+fn chain_page_reads_governance_from_the_nodes_own_rpc() {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("mock rpc runtime");
+    // A stub Neo N3 JSON-RPC node: every method the chain page calls answers
+    // from a fixed script, on the port the node's RPC endpoint resolves to.
+    let rpc_router: axum::Router = axum::Router::new().route(
+        "/",
+        axum::routing::post(|axum::Json(body): axum::Json<serde_json::Value>| async move {
+            let method = body["method"].as_str().unwrap_or_default().to_string();
+            let result = match method.as_str() {
+                "getversion" => serde_json::json!({ "useragent": "/Neo:3.7.5/" }),
+                "getcommittee" => serde_json::json!([
+                    "02aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "02bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                ]),
+                "getnextblockvalidators" => serde_json::json!([
+                    { "publickey": "03cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "votes": "0", "active": true }
+                ]),
+                _ => serde_json::json!([]),
+            };
+            axum::Json(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "result": result }))
+        }),
+    );
+    let rpc_port = runtime.block_on(async move {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("mock rpc bind");
+        let port = listener.local_addr().expect("mock rpc address").port();
+        tokio::spawn(async move { serve(listener, rpc_router).await.expect("mock rpc server") });
+        port
+    });
+
+    let server = spawn_server();
+    let node_id = create_node(&server.db_path, "chain-node", rpc_port);
+    let http = agent();
+    let accepted = post_form(
+        &http,
+        &format!("{}/login", server.base_url),
+        &format!("token={TOKEN}"),
+    );
+    let session = cookie_value(&accepted).expect("session cookie");
+
+    let page = into_response(
+        http.get(&format!("{}/nodes/{node_id}/chain", server.base_url))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(page.status(), 200);
+    let markup = page.into_string().expect("chain page body");
+    assert!(markup.contains("Chain state"));
+    assert!(markup.contains("Committee"));
+    assert!(markup.contains("02aaaaaaaa"));
+    assert!(markup.contains("Next validators"));
+    assert!(markup.contains("03cccccc"));
+    assert!(markup.contains("Candidates"));
+}
+
+#[test]
+fn chain_page_explains_that_neo_x_has_no_chain_state_reads() {
+    let server = spawn_server();
+    let node_id = server
+        .state
+        .repository
+        .create_node(NewNode {
+            name: "neox-chain".to_string(),
+            node_type: NodeType::NeoXGeth,
+            network: Network::Testnet,
+            binary_path: PathBuf::from("./geth"),
+            args: Vec::new(),
+            runtime_version: "latest".to_string(),
+            storage_engine: StorageEngine::RocksDb,
+            rpc_port: 50332,
+            p2p_port: 50333,
+            ws_port: None,
+        })
+        .expect("neox node")
+        .id;
+    let http = agent();
+    let accepted = post_form(
+        &http,
+        &format!("{}/login", server.base_url),
+        &format!("token={TOKEN}"),
+    );
+    let session = cookie_value(&accepted).expect("session cookie");
+
+    let page = into_response(
+        http.get(&format!("{}/nodes/{node_id}/chain", server.base_url))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(page.status(), 200);
+    let markup = page.into_string().expect("chain page body");
+    assert!(markup.contains("only on Neo N3"));
+    assert!(
+        !markup.contains("Committee"),
+        "no governance table for Neo X"
+    );
+}
