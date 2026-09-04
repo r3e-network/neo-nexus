@@ -19,9 +19,9 @@ impl Repository {
         connection.execute(
             "INSERT INTO rpc_health_checks (
                 checked_at_unix, node_id, node_name, endpoint, status,
-                version, block_count, message
+                version, block_count, message, syncing, network_observation, observed_pid
              )
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 checked_at_unix,
                 &node.id,
@@ -31,6 +31,9 @@ impl Repository {
                 report.version.as_deref(),
                 report.block_count,
                 report.message(),
+                report.syncing,
+                serde_json::to_string(&report.network)?,
+                node.pid,
             ],
         )?;
         let id = connection.last_insert_rowid();
@@ -42,7 +45,7 @@ impl Repository {
         connection
             .query_row(
                 "SELECT id, checked_at_unix, node_id, node_name, endpoint, status,
-                        version, block_count, message
+                        version, block_count, message, syncing, network_observation, observed_pid
                  FROM rpc_health_checks
                  WHERE node_id = ?1
                  ORDER BY checked_at_unix DESC, id DESC
@@ -59,7 +62,7 @@ impl Repository {
         let limit = limit.clamp(1, 100) as i64;
         let mut statement = connection.prepare(
             "SELECT id, checked_at_unix, node_id, node_name, endpoint, status,
-                    version, block_count, message
+                    version, block_count, message, syncing, network_observation, observed_pid
              FROM rpc_health_checks
              WHERE node_id = ?1
              ORDER BY checked_at_unix DESC, id DESC
@@ -80,13 +83,13 @@ impl Repository {
         let connection = self.connection()?;
         let mut statement = connection.prepare(
             "SELECT r.id, r.checked_at_unix, r.node_id, r.node_name, r.endpoint, r.status,
-                    r.version, r.block_count, r.message
+                    r.version, r.block_count, r.message, r.syncing, r.network_observation, r.observed_pid
              FROM rpc_health_checks r
-             JOIN (
-                 SELECT node_id, MAX(id) AS id
-                 FROM rpc_health_checks
-                 GROUP BY node_id
-             ) latest ON latest.id = r.id
+             WHERE r.id = (
+                 SELECT newest.id FROM rpc_health_checks newest
+                 WHERE newest.node_id = r.node_id
+                 ORDER BY newest.checked_at_unix DESC, newest.id DESC LIMIT 1
+             )
              ORDER BY r.node_name",
         )?;
         let rows = statement.query_map([], rpc_health_record_from_row)?;

@@ -1,6 +1,14 @@
 use super::*;
 
 pub(in crate::repository::schema) fn apply_migrations(connection: &Connection) -> Result<()> {
+    add_column_if_missing(connection, "rpc_health_checks", "syncing", "INTEGER")?;
+    add_column_if_missing(connection, "rpc_health_checks", "observed_pid", "INTEGER")?;
+    add_column_if_missing(
+        connection,
+        "rpc_health_checks",
+        "network_observation",
+        "TEXT NOT NULL DEFAULT '{}'",
+    )?;
     add_column_if_missing(
         connection,
         "nodes",

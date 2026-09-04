@@ -1,8 +1,10 @@
+mod network;
 mod policy;
 mod record;
 mod report;
 mod status;
 
+pub use network::{RpcIdentityKind, RpcIdentityStatus, RpcNetworkObservation};
 pub use policy::RpcHealthMonitorPolicy;
 pub use record::RpcHealthRecord;
 pub use report::{RpcHealthReport, RpcMethodHealth};

@@ -56,5 +56,14 @@ pub(in crate::repository) fn rpc_health_record_from_row(
         version: row.get(6)?,
         block_count: row.get(7)?,
         message: row.get(8)?,
+        syncing: row.get(9)?,
+        network: serde_json::from_str(&row.get::<_, String>(10)?).map_err(|error| {
+            rusqlite::Error::FromSqlConversionFailure(
+                10,
+                rusqlite::types::Type::Text,
+                Box::new(error),
+            )
+        })?,
+        observed_pid: row.get(11)?,
     })
 }

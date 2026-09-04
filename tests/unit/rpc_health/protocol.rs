@@ -6,13 +6,17 @@ fn evm_endpoint(sync: Value, height: Value, id: Value) -> String {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
     thread::spawn(move || {
-        for _ in 0..3 {
+        for _ in 0..5 {
             let (mut stream, _) = listener.accept().unwrap();
             let request = read_http_request(&mut stream).unwrap();
             let result = if request.contains("web3_clientVersion") {
                 json!("NeoX/test")
             } else if request.contains("eth_blockNumber") {
                 height.clone()
+            } else if request.contains("eth_chainId") {
+                json!("0xba93")
+            } else if request.contains("net_peerCount") {
+                json!("0x2")
             } else {
                 sync.clone()
             };
@@ -38,7 +42,7 @@ fn evm_false_sync_is_healthy_and_catch_up_or_invalid_sync_is_degraded() {
         let report = probe_rpc_endpoint_for(ChainFamily::NeoX, &endpoint, Duration::from_secs(1));
         assert_eq!(report.status, expected);
         assert_eq!(report.block_count, Some(10));
-        assert_eq!(report.methods.len(), 3);
+        assert_eq!(report.methods.len(), 5);
     }
 }
 

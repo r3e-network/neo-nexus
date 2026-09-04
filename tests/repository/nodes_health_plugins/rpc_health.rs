@@ -25,6 +25,7 @@ fn persists_rpc_health_records_and_deletes_with_node() {
         version: None,
         block_count: None,
         syncing: None,
+        network: Default::default(),
         methods: Vec::new(),
     };
     repository
@@ -35,7 +36,14 @@ fn persists_rpc_health_records_and_deletes_with_node() {
         status: RpcHealthStatus::Healthy,
         version: Some("neo-rs-test".to_string()),
         block_count: Some(42),
-        syncing: None,
+        syncing: Some(false),
+        network: neo_nexus::rpc_health::RpcNetworkObservation {
+            identity_kind: Some(neo_nexus::rpc_health::RpcIdentityKind::N3NetworkMagic),
+            actual_identity: Some(894_710_606),
+            expected_identity: Some(894_710_606),
+            peer_count: Some(4),
+            peers_expected: true,
+        },
         methods: Vec::new(),
     };
     let persisted = repository
@@ -44,6 +52,9 @@ fn persists_rpc_health_records_and_deletes_with_node() {
 
     assert_eq!(persisted.status, RpcHealthStatus::Healthy);
     assert_eq!(persisted.block_count, Some(42));
+    assert_eq!(persisted.syncing, Some(false));
+    assert_eq!(persisted.network, second.network);
+    assert_eq!(persisted.observed_pid, node.pid);
     assert!(persisted.message.contains("neo-rs-test"));
 
     let latest = repository.latest_rpc_health(&node.id).unwrap().unwrap();
@@ -52,11 +63,45 @@ fn persists_rpc_health_records_and_deletes_with_node() {
     assert_eq!(history.len(), 2);
     assert_eq!(history[0].status, RpcHealthStatus::Healthy);
     assert_eq!(history[1].status, RpcHealthStatus::Unreachable);
+    // Importing an older observation later must not make the fleet/metrics
+    // view disagree with latest_rpc_health's timestamp ordering.
+    repository
+        .record_rpc_health_at(&node, &first, 1_800_000_000)
+        .unwrap();
+    assert_eq!(
+        repository.latest_rpc_health_all_nodes().unwrap()[0].id,
+        persisted.id
+    );
 
     repository.delete_node(&node.id).unwrap();
 
     assert!(repository.latest_rpc_health(&node.id).unwrap().is_none());
     assert!(repository.list_rpc_health(&node.id, 10).unwrap().is_empty());
+}
+
+#[test]
+fn old_rpc_schema_migrates_without_fabricating_network_or_sync_observations() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("old.db");
+    let connection = rusqlite::Connection::open(&path).unwrap();
+    connection.execute_batch("CREATE TABLE rpc_health_checks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, checked_at_unix INTEGER NOT NULL,
+        node_id TEXT NOT NULL, node_name TEXT NOT NULL, endpoint TEXT NOT NULL,
+        status TEXT NOT NULL, version TEXT, block_count INTEGER, message TEXT NOT NULL);
+        INSERT INTO rpc_health_checks VALUES(1,100,'old-node','old node','http://127.0.0.1:10332','healthy','old',42,'old observation');").unwrap();
+    drop(connection);
+    let repository = Repository::open(path).unwrap();
+    let observation = repository.latest_rpc_health("old-node").unwrap().unwrap();
+    assert_eq!(
+        observation.network.identity_status(),
+        neo_nexus::rpc_health::RpcIdentityStatus::Unknown
+    );
+    assert_eq!(observation.network.peer_count, None);
+    assert_eq!(observation.syncing, None);
+    assert_eq!(observation.observed_pid, None);
+    assert!(observation.is_fresh(150, 90));
+    assert!(!observation.is_fresh(200, 90));
+    assert!(!observation.is_fresh(99, 90));
 }
 
 #[test]
@@ -103,6 +148,7 @@ fn prunes_rpc_health_history_per_node() {
             version: Some(format!("primary-{index}")),
             block_count: Some(100 + index),
             syncing: None,
+            network: Default::default(),
             methods: Vec::new(),
         };
         repository
@@ -116,6 +162,7 @@ fn prunes_rpc_health_history_per_node() {
             version: None,
             block_count: None,
             syncing: None,
+            network: Default::default(),
             methods: Vec::new(),
         };
         repository

@@ -173,10 +173,14 @@ fn execute(
     match name {
         "node_status" => {
             let mut value = summary(node);
+            let policy = state.repository.load_rpc_health_monitor_policy()?;
             // The persisted endpoint may include credentials. Expose only the
             // observation fields that a scoped assistant needs.
             value["rpc_health"] = state.repository.latest_rpc_health(&node.id)?.map_or(Value::Null, |health| json!({
                 "checked_at_unix":health.checked_at_unix,"status":health.status,
+                "fresh":policy.enabled && node.status.is_running() && health.matches_process(node) && health.is_fresh(crate::web::time::now_unix(), policy.observation_max_age_seconds()),
+                "observed_pid":health.observed_pid,"syncing":health.syncing,
+                "network":health.network,"identity_status":health.network.identity_status(),
                 "version":health.version.as_deref().map(redact_sensitive_text),
                 "block_count":health.block_count,"message":redact_sensitive_text(&health.message)
             }));

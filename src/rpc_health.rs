@@ -2,7 +2,8 @@ mod model;
 mod probe;
 
 pub use model::{
-    RpcHealthMonitorPolicy, RpcHealthRecord, RpcHealthReport, RpcHealthStatus, RpcMethodHealth,
+    RpcHealthMonitorPolicy, RpcHealthRecord, RpcHealthReport, RpcHealthStatus, RpcIdentityKind,
+    RpcIdentityStatus, RpcMethodHealth, RpcNetworkObservation,
 };
 pub use probe::{node_rpc_endpoint, probe_node_rpc, probe_rpc_endpoint, probe_rpc_endpoint_for};
 
