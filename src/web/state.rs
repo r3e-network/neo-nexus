@@ -8,10 +8,24 @@ use std::{
     sync::{Arc, Mutex, MutexGuard, OnceLock},
 };
 
-use crate::{repository::Repository, signer_client::SignerClient, supervisor::ProcessSupervisor};
+use crate::{
+    events::{EventKind, EventSeverity, NewRuntimeEvent},
+    repository::Repository,
+    signer_client::SignerClient,
+    supervisor::ProcessSupervisor,
+};
 
 use super::auth::AuthStore;
 use super::jobs::Jobs;
+
+/// What the last signer health observation concluded. Only a change of class
+/// is news; the raw error text would flap the journal with every timeout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SignerHealthClass {
+    Healthy,
+    Degraded,
+    Unreachable,
+}
 
 #[derive(Clone)]
 pub struct WebState {
@@ -22,6 +36,7 @@ pub struct WebState {
     /// Long work that outlives the request which started it.
     pub jobs: Jobs,
     signer: SignerHandle,
+    last_signer_health: Arc<Mutex<Option<SignerHealthClass>>>,
 }
 
 impl WebState {
@@ -51,6 +66,7 @@ impl WebState {
             processes,
             jobs: Jobs::default(),
             signer: SignerHandle::default(),
+            last_signer_health: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -123,6 +139,35 @@ impl WebState {
     /// control remains unavailable.
     pub fn signer_client(&self) -> Result<Option<SignerClient>, String> {
         self.signer.resolve()
+    }
+
+    /// Journal a signer health observation when it differs from the last one.
+    ///
+    /// The custody service is a separate process that no supervision loop
+    /// watches, so the workbench page views are its probe: recording the
+    /// transitions — not every glance — is what makes an outage reach the
+    /// event journal and, from there, alert routing.
+    pub fn journal_signer_health(&self, observed: SignerHealthClass, message: &str) {
+        let mut last = self
+            .last_signer_health
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if *last == Some(observed) {
+            return;
+        }
+        *last = Some(observed);
+        let severity = match observed {
+            SignerHealthClass::Healthy => EventSeverity::Info,
+            SignerHealthClass::Degraded => EventSeverity::Warning,
+            SignerHealthClass::Unreachable => EventSeverity::Critical,
+        };
+        let _ = self.repository.record_event(NewRuntimeEvent {
+            node_id: None,
+            node_name: None,
+            kind: EventKind::SignerHealthChanged,
+            severity,
+            message: message.to_string(),
+        });
     }
 }
 

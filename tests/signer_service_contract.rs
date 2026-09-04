@@ -151,6 +151,7 @@ fn real_rust_signer_and_neonexus_client_agree() {
         key_id: raw_key.key_id.clone(),
         data_hex: "010203".to_string(),
         request_id: Some("integration-raw-1".to_string()),
+        chain_family: None,
     }));
     assert_eq!(raw.signature.len(), 128);
 
@@ -188,6 +189,7 @@ fn real_rust_signer_and_neonexus_client_agree() {
             key_id: raw_key.key_id.clone(),
             data_hex: "04".to_string(),
             request_id: None,
+            chain_family: None,
         })
         .expect("disabled-key refusal");
     let refusal = match refusal {

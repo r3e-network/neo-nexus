@@ -190,6 +190,13 @@ decision rules:
 - a key-wide rolling signature count shared by transaction, consensus, and raw
   signing routes.
 
+Neo X (EVM) keys carry the parallel EVM fields, which the workbench policy
+form edits: `evm_chain_id`, `evm_max_gas_price`, `evm_max_gas_limit`, and the
+`evm_method_whitelist` / `evm_method_blacklist` lists. Keys are generated with
+a chain family (`neo-n3`, the default, or `neo-x`); on the wire an absent
+`chain_family` means Neo N3, so every payload produced before Neo X support
+remains byte-identical.
+
 Amounts are decimal strings in raw token units. Fees are decimal strings in
 GAS fixed-8 raw units. A blank policy is closed. Blacklist precedence and all
 other semantics are decided only by the signer. The signer rejects a policy
@@ -197,6 +204,22 @@ that combines `allow_raw` with consensus, transfer, contract-call, or global
 authority. This is a hard invariant: raw signing
 `networkMagicLE || SHA256(unsignedTransaction)` would otherwise produce a valid
 Neo transaction signature without transaction policy evaluation.
+
+### Workbench journal
+
+The workbench journals custody activity into its own runtime event log, so the
+separately deployed signer — which no supervision loop watches — is still
+visible to the operations journal and to alert routing:
+
+- every management operation (key generate/state/delete, caller
+  create/rotate/state/delete, policy save) is recorded at Info, or Warning when
+  destructive (key or caller deletion);
+- a refused or failed signer request is recorded as a `signer-request-failed`
+  Warning — the only signal a misbehaving custody service raises while it is
+  being used;
+- each signer page view records a health observation, and only a change of
+  verdict (ok / degraded / unreachable) becomes a `signer-health-changed`
+  event, at Info / Warning / Critical respectively.
 
 ## Usage Examples
 

@@ -11,11 +11,12 @@ use std::{
 use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
-    response::IntoResponse,
+    response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
 use neo_nexus::{
+    events::{EventKind, EventSeverity},
     repository::Repository,
     signer_client::{
         BearerCredential, SignerClient, SignerClientConfig, SignerCredential, SignerEndpoint,
@@ -32,11 +33,15 @@ const SIGNER_TOKEN: &str = "signer-admin-token";
 struct MockSigner {
     generated: Arc<AtomicUsize>,
     saved_policy: Arc<Mutex<Option<Value>>>,
+    last_generate: Arc<Mutex<Option<Value>>>,
+    /// When false, `/health` fails, so the workbench sees an unreachable signer.
+    health_ok: Arc<std::sync::atomic::AtomicBool>,
 }
 
 struct Rig {
     base_url: String,
     signer: MockSigner,
+    repository: Repository,
     _runtime: tokio::runtime::Runtime,
     _home: tempfile::TempDir,
 }
@@ -48,6 +53,7 @@ fn spawn() -> Rig {
         .expect("test runtime");
     let home = tempfile::tempdir().expect("temporary workspace");
     let signer = MockSigner::default();
+    signer.health_ok.store(true, Ordering::SeqCst);
     let signer_router = Router::new()
         .route("/health", get(signer_health))
         .route("/signer/api/v1/keys", get(signer_keys).post(generate_key))
@@ -76,6 +82,7 @@ fn spawn() -> Rig {
 
     let db_path = home.path().join("neonexus.db");
     let repository = Repository::open(&db_path).expect("workspace repository");
+    let repository_for_tests = repository.clone();
     let signer_client = SignerClient::new(SignerClientConfig {
         endpoint: SignerEndpoint::parse(&format!("http://{signer_address}"))
             .expect("loopback signer endpoint"),
@@ -104,6 +111,7 @@ fn spawn() -> Rig {
     Rig {
         base_url: format!("http://{web_address}"),
         signer,
+        repository: repository_for_tests,
         _runtime: runtime,
         _home: home,
     }
@@ -266,8 +274,16 @@ fn bearer_caller_token_is_returned_once_with_no_store() {
     assert!(!listing.contains("one-time-caller-token"));
 }
 
-async fn signer_health() -> Json<Value> {
-    Json(json!({"status": "ok"}))
+async fn signer_health(State(state): State<MockSigner>) -> impl IntoResponse {
+    if state.health_ok.load(Ordering::SeqCst) {
+        (StatusCode::OK, Json(json!({"status": "ok"}))).into_response()
+    } else {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({"status": "degraded"})),
+        )
+            .into_response()
+    }
 }
 
 async fn signer_keys(headers: HeaderMap) -> impl IntoResponse {
@@ -286,11 +302,23 @@ async fn generate_key(
     Json(body): Json<Value>,
 ) -> impl IntoResponse {
     if authorized(&headers) {
+        if !state.health_ok.load(Ordering::SeqCst) {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({
+                    "allowed": false,
+                    "code": "signer-degraded",
+                    "message": "custody is degraded"
+                })),
+            )
+                .into_response();
+        }
         state.generated.fetch_add(1, Ordering::SeqCst);
+        *state.last_generate.lock().expect("generate lock") = Some(body.clone());
         assert_eq!(body["label"], "validator-2");
         assert_eq!(body["network"], "testnet");
     }
-    authenticated(&headers, merge_allowed(key_json()))
+    authenticated(&headers, merge_allowed(key_json())).into_response()
 }
 
 async fn key_policy(Path(_id): Path<String>, headers: HeaderMap) -> impl IntoResponse {
@@ -349,7 +377,18 @@ async fn signer_callers(headers: HeaderMap) -> impl IntoResponse {
     )
 }
 
-async fn create_caller(headers: HeaderMap, Json(_body): Json<Value>) -> impl IntoResponse {
+async fn create_caller(headers: HeaderMap, Json(body): Json<Value>) -> Response {
+    if authorized(&headers) && body["label"] == "refuse-me" {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "allowed": false,
+                "code": "policy-denied",
+                "message": "caller label refused"
+            })),
+        )
+            .into_response();
+    }
     authenticated(
         &headers,
         json!({
@@ -369,6 +408,7 @@ async fn create_caller(headers: HeaderMap, Json(_body): Json<Value>) -> impl Int
             "token": "one-time-caller-token"
         }),
     )
+    .into_response()
 }
 
 async fn signer_audit(headers: HeaderMap) -> impl IntoResponse {
@@ -441,4 +481,155 @@ fn empty_policy() -> Value {
         "max_network_fee": null,
         "max_signatures": null
     })
+}
+
+#[test]
+fn neo_x_key_generation_and_evm_policy_fields_cross_the_boundary() {
+    let rig = spawn();
+    let http = agent();
+    let session = login(&http, &rig.base_url);
+
+    let generated = response(
+        http.post(&format!("{}/signer/keys", rig.base_url))
+            .set("cookie", &session)
+            .set("content-type", "application/x-www-form-urlencoded")
+            .send_string("label=validator-2&network=testnet&network_magic=&chain_family=neo-x"),
+    );
+    assert_eq!(generated.status(), 303);
+    let generate_body = rig
+        .signer
+        .last_generate
+        .lock()
+        .expect("generate lock")
+        .clone()
+        .expect("generate reached the signer");
+    assert_eq!(generate_body["chain_family"], "neo-x");
+    let events = rig
+        .repository
+        .list_recent_events(50)
+        .expect("event journal");
+    assert!(events
+        .iter()
+        .any(|event| event.kind == EventKind::SignerKeyCreated
+            && event.message.contains("generated key key-1 for Neo X")));
+
+    let saved = response(
+        http.post(&format!("{}/signer/keys/key-1/policy", rig.base_url))
+            .set("cookie", &session)
+            .set("content-type", "application/x-www-form-urlencoded")
+            .send_string(
+                "chain_family=neo-x&evm_chain_id=12227332&evm_max_gas_price=50000000000                 &evm_max_gas_limit=30000000&evm_method_whitelist=0xabc%3Atransfer                 &evm_method_blacklist=0xdef%3Akill",
+            ),
+    );
+    assert_eq!(saved.status(), 303);
+    let policy = rig
+        .signer
+        .saved_policy
+        .lock()
+        .expect("policy lock")
+        .clone()
+        .expect("policy reached the signer");
+    assert_eq!(policy["chain_family"], "neo-x");
+    assert_eq!(policy["evm_chain_id"], 12227332);
+    assert_eq!(policy["evm_max_gas_price"], "50000000000");
+    assert_eq!(policy["evm_max_gas_limit"], 30000000);
+    assert_eq!(policy["evm_method_whitelist"][0], "0xabc:transfer");
+    assert_eq!(policy["evm_method_blacklist"][0], "0xdef:kill");
+}
+
+#[test]
+fn refused_signer_requests_are_journaled_as_warnings() {
+    let rig = spawn();
+    let http = agent();
+    let session = login(&http, &rig.base_url);
+
+    // The signer answers a caller creation with a policy refusal.
+    let refused = response(
+        http.post(&format!("{}/signer/callers", rig.base_url))
+            .set("cookie", &session)
+            .set("content-type", "application/x-www-form-urlencoded")
+            .send_string("label=refuse-me&capability=sign&grant_mode=any"),
+    );
+    assert_eq!(refused.status(), 303);
+
+    // The signer answers a key generation with a degraded-service refusal.
+    rig.signer.health_ok.store(false, Ordering::SeqCst);
+    let degraded = response(
+        http.post(&format!("{}/signer/keys", rig.base_url))
+            .set("cookie", &session)
+            .set("content-type", "application/x-www-form-urlencoded")
+            .send_string("label=validator-2&network=testnet&network_magic="),
+    );
+    assert_eq!(degraded.status(), 303);
+
+    let events = rig
+        .repository
+        .list_recent_events(50)
+        .expect("event journal");
+    assert!(events.iter().any(|event| {
+        event.kind == EventKind::SignerRequestFailed
+            && event.severity == EventSeverity::Warning
+            && event.message.contains("caller creation")
+            && event.message.contains("policy-denied")
+    }));
+    assert!(events.iter().any(|event| {
+        event.kind == EventKind::SignerRequestFailed
+            && event.message.contains("key generation")
+            && event.message.contains("signer-degraded")
+    }));
+}
+
+#[test]
+fn signer_health_transitions_are_journaled_once_per_change() {
+    let rig = spawn();
+    let http = agent();
+    let session = login(&http, &rig.base_url);
+    let health_events = |rig: &Rig| {
+        rig.repository
+            .list_recent_events(50)
+            .expect("event journal")
+            .into_iter()
+            .filter(|event| event.kind == EventKind::SignerHealthChanged)
+            .collect::<Vec<_>>()
+    };
+    let view_signer = |http: &ureq::Agent, rig: &Rig, session: &str| {
+        response(
+            http.get(&format!("{}/signer", rig.base_url))
+                .set("cookie", session)
+                .call(),
+        )
+    };
+
+    view_signer(&http, &rig, &session);
+    let events = health_events(&rig);
+    assert_eq!(
+        events.len(),
+        1,
+        "the first observation is the baseline event"
+    );
+    assert_eq!(events[0].severity, EventSeverity::Info);
+
+    rig.signer.health_ok.store(false, Ordering::SeqCst);
+    view_signer(&http, &rig, &session);
+    view_signer(&http, &rig, &session);
+    let events = health_events(&rig);
+    assert_eq!(
+        events.len(),
+        2,
+        "repeating an observation must not re-journal it"
+    );
+    let outage = events
+        .iter()
+        .find(|event| event.severity == EventSeverity::Critical)
+        .expect("the outage transition is recorded as Critical");
+
+    rig.signer.health_ok.store(true, Ordering::SeqCst);
+    view_signer(&http, &rig, &session);
+    let events = health_events(&rig);
+    assert_eq!(events.len(), 3, "recovery is a transition and is recorded");
+    let recovery = events
+        .iter()
+        .find(|event| event.severity == EventSeverity::Info && event.id > outage.id)
+        .expect("the recovery is recorded after the outage");
+    assert!(recovery.message.contains("signer reports ok"));
 }
