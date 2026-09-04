@@ -6,7 +6,9 @@ use anyhow::{bail, Context, Result};
 use url::{Host, Url};
 use zeroize::Zeroizing;
 
-use super::{BearerCredential, OidcCredential, SignerCredential, WorkloadCredential, ApiKeyCredential};
+use super::{
+    ApiKeyCredential, BearerCredential, OidcCredential, SignerCredential, WorkloadCredential,
+};
 
 const URL_VARIABLE: &str = "NEONEXUS_SIGNER_URL";
 const MAX_SECRET_FILE_BYTES: u64 = 16 * 1024;
@@ -78,10 +80,15 @@ impl SignerClientConfig {
         let oidc_selected = oidc_token_file.is_some();
         let api_key_selected = api_key_id.is_some() || api_key_secret_file.is_some();
 
-        let selected_count = [bearer_selected, workload_selected, oidc_selected, api_key_selected]
-            .iter()
-            .filter(|&&x| x)
-            .count();
+        let selected_count = [
+            bearer_selected,
+            workload_selected,
+            oidc_selected,
+            api_key_selected,
+        ]
+        .iter()
+        .filter(|&&x| x)
+        .count();
 
         if selected_count == 0 {
             bail!("{prefix} must configure exactly one credential type (bearer, workload, OIDC, or API key)");

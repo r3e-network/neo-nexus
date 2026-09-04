@@ -51,6 +51,9 @@ pub struct RawSignRequest {
     pub data_hex: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
+    /// Same convention as [`SignRequest::chain_family`]: absent means Neo N3.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chain_family: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]

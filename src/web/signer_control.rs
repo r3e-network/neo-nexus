@@ -7,11 +7,14 @@ use axum::{
 };
 use serde::Deserialize;
 
+use crate::events::{EventKind, EventSeverity, NewRuntimeEvent};
 use crate::signer_client::{
-    AssetLimit, ContractMethod, CreateCallerRequest, CreateWorkloadCallerRequest,
-    GenerateKeyRequest, KeyGrant, SignatureRateLimit, SignerClient, SignerOutcome, SignerPolicy,
-    WindowLimit,
+    AssetLimit, ContractMethod, CreateCallerRequest, CreateWorkloadCallerRequest, CreatedCaller,
+    CreatedWorkloadCaller, GenerateKeyRequest, KeyGrant, RemovedCaller, RemovedKey, RotatedCaller,
+    SavedPolicy, SignatureRateLimit, SignerCaller, SignerClient, SignerKey, SignerOutcome,
+    SignerPolicy, WindowLimit,
 };
+use crate::types::ChainFamily;
 
 use super::{html, WebState};
 
@@ -23,6 +26,8 @@ pub struct GenerateKeyForm {
     network: String,
     #[serde(default)]
     network_magic: String,
+    #[serde(default)]
+    chain_family: String,
 }
 
 pub async fn generate(
@@ -36,21 +41,39 @@ pub async fn generate(
             anyhow::bail!("network must be mainnet, testnet or private");
         }
         let network_magic = optional_number::<u32>(&input.network_magic, "network magic")?;
+        let family = chain_family(&input.chain_family)?;
+        if family.is_some_and(ChainFamily::is_evm) && network_magic.is_some() {
+            anyhow::bail!("a Neo X key has no network magic; leave it blank");
+        }
         Ok(GenerateKeyRequest {
             label,
             network,
             network_magic,
-            chain_family: None, // Default to Neo N3
+            // Neo N3 stays `None` so pre-Neo-X payloads remain byte-identical.
+            chain_family: family.map(|family| family.slug().to_string()),
         })
     })();
     let outcome = match request {
-        Ok(request) => call(&state, move |client| client.generate_key(&request)).await,
+        Ok(request) => {
+            let family = request
+                .chain_family
+                .as_deref()
+                .and_then(ChainFamily::from_slug)
+                .map_or("Neo N3", ChainFamily::label)
+                .to_string();
+            request_and_journal(
+                &state,
+                EventKind::SignerKeyCreated,
+                EventSeverity::Info,
+                "key generation",
+                move |key: &SignerKey| format!("generated key {} for {}", key.key_id, family),
+                move |client| client.generate_key(&request),
+            )
+            .await
+        }
         Err(error) => Err(error.to_string()),
     };
-    respond(
-        "/signer",
-        outcome.map(|key| format!("generated key {}", key.key_id)),
-    )
+    respond("/signer", outcome.map(|(_, message)| message))
 }
 
 pub async fn set_key_state(
@@ -60,13 +83,12 @@ pub async fn set_key_state(
 ) -> Response {
     let disabled = truthy(&input.disabled);
     let redirect = format!("/signer/keys/{key_id}");
-    let outcome = call(&state, move |client| {
-        client.set_key_disabled(&key_id, disabled)
-    })
-    .await;
-    respond(
-        &redirect,
-        outcome.map(|key| {
+    let outcome = request_and_journal(
+        &state,
+        EventKind::SignerKeyStateChanged,
+        EventSeverity::Info,
+        "key state change",
+        move |key: &SignerKey| {
             format!(
                 "key {} {}",
                 key.key_id,
@@ -76,16 +98,24 @@ pub async fn set_key_state(
                     "disabled"
                 }
             )
-        }),
+        },
+        move |client| client.set_key_disabled(&key_id, disabled),
     )
+    .await;
+    respond(&redirect, outcome.map(|(_, message)| message))
 }
 
 pub async fn delete_key(State(state): State<WebState>, Path(key_id): Path<String>) -> Response {
-    let outcome = call(&state, move |client| client.delete_key(&key_id)).await;
-    respond(
-        "/signer",
-        outcome.map(|removed| format!("deleted key {}", removed.key_id)),
+    let outcome = request_and_journal(
+        &state,
+        EventKind::SignerKeyDeleted,
+        EventSeverity::Warning,
+        "key deletion",
+        |removed: &RemovedKey| format!("deleted key {}", removed.key_id),
+        move |client| client.delete_key(&key_id),
     )
+    .await;
+    respond("/signer", outcome.map(|(_, message)| message))
 }
 
 #[derive(Deserialize)]
@@ -124,11 +154,21 @@ pub async fn create_caller(
 ) -> Response {
     let request = caller_request(input);
     let outcome = match request {
-        Ok(request) => call(&state, move |client| client.create_caller(&request)).await,
+        Ok(request) => {
+            request_and_journal(
+                &state,
+                EventKind::SignerCallerCreated,
+                EventSeverity::Info,
+                "caller creation",
+                |created: &CreatedCaller| format!("created bearer caller {}", created.caller.label),
+                move |client| client.create_caller(&request),
+            )
+            .await
+        }
         Err(error) => Err(error.to_string()),
     };
     match outcome {
-        Ok(created) => token_response(
+        Ok((created, _)) => token_response(
             "Signer caller created",
             &created.token,
             &format!(
@@ -162,26 +202,38 @@ pub async fn create_workload_caller(
     })();
     let outcome = match request {
         Ok(request) => {
-            call(&state, move |client| {
-                client.create_workload_caller(&request)
-            })
+            request_and_journal(
+                &state,
+                EventKind::SignerCallerCreated,
+                EventSeverity::Info,
+                "workload caller creation",
+                |created: &CreatedWorkloadCaller| {
+                    format!("created workload caller {}", created.caller.label)
+                },
+                move |client| client.create_workload_caller(&request),
+            )
             .await
         }
         Err(error) => Err(error.to_string()),
     };
-    respond(
-        "/signer",
-        outcome.map(|created| format!("created workload caller {}", created.caller.label)),
-    )
+    respond("/signer", outcome.map(|(_, message)| message))
 }
 
 pub async fn rotate_caller(
     State(state): State<WebState>,
     Path(caller_id): Path<String>,
 ) -> Response {
-    let outcome = call(&state, move |client| client.rotate_caller(&caller_id)).await;
+    let outcome = request_and_journal(
+        &state,
+        EventKind::SignerCallerRotated,
+        EventSeverity::Info,
+        "caller rotation",
+        |rotated: &RotatedCaller| format!("rotated caller {}", rotated.caller_id),
+        move |client| client.rotate_caller(&caller_id),
+    )
+    .await;
     match outcome {
-        Ok(rotated) => token_response(
+        Ok((rotated, _)) => token_response(
             "Signer caller rotated",
             &rotated.token,
             &format!(
@@ -199,13 +251,12 @@ pub async fn set_caller_state(
     Form(input): Form<StateForm>,
 ) -> Response {
     let disabled = truthy(&input.disabled);
-    let outcome = call(&state, move |client| {
-        client.set_caller_disabled(&caller_id, disabled)
-    })
-    .await;
-    respond(
-        "/signer",
-        outcome.map(|caller| {
+    let outcome = request_and_journal(
+        &state,
+        EventKind::SignerCallerStateChanged,
+        EventSeverity::Info,
+        "caller state change",
+        |caller: &SignerCaller| {
             format!(
                 "caller {} {}",
                 caller.label,
@@ -215,23 +266,33 @@ pub async fn set_caller_state(
                     "enabled"
                 }
             )
-        }),
+        },
+        move |client| client.set_caller_disabled(&caller_id, disabled),
     )
+    .await;
+    respond("/signer", outcome.map(|(_, message)| message))
 }
 
 pub async fn delete_caller(
     State(state): State<WebState>,
     Path(caller_id): Path<String>,
 ) -> Response {
-    let outcome = call(&state, move |client| client.delete_caller(&caller_id)).await;
-    respond(
-        "/signer",
-        outcome.map(|removed| format!("deleted caller {}", removed.caller_id)),
+    let outcome = request_and_journal(
+        &state,
+        EventKind::SignerCallerDeleted,
+        EventSeverity::Warning,
+        "caller deletion",
+        |removed: &RemovedCaller| format!("deleted caller {}", removed.caller_id),
+        move |client| client.delete_caller(&caller_id),
     )
+    .await;
+    respond("/signer", outcome.map(|(_, message)| message))
 }
 
 #[derive(Default, Deserialize)]
 pub struct PolicyForm {
+    #[serde(default)]
+    chain_family: String,
     #[serde(default)]
     allow_consensus: String,
     #[serde(default)]
@@ -276,6 +337,16 @@ pub struct PolicyForm {
     signature_window_seconds: String,
     #[serde(default)]
     signature_window_count: String,
+    #[serde(default)]
+    evm_chain_id: String,
+    #[serde(default)]
+    evm_max_gas_price: String,
+    #[serde(default)]
+    evm_max_gas_limit: String,
+    #[serde(default)]
+    evm_method_whitelist: String,
+    #[serde(default)]
+    evm_method_blacklist: String,
 }
 
 pub async fn save_policy(
@@ -286,32 +357,51 @@ pub async fn save_policy(
     let redirect = format!("/signer/keys/{key_id}");
     let policy = parse_policy(input);
     let outcome = match policy {
-        Ok(policy) => call(&state, move |client| client.save_policy(&key_id, &policy)).await,
+        Ok(policy) => {
+            request_and_journal(
+                &state,
+                EventKind::SignerPolicyUpdated,
+                EventSeverity::Info,
+                "policy save",
+                |saved: &SavedPolicy| {
+                    if saved.problems.is_empty() {
+                        "signer boundary saved".to_string()
+                    } else {
+                        format!(
+                            "signer boundary saved with {} warning(s)",
+                            saved.problems.len()
+                        )
+                    }
+                },
+                move |client| client.save_policy(&key_id, &policy),
+            )
+            .await
+        }
         Err(error) => Err(error.to_string()),
     };
-    respond(
-        &redirect,
-        outcome.map(|saved| {
-            if saved.problems.is_empty() {
-                "signer boundary saved".to_string()
-            } else {
-                format!(
-                    "signer boundary saved with {} warning(s)",
-                    saved.problems.len()
-                )
-            }
-        }),
-    )
+    respond(&redirect, outcome.map(|(_, message)| message))
+}
+
+/// The key family a policy form names. Neo N3 stays `None` on the wire so pre-
+/// Neo-X policy payloads remain byte-identical; Neo X is explicit.
+fn chain_family(raw: &str) -> anyhow::Result<Option<ChainFamily>> {
+    let slug = raw.trim();
+    if slug.is_empty() {
+        return Ok(None);
+    }
+    ChainFamily::from_slug(slug)
+        .map(Some)
+        .ok_or_else(|| anyhow::anyhow!("chain family must be neo-n3 or neo-x"))
 }
 
 fn parse_policy(input: PolicyForm) -> anyhow::Result<SignerPolicy> {
+    let family = chain_family(&input.chain_family)?;
     let allow_consensus = truthy(&input.allow_consensus);
     let allow_transfer = truthy(&input.allow_transfer);
     let allow_contract_call = truthy(&input.allow_contract_call);
     let allow_global_scope = truthy(&input.allow_global_scope);
     let allow_raw = truthy(&input.allow_raw);
-    if allow_raw
-        && (allow_consensus || allow_transfer || allow_contract_call || allow_global_scope)
+    if allow_raw && (allow_consensus || allow_transfer || allow_contract_call || allow_global_scope)
     {
         anyhow::bail!(
             "raw signing requires a dedicated key with no transaction or consensus authority"
@@ -337,7 +427,7 @@ fn parse_policy(input: PolicyForm) -> anyhow::Result<SignerPolicy> {
         _ => anyhow::bail!("signature window seconds and count must be set together"),
     };
     Ok(SignerPolicy {
-        chain_family: None, // Default to Neo N3
+        chain_family: family.map(|family| family.slug().to_string()),
         allow_consensus,
         allow_transfer,
         allow_contract_call,
@@ -358,13 +448,60 @@ fn parse_policy(input: PolicyForm) -> anyhow::Result<SignerPolicy> {
         max_system_fee: optional_decimal(&input.max_system_fee, "system fee", 64)?,
         max_network_fee: optional_decimal(&input.max_network_fee, "network fee", 64)?,
         max_signatures,
-        // EVM fields - default to permissive (None/empty)
-        evm_max_gas_price: None,
-        evm_max_gas_limit: None,
-        evm_method_whitelist: Vec::new(),
-        evm_method_blacklist: Vec::new(),
-        evm_chain_id: None,
+        evm_max_gas_price: optional_decimal(&input.evm_max_gas_price, "maximum gas price", 128)?,
+        evm_max_gas_limit: optional_number::<u64>(&input.evm_max_gas_limit, "maximum gas limit")?,
+        evm_method_whitelist: list(&input.evm_method_whitelist),
+        evm_method_blacklist: list(&input.evm_method_blacklist),
+        evm_chain_id: optional_number::<u64>(&input.evm_chain_id, "EVM chain id")?,
     })
+}
+
+/// Run one signer management request and journal the outcome.
+///
+/// A success is recorded at the operation's severity with the same sentence the
+/// browser flash shows, so the journal answers "who changed custody state and
+/// when". A refused or failed request is recorded as a `SignerRequestFailed`
+/// Warning: the custody service sits outside every supervision loop, and this
+/// is the only path that notices it misbehaving while it is being used. A form
+/// that never reaches the signer — unconfigured or invalid client — is a
+/// workbench condition already reported on the page and is not journaled.
+async fn request_and_journal<T, F, D>(
+    state: &WebState,
+    kind: EventKind,
+    severity: EventSeverity,
+    operation: &str,
+    describe: D,
+    request: F,
+) -> Result<(T, String), String>
+where
+    T: Send + 'static,
+    F: FnOnce(SignerClient) -> Result<SignerOutcome<T>, crate::signer_client::SignerClientError>
+        + Send
+        + 'static,
+    D: FnOnce(&T) -> String,
+{
+    match state.signer_client() {
+        Ok(Some(_)) => {}
+        Ok(None) => return Err("signer integration is not configured".to_string()),
+        Err(error) => return Err(error),
+    }
+    let outcome = call(state, request).await;
+    match outcome {
+        Ok(value) => {
+            let message = describe(&value);
+            journal(state, kind, severity, &message);
+            Ok((value, message))
+        }
+        Err(error) => {
+            journal(
+                state,
+                EventKind::SignerRequestFailed,
+                EventSeverity::Warning,
+                &format!("signer {operation} failed: {error}"),
+            );
+            Err(error)
+        }
+    }
 }
 
 async fn call<T, F>(state: &WebState, operation: F) -> Result<T, String>
@@ -386,6 +523,16 @@ where
         Ok(Err(error)) => Err(error.to_string()),
         Err(_) => Err("signer request task did not finish".to_string()),
     }
+}
+
+fn journal(state: &WebState, kind: EventKind, severity: EventSeverity, message: &str) {
+    let _ = state.repository.record_event(NewRuntimeEvent {
+        node_id: None,
+        node_name: None,
+        kind,
+        severity,
+        message: message.to_string(),
+    });
 }
 
 fn caller_request(input: CallerForm) -> anyhow::Result<CreateCallerRequest> {

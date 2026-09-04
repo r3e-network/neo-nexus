@@ -16,12 +16,12 @@ use ureq::{Agent, AgentBuilder, Request, Response};
 use uuid::Uuid;
 
 use super::{
-    AuditBody, AuditEntry, AuditFilter, AuthHeaders, CallersBody, CreateCallerRequest,
-    CreateWorkloadCallerRequest, CreatedCaller, CreatedWorkloadCaller, GenerateKeyRequest,
-    KeyPolicy, KeysBody, OidcCallerRequest, ApiKeyCallerRequest, RawSignRequest, RawSignature,
-    RemovedCaller, RemovedKey, RotatedCaller, SavedPolicy, SignRequest, SignedWitness, SignerCaller,
-    SignerClientConfig, SignerEndpoint, SignerHealth, SignerKey, SignerOutcome, SignerPolicy,
-    SignerRefusal, StateRequest, CreatedApiKeyCaller,
+    ApiKeyCallerRequest, AuditBody, AuditEntry, AuditFilter, AuthHeaders, CallersBody,
+    CreateCallerRequest, CreateWorkloadCallerRequest, CreatedApiKeyCaller, CreatedCaller,
+    CreatedWorkloadCaller, GenerateKeyRequest, KeyPolicy, KeysBody, OidcCallerRequest,
+    RawSignRequest, RawSignature, RemovedCaller, RemovedKey, RotatedCaller, SavedPolicy,
+    SignRequest, SignedWitness, SignerCaller, SignerClientConfig, SignerEndpoint, SignerHealth,
+    SignerKey, SignerOutcome, SignerPolicy, SignerRefusal, StateRequest,
 };
 
 const API: &str = "/signer/api/v1";

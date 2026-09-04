@@ -14,11 +14,22 @@ use crate::signer_client::{
     SignerPolicy,
 };
 
+use super::super::state::SignerHealthClass;
 use super::super::{html, time, WebState};
 
 pub async fn signer(State(state): State<WebState>, RawQuery(query): RawQuery) -> Response {
     let body = match state.signer_client() {
-        Ok(Some(client)) => overview(client).await,
+        Ok(Some(client)) => {
+            let endpoint = client.endpoint().to_string();
+            let loaded = tokio::task::spawn_blocking(move || Overview::load(&client)).await;
+            match loaded {
+                Ok(snapshot) => {
+                    journal_health(&state, &endpoint, &snapshot.health);
+                    render_overview(&endpoint, snapshot)
+                }
+                Err(_) => html::notice("danger", "Signer request task did not finish."),
+            }
+        }
         Ok(None) => unconfigured(),
         Err(error) => html::notice(
             "danger",
@@ -32,6 +43,30 @@ pub async fn signer(State(state): State<WebState>, RawQuery(query): RawQuery) ->
         &body,
     ))
     .into_response()
+}
+
+/// Record this page view's health observation.
+///
+/// The custody service is supervised by nobody, so the workbench page is its
+/// only live probe. [`WebState::journal_signer_health`] keeps the last class,
+/// which turns a stream of page views into journal events about the
+/// transitions an operator would act on.
+fn journal_health(state: &WebState, endpoint: &str, health: &Result<String, String>) {
+    let (class, message) = match health {
+        Ok(status) if status.trim() == "ok" => (
+            SignerHealthClass::Healthy,
+            format!("signer reports ok at {endpoint}"),
+        ),
+        Ok(status) => (
+            SignerHealthClass::Degraded,
+            format!("signer reports {status} at {endpoint}"),
+        ),
+        Err(error) => (
+            SignerHealthClass::Unreachable,
+            format!("signer health request failed at {endpoint}: {error}"),
+        ),
+    };
+    state.journal_signer_health(class, &message);
 }
 
 pub async fn key_detail(
@@ -74,15 +109,6 @@ pub async fn delete_key_page(Path(key_id): Path<String>) -> Response {
         &delete_form(&key_id),
     ))
     .into_response()
-}
-
-async fn overview(client: SignerClient) -> String {
-    let endpoint = client.endpoint().to_string();
-    let loaded = tokio::task::spawn_blocking(move || Overview::load(&client)).await;
-    match loaded {
-        Ok(snapshot) => render_overview(&endpoint, snapshot),
-        Err(_) => html::notice("danger", "Signer request task did not finish."),
-    }
 }
 
 struct Overview {
@@ -194,21 +220,27 @@ fn generate_form() -> String {
         .into_iter()
         .map(str::to_string)
         .collect::<Vec<_>>();
+    let families = ["neo-n3", "neo-x"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>();
     format!(
         r#"<form class="filters" method="post" action="/signer/keys">
 {label}
+{chain_family}
 {network}
 {magic}
 <button type="submit">Generate in signer</button>
 </form>
 {note}"#,
         label = html::text_field("Label", "label", ""),
+        chain_family = html::choice_field("Chain family", "chain_family", &families, "neo-n3"),
         network = html::choice_field("Network", "network", &networks, "testnet"),
         magic = html::TextField {
             label: "Private-network magic",
             name: "network_magic",
             value: "",
-            help: Some("Leave blank for mainnet/testnet canonical magic."),
+            help: Some("Neo N3 only; leave blank for mainnet/testnet canonical magic."),
             ..html::TextField::default()
         }
         .render(),
@@ -456,8 +488,47 @@ fn policy_page(detail: &KeyPolicy) -> String {
 }
 
 fn policy_form(key_id: &str, policy: &SignerPolicy) -> String {
+    let families = ["neo-n3", "neo-x"]
+        .iter()
+        .map(|slug| slug.to_string())
+        .collect::<Vec<_>>();
+    let evm_section = format!(
+        "<h3>Neo X (EVM) limits</h3>{}{}{}{}{}",
+        optional_field(
+            "EVM chain id",
+            "evm_chain_id",
+            policy
+                .evm_chain_id
+                .map(|value| value.to_string())
+                .as_deref(),
+        ),
+        optional_field(
+            "Maximum gas price (wei)",
+            "evm_max_gas_price",
+            policy.evm_max_gas_price.as_deref(),
+        ),
+        optional_field(
+            "Maximum gas limit",
+            "evm_max_gas_limit",
+            policy
+                .evm_max_gas_limit
+                .map(|value| value.to_string())
+                .as_deref(),
+        ),
+        list_field(
+            "EVM method allowlist",
+            "evm_method_whitelist",
+            &policy.evm_method_whitelist,
+        ),
+        list_field(
+            "EVM method denylist",
+            "evm_method_blacklist",
+            &policy.evm_method_blacklist,
+        ),
+    );
     format!(
         r#"<form class="filters" method="post" action="/signer/keys/{key_id}/policy">
+{chain_family}
 {switches}
 {contract_allow}
 {contract_deny}
@@ -476,9 +547,16 @@ fn policy_form(key_id: &str, policy: &SignerPolicy) -> String {
 {network_fee}
 {signature_seconds}
 {signature_count}
+{evm_section}
 <button type="submit">Save boundary</button>
 </form>"#,
         key_id = html::urlencoding_lite(key_id),
+        chain_family = html::choice_field(
+            "Chain family",
+            "chain_family",
+            &families,
+            policy.chain_family.as_deref().unwrap_or("neo-n3"),
+        ),
         switches = [
             checkbox(
                 "allow_consensus",
