@@ -21,7 +21,7 @@ pub struct ConfigLineDrift {
     pub unexpected_lines: usize,
     /// Lines a fresh render writes that the file on disk does not have.
     pub missing_lines: usize,
-    /// Up to three of the unexpected lines, for the report an operator reads.
+    /// Up to three of the unexpected field names, with all values redacted.
     pub unexpected_samples: Vec<String>,
 }
 
@@ -32,7 +32,7 @@ impl ConfigLineDrift {
     }
 }
 
-/// How many unexpected lines a report quotes verbatim, and how wide each quote
+/// How many unexpected fields a report identifies, and how wide each field
 /// may be: enough to recognise the edit, not enough to dump the file.
 const SAMPLE_LINES: usize = 3;
 const SAMPLE_MAX_CHARS: usize = 80;
@@ -79,12 +79,23 @@ pub fn line_drift(expected: &str, actual: &str) -> ConfigLineDrift {
 }
 
 fn shorten(line: &str) -> String {
-    let line = line.trim_end();
-    if line.chars().count() <= SAMPLE_MAX_CHARS {
-        line.to_string()
-    } else {
-        let cut: String = line.chars().take(SAMPLE_MAX_CHARS).collect();
-        format!("{cut}…")
+    // A drift report can leave the host as JSON or an alert. Never quote values:
+    // keys may be innocuous while a value is a private key, password or token.
+    let key = line
+        .trim()
+        .split_once(['=', ':'])
+        .map(|(key, _)| key.trim());
+    match key.filter(|key| {
+        !key.is_empty()
+            && key
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | '\"'))
+    }) {
+        Some(key) => format!(
+            "{}: [value redacted]",
+            key.chars().take(SAMPLE_MAX_CHARS).collect::<String>()
+        ),
+        None => "[configuration content redacted]".into(),
     }
 }
 

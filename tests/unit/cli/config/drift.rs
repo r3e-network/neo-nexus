@@ -103,8 +103,8 @@ fn a_disk_config_the_workspace_would_not_write_is_attention() {
         drift["detail"]
             .as_str()
             .unwrap()
-            .contains("legacy_setting = true"),
-        "the unexpected line is quoted: {}",
+            .contains("legacy_setting: [value redacted]"),
+        "the unexpected field is identified without its value: {}",
         drift["detail"]
     );
 }
