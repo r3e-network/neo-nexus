@@ -1,8 +1,8 @@
 use crate::events::{EventSeverity, RuntimeEvent};
 
 use super::{
-    payloads::alert_delivery_request, targets::alert_target_label, text::truncate_for_message,
-    AlertDeliveryReport, AlertDeliveryStatus, AlertRoutingPolicy,
+    payloads::alert_delivery_request, targets::alert_target_label, AlertDeliveryReport,
+    AlertDeliveryStatus, AlertRoutingPolicy,
 };
 
 pub fn should_route_alert(policy: &AlertRoutingPolicy, event: &RuntimeEvent) -> bool {
@@ -50,7 +50,9 @@ pub fn deliver_webhook_alert(
         }
     };
 
-    let mut webhook_request = ureq::post(&request.endpoint_url)
+    let agent = ureq::AgentBuilder::new().redirects(0).build();
+    let mut webhook_request = agent
+        .post(&request.endpoint_url)
         .timeout(policy.timeout_duration())
         .set("Content-Type", "application/json")
         .set(
@@ -68,34 +70,31 @@ pub fn deliver_webhook_alert(
                 event_id: event.id,
                 route_label: policy.provider.to_string(),
                 target,
-                status: AlertDeliveryStatus::Delivered,
+                status: if (200..300).contains(&status) {
+                    AlertDeliveryStatus::Delivered
+                } else {
+                    AlertDeliveryStatus::Failed
+                },
                 http_status: Some(status),
                 message: format!("webhook accepted alert with HTTP {status}"),
             }
         }
-        Err(ureq::Error::Status(status, response)) => {
-            let body = response.into_string().unwrap_or_default();
-            let suffix = if body.trim().is_empty() {
-                String::new()
-            } else {
-                format!(": {}", truncate_for_message(body.trim(), 160))
-            };
-            AlertDeliveryReport {
-                event_id: event.id,
-                route_label: policy.provider.to_string(),
-                target,
-                status: AlertDeliveryStatus::Failed,
-                http_status: Some(status),
-                message: format!("webhook rejected alert with HTTP {status}{suffix}"),
-            }
-        }
-        Err(error) => AlertDeliveryReport {
+        Err(ureq::Error::Status(status, _)) => AlertDeliveryReport {
+            event_id: event.id,
+            route_label: policy.provider.to_string(),
+            target,
+            status: AlertDeliveryStatus::Failed,
+            http_status: Some(status),
+            message: format!("webhook rejected alert with HTTP {status}"),
+        },
+        Err(_) => AlertDeliveryReport {
             event_id: event.id,
             route_label: policy.provider.to_string(),
             target,
             status: AlertDeliveryStatus::Failed,
             http_status: None,
-            message: format!("webhook delivery failed: {error}"),
+            // Transport errors and response bodies can contain webhook credentials.
+            message: "webhook transport failed; check endpoint connectivity and TLS".into(),
         },
     }
 }

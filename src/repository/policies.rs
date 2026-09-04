@@ -1,5 +1,6 @@
 use super::*;
 
+mod alert_progress;
 mod alert_routing;
 mod appearance;
 mod backup_settings;
