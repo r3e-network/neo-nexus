@@ -1,5 +1,7 @@
 use super::*;
+use crate::watchdog::RestartPolicy;
 
+mod recovery;
 mod reliability;
 mod startup;
 

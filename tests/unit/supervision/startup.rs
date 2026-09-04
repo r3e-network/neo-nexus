@@ -1,5 +1,5 @@
 use super::{
-    reliability::{immediate_watchdog, node},
+    reliability::{due_now, immediate_watchdog, node},
     *,
 };
 use std::io::{Read, Write};
@@ -132,7 +132,7 @@ fn startup_missing_processes_retry_once_per_failure_and_reused_pids_stay_isolate
         Some(std::process::id()),
     );
     let mut loop_state = LoopState::bootstrap(&state);
-    loop_state.watchdog = immediate_watchdog();
+    loop_state.watchdog = immediate_watchdog(&state);
     loop_state.reconcile_startup(&state);
     let current = state.nodes();
     assert_eq!(
@@ -155,6 +155,7 @@ fn startup_missing_processes_retry_once_per_failure_and_reused_pids_stay_isolate
         "startup and the first tick must not diagnose the same loss twice"
     );
     for _ in 0..2 {
+        due_now(&state, &missing.id);
         loop_state.run_due_restarts(&state);
     }
     assert!(matches!(

@@ -26,7 +26,17 @@ impl Watchdog {
 
     pub fn update_policy(&mut self, policy: RestartPolicy) {
         self.policy = policy.normalized();
-        self.states.clear();
+        for state in self.states.values_mut() {
+            if !self.policy.enabled || state.attempts > self.policy.max_restart_attempts {
+                state.next_restart_at = None;
+            }
+            if self.policy.enabled
+                && state.attempts >= self.policy.max_restart_attempts
+                && state.next_restart_at.is_none()
+            {
+                state.exhausted = true;
+            }
+        }
     }
 
     pub fn clear(&mut self, node_id: &str) {
@@ -36,7 +46,9 @@ impl Watchdog {
     pub fn record_failure(&mut self, node_id: &str, now: Instant) -> RestartOutcome {
         let policy = self.policy;
         if !policy.enabled || policy.max_restart_attempts == 0 {
-            self.states.remove(node_id);
+            if let Some(state) = self.states.get_mut(node_id) {
+                state.next_restart_at = None;
+            }
             return RestartOutcome::Disabled;
         }
 
@@ -50,7 +62,7 @@ impl Watchdog {
             state.exhausted = true;
             state.next_restart_at = None;
             return RestartOutcome::Exhausted {
-                attempts: self.policy.max_restart_attempts,
+                attempts: state.attempts,
             };
         }
 
@@ -91,7 +103,7 @@ impl Watchdog {
 
         if state.exhausted {
             return WatchdogStatus::Exhausted {
-                attempts: self.policy.max_restart_attempts,
+                attempts: state.attempts,
             };
         }
 
@@ -107,5 +119,36 @@ impl Watchdog {
         self.states
             .values()
             .any(|state| state.next_restart_at.is_some())
+    }
+
+    pub(crate) fn restored(
+        policy: RestartPolicy,
+        records: &BTreeMap<String, super::RecoveryState>,
+        now: Instant,
+        unix_ms: u64,
+    ) -> Self {
+        let states = records
+            .iter()
+            .map(|(id, saved)| {
+                let next_restart_at = saved
+                    .next_attempt_at_unix_ms
+                    .filter(|_| policy.enabled && saved.attempts < policy.max_restart_attempts)
+                    .and_then(|deadline| {
+                        now.checked_add(
+                            std::time::Duration::from_millis(deadline.saturating_sub(unix_ms))
+                                .min(policy.max_delay),
+                        )
+                    });
+                (
+                    id.clone(),
+                    RestartState {
+                        attempts: saved.attempts + u32::from(next_restart_at.is_some()),
+                        next_restart_at,
+                        exhausted: saved.exhausted,
+                    },
+                )
+            })
+            .collect();
+        Self { policy, states }
     }
 }

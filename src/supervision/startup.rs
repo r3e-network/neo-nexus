@@ -86,26 +86,17 @@ impl LoopState {
                         format!("{} recorded PID {} belongs to another executable after server restart; no process was signalled and automatic restart is blocked", node.name, node.pid.unwrap_or_default()));
                 }
                 RecordedProcess::Gone => {
-                    if let Err(error) =
-                        state
-                            .repository
-                            .update_node_status(&node.id, NodeStatus::Crashed, None)
-                    {
-                        diagnostic(
-                            state,
-                            format!("Could not persist startup crash for {}: {error}", node.name),
-                        );
-                        continue;
-                    }
                     let reason =
                         "recorded process missing after server restart; exit code unavailable";
+                    if !self.schedule_restart(state, &node, reason) {
+                        continue;
+                    }
                     state.journal(
                         &node,
                         EventKind::RuntimeRecovered,
                         EventSeverity::Critical,
                         format!("{} {reason}", node.name),
                     );
-                    self.queue_restart(state, &node, reason);
                 }
             }
         }

@@ -47,9 +47,10 @@ use crate::{
         live_pids, log_path_for, recorded_process, PidStop, ProcessSupervisor, RecordedProcess,
     },
     types::NodeStatus,
-    watchdog::{default_restart_policy, RestartOutcome, RestartPolicy, Watchdog},
+    watchdog::{default_restart_policy, RestartOutcome, Watchdog},
 };
 
+mod recovery;
 mod startup;
 
 /// How often the loop wakes. Every interval it enforces is a multiple of this
@@ -321,15 +322,12 @@ impl Drop for Engine {
     }
 }
 
-/// What the loop remembers between ticks. Policies are re-read every tick so a
-/// change made in Settings takes effect without a restart; these are the things
-/// that cannot be re-derived from the database.
+/// Monitor clocks and cached views of persisted operational state. Policy and
+/// recovery changes are re-read so browser or CLI controls take effect next tick.
 struct LoopState {
     signer: crate::signer_client::SignerMonitor,
     watchdog: Watchdog,
-    /// The policy the watchdog is running under, so a tick that reads an
-    /// unchanged policy leaves scheduled restarts alone.
-    applied_policy: RestartPolicy,
+    recovery_error: Option<String>,
     rpc_last_probe: BTreeMap<String, Instant>,
     federation_last_probe: BTreeMap<String, Instant>,
     /// Highest journal id already offered to the alert route. New workspaces
@@ -348,15 +346,17 @@ impl LoopState {
             .load_watchdog_policy()
             .unwrap_or_else(|_| default_restart_policy());
         let (cursor, alert_failures) = startup::alert_progress(state);
-        Self {
+        let mut engine = Self {
             signer: crate::signer_client::SignerMonitor::bootstrap(),
             watchdog: Watchdog::new(policy),
-            applied_policy: policy,
+            recovery_error: None,
             rpc_last_probe: BTreeMap::new(),
             federation_last_probe: BTreeMap::new(),
             last_routed_event: cursor,
             alert_failures,
-        }
+        };
+        engine.initialize_recovery(state);
+        engine
     }
 
     fn tick(&mut self, state: &EngineState) {
@@ -372,15 +372,7 @@ impl LoopState {
     }
 
     fn sync_policy(&mut self, state: &EngineState) {
-        let Ok(policy) = state.repository.load_watchdog_policy() else {
-            return;
-        };
-        // `update_policy` clears pending restarts, so pushing it on every tick
-        // would wipe a scheduled retry before its delay ever elapsed.
-        if policy != self.applied_policy {
-            self.watchdog.update_policy(policy);
-            self.applied_policy = policy;
-        }
+        self.refresh_recovery(state);
     }
 
     /// Take every process the supervisor was watching that has now finished,
@@ -457,18 +449,14 @@ impl LoopState {
         }
     }
 
-    fn schedule_restart(&mut self, state: &EngineState, node: &NodeConfig, reason: &str) {
-        // Crashed, not Error: a dirty exit and a launch that never got off the
-        // ground are different failures an operator triages differently, and
-        // one shared status made them indistinguishable.
-        let _ = state
-            .repository
-            .update_node_status(&node.id, NodeStatus::Crashed, None);
-        self.queue_restart(state, node, reason);
-    }
-
-    fn queue_restart(&mut self, state: &EngineState, node: &NodeConfig, reason: &str) {
-        match self.watchdog.record_failure(&node.id, Instant::now()) {
+    fn journal_restart(
+        &self,
+        state: &EngineState,
+        node: &NodeConfig,
+        reason: &str,
+        outcome: RestartOutcome,
+    ) {
+        match outcome {
             RestartOutcome::Scheduled { attempt, delay } => state.journal(
                 node,
                 EventKind::WatchdogScheduled,
@@ -490,60 +478,6 @@ impl LoopState {
                 EventSeverity::Warning,
                 format!("{reason}; automatic restart is off"),
             ),
-        }
-    }
-
-    fn run_due_restarts(&mut self, state: &EngineState) {
-        let due = self.watchdog.due_restarts(Instant::now());
-        if due.is_empty() {
-            return;
-        }
-        for attempt in due {
-            let Some(node) = state
-                .nodes()
-                .into_iter()
-                .find(|node| node.id == attempt.node_id)
-            else {
-                self.watchdog.clear(&attempt.node_id);
-                continue;
-            };
-            // An explicit stop cancels a pending restart; a manual start has
-            // already fulfilled it. Neither should be undone by the watchdog.
-            if node.pid.is_some() || !matches!(node.status, NodeStatus::Crashed | NodeStatus::Error)
-            {
-                self.watchdog.clear(&node.id);
-                continue;
-            }
-            match launch_node(state, &node, LaunchAction::Start) {
-                Ok(message) => state.journal(
-                    &node,
-                    EventKind::WatchdogRestarted,
-                    EventSeverity::Warning,
-                    format!("watchdog attempt {}: {message}", attempt.attempt),
-                ),
-                Err(error) => {
-                    state.journal(
-                        &node,
-                        EventKind::NodeStartFailed,
-                        EventSeverity::Critical,
-                        format!("watchdog attempt {} failed: {error}", attempt.attempt),
-                    );
-                    let _supervisor = state.supervisor();
-                    if state.nodes().iter().any(|current| {
-                        current.id == node.id
-                            && current.pid.is_none()
-                            && matches!(current.status, NodeStatus::Crashed | NodeStatus::Error)
-                    }) {
-                        let _ =
-                            state
-                                .repository
-                                .update_node_status(&node.id, NodeStatus::Error, None);
-                        self.queue_restart(state, &node, "automatic launch failed");
-                    } else {
-                        self.watchdog.clear(&node.id);
-                    }
-                }
-            }
         }
     }
 
