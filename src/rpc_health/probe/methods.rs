@@ -20,6 +20,9 @@ pub(super) struct ProbeMethods {
     pub(super) version: &'static str,
     /// Reports how far the node has synced.
     pub(super) height: &'static str,
+    /// The "am I still catching up" call, where the family has one. A height
+    /// alone cannot tell "at head" from "stalled a few blocks behind".
+    pub(super) syncing: Option<&'static str>,
     family: ChainFamily,
 }
 
@@ -28,11 +31,13 @@ pub(super) fn probe_methods(family: ChainFamily) -> ProbeMethods {
         ChainFamily::NeoN3 => ProbeMethods {
             version: "getversion",
             height: "getblockcount",
+            syncing: None,
             family,
         },
         ChainFamily::NeoX => ProbeMethods {
             version: "web3_clientVersion",
             height: "eth_blockNumber",
+            syncing: Some("eth_syncing"),
             family,
         },
     }
@@ -53,6 +58,21 @@ impl ProbeMethods {
             ChainFamily::NeoX => hex_quantity(value).map(|height| height.saturating_add(1)),
         }
     }
+}
+
+/// Reads a sync verdict from the family's syncing call, if it has one.
+///
+/// `eth_syncing` answers `false` at head, or an object of block numbers while
+/// still catching up. Anything else — `null`, a string — is not a verdict and
+/// leaves the probe's judgement to the two scored methods.
+pub(super) fn syncing_verdict(value: &Value) -> Option<bool> {
+    if value.as_bool() == Some(false) {
+        return Some(false);
+    }
+    if value.is_object() {
+        return Some(true);
+    }
+    None
 }
 
 /// An EVM `QUANTITY`: `0x`-prefixed, minimal-length hex.

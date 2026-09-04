@@ -15,6 +15,10 @@ pub struct RpcHealthReport {
     pub status: RpcHealthStatus,
     pub version: Option<String>,
     pub block_count: Option<u64>,
+    /// Whether the node reported it is still catching up. `None` where the
+    /// family has no syncing call, or the call did not give a verdict.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub syncing: Option<bool>,
     pub methods: Vec<RpcMethodHealth>,
 }
 
@@ -33,10 +37,13 @@ impl RpcHealthReport {
                 format!("{version}; block-count {block_count}")
             }
             RpcHealthStatus::Degraded | RpcHealthStatus::Unreachable => {
-                self.methods.iter().find(|method| !method.ok).map_or_else(
-                    || "RPC probe did not complete.".to_string(),
-                    |method| format!("{}: {}", method.method, method.detail),
-                )
+                match self.methods.iter().find(|method| !method.ok) {
+                    Some(method) => format!("{}: {}", method.method, method.detail),
+                    None if self.syncing == Some(true) => {
+                        "node is syncing; the chain it serves is not at head".to_string()
+                    }
+                    None => "RPC probe did not complete.".to_string(),
+                }
             }
         }
     }
@@ -53,6 +60,9 @@ impl RpcHealthReport {
         }
         if let Some(block_count) = self.block_count {
             lines.push(format!("block-count: {block_count}"));
+        }
+        if let Some(syncing) = self.syncing {
+            lines.push(format!("syncing: {syncing}"));
         }
         for method in &self.methods {
             lines.push(format!(

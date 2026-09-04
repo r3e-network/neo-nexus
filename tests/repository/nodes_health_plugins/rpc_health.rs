@@ -24,6 +24,7 @@ fn persists_rpc_health_records_and_deletes_with_node() {
         status: RpcHealthStatus::Unreachable,
         version: None,
         block_count: None,
+        syncing: None,
         methods: Vec::new(),
     };
     repository
@@ -34,6 +35,7 @@ fn persists_rpc_health_records_and_deletes_with_node() {
         status: RpcHealthStatus::Healthy,
         version: Some("neo-rs-test".to_string()),
         block_count: Some(42),
+        syncing: None,
         methods: Vec::new(),
     };
     let persisted = repository
@@ -100,6 +102,7 @@ fn prunes_rpc_health_history_per_node() {
             },
             version: Some(format!("primary-{index}")),
             block_count: Some(100 + index),
+            syncing: None,
             methods: Vec::new(),
         };
         repository
@@ -112,6 +115,7 @@ fn prunes_rpc_health_history_per_node() {
             status: RpcHealthStatus::Unreachable,
             version: None,
             block_count: None,
+            syncing: None,
             methods: Vec::new(),
         };
         repository
