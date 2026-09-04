@@ -35,13 +35,34 @@ pub(super) fn node(
         .unwrap()
 }
 
-pub(super) fn immediate_watchdog() -> Watchdog {
-    Watchdog::new(RestartPolicy {
+pub(super) fn immediate_watchdog(state: &EngineState) -> Watchdog {
+    let policy = RestartPolicy {
         enabled: true,
         max_restart_attempts: 2,
-        base_delay: Duration::ZERO,
-        max_delay: Duration::ZERO,
-    })
+        base_delay: Duration::from_secs(1),
+        max_delay: Duration::from_secs(1),
+    };
+    state.repository.save_watchdog_policy(policy).unwrap();
+    Watchdog::new(policy)
+}
+
+pub(super) fn due_now(state: &EngineState, id: &str) {
+    let mut recovery = state
+        .repository
+        .load_node_recoveries()
+        .unwrap()
+        .remove(id)
+        .unwrap();
+    if recovery.next_attempt_at_unix_ms.is_some() {
+        recovery.next_attempt_at_unix_ms = Some(0);
+        state
+            .repository
+            .save_workspace_section(
+                &format!("watchdog.recovery.{id}"),
+                &serde_json::to_string(&recovery).unwrap(),
+            )
+            .unwrap();
+    }
 }
 
 #[test]
@@ -49,8 +70,9 @@ fn a_pending_restart_is_cancelled_by_an_explicit_stop() {
     let (_dir, state) = fixture();
     let node = node(&state, "cancelled", NodeStatus::Crashed, None);
     let mut engine = LoopState::bootstrap(&state);
-    engine.watchdog = immediate_watchdog();
-    engine.watchdog.record_failure(&node.id, Instant::now());
+    engine.watchdog = immediate_watchdog(&state);
+    engine.schedule_restart(&state, &node, "test crash");
+    due_now(&state, &node.id);
     stop_node(&state, &node).unwrap();
     engine.run_due_restarts(&state);
     assert_eq!(state.nodes()[0].status, NodeStatus::Stopped);
@@ -68,14 +90,16 @@ fn automatic_launch_failures_retry_to_the_limit_and_remain_error() {
     let (_dir, state) = fixture();
     let node = node(&state, "missing-binary", NodeStatus::Crashed, None);
     let mut engine = LoopState::bootstrap(&state);
-    engine.watchdog = immediate_watchdog();
-    engine.watchdog.record_failure(&node.id, Instant::now());
+    engine.watchdog = immediate_watchdog(&state);
+    engine.schedule_restart(&state, &node, "test crash");
+    due_now(&state, &node.id);
     engine.run_due_restarts(&state);
     assert!(
         engine.watchdog.has_pending_restart(),
         "a failed launch must not silently end the retry chain"
     );
     assert_eq!(state.nodes()[0].status, NodeStatus::Error);
+    due_now(&state, &node.id);
     engine.run_due_restarts(&state);
     assert!(!engine.watchdog.has_pending_restart());
     assert_eq!(state.nodes()[0].status, NodeStatus::Error);

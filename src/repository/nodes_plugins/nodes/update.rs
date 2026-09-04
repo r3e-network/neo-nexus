@@ -1,6 +1,38 @@
 use super::*;
 
 impl Repository {
+    /// Reserve the launch only if the configuration/status snapshot is still
+    /// current. SQLite serializes this write with backup's restore transaction.
+    pub(crate) fn mark_node_starting(&self, node: &NodeConfig) -> Result<()> {
+        let connection = self.connection()?;
+        let changed = connection.execute(
+            "UPDATE nodes SET status='starting',pid=NULL WHERE id=?1 AND name=?2
+                AND node_type=?3 AND network=?4 AND binary_path=?5 AND args=?6
+                AND runtime_version=?7 AND storage_engine=?8 AND rpc_port=?9
+                AND p2p_port=?10 AND ws_port IS ?11 AND status=?12 AND pid IS ?13",
+            params![
+                node.id,
+                node.name,
+                node.node_type.to_string(),
+                node.network.to_string(),
+                node.binary_path.to_string_lossy(),
+                encode_args(&node.args),
+                node.runtime_version,
+                node.storage_engine.to_string(),
+                node.rpc_port,
+                node.p2p_port,
+                node.ws_port,
+                node.status.to_string(),
+                node.pid
+            ],
+        )?;
+        anyhow::ensure!(
+            changed == 1,
+            "node configuration or lifecycle changed before launch; reload and retry"
+        );
+        Ok(())
+    }
+
     pub fn update_node(&self, id: &str, input: NewNode) -> Result<NodeConfig> {
         validate_node_input(&input)?;
         let connection = self.connection()?;
@@ -61,11 +93,14 @@ impl Repository {
     }
 
     pub fn update_node_status(&self, id: &str, status: NodeStatus, pid: Option<u32>) -> Result<()> {
-        let connection = self.connection()?;
-        connection.execute(
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        transaction.execute(
             "UPDATE nodes SET status = ?1, pid = ?2 WHERE id = ?3",
             params![status.to_string(), pid, id],
         )?;
+        Self::sync_node_recovery_status(&transaction, id, status, pid)?;
+        transaction.commit()?;
         Ok(())
     }
 

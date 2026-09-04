@@ -8,3 +8,4 @@ mod monitors;
 mod runtime_upgrade;
 mod sidecars;
 mod watchdog;
+mod watchdog_recovery;

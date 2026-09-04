@@ -116,8 +116,26 @@ pub fn execute_node_launch(
                 message: error.to_string(),
             };
         }
+        // Publish Starting only once the previous process is gone. This also
+        // reserves the row against a concurrent workspace restore before spawn.
+        if let Err(error) = supervisor.stop(&node.id) {
+            return NodeLaunchOutcome::Failed {
+                message: error.to_string(),
+            };
+        }
     }
 
+    if let Err(error) = repository.mark_node_starting(node) {
+        return NodeLaunchOutcome::Failed {
+            message: format!("could not reserve node launch: {error}"),
+        };
+    }
+
+    let previous_pid = if action == LaunchAction::Start {
+        supervisor.managed_pid(&node.id)
+    } else {
+        None
+    };
     let start = match action {
         LaunchAction::Start => supervisor.start(node, plan, log_path.as_ref()),
         LaunchAction::Restart => supervisor.restart(node, plan, log_path.as_ref()),
@@ -128,8 +146,22 @@ pub fn execute_node_launch(
             if let Err(error) =
                 repository.update_node_status(&node.id, NodeStatus::Running, Some(pid))
             {
+                let mut remaining_pid = Some(pid);
+                let cleanup = if previous_pid == Some(pid) {
+                    "existing child handle retained; no additional process was launched".to_string()
+                } else {
+                    match supervisor.stop(&node.id) {
+                        Ok(Some(_)) => { remaining_pid = None; format!("newly launched process {pid} was stopped") },
+                        Ok(None) => format!("newly launched process {pid} no longer has a managed handle; verify its state"),
+                        Err(stop_error) => format!("could not stop newly launched process {pid}: {stop_error}; its child handle is retained and automatic replacement is blocked"),
+                    }
+                };
+                if previous_pid != Some(pid) {
+                    let _ =
+                        repository.update_node_status(&node.id, NodeStatus::Error, remaining_pid);
+                }
                 return NodeLaunchOutcome::Failed {
-                    message: error.to_string(),
+                    message: format!("failed to persist running process {pid}: {error}; {cleanup}"),
                 };
             }
             NodeLaunchOutcome::Started { pid, log_path }
