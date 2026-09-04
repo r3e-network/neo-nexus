@@ -24,6 +24,7 @@ pub enum AgentKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentStatus {
     Stopped,
+    Starting,
     Running,
     Crashed,
     Error,
@@ -49,7 +50,7 @@ pub struct AgentProfile {
     pub config_sha256: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentRecord {
     pub profile: AgentProfile,
     pub status: AgentStatus,

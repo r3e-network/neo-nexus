@@ -2,6 +2,44 @@ use super::*;
 use crate::agents::{AgentProfile, AgentRecord, AgentStatus};
 
 impl Repository {
+    /// Reserve launch before reading node-derived arguments. This transaction
+    /// serializes with backup restore, and stale controllers cannot take a claim.
+    pub(crate) fn claim_agent_start(
+        &self,
+        expected: &AgentRecord,
+        manual: bool,
+    ) -> Result<AgentRecord> {
+        if expected.pid.is_some() || expected.status == AgentStatus::Starting {
+            anyhow::bail!("agent launch already pending; stop it before starting again");
+        }
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        let text: String = transaction.query_row(
+            "SELECT record FROM managed_agents WHERE id = ?1",
+            params![expected.profile.id],
+            |row| row.get(0),
+        )?;
+        let current: AgentRecord = serde_json::from_str(&text)?;
+        if current != *expected {
+            anyhow::bail!("agent state changed before launch; reload and retry");
+        }
+        check_agent_node(&transaction, &current.profile)?;
+        let mut starting = current;
+        starting.status = AgentStatus::Starting;
+        starting.desired_running = true;
+        starting.restart_after = None;
+        starting.healthy = None;
+        if manual {
+            starting.restart_attempts = 0;
+        }
+        transaction.execute(
+            "UPDATE managed_agents SET record = ?2 WHERE id = ?1",
+            params![starting.profile.id, serde_json::to_string(&starting)?],
+        )?;
+        transaction.commit()?;
+        Ok(starting)
+    }
+
     pub fn list_agents(&self) -> Result<Vec<AgentRecord>> {
         let connection = self.connection()?;
         let mut statement = connection.prepare("SELECT record FROM managed_agents ORDER BY id")?;
