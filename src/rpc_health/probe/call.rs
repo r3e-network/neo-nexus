@@ -24,6 +24,11 @@ pub(super) fn call_method(
         .with_context(|| format!("failed to read {method} response"))?;
     let json: Value =
         serde_json::from_str(&text).with_context(|| format!("{method} returned invalid JSON"))?;
+    if json.get("jsonrpc").and_then(Value::as_str) != Some("2.0")
+        || json.get("id").and_then(Value::as_str) != Some("neonexus-health")
+    {
+        anyhow::bail!("{method} response has mismatched JSON-RPC version or request id");
+    }
     if let Some(error) = json.get("error") {
         anyhow::bail!("{method} returned error: {}", compact_json(error));
     }

@@ -69,7 +69,10 @@ pub(super) fn syncing_verdict(value: &Value) -> Option<bool> {
     if value.as_bool() == Some(false) {
         return Some(false);
     }
-    if value.is_object() {
+    if ["startingBlock", "currentBlock", "highestBlock"]
+        .iter()
+        .all(|field| value.get(field).and_then(hex_quantity).is_some())
+    {
         return Some(true);
     }
     None
@@ -78,9 +81,10 @@ pub(super) fn syncing_verdict(value: &Value) -> Option<bool> {
 /// An EVM `QUANTITY`: `0x`-prefixed, minimal-length hex.
 fn hex_quantity(value: &Value) -> Option<u64> {
     let text = value.as_str()?;
-    let digits = text
-        .strip_prefix("0x")
-        .or_else(|| text.strip_prefix("0X"))?;
+    let digits = text.strip_prefix("0x")?;
+    if digits.is_empty() || digits.len() > 1 && digits.starts_with('0') {
+        return None;
+    }
     u64::from_str_radix(digits, 16).ok()
 }
 
