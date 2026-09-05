@@ -62,6 +62,7 @@ pub(super) const KNOWN_OPTIONS: &[&str] = &[
     "--agent-stop",
     "--agent-restart",
     "--agent-list",
+    "--release-transaction",
 ];
 
 /// Returns the recognized option closest to `unknown`, but only when the edit

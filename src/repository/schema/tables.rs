@@ -32,6 +32,20 @@ pub(in crate::repository::schema) fn create_tables(connection: &Connection) -> R
         created_at_unix INTEGER NOT NULL,
         updated_at_unix INTEGER NOT NULL)",
     )?;
+    connection.execute_batch(
+        "CREATE TABLE IF NOT EXISTS release_transactions (
+        id TEXT PRIMARY KEY,
+        node_id TEXT NOT NULL,
+        phase TEXT NOT NULL,
+        previous_version TEXT NOT NULL,
+        previous_binary_path TEXT NOT NULL,
+        target_version TEXT NOT NULL,
+        target_binary_path TEXT NOT NULL,
+        backup_dir TEXT NOT NULL,
+        last_error TEXT,
+        created_at_unix INTEGER NOT NULL,
+        updated_at_unix INTEGER NOT NULL)",
+    )?;
     inventory::create_inventory_tables(connection)?;
     observability::create_observability_tables(connection)?;
     runtime_assets::create_runtime_asset_tables(connection)?;

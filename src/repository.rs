@@ -45,6 +45,7 @@ mod model;
 mod nodes_plugins;
 mod operations;
 mod policies;
+mod release_transactions;
 mod remote_servers;
 mod rows;
 mod runtime_assets;
@@ -55,6 +56,7 @@ use self::helpers::*;
 pub(crate) use self::helpers::{validate_backup_setting_key, validate_node_config};
 pub use self::model::{RestoreNodeOutcome, RestoredRuntimeEvent, WorkspaceSetting};
 pub use self::operations::{ControllerLease, ControllerOperation, ControllerReconcileSummary};
+pub use self::release_transactions::ReleaseTransaction;
 use self::rows::*;
 use self::settings_keys::*;
 
