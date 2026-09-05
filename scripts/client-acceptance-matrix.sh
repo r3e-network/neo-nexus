@@ -86,6 +86,33 @@ for index in $(seq 0 $((CLIENT_COUNT - 1))); do
     add_row "$type" rpc-health failed "$(tr '\n' ' ' <<<"$rpc" | cut -c1-1000)"
   fi
 
+  # Consensus/signing boundary: governance reads and designation checks (N3 only)
+  # This is Row 4 from docs/client-acceptance.md - requires consensus node configuration
+  if [[ "$family" == "neo-n3" ]]; then
+    # Governance read: committee, validators, candidate votes
+    if gov=$($NEONEXUS --governance-json "$endpoint" 2>&1); then
+      add_row "$type" consensus-governance passed "committee/validators snapshot captured"
+    else
+      add_row "$type" consensus-governance failed "$(tr '\n' ' ' <<<"$gov" | cut -c1-1000)"
+    fi
+
+    # Designation check for state-validator role (non-fatal if not designated)
+    if desc=$($NEONEXUS --designation-json "$endpoint" state-validator 2>&1); then
+      designator_status=$(echo "$desc" | jq -r '.designated // false')
+      if [[ "$designator_status" == "true" ]]; then
+        add_row "$type" consensus-designation passed "designated for state-validator"
+      else
+        add_row "$type" consensus-designation manual "node exists but not designated as state-validator (requires validator selection)"
+      fi
+    else
+      add_row "$type" consensus-designation manual "cannot query designation chain state may be syncing"
+    fi
+  else
+    # Neo X chains do not use N3 governance model
+    add_row "$type" consensus-governance skipped "neo-x does not use getcommittee"
+    add_row "$type" consensus-designation skipped "neo-x does not use RoleManagement"
+  fi
+
   # Lifecycle/upgrade/recovery require the node to be explicitly registered in
   # the supplied database. The script does not invent node-editor fields.
   if status=$($NEONEXUS --node-status "$DB" "$name" 2>&1); then

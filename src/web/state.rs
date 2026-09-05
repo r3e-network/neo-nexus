@@ -178,6 +178,11 @@ impl WebState {
             message: message.to_string(),
         });
     }
+
+    /// Accessor for auth store to enable CSRF token operations in handlers.
+    pub fn auth(&self) -> &AuthStore {
+        &self.auth
+    }
 }
 
 #[derive(Clone)]

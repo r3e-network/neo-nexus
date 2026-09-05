@@ -11,6 +11,9 @@ pub(in crate::cli) fn help_text() -> String {
         help_section(ALERT_ROUTING_LINES),
         help_section(NATIVE_BOUNDARY_LINES),
         help_section(SOURCE_QUALITY_LINES),
+        help_section(HEALTH_LINES),
+        help_section(RELEASE_LINES),
+        help_section(CLEANUP_LINES),
         help_section(NODE_CONTROL_LINES),
     ]
     .join("\n\n")
@@ -173,14 +176,46 @@ const ALERT_ROUTING_LINES: &[&str] = &[
     "  neo-nexus --alert-preview-json <generic|slack|discord|telegram|pagerduty|opsgenie|datadog> <target-url> <info|warning|critical> <message...>",
 ];
 
+const SOURCE_QUALITY_LINES: &[&str] = &[
+    "SOURCE QUALITY:",
+    "  --source-quality checks production markers, hardcoded platform shortcut labels, and repository maintenance file budgets.",
+];
+
 const NATIVE_BOUNDARY_LINES: &[&str] = &[
     "NATIVE BOUNDARY:",
     "  --source-purity also rejects WebView/Tauri Cargo dependencies, lockfile packages, and project files.",
 ];
 
-const SOURCE_QUALITY_LINES: &[&str] = &[
-    "SOURCE QUALITY:",
-    "  --source-quality checks production markers, hardcoded platform shortcut labels, and repository maintenance file budgets.",
+const HEALTH_LINES: &[&str] = &[
+    "HEALTH CHECKS:",
+    "  Run runtime probes and RPC endpoint validations headlessly. Exit codes reflect probe results.",
+    "  --runtime-smoke / --runtime-smoke-json take node type (neo-cli|neo-go|neo-rs|neox-geth|neox-rs)",
+    "  and binary path; optional runtime-args passed to the executable.",
+    "  --rpc-health / --rpc-health-json require endpoint URL and family (neo-n3 default or neo-x).",
+    "  --designation / --designation-json read validator designation; returns 1 if not designated.",
+    "EXIT CODES:",
+    "  0                    Runtime probe passed, or RPC healthy, or key is designated",
+    "  1                    Probe failed, RPC unhealthy, or key not designated; check detail output",
+];
+
+const RELEASE_LINES: &[&str] = &[
+    "RELEASE UPDATES:",
+    "  --release-transaction applies a runtime upgrade as one rollback-able transaction.",
+    "  Takes database, node name, and target version string. Verifies acceptance gate before committing.",
+    "  Rollback occurs automatically if smoke test fails.",
+    "EXIT CODES:",
+    "  0                    Upgrade completed successfully",
+    "  1                    Version not found, preflight blocked, or acceptance failure triggered rollback",
+];
+
+const CLEANUP_LINES: &[&str] = &[
+    "CLEANUP OPERATIONS:",
+    "  --cleanup-events <database.db> <max_age_days> <output-file.json>",
+    "  Export events older than max_age_days to JSON file, then purge them from journal.",
+    "  Useful for long-running deployments to manage event journal growth.",
+    "EXIT CODES:",
+    "  0                    Cleanup completed successfully",
+    "  1                    Invalid arguments or database access error",
 ];
 
 const NODE_CONTROL_LINES: &[&str] = &[
@@ -190,4 +225,7 @@ const NODE_CONTROL_LINES: &[&str] = &[
     "  an operator's node behave identically.",
     "  --node-start / --node-stop / --node-restart / --node-status take the database and node name.",
     "  --node-list takes just the workspace database path.",
+    "  EXIT CODES:",
+    "    0                    Operation completed successfully",
+    "    1                    Node not found, readiness blocked, or PID reuse conflict detected",
 ];

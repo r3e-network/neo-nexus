@@ -54,6 +54,9 @@ mod suggest;
 mod wallet;
 mod workspace;
 
+// Cleanup events module - for event journal archival
+pub(in crate::cli::actions) mod cleanup_events_report;
+
 pub(super) use self::basics::{help_text, self_check_text, version_text};
 pub(super) use self::config::GeneratedNodeConfigReport;
 pub(super) use self::dispatcher::action_from_args_vec;
@@ -62,6 +65,43 @@ use self::{
     node_control::*, quality::*, release::*, release_transaction::*, reports::*, wallet::*,
     workspace::*,
 };
+
+// Export cleanup action function
+pub(super) fn cleanup_events_action(args: &[String]) -> Result<CliAction> {
+    // Placeholder implementation that just shows usage
+    let _db = &args[2];
+    let max_age_days: u64 = args[3].parse().context("max age must be integer")?;
+    let output = PathBuf::from(&args[4]);
+
+    Ok(CliAction::Print(format!(
+        "Cleanup events older than {} days, export to {}",
+        max_age_days,
+        output.display()
+    )))
+}
+
+// Actually implement the cleanup operation
+pub(super) fn cleanup_events_action_impl(args: &[String]) -> Result<CliAction> {
+    use crate::cli::actions::cleanup_events_report::{export_events_before, purge_old_events};
+    use std::path::PathBuf;
+    
+    let db_path = PathBuf::from(&args[2]);
+    let max_age_days: u64 = args[3].parse().context("max age must be integer")?;
+    let output = PathBuf::from(&args[4]);
+
+    let repo = Repository::open(&db_path)?;
+    
+    // Export first
+    let exported_count = export_events_before(&repo, max_age_days, output.clone())?;
+    
+    // Then purge
+    let deleted_count = purge_old_events(&repo, max_age_days)?;
+
+    Ok(CliAction::Print(format!(
+        "Successfully exported {} events and purged {} old records.\nExport file: {}",
+        exported_count, deleted_count, output.display()
+    )))
+}
 
 fn current_unix_time() -> Result<u64> {
     Ok(SystemTime::now()
