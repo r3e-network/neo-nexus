@@ -216,7 +216,7 @@ fn execute_node_launch_inner(
                     let _ = repository.update_node_status(&node.id, NodeStatus::Error, None);
                 }
                 return NodeLaunchOutcome::Failed {
-                    message: format!("failed to commit running process {pid}; {cleanup}"),
+                    message: format!("failed to persist running process {pid}: {cleanup}"),
                 };
             }
             NodeLaunchOutcome::Started { pid, log_path }
