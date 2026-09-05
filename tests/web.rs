@@ -208,6 +208,18 @@ fn healthz_is_public() {
     assert_eq!(body["status"], "ok");
     assert_eq!(body["application"], "NeoNexus");
     assert_eq!(body["version"], env!("CARGO_PKG_VERSION"));
+    // No engine in this rig: the guardian says so instead of pretending.
+    assert_eq!(body["supervision"], "not-running");
+}
+
+#[test]
+fn healthz_reports_a_running_guardian_when_the_engine_runs() {
+    let server = spawn_supervised_server();
+    let response = into_response(agent().get(&format!("{}/healthz", server.base_url)).call());
+    assert_eq!(response.status(), 200);
+    let body = json_body(response);
+    assert_eq!(body["status"], "ok");
+    assert_eq!(body["supervision"], "running");
 }
 
 #[test]
@@ -1296,4 +1308,80 @@ fn chain_page_explains_that_neo_x_has_no_chain_state_reads() {
         !markup.contains("Committee"),
         "no governance table for Neo X"
     );
+}
+
+#[test]
+fn cross_origin_writes_are_rejected_before_the_session_is_consulted() {
+    let server = spawn_server();
+    let node_id = create_node(&server.db_path, "csrf-node", 57332);
+    let http = agent();
+    let accepted = post_form(
+        &http,
+        &format!("{}/login", server.base_url),
+        &format!("token={TOKEN}"),
+    );
+    let session = cookie_value(&accepted).expect("session cookie");
+    let start_url = format!("{}/nodes/{node_id}/start", server.base_url);
+
+    // A foreign page made the browser post with its own origin attached: the
+    // request is refused with 403 regardless of the valid session cookie.
+    let forged = into_response(
+        http.post(&start_url)
+            .set("cookie", &session)
+            .set("origin", "https://evil.example")
+            .call(),
+    );
+    assert_eq!(forged.status(), 403);
+
+    // A sandboxed frame's null origin is rejected outright.
+    let null_origin = into_response(
+        http.post(&start_url)
+            .set("cookie", &session)
+            .set("origin", "null")
+            .call(),
+    );
+    assert_eq!(null_origin.status(), 403);
+
+    // A cross-site referer alone is enough to be refused.
+    let referer_only = into_response(
+        http.post(&start_url)
+            .set("cookie", &session)
+            .set("referer", "https://evil.example/attack")
+            .call(),
+    );
+    assert_eq!(referer_only.status(), 403);
+
+    // The node was never started: every forged write died at the gate.
+    let repository = Repository::open(&server.db_path).expect("reopen workspace");
+    let node = repository
+        .list_nodes()
+        .expect("nodes")
+        .into_iter()
+        .find(|node| node.id == node_id)
+        .expect("node");
+    assert_eq!(node.status, neo_nexus::types::NodeStatus::Stopped);
+}
+
+#[test]
+fn a_same_origin_write_is_accepted() {
+    let server = spawn_server();
+    let node_id = create_node(&server.db_path, "same-origin", 57342);
+    let http = agent();
+    let accepted = post_form(
+        &http,
+        &format!("{}/login", server.base_url),
+        &format!("token={TOKEN}"),
+    );
+    let session = cookie_value(&accepted).expect("session cookie");
+    let authority = server.base_url.trim_start_matches("http://");
+
+    let response = into_response(
+        http.post(&format!("{}/nodes/{node_id}/start", server.base_url))
+            .set("cookie", &session)
+            .set("origin", &format!("http://{authority}"))
+            .call(),
+    );
+    // The origin passes; the write proceeds down its normal path (the node has
+    // no real binary here, so the launch reports failure rather than 403).
+    assert_ne!(response.status(), 403);
 }

@@ -11,7 +11,7 @@ use axum::{
     Router,
 };
 
-use super::{api, control, health, pages, signer_control, WebState};
+use super::{api, control, csrf, health, pages, signer_control, WebState};
 
 pub fn build_router(state: WebState) -> Router {
     let public = Router::new()
@@ -128,10 +128,14 @@ pub fn build_router(state: WebState) -> Router {
         .route("/api/fleet", get(api::fleet))
         .route("/api/readiness", get(api::readiness))
         .route("/api/metrics-prometheus", get(api::metrics_prometheus))
+        // The origin check is registered after the session layer, which puts it
+        // in front: a cross-site write is rejected with 403 before the request
+        // can learn anything about the caller's session state.
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             require_session,
-        ));
+        ))
+        .route_layer(middleware::from_fn(csrf::verify_origin));
 
     public.merge(protected).with_state(state)
 }

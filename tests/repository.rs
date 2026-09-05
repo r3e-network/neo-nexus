@@ -26,5 +26,7 @@ use std::{path::PathBuf, time::Duration};
 mod basics_settings;
 #[path = "repository/nodes_health_plugins.rs"]
 mod nodes_health_plugins;
+#[path = "repository/operations.rs"]
+mod operations;
 #[path = "repository/runtime_events.rs"]
 mod runtime_events;

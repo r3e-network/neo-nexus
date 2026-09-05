@@ -11,6 +11,7 @@ fn fixture() -> (tempfile::TempDir, EngineState) {
         repository: Repository::open(dir.path().join("test.db")).unwrap(),
         data_dir: dir.path().to_path_buf(),
         supervisor: Arc::new(Mutex::new(ProcessSupervisor::default())),
+        heartbeat: crate::supervision_heartbeat::SupervisionHeartbeat::new(),
     };
     (dir, state)
 }

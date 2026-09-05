@@ -13,6 +13,7 @@ pub mod api;
 pub mod assets;
 pub mod auth;
 pub mod control;
+pub mod csrf;
 pub mod fleet;
 pub mod health;
 pub mod html;

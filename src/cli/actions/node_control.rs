@@ -104,6 +104,17 @@ fn launch_node(
 
     let plan = LaunchPlanner::plan(node, &managed_config_path, &work_dir);
     let mut supervisor = ProcessSupervisor::default();
+    // The operation ledger is the only shared state with the workbench engine:
+    // claiming it here is what stops a headless start and a browser start from
+    // racing each other on the same node.
+    // Held for its Drop: the claim closes on every exit path below.
+    let _operation = repository.begin_node_operation_guarded(
+        match action {
+            LaunchAction::Start => "start",
+            LaunchAction::Restart => "restart",
+        },
+        &node.id,
+    )?;
     let outcome = execute_node_launch(
         repository,
         &mut supervisor,
@@ -199,6 +210,8 @@ pub(in crate::cli::actions) fn node_stop_action(args: &[String]) -> Result<CliAc
 
     let log_path = log_path_for(workspace_child_dir(&repository, "logs"), &node);
     let mut supervisor = ProcessSupervisor::default();
+    // Held for its Drop: the claim closes on every exit path below.
+    let _operation = repository.begin_node_operation_guarded("stop", &node.id)?;
     let outcome = match supervisor
         .stop(&node.id)
         .context("failed to stop the supervised process")?
