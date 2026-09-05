@@ -35,6 +35,7 @@ use crate::core::{
 
 use super::{output::*, CliAction};
 
+mod agent;
 mod alerts;
 mod backup;
 mod basics;
@@ -56,7 +57,7 @@ pub(super) use self::basics::{help_text, self_check_text, version_text};
 pub(super) use self::config::GeneratedNodeConfigReport;
 pub(super) use self::dispatcher::action_from_args_vec;
 use self::{
-    alerts::*, backup::*, chain::*, completions::*, config::*, health::*, launch_pack::*,
+    agent::*, alerts::*, backup::*, chain::*, completions::*, config::*, health::*, launch_pack::*,
     node_control::*, quality::*, release::*, reports::*, wallet::*, workspace::*,
 };
 

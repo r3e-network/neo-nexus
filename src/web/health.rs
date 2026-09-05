@@ -20,12 +20,21 @@ pub async fn healthz(State(state): State<WebState>) -> Response {
         | (_, crate::supervision_heartbeat::SupervisionLiveness::Failed) => "degraded",
         _ => "ok",
     };
+    let controller = state
+        .repository
+        .controller_reconcile_summary(crate::web::time::now_unix())
+        .ok();
     let mut body = serde_json::json!({
         "status": status,
         "application": "NeoNexus",
         "version": env!("CARGO_PKG_VERSION"),
         "supervision": supervision.liveness,
         "notifications": notifications.liveness,
+        "controller": controller.as_ref().map(|summary| serde_json::json!({
+            "pending": summary.pending,
+            "stale": summary.stale,
+            "unknown": summary.unknown,
+        })),
     });
     if let Some(detail) = supervision.detail {
         body["supervision_detail"] = serde_json::Value::String(detail);

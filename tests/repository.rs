@@ -24,6 +24,8 @@ use std::{path::PathBuf, time::Duration};
 
 #[path = "repository/basics_settings.rs"]
 mod basics_settings;
+#[path = "repository/controller_operations.rs"]
+mod controller_operations;
 #[path = "repository/nodes_health_plugins.rs"]
 mod nodes_health_plugins;
 #[path = "repository/operations.rs"]

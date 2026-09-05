@@ -59,5 +59,50 @@ pub(in crate::repository::schema) fn apply_migrations(connection: &Connection) -
         "signer_public_key",
         "TEXT",
     )?;
+    add_column_if_missing(
+        connection,
+        "operations",
+        "subject_kind",
+        "TEXT NOT NULL DEFAULT 'node'",
+    )?;
+    add_column_if_missing(
+        connection,
+        "operations",
+        "subject_id",
+        "TEXT NOT NULL DEFAULT ''",
+    )?;
+    add_column_if_missing(
+        connection,
+        "operations",
+        "operation_kind",
+        "TEXT NOT NULL DEFAULT 'legacy'",
+    )?;
+    add_column_if_missing(
+        connection,
+        "operations",
+        "phase",
+        "TEXT NOT NULL DEFAULT 'requested'",
+    )?;
+    add_column_if_missing(connection, "operations", "desired_state", "TEXT")?;
+    add_column_if_missing(
+        connection,
+        "operations",
+        "generation",
+        "INTEGER NOT NULL DEFAULT 0",
+    )?;
+    add_column_if_missing(
+        connection,
+        "operations",
+        "fencing_token",
+        "TEXT NOT NULL DEFAULT ''",
+    )?;
+    add_column_if_missing(connection, "operations", "pid", "INTEGER")?;
+    add_column_if_missing(connection, "operations", "process_started_at", "INTEGER")?;
+    add_column_if_missing(connection, "operations", "last_error", "TEXT")?;
+    connection.execute(
+        "UPDATE operations SET subject_id = COALESCE(node_id, '')
+         WHERE subject_id = ''",
+        [],
+    )?;
     Ok(())
 }

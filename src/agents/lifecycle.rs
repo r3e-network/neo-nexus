@@ -83,6 +83,13 @@ pub(super) fn start_inner(state: &EngineState, id: &str, manual: bool) -> Result
     // Persist intent before deriving arguments from associated node settings.
     // A failed claim must never enter the failure handler with a stale record.
     record = state.repository.claim_agent_start(&record, manual)?;
+    // The same cross-process controller ledger as node lifecycle. A Web, CLI
+    // or future MCP caller cannot interleave an agent launch with another
+    // surface, and the lease fences stale completion writes.
+    let mut operation =
+        state
+            .repository
+            .begin_controller_lease("agent", &record.profile.id, "start", "running")?;
     let outcome = (|| {
         record.profile.validate(&state.repository)?;
         if code_digest(&record.profile)? != record.profile.binary_sha256 {
@@ -108,6 +115,13 @@ pub(super) fn start_inner(state: &EngineState, id: &str, manual: bool) -> Result
         };
         let started =
             supervisor.start_process_with_env(&spec, log_path(state, id), &environment)?;
+        if !operation.record_spawned(started.pid, process_started_at(started.pid))? {
+            let _ = supervisor.stop_process(&spec.id);
+            bail!(
+                "agent controller lease was fenced after PID {} was spawned",
+                started.pid
+            );
+        }
         record.pid = Some(started.pid);
         record.process_started_at = process_started_at(started.pid);
         record.status = AgentStatus::Running;
@@ -135,6 +149,7 @@ pub(super) fn start_inner(state: &EngineState, id: &str, manual: bool) -> Result
                 EventSeverity::Critical,
                 &format!("start failed with a retained process: {error}"),
             );
+            let _ = operation.fail(&error.to_string());
             return Err(error);
         }
         record.pid = None;
@@ -149,6 +164,7 @@ pub(super) fn start_inner(state: &EngineState, id: &str, manual: bool) -> Result
             EventSeverity::Critical,
             &format!("start failed: {error}"),
         );
+        let _ = operation.fail(&error.to_string());
         return Err(error);
     }
     journal(
@@ -158,12 +174,17 @@ pub(super) fn start_inner(state: &EngineState, id: &str, manual: bool) -> Result
         EventSeverity::Info,
         "process started",
     );
+    operation.complete()?;
     Ok(())
 }
 
 pub fn stop(state: &EngineState, id: &str) -> Result<()> {
     let mut supervisor = state.supervisor.lock().unwrap_or_else(|e| e.into_inner());
     let mut record = load(state, id)?;
+    let operation =
+        state
+            .repository
+            .begin_controller_lease("agent", &record.profile.id, "stop", "stopped")?;
     if record.profile.kind == super::AgentKind::Hermes && record.pid.is_some() {
         super::hermes_runtime::request_stop(&record, std::time::Duration::from_secs(20))?;
     }
@@ -212,6 +233,7 @@ pub fn stop(state: &EngineState, id: &str) -> Result<()> {
             "process stopped; automatic restart cancelled"
         },
     );
+    operation.complete()?;
     Ok(())
 }
 

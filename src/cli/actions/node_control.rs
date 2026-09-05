@@ -12,7 +12,7 @@ use workspace::{node_by_name, open_workspace, workspace_child_dir};
 
 use super::*;
 
-use crate::core::lifecycle::{execute_node_launch, LaunchAction, ManagedConfig, NodeLaunchOutcome};
+use crate::core::lifecycle::{LaunchAction, ManagedConfig, NodeLaunchOutcome};
 use crate::core::operations::{evaluate_launch_readiness, evaluate_restart_readiness};
 use crate::core::workspace::ConfigExporter;
 use crate::launch::LaunchPlanner;
@@ -104,18 +104,16 @@ fn launch_node(
 
     let plan = LaunchPlanner::plan(node, &managed_config_path, &work_dir);
     let mut supervisor = ProcessSupervisor::default();
-    // The operation ledger is the only shared state with the workbench engine:
-    // claiming it here is what stops a headless start and a browser start from
-    // racing each other on the same node.
-    // Held for its Drop: the claim closes on every exit path below.
-    let _operation = repository.begin_node_operation_guarded(
+    let mut operation = repository.begin_controller_lease(
+        "node",
+        &node.id,
         match action {
             LaunchAction::Start => "start",
             LaunchAction::Restart => "restart",
         },
-        &node.id,
+        "running",
     )?;
-    let outcome = execute_node_launch(
+    let outcome = crate::node_lifecycle::execute_node_launch_fenced(
         repository,
         &mut supervisor,
         node,
@@ -126,6 +124,7 @@ fn launch_node(
             path: &managed_config_path,
             plugins: &plugins,
         }),
+        &mut operation,
     );
 
     // A one-shot command cannot supervise: `ProcessSupervisor` terminates
@@ -210,8 +209,8 @@ pub(in crate::cli::actions) fn node_stop_action(args: &[String]) -> Result<CliAc
 
     let log_path = log_path_for(workspace_child_dir(&repository, "logs"), &node);
     let mut supervisor = ProcessSupervisor::default();
-    // Held for its Drop: the claim closes on every exit path below.
-    let _operation = repository.begin_node_operation_guarded("stop", &node.id)?;
+    // Held for its Drop: the fenced claim closes on every exit path.
+    let operation = repository.begin_controller_lease("node", &node.id, "stop", "stopped")?;
     let outcome = match supervisor
         .stop(&node.id)
         .context("failed to stop the supervised process")?
@@ -231,9 +230,15 @@ pub(in crate::cli::actions) fn node_stop_action(args: &[String]) -> Result<CliAc
             ),
         });
     }
-    repository
-        .update_node_status(&node.id, NodeStatus::Stopped, None)
-        .context("failed to persist stopped status")?;
+    if !repository.update_node_status_fenced(
+        operation.operation(),
+        NodeStatus::Stopped,
+        None,
+        current_unix_time()?,
+    )? {
+        anyhow::bail!("node stop controller was fenced before status commit");
+    }
+    operation.complete()?;
     if let PidStop::Stopped(stop) = &outcome {
         journal_node_event(
             &repository,
