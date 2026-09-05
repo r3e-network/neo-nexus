@@ -43,6 +43,7 @@ mod events_health;
 mod helpers;
 mod model;
 mod nodes_plugins;
+mod operations;
 mod policies;
 mod remote_servers;
 mod rows;

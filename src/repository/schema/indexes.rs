@@ -26,5 +26,10 @@ pub(in crate::repository::schema) fn create_indexes(connection: &Connection) -> 
          ON remote_server_probe_records (remote_server_id, checked_at_unix DESC, id DESC)",
         [],
     )?;
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_operations_node_state
+         ON operations (node_id, state)",
+        [],
+    )?;
     Ok(())
 }

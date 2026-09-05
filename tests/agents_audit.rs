@@ -13,6 +13,7 @@ fn state(path: &std::path::Path) -> EngineState {
         repository: Repository::open(path.join("test.db")).unwrap(),
         data_dir: path.into(),
         supervisor: Arc::new(Mutex::new(ProcessSupervisor::default())),
+        heartbeat: neo_nexus::supervision_heartbeat::SupervisionHeartbeat::new(),
     }
 }
 

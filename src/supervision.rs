@@ -84,6 +84,9 @@ pub struct EngineState {
     pub repository: Repository,
     pub data_dir: PathBuf,
     pub supervisor: Arc<Mutex<ProcessSupervisor>>,
+    /// Stamped by the loop every tick; /healthz turns it into a verdict. A
+    /// guardian whose own liveness is invisible cannot be trusted end to end.
+    pub heartbeat: crate::supervision_heartbeat::SupervisionHeartbeat,
 }
 
 impl EngineState {
@@ -129,6 +132,13 @@ pub fn launch_node(
     launch_node_guarded(state, node, action, || Ok(()))
 }
 
+fn action_kind(action: LaunchAction) -> &'static str {
+    match action {
+        LaunchAction::Start => "start",
+        LaunchAction::Restart => "restart",
+    }
+}
+
 /// Recheck a caller's authority after waiting for process control and before
 /// writing configuration or signalling a process.
 pub(crate) fn launch_node_guarded(
@@ -168,6 +178,13 @@ pub(crate) fn launch_node_guarded(
         anyhow::bail!("node state changed while preparing launch; reload and retry");
     }
     authorize()?;
+    // The operation ledger is what keeps a headless CLI and this engine from
+    // interleaving on the same node: whoever loses this claim waits instead
+    // of racing, and the guard closes the claim on every exit path.
+    // Held for its Drop: the claim closes on every exit path below.
+    let _operation = state
+        .repository
+        .begin_node_operation_guarded(action_kind(action), &node.id)?;
     if state.repository.list_plugin_states(&node.id)? != plugins {
         anyhow::bail!("plugin configuration changed while preparing launch; reload and retry");
     }
@@ -243,6 +260,12 @@ pub(crate) fn stop_node_guarded(
         anyhow::bail!("node state changed before stop; reload and retry");
     }
     authorize()?;
+    // Same ledger the launch path claims: a stop racing a start on the same
+    // node from a different process is refused, not interleaved.
+    // Held for its Drop: the claim closes on every exit path below.
+    let _operation = state
+        .repository
+        .begin_node_operation_guarded("stop", &node.id)?;
     // Keep process control and the persisted status in the same critical section.
     let outcome = match supervisor.stop(&node.id)? {
         Some(stop) => PidStop::Stopped(stop),
@@ -287,6 +310,7 @@ pub(crate) fn stop_node_guarded(
 pub struct Engine {
     stop: Arc<AtomicBool>,
     worker: Option<JoinHandle<()>>,
+    heartbeat: crate::supervision_heartbeat::SupervisionHeartbeat,
 }
 
 impl Engine {
@@ -298,18 +322,40 @@ impl Engine {
         loop_state.reconcile_startup(&state);
         let stop = Arc::new(AtomicBool::new(false));
         let closing = Arc::clone(&stop);
+        let heartbeat = state.heartbeat.clone();
+        // The first stamp is synchronous: a guardian that has begun reports
+        // running even before its thread's first tick lands.
+        heartbeat.beat();
+        let loop_heartbeat = heartbeat.clone();
         let worker = thread::Builder::new()
             .name("neonexus-supervision".to_string())
             .spawn(move || {
+                loop_heartbeat.beat();
                 while !closing.load(Ordering::Relaxed) {
                     loop_state.tick(&state);
+                    loop_heartbeat.beat();
                     thread::sleep(TICK);
                 }
             });
+        let worker = match worker {
+            Ok(worker) => Some(worker),
+            Err(error) => {
+                // Used to be swallowed into `None`: the web process reported
+                // healthy while nothing supervised the fleet.
+                heartbeat.mark_failed(format!("supervision thread did not start: {error}"));
+                None
+            }
+        };
         Self {
             stop,
-            worker: worker.ok(),
+            worker,
+            heartbeat,
         }
+    }
+
+    /// The handle whose verdict /healthz reports.
+    pub fn heartbeat(&self) -> crate::supervision_heartbeat::SupervisionHeartbeat {
+        self.heartbeat.clone()
     }
 }
 

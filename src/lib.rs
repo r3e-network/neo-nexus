@@ -39,6 +39,7 @@ pub mod snapshots;
 pub mod source_purity;
 pub mod source_quality;
 pub mod supervision;
+pub mod supervision_heartbeat;
 pub mod supervisor;
 pub mod support_bundle;
 pub mod types;

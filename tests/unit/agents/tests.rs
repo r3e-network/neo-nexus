@@ -14,6 +14,7 @@ fn fixture() -> (
                 std::time::Duration::from_millis(50),
             ),
         )),
+        heartbeat: crate::supervision_heartbeat::SupervisionHeartbeat::new(),
     };
     let profile = AgentProfile {
         id: "worker".into(),

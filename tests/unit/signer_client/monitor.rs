@@ -20,6 +20,7 @@ fn engine(dir: &std::path::Path) -> EngineState {
         repository: Repository::open(dir.join("monitor.db")).unwrap(),
         data_dir: dir.into(),
         supervisor: Arc::new(Mutex::new(ProcessSupervisor::default())),
+        heartbeat: crate::supervision_heartbeat::SupervisionHeartbeat::new(),
     }
 }
 
