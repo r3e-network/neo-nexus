@@ -1,0 +1,27 @@
+[Unit]
+Description=NeoNexus node operations workbench
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Set an absolute path to the release binary in the deployment environment.
+ExecStart=/opt/neo-nexus/neo-nexus --web --bind 127.0.0.1 --port 8080
+WorkingDirectory=/var/lib/neo-nexus
+Environment=NEONEXUS_DATA_DIR=/var/lib/neo-nexus
+# Credentials are deliberately not in this unit. Use a systemd EnvironmentFile
+# readable only by the service account, or an external secret provider.
+EnvironmentFile=-/etc/neo-nexus/credentials.env
+User=neo-nexus
+Group=neo-nexus
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/neo-nexus
+
+[Install]
+WantedBy=multi-user.target
