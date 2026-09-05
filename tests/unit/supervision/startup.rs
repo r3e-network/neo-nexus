@@ -83,9 +83,9 @@ fn corrupt_progress_replays_actual_backlog_deliveries_and_records_a_diagnostic()
         .unwrap();
     let (url, received) = webhook(4);
     enable_alerts(&state, url);
-    let mut loop_state = LoopState::bootstrap(&state);
-    assert_eq!(loop_state.last_routed_event, 0);
-    loop_state.route_alerts(&state);
+    let mut worker = NotificationWorker::bootstrap(&state);
+    assert_eq!(worker.last_routed_event, 0);
+    worker.tick(&state);
     assert_eq!(received.join().unwrap(), 4);
     let deliveries = state.repository.list_alert_deliveries(10).unwrap();
     for id in 1..=4 {
@@ -100,7 +100,7 @@ fn corrupt_progress_replays_actual_backlog_deliveries_and_records_a_diagnostic()
         .any(|event| event.kind == EventKind::RuntimeRecovered
             && event.severity == EventSeverity::Critical
             && event.message.contains("oldest retained event")));
-    assert_eq!(LoopState::bootstrap(&state).last_routed_event, 4);
+    assert_eq!(NotificationWorker::bootstrap(&state).last_routed_event, 4);
 }
 
 #[test]
@@ -112,7 +112,7 @@ fn invalid_cursor_ranges_cannot_skip_future_events() {
             .repository
             .save_alert_progress(cursor, &BTreeMap::new())
             .unwrap();
-        assert_eq!(LoopState::bootstrap(&state).last_routed_event, 0);
+        assert_eq!(NotificationWorker::bootstrap(&state).last_routed_event, 0);
     }
 }
 
@@ -221,12 +221,12 @@ fn engine_initial_start_routes_recovery_alert_and_respects_disabled_restarts() {
         NodeStatus::Crashed,
         "recovery must finish before start returns"
     );
+    drop(engine);
     assert_eq!(
         received.join().unwrap(),
         1,
-        "first-time cursor initialization must not discard recovery alerts"
+        "notification worker must retain recovery alerts"
     );
-    drop(engine);
     assert_eq!(state.nodes()[0].status, NodeStatus::Crashed);
     assert!(state.nodes()[0].pid.is_none());
 }

@@ -15,6 +15,7 @@ fn fixture() -> (
             ),
         )),
         heartbeat: crate::supervision_heartbeat::SupervisionHeartbeat::new(),
+        notifications: crate::supervision_heartbeat::SupervisionHeartbeat::new(),
     };
     let profile = AgentProfile {
         id: "worker".into(),

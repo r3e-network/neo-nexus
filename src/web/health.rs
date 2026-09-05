@@ -14,8 +14,10 @@ pub async fn healthz(State(state): State<WebState>) -> Response {
     // A green process line meant nothing while the guardian thread could fail
     // to start or stall silently; the heartbeat turns that into a verdict.
     let supervision = state.supervision.evaluate();
-    let status = match supervision.liveness {
-        crate::supervision_heartbeat::SupervisionLiveness::Failed => "degraded",
+    let notifications = state.notifications.evaluate();
+    let status = match (supervision.liveness, notifications.liveness) {
+        (crate::supervision_heartbeat::SupervisionLiveness::Failed, _)
+        | (_, crate::supervision_heartbeat::SupervisionLiveness::Failed) => "degraded",
         _ => "ok",
     };
     let mut body = serde_json::json!({
@@ -23,9 +25,13 @@ pub async fn healthz(State(state): State<WebState>) -> Response {
         "application": "NeoNexus",
         "version": env!("CARGO_PKG_VERSION"),
         "supervision": supervision.liveness,
+        "notifications": notifications.liveness,
     });
     if let Some(detail) = supervision.detail {
         body["supervision_detail"] = serde_json::Value::String(detail);
+    }
+    if let Some(detail) = notifications.detail {
+        body["notifications_detail"] = serde_json::Value::String(detail);
     }
     Json(body).into_response()
 }

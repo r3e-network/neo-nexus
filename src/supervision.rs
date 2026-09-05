@@ -87,6 +87,10 @@ pub struct EngineState {
     /// Stamped by the loop every tick; /healthz turns it into a verdict. A
     /// guardian whose own liveness is invisible cannot be trusted end to end.
     pub heartbeat: crate::supervision_heartbeat::SupervisionHeartbeat,
+    /// Stamped by the notification worker every delivery cycle. Webhook
+    /// delivery is its own thread, so a wedged endpoint can never block the
+    /// loop that makes recovery decisions — but the stall must stay visible.
+    pub notifications: crate::supervision_heartbeat::SupervisionHeartbeat,
 }
 
 impl EngineState {
@@ -310,7 +314,9 @@ pub(crate) fn stop_node_guarded(
 pub struct Engine {
     stop: Arc<AtomicBool>,
     worker: Option<JoinHandle<()>>,
+    notifier: Option<JoinHandle<()>>,
     heartbeat: crate::supervision_heartbeat::SupervisionHeartbeat,
+    notifications: crate::supervision_heartbeat::SupervisionHeartbeat,
 }
 
 impl Engine {
@@ -319,10 +325,13 @@ impl Engine {
         // crash still claims nodes are Running, and the operator should never
         // see a status the host does not back.
         let mut loop_state = LoopState::bootstrap(&state);
+        let mut notifier = NotificationWorker::bootstrap(&state);
         loop_state.reconcile_startup(&state);
         let stop = Arc::new(AtomicBool::new(false));
+
         let closing = Arc::clone(&stop);
         let heartbeat = state.heartbeat.clone();
+        let supervision_state = state.clone();
         // The first stamp is synchronous: a guardian that has begun reports
         // running even before its thread's first tick lands.
         heartbeat.beat();
@@ -332,7 +341,7 @@ impl Engine {
             .spawn(move || {
                 loop_heartbeat.beat();
                 while !closing.load(Ordering::Relaxed) {
-                    loop_state.tick(&state);
+                    loop_state.tick(&supervision_state);
                     loop_heartbeat.beat();
                     thread::sleep(TICK);
                 }
@@ -346,16 +355,49 @@ impl Engine {
                 None
             }
         };
+
+        // Notification is its own thread so a wedged webhook cannot stall the
+        // recovery loop. Its heartbeat is reported separately by /healthz.
+        let notify_closing = Arc::clone(&stop);
+        let notification_state = state.clone();
+        let notifications = state.notifications.clone();
+        notifications.beat();
+        let notify_heartbeat = notifications.clone();
+        let notifier_handle = thread::Builder::new()
+            .name("neonexus-notifications".to_string())
+            .spawn(move || {
+                notify_heartbeat.beat();
+                while !notify_closing.load(Ordering::Relaxed) {
+                    notifier.tick(&notification_state);
+                    notify_heartbeat.beat();
+                    thread::sleep(TICK);
+                }
+            });
+        let notifier = match notifier_handle {
+            Ok(handle) => Some(handle),
+            Err(error) => {
+                notifications.mark_failed(format!("notification thread did not start: {error}"));
+                None
+            }
+        };
+
         Self {
             stop,
             worker,
+            notifier,
             heartbeat,
+            notifications,
         }
     }
 
     /// The handle whose verdict /healthz reports.
     pub fn heartbeat(&self) -> crate::supervision_heartbeat::SupervisionHeartbeat {
         self.heartbeat.clone()
+    }
+
+    /// The handle whose verdict /healthz reports for alert delivery.
+    pub fn notifications(&self) -> crate::supervision_heartbeat::SupervisionHeartbeat {
+        self.notifications.clone()
     }
 }
 
@@ -364,6 +406,9 @@ impl Drop for Engine {
         self.stop.store(true, Ordering::Relaxed);
         if let Some(worker) = self.worker.take() {
             let _ = worker.join();
+        }
+        if let Some(notifier) = self.notifier.take() {
+            let _ = notifier.join();
         }
     }
 }
@@ -377,13 +422,6 @@ struct LoopState {
     recovery_error: Option<String>,
     rpc_last_probe: BTreeMap<String, Instant>,
     federation_last_probe: BTreeMap<String, Instant>,
-    /// Highest journal id already offered to the alert route. New workspaces
-    /// begin at the latest event; unreadable progress replays retained events.
-    last_routed_event: i64,
-    /// Delivery attempts per still-undelivered event. A failed webhook is
-    /// retried on the next ticks up to [`ALERT_DELIVERY_MAX_ATTEMPTS`]; the
-    /// map only ever holds the events between retries, so it stays tiny.
-    alert_failures: BTreeMap<i64, usize>,
 }
 
 impl LoopState {
@@ -392,7 +430,6 @@ impl LoopState {
             .repository
             .load_watchdog_policy()
             .unwrap_or_else(|_| default_restart_policy());
-        let (cursor, alert_failures) = startup::alert_progress(state);
         let mut engine = Self {
             signer: crate::signer_client::SignerMonitor::bootstrap(),
             resources: crate::resource_health::ResourceMonitor::default(),
@@ -400,8 +437,6 @@ impl LoopState {
             recovery_error: None,
             rpc_last_probe: BTreeMap::new(),
             federation_last_probe: BTreeMap::new(),
-            last_routed_event: cursor,
-            alert_failures,
         };
         engine.initialize_recovery(state);
         engine
@@ -417,7 +452,6 @@ impl LoopState {
         self.probe_rpc_health(state);
         self.probe_federation(state);
         self.resources.tick(&state.repository);
-        self.route_alerts(state);
     }
 
     fn sync_policy(&mut self, state: &EngineState) {
@@ -749,16 +783,43 @@ impl LoopState {
             });
         }
     }
+}
 
-    /// Offer anything new since the last scan to the configured alert route.
-    /// Up to [`MAX_ALERT_DELIVERIES_PER_TICK`] deliveries per tick, oldest
-    /// first, so a burst of events drains instead of queuing behind one-per-
-    /// second. A failed delivery is retried on later ticks up to
+/// Delivers journal events to the configured alert route, on its own thread.
+///
+/// Webhook delivery is network I/O with a real timeout, and a wedged endpoint
+/// must not hold back the loop that decides whether a crashed node comes back.
+/// The worker therefore owns the delivery cursor and per-event attempt counts
+/// and runs independently; its own heartbeat is what /healthz reports as the
+/// notification verdict, so a dead notification thread cannot hide behind a
+/// green supervision line.
+struct NotificationWorker {
+    /// Highest journal id already offered to the alert route. New workspaces
+    /// begin at the latest event; unreadable progress replays retained events.
+    last_routed_event: i64,
+    /// Delivery attempts per still-undelivered event. A failed webhook is
+    /// retried on later cycles up to [`ALERT_DELIVERY_MAX_ATTEMPTS`]; the map
+    /// only ever holds the events between retries, so it stays tiny.
+    alert_failures: BTreeMap<i64, usize>,
+}
+
+impl NotificationWorker {
+    fn bootstrap(state: &EngineState) -> Self {
+        let (cursor, alert_failures) = startup::alert_progress(state);
+        Self {
+            last_routed_event: cursor,
+            alert_failures,
+        }
+    }
+
+    /// One delivery cycle. Up to [`MAX_ALERT_DELIVERIES_PER_TICK`] deliveries,
+    /// oldest first, so a burst drains instead of queuing behind one-per-
+    /// second. A failed delivery is retried on later cycles up to
     /// [`ALERT_DELIVERY_MAX_ATTEMPTS`] attempts — each one a row in the
-    /// deliveries table — and the first failure ends the tick, so a webhook
+    /// deliveries table — and the first failure ends the cycle, so a webhook
     /// that just went down is not hammered for the whole batch. The journal
     /// keeps the backlog visible throughout.
-    fn route_alerts(&mut self, state: &EngineState) {
+    fn tick(&mut self, state: &EngineState) {
         let Ok(policy) = state.repository.load_alert_routing_policy() else {
             return;
         };
@@ -776,7 +837,7 @@ impl LoopState {
             if !should_route_alert(&policy, &event) {
                 self.alert_failures.remove(&event.id);
                 self.last_routed_event = event.id;
-                self.persist_alert_progress(state);
+                self.persist(state);
                 continue;
             }
             let report = deliver_webhook_alert(&policy, &event, env!("CARGO_PKG_VERSION"));
@@ -786,7 +847,7 @@ impl LoopState {
             if report.status != AlertDeliveryStatus::Failed {
                 self.alert_failures.remove(&event.id);
                 self.last_routed_event = event.id;
-                self.persist_alert_progress(state);
+                self.persist(state);
                 continue;
             }
             let attempts = self.alert_failures.entry(event.id).or_insert(0);
@@ -799,13 +860,13 @@ impl LoopState {
                 self.last_routed_event = event.id;
             } else {
                 // Wind the cursor back so this exact event is retried first
-                // on the next tick, and stop delivering for this tick — a
+                // on the next cycle, and stop delivering for this cycle — a
                 // webhook that just failed does not need hammering.
                 self.last_routed_event = event.id - 1;
-                self.persist_alert_progress(state);
+                self.persist(state);
                 break;
             }
-            self.persist_alert_progress(state);
+            self.persist(state);
         }
         let _ = state
             .repository
@@ -814,7 +875,7 @@ impl LoopState {
         // Alerts page already renders; the journal is for state changes.
     }
 
-    fn persist_alert_progress(&self, state: &EngineState) {
+    fn persist(&self, state: &EngineState) {
         if let Err(error) = state
             .repository
             .save_alert_progress(self.last_routed_event, &self.alert_failures)

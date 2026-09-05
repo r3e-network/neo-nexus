@@ -12,6 +12,7 @@ fn fixture() -> (tempfile::TempDir, EngineState) {
         data_dir: dir.path().to_path_buf(),
         supervisor: Arc::new(Mutex::new(ProcessSupervisor::default())),
         heartbeat: crate::supervision_heartbeat::SupervisionHeartbeat::new(),
+        notifications: crate::supervision_heartbeat::SupervisionHeartbeat::new(),
     };
     (dir, state)
 }
@@ -35,19 +36,19 @@ fn event(state: &EngineState, timestamp: u64) {
 #[test]
 fn drains_bursts_in_insertion_order_and_resumes_after_restart() {
     let (_dir, state) = fixture();
-    let mut engine = LoopState::bootstrap(&state);
+    let mut engine = NotificationWorker::bootstrap(&state);
     for n in 0..60 {
         event(&state, 100 - n);
     }
-    engine.route_alerts(&state);
+    engine.tick(&state);
     assert_eq!(
         engine.last_routed_event, 8,
         "must not skip beyond the oldest batch"
     );
-    let mut resumed = LoopState::bootstrap(&state);
+    let mut resumed = NotificationWorker::bootstrap(&state);
     assert_eq!(resumed.last_routed_event, 8);
     for _ in 0..7 {
-        resumed.route_alerts(&state);
+        resumed.tick(&state);
     }
     assert_eq!(resumed.last_routed_event, 60);
     assert!(state
@@ -73,17 +74,17 @@ fn retry_limit_survives_restart_and_does_not_lose_the_failed_event_in_a_burst() 
             timeout_seconds: 1,
         })
         .unwrap();
-    let mut engine = LoopState::bootstrap(&state);
+    let mut engine = NotificationWorker::bootstrap(&state);
     event(&state, 100);
-    engine.route_alerts(&state);
+    engine.tick(&state);
     assert_eq!(engine.alert_failures.get(&1), Some(&1));
     for n in 0..30 {
         event(&state, 101 + n);
     }
-    let mut resumed = LoopState::bootstrap(&state);
-    resumed.route_alerts(&state);
+    let mut resumed = NotificationWorker::bootstrap(&state);
+    resumed.tick(&state);
     assert_eq!(resumed.alert_failures.get(&1), Some(&2));
-    resumed.route_alerts(&state);
+    resumed.tick(&state);
     assert!(!resumed.alert_failures.contains_key(&1));
     assert!(resumed.last_routed_event >= 1);
     let deliveries = state.repository.list_alert_deliveries(50).unwrap();

@@ -14,6 +14,7 @@ fn state(path: &std::path::Path) -> EngineState {
         data_dir: path.into(),
         supervisor: Arc::new(Mutex::new(ProcessSupervisor::default())),
         heartbeat: neo_nexus::supervision_heartbeat::SupervisionHeartbeat::new(),
+        notifications: neo_nexus::supervision_heartbeat::SupervisionHeartbeat::new(),
     }
 }
 
