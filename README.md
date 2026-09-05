@@ -219,6 +219,13 @@ Tests are kept out of `src/` so the source tree reads as production only:
 - [Runtime catalog example](docs/runtime-catalog.example.json) and
   [snapshot catalog example](docs/snapshot-catalog.example.json) are importable
   schema samples for Runtime Manager and Fast Sync workflows.
+- [Client acceptance matrix](docs/client-acceptance.md) defines the real
+  five-client soak, signer, upgrade, kill/recovery and evidence contract;
+  `scripts/client-acceptance-matrix.sh` executes it when those binaries and a
+  live network are supplied.
+- [OS service deployment](deploy/systemd/neo-nexus.service) provides a
+  credential-free systemd unit and installer; `deploy/windows/install-service.ps1`
+  installs the equivalent Windows service.
 
 ## Current Gaps
 
