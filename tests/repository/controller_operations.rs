@@ -93,6 +93,61 @@ fn concurrent_connections_allow_only_one_active_claim() {
 }
 
 #[test]
+fn a_reused_pid_cannot_be_written_by_a_fenced_claim() {
+    let (_home, repo) = open_repo();
+    let old = repo
+        .begin_controller_operation("node", "node-reused", "start", "running", 1_000)
+        .expect("old claim");
+    // The old owner spawns and records a PID.
+    repo.record_spawned_process(&old, 123, Some(1_010), 1_010)
+        .expect("old spawn");
+    // Then the manager dies and a fresh controller reclaims after the window.
+    let fresh = repo
+        .begin_controller_operation("node", "node-reused", "start", "running", 1_131)
+        .expect("reclaim");
+    assert_ne!(fresh.generation, old.generation);
+    // The old token must not record the replacement PID.
+    assert!(!repo
+        .record_spawned_process(&old, 456, Some(1_200), 1_200)
+        .expect("old spawn write is refused"));
+}
+
+#[test]
+fn startup_reconcile_fences_a_stale_reserved_operation() {
+    let (_home, repo) = open_repo();
+    // A controller was killed after reserving but before spawning a process.
+    let _stale = repo
+        .begin_controller_operation("node", "node-orphan", "start", "running", 1_000)
+        .expect("reserved operation");
+    // A fresh controller starts after the lease window.
+    let summary = repo
+        .reconcile_pending_controller_operations(1_000 + 121)
+        .expect("startup reconcile");
+    assert_eq!(summary.pending, 0, "stale reserved operation is fenced");
+    // The orphan no longer blocks a fresh start claim.
+    let fresh = repo
+        .begin_controller_operation("node", "node-orphan", "start", "running", 1_130)
+        .expect("fresh start claim succeeds after reconcile");
+    assert_eq!(fresh.generation, 2);
+}
+
+#[test]
+fn reconcile_reclaims_a_spawned_orphan_after_the_window() {
+    let (_home, repo) = open_repo();
+    let orphan = repo
+        .begin_controller_operation("node", "node-spawned", "start", "running", 1_000)
+        .expect("claim");
+    repo.record_spawned_process(&orphan, 777, Some(1_010), 1_010)
+        .expect("spawned orphan");
+    // The spawn advanced updated_at to 1_010; reconcile must treat it stale
+    // only once it is 120s behind the reconcile time.
+    let reclaimed = repo
+        .reconcile_pending_controller_operations(1_130)
+        .expect("reconcile");
+    assert_eq!(reclaimed.pending, 0);
+}
+
+#[test]
 fn spawned_phase_requires_the_reserved_owner_and_is_fenced() {
     let (_home, repo) = open_repo();
     let operation = repo
