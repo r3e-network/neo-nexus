@@ -28,6 +28,7 @@ pub mod private_network;
 pub mod readiness_report;
 pub mod redaction;
 pub mod release_pack;
+pub mod release_transaction;
 pub mod repository;
 pub mod resource_health;
 pub mod roles;

@@ -78,6 +78,7 @@ const USAGE_LINES: &[&str] = &[
     "  neo-nexus --agent-stop <neonexus.db> <agent-id>",
     "  neo-nexus --agent-restart <neonexus.db> <agent-id>",
     "  neo-nexus --agent-list <neonexus.db>",
+    "  neo-nexus --release-transaction <neonexus.db> <node-name> <runtime-version>",
 ];
 
 const APPLICATION_MODE_LINES: &[&str] = &[
@@ -151,6 +152,7 @@ const OPTION_LINES: &[&str] = &[
     "  --agent-start / --agent-stop Start or stop a managed companion/Hermes agent",
     "  --agent-restart              Restart a managed companion/Hermes agent",
     "  --agent-list                 List managed companions and Hermes agents",
+    "  --release-transaction        Apply a runtime upgrade as one rollback-able release",
     "  --help                       Print this help and exit",
 ];
 

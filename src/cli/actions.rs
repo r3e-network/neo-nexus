@@ -48,6 +48,7 @@ mod launch_pack;
 mod node_control;
 mod quality;
 mod release;
+mod release_transaction;
 mod reports;
 mod suggest;
 mod wallet;
@@ -58,7 +59,8 @@ pub(super) use self::config::GeneratedNodeConfigReport;
 pub(super) use self::dispatcher::action_from_args_vec;
 use self::{
     agent::*, alerts::*, backup::*, chain::*, completions::*, config::*, health::*, launch_pack::*,
-    node_control::*, quality::*, release::*, reports::*, wallet::*, workspace::*,
+    node_control::*, quality::*, release::*, release_transaction::*, reports::*, wallet::*,
+    workspace::*,
 };
 
 fn current_unix_time() -> Result<u64> {
