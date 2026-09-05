@@ -184,11 +184,13 @@ pub(crate) fn launch_node_guarded(
     authorize()?;
     // The operation ledger is what keeps a headless CLI and this engine from
     // interleaving on the same node: whoever loses this claim waits instead
-    // of racing, and the guard closes the claim on every exit path.
-    // Held for its Drop: the claim closes on every exit path below.
-    let _operation = state
-        .repository
-        .begin_node_operation_guarded(action_kind(action), &node.id)?;
+    // of racing, and the fenced lease closes on every exit path.
+    let mut operation = state.repository.begin_controller_lease(
+        "node",
+        &node.id,
+        action_kind(action),
+        "running",
+    )?;
     if state.repository.list_plugin_states(&node.id)? != plugins {
         anyhow::bail!("plugin configuration changed while preparing launch; reload and retry");
     }
@@ -214,6 +216,12 @@ pub(crate) fn launch_node_guarded(
 
     match outcome {
         crate::core::lifecycle::NodeLaunchOutcome::Started { pid, log_path } => {
+            if !operation.record_spawned(pid, None)? {
+                anyhow::bail!("controller lease was fenced after node PID {pid} was spawned");
+            }
+            if !operation.complete()? {
+                anyhow::bail!("controller lease was fenced before node PID {pid} was committed");
+            }
             let message = format!(
                 "{}{} launched with PID {}; log {}",
                 if replaced {
@@ -265,11 +273,11 @@ pub(crate) fn stop_node_guarded(
     }
     authorize()?;
     // Same ledger the launch path claims: a stop racing a start on the same
-    // node from a different process is refused, not interleaved.
-    // Held for its Drop: the claim closes on every exit path below.
-    let _operation = state
+    // node from a different process is refused, not interleaved. The fenced
+    // lease prevents a stale stopper from clearing a replacement's state.
+    let operation = state
         .repository
-        .begin_node_operation_guarded("stop", &node.id)?;
+        .begin_controller_lease("node", &node.id, "stop", "stopped")?;
     // Keep process control and the persisted status in the same critical section.
     let outcome = match supervisor.stop(&node.id)? {
         Some(stop) => PidStop::Stopped(stop),
@@ -291,12 +299,14 @@ pub(crate) fn stop_node_guarded(
                 EventSeverity::Info,
                 message.clone(),
             );
+            operation.complete()?;
             Ok(message)
         }
         PidStop::AlreadyGone => {
             state
                 .repository
                 .update_node_status(&node.id, NodeStatus::Stopped, None)?;
+            operation.complete()?;
             Ok(format!("{} was not running", node.name))
         }
         // The number is held by something else now. We cannot know whether this
@@ -326,6 +336,9 @@ impl Engine {
         // see a status the host does not back.
         let mut loop_state = LoopState::bootstrap(&state);
         let mut notifier = NotificationWorker::bootstrap(&state);
+        let _ = state
+            .repository
+            .reconcile_pending_controller_operations(crate::web::time::now_unix());
         loop_state.reconcile_startup(&state);
         let stop = Arc::new(AtomicBool::new(false));
 

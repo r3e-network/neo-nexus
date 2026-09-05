@@ -31,5 +31,11 @@ pub(in crate::repository::schema) fn create_indexes(connection: &Connection) -> 
          ON operations (node_id, state)",
         [],
     )?;
+    connection.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_operations_active_subject
+         ON operations (subject_kind, subject_id)
+         WHERE phase IN ('requested', 'reserved', 'spawned') AND state = 'running'",
+        [],
+    )?;
     Ok(())
 }

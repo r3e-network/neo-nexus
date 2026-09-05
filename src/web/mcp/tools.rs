@@ -20,6 +20,8 @@ const READ_TOOLS: &[(&str, &str)] = &[
     ("node_events", "Read the latest node events, including recovery attempts and alarms."),
     ("node_plugins", "Read configured plugin activation and installed versions."),
     ("node_config_conflicts", "List pending configuration conflicts without exposing file contents. Resolve conflicts in the workbench."),
+    ("agents_list", "List managed companions and Hermes agents with status, desired state and health."),
+    ("agent_status", "Read one managed companion or Hermes agent status."),
 ];
 const WRITE_TOOLS: &[(&str, &str)] = &[
     (
@@ -34,15 +36,33 @@ const WRITE_TOOLS: &[(&str, &str)] = &[
         "node_restart",
         "Restart an authorized node through the shared guarded lifecycle pipeline.",
     ),
+    (
+        "agent_start",
+        "Start an authorized managed companion or Hermes agent.",
+    ),
+    (
+        "agent_stop",
+        "Stop an authorized managed companion or Hermes agent.",
+    ),
+    (
+        "agent_restart",
+        "Restart an authorized managed companion or Hermes agent.",
+    ),
 ];
 
 pub(super) fn catalog(can_operate: bool, all_nodes: bool) -> Vec<Value> {
     READ_TOOLS.iter().chain(WRITE_TOOLS.iter().filter(|_| can_operate))
         .filter(|(name,_)| *name != "fleet_resources" || all_nodes)
         .map(|(name, description)| {
-            let fleet = matches!(*name, "nodes_list" | "fleet_resources");
+            let fleet = matches!(*name, "nodes_list" | "fleet_resources" | "agents_list");
             let mut properties = json!({});
-            if !fleet { properties["node_id"] = json!({"type":"string","description":"Authorized node id from nodes_list"}); }
+            if !fleet {
+                properties["node_id"] = json!({"type":"string","description":"Authorized node id from nodes_list"});
+                if name.starts_with("agent_") || *name == "agent_status" {
+                    properties["agent_id"] = json!({"type":"string","description":"Managed agent id from agents_list"});
+                    properties.as_object_mut().unwrap().remove("node_id");
+                }
+            }
             if matches!(*name, "node_logs" | "node_events") {
                 properties["limit"] = json!({"type":"integer","minimum":1,"maximum":200,"default":50});
             }
@@ -77,7 +97,8 @@ pub(super) fn call(
         .as_object()
         .ok_or((-32602, "arguments must be an object"))?;
     if object.keys().any(|key| {
-        !(key == "node_id" && !matches!(name, "nodes_list" | "fleet_resources")
+        !(key == "node_id" && !matches!(name, "nodes_list" | "fleet_resources" | "agents_list")
+            || key == "agent_id" && (name.starts_with("agent_") || name == "agent_status")
             || key == "limit" && matches!(name, "node_logs" | "node_events"))
     }) {
         return Err((-32602, "Unknown tool argument"));
@@ -91,12 +112,25 @@ pub(super) fn call(
         }
     }
     let node_id = arguments.get("node_id").and_then(Value::as_str);
-    if !matches!(name, "nodes_list" | "fleet_resources") && node_id.is_none_or(str::is_empty) {
+    let agent_id = arguments.get("agent_id").and_then(Value::as_str);
+    let is_agent_tool = name.starts_with("agent_");
+    if is_agent_tool && agent_id.is_none_or(str::is_empty) {
+        return Err((-32602, "Missing agent_id"));
+    }
+    if !is_agent_tool
+        && !matches!(name, "nodes_list" | "fleet_resources" | "agents_list")
+        && node_id.is_none_or(str::is_empty)
+    {
         return Err((-32602, "Missing node_id"));
     }
-    let permitted = node_id.is_none_or(|id| grant.allows_node(id))
-        && (name != "fleet_resources" || grant.all_nodes)
-        && (grant.can_operate || !WRITE_TOOLS.iter().any(|(tool, _)| *tool == name));
+    let agent_allowed = agent_id.is_some_and(|id| state_agent_allowed(state, grant, id));
+    let permitted = if is_agent_tool {
+        agent_allowed && grant.can_operate
+    } else {
+        node_id.is_none_or(|id| grant.allows_node(id))
+            && (name != "fleet_resources" || grant.all_nodes)
+            && (grant.can_operate || !WRITE_TOOLS.iter().any(|(tool, _)| *tool == name))
+    };
     // Record intent before any effect. A journal failure refuses the operation.
     journal(
         state,
@@ -153,6 +187,74 @@ fn journal(
     Ok(())
 }
 
+fn state_agent_allowed(state: &WebState, grant: &AssistantProfile, id: &str) -> bool {
+    state
+        .repository
+        .list_agents()
+        .ok()
+        .and_then(|agents| agents.into_iter().find(|agent| agent.profile.id == id))
+        .is_some_and(|agent| {
+            grant.all_nodes
+                || agent
+                    .profile
+                    .node_id
+                    .as_deref()
+                    .is_some_and(|node_id| grant.allows_node(node_id))
+        })
+}
+
+fn execute_agent(
+    state: &WebState,
+    grant: &AssistantProfile,
+    name: &str,
+    args: &Value,
+) -> Result<Value> {
+    if name == "agents_list" {
+        let agents = state.repository.list_agents()?;
+        return Ok(json!(agents
+            .into_iter()
+            .filter(|agent| {
+                grant.all_nodes
+                    || agent
+                        .profile
+                        .node_id
+                        .as_deref()
+                        .is_some_and(|node_id| grant.allows_node(node_id))
+            })
+            .map(serde_json::to_value)
+            .collect::<Result<Vec<_>, _>>()?));
+    }
+    let id = args["agent_id"]
+        .as_str()
+        .context("Authorized agent id is required")?;
+    if !state_agent_allowed(state, grant, id) {
+        bail!("Assistant permission does not allow this agent");
+    }
+    let record = state
+        .repository
+        .list_agents()?
+        .into_iter()
+        .find(|agent| agent.profile.id == id)
+        .context("Authorized agent no longer exists")?;
+    match name {
+        "agent_status" => Ok(serde_json::to_value(record)?),
+        "agent_start" => {
+            crate::core::agents::start(&state.engine_state(), id)?;
+            Ok(json!({"message": format!("agent {id} start requested")}))
+        }
+        "agent_stop" => {
+            crate::core::agents::stop(&state.engine_state(), id)?;
+            Ok(json!({"message": format!("agent {id} stop requested")}))
+        }
+        "agent_restart" => {
+            crate::core::agents::stop(&state.engine_state(), id)?;
+            crate::core::agents::start(&state.engine_state(), id)?;
+            Ok(json!({"message": format!("agent {id} restart requested")}))
+        }
+        _ => bail!("Unknown agent tool"),
+    }
+}
+
 fn execute(
     state: &WebState,
     grant: &AssistantProfile,
@@ -160,6 +262,9 @@ fn execute(
     name: &str,
     args: &Value,
 ) -> Result<Value> {
+    if name.starts_with("agent_") || name == "agents_list" {
+        return execute_agent(state, grant, name, args);
+    }
     if name == "fleet_resources" {
         let policy = state.repository.load_resource_policy()?;
         let report = state.repository.latest_resource_report()?;

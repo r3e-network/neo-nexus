@@ -74,6 +74,10 @@ const USAGE_LINES: &[&str] = &[
     "  neo-nexus --node-restart <neonexus.db> <node-name>",
     "  neo-nexus --node-status <neonexus.db> <node-name>",
     "  neo-nexus --node-list <neonexus.db>",
+    "  neo-nexus --agent-start <neonexus.db> <agent-id>",
+    "  neo-nexus --agent-stop <neonexus.db> <agent-id>",
+    "  neo-nexus --agent-restart <neonexus.db> <agent-id>",
+    "  neo-nexus --agent-list <neonexus.db>",
 ];
 
 const APPLICATION_MODE_LINES: &[&str] = &[
@@ -144,6 +148,9 @@ const OPTION_LINES: &[&str] = &[
     "  --node-restart               Restart a node headlessly via the shared core path",
     "  --node-status                Print a detailed single-node report (status, ports, RPC health)",
     "  --node-list                  List all nodes in a workspace as a compact table",
+    "  --agent-start / --agent-stop Start or stop a managed companion/Hermes agent",
+    "  --agent-restart              Restart a managed companion/Hermes agent",
+    "  --agent-list                 List managed companions and Hermes agents",
     "  --help                       Print this help and exit",
 ];
 

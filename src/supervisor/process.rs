@@ -57,10 +57,6 @@ impl ProcessSupervisor {
         self.children.contains_key(node_id)
     }
 
-    pub(crate) fn managed_pid(&self, node_id: &str) -> Option<u32> {
-        self.children.get(node_id).map(ManagedChild::pid)
-    }
-
     /// Every node this supervisor can control.
     pub fn managed_node_ids(&self) -> Vec<String> {
         self.children.keys().cloned().collect()

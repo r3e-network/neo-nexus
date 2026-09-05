@@ -54,6 +54,7 @@ mod settings_keys;
 use self::helpers::*;
 pub(crate) use self::helpers::{validate_backup_setting_key, validate_node_config};
 pub use self::model::{RestoreNodeOutcome, RestoredRuntimeEvent, WorkspaceSetting};
+pub use self::operations::{ControllerLease, ControllerOperation, ControllerReconcileSummary};
 use self::rows::*;
 use self::settings_keys::*;
 

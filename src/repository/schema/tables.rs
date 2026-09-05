@@ -15,8 +15,22 @@ pub(in crate::repository::schema) fn create_tables(connection: &Connection) -> R
         token_sha256 TEXT NOT NULL UNIQUE)")?;
     connection.execute_batch(
         "CREATE TABLE IF NOT EXISTS operations (
-        id TEXT PRIMARY KEY, kind TEXT NOT NULL, node_id TEXT NOT NULL,
-        state TEXT NOT NULL, created_at_unix INTEGER NOT NULL, updated_at_unix INTEGER NOT NULL)",
+        id TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        node_id TEXT,
+        state TEXT NOT NULL,
+        subject_kind TEXT NOT NULL DEFAULT 'node',
+        subject_id TEXT NOT NULL,
+        operation_kind TEXT NOT NULL DEFAULT 'legacy',
+        phase TEXT NOT NULL DEFAULT 'requested',
+        desired_state TEXT,
+        generation INTEGER NOT NULL DEFAULT 0,
+        fencing_token TEXT NOT NULL DEFAULT '',
+        pid INTEGER,
+        process_started_at INTEGER,
+        last_error TEXT,
+        created_at_unix INTEGER NOT NULL,
+        updated_at_unix INTEGER NOT NULL)",
     )?;
     inventory::create_inventory_tables(connection)?;
     observability::create_observability_tables(connection)?;

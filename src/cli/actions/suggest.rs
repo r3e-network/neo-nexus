@@ -58,6 +58,10 @@ pub(super) const KNOWN_OPTIONS: &[&str] = &[
     "--package-release",
     "--verify-release-package",
     "--verify-release-package-json",
+    "--agent-start",
+    "--agent-stop",
+    "--agent-restart",
+    "--agent-list",
 ];
 
 /// Returns the recognized option closest to `unknown`, but only when the edit

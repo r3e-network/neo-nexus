@@ -21,12 +21,13 @@ mod context;
 pub use context::generation_context_for_node;
 
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::{
     catalog::PluginState,
     config::ConfigExporter,
     launch::LaunchPlan,
-    repository::Repository,
+    repository::{ControllerLease, Repository},
     supervisor::{ProcessStart, ProcessSupervisor},
     types::{NodeConfig, NodeStatus},
 };
@@ -68,6 +69,54 @@ pub fn execute_node_launch(
     log_path: impl AsRef<Path>,
     action: LaunchAction,
     managed_config: Option<ManagedConfig<'_>>,
+) -> NodeLaunchOutcome {
+    execute_node_launch_inner(
+        repository,
+        supervisor,
+        node,
+        plan,
+        log_path,
+        action,
+        managed_config,
+        None,
+    )
+}
+
+/// Fenced production variant. The legacy function remains for low-level tests;
+/// all Web/CLI/Hermes controller paths use this variant once they hold a lease.
+#[allow(clippy::too_many_arguments)]
+pub fn execute_node_launch_fenced(
+    repository: &Repository,
+    supervisor: &mut ProcessSupervisor,
+    node: &NodeConfig,
+    plan: &LaunchPlan,
+    log_path: impl AsRef<Path>,
+    action: LaunchAction,
+    managed_config: Option<ManagedConfig<'_>>,
+    operation: &mut ControllerLease<'_>,
+) -> NodeLaunchOutcome {
+    execute_node_launch_inner(
+        repository,
+        supervisor,
+        node,
+        plan,
+        log_path,
+        action,
+        managed_config,
+        Some(operation),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_node_launch_inner(
+    repository: &Repository,
+    supervisor: &mut ProcessSupervisor,
+    node: &NodeConfig,
+    plan: &LaunchPlan,
+    log_path: impl AsRef<Path>,
+    action: LaunchAction,
+    managed_config: Option<ManagedConfig<'_>>,
+    mut operation: Option<&mut ControllerLease<'_>>,
 ) -> NodeLaunchOutcome {
     // neo-cli discovers plugins from disk, so repository flags must reach the
     // loader tree. A live restart never moves loaded assemblies: require Stop
@@ -131,11 +180,6 @@ pub fn execute_node_launch(
         };
     }
 
-    let previous_pid = if action == LaunchAction::Start {
-        supervisor.managed_pid(&node.id)
-    } else {
-        None
-    };
     let start = match action {
         LaunchAction::Start => supervisor.start(node, plan, log_path.as_ref()),
         LaunchAction::Restart => supervisor.restart(node, plan, log_path.as_ref()),
@@ -143,25 +187,36 @@ pub fn execute_node_launch(
 
     match start {
         Ok(ProcessStart { pid, log_path }) => {
-            if let Err(error) =
-                repository.update_node_status(&node.id, NodeStatus::Running, Some(pid))
-            {
-                let mut remaining_pid = Some(pid);
-                let cleanup = if previous_pid == Some(pid) {
-                    "existing child handle retained; no additional process was launched".to_string()
-                } else {
-                    match supervisor.stop(&node.id) {
-                        Ok(Some(_)) => { remaining_pid = None; format!("newly launched process {pid} was stopped") },
-                        Ok(None) => format!("newly launched process {pid} no longer has a managed handle; verify its state"),
-                        Err(stop_error) => format!("could not stop newly launched process {pid}: {stop_error}; its child handle is retained and automatic replacement is blocked"),
-                    }
+            let committed = if let Some(lease) = operation.as_deref_mut() {
+                lease.record_spawned(pid, None).is_ok_and(|changed| changed)
+                    && repository
+                        .update_node_status_fenced(
+                            lease.operation(),
+                            NodeStatus::Running,
+                            Some(pid),
+                            unix_now(),
+                        )
+                        .is_ok_and(|changed| changed)
+            } else {
+                repository
+                    .update_node_status(&node.id, NodeStatus::Running, Some(pid))
+                    .is_ok()
+            };
+            if !committed {
+                let cleanup = match supervisor.stop(&node.id) {
+                    Ok(Some(_)) => format!("newly launched process {pid} was stopped"),
+                    Ok(None) => format!(
+                        "newly launched process {pid} has no managed handle; verify its state"
+                    ),
+                    Err(error) => format!(
+                        "could not stop newly launched process {pid}: {error}; automatic replacement is blocked"
+                    ),
                 };
-                if previous_pid != Some(pid) {
-                    let _ =
-                        repository.update_node_status(&node.id, NodeStatus::Error, remaining_pid);
+                if operation.is_none() {
+                    let _ = repository.update_node_status(&node.id, NodeStatus::Error, None);
                 }
                 return NodeLaunchOutcome::Failed {
-                    message: format!("failed to persist running process {pid}: {error}; {cleanup}"),
+                    message: format!("failed to commit running process {pid}; {cleanup}"),
                 };
             }
             NodeLaunchOutcome::Started { pid, log_path }
@@ -177,13 +232,6 @@ pub fn execute_node_launch(
     }
 }
 
-/// Stop whatever is currently running for `node` before a restart.
-///
-/// `ProcessSupervisor::restart` stops **by handle**. A node whose process came
-/// from an earlier server session, or from a `--node-start` in another process,
-/// has no handle here — so a plain restart would leave it running and launch a
-/// second process to fight it for the same ports. Returns whether a process was
-/// actually stopped, so the caller can say which kind of restart happened.
 pub fn quiesce_before_restart(
     supervisor: &mut ProcessSupervisor,
     node: &NodeConfig,
@@ -205,6 +253,13 @@ pub fn quiesce_before_restart(
             "recorded pid belongs to a different process; restart refused and status unchanged"
         ),
     }
+}
+
+fn unix_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default()
 }
 
 /// The managed config to write before launching, with the plugins needed to
