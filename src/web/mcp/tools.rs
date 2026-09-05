@@ -56,12 +56,12 @@ pub(super) fn catalog(can_operate: bool, all_nodes: bool) -> Vec<Value> {
         .map(|(name, description)| {
             let fleet = matches!(*name, "nodes_list" | "fleet_resources" | "agents_list");
             let mut properties = json!({});
-            if !fleet {
-                properties["node_id"] = json!({"type":"string","description":"Authorized node id from nodes_list"});
-                if name.starts_with("agent_") || *name == "agent_status" {
-                    properties["agent_id"] = json!({"type":"string","description":"Managed agent id from agents_list"});
-                    properties.as_object_mut().unwrap().remove("node_id");
-                }
+            if name.starts_with("agent_") || *name == "agent_status" {
+                properties["agent_id"] =
+                    json!({"type":"string","description":"Managed agent id from agents_list"});
+            } else if !fleet {
+                properties["node_id"] =
+                    json!({"type":"string","description":"Authorized node id from nodes_list"});
             }
             if matches!(*name, "node_logs" | "node_events") {
                 properties["limit"] = json!({"type":"integer","minimum":1,"maximum":200,"default":50});
