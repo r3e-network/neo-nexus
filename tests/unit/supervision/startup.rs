@@ -221,6 +221,9 @@ fn engine_initial_start_routes_recovery_alert_and_respects_disabled_restarts() {
         NodeStatus::Crashed,
         "recovery must finish before start returns"
     );
+    // Notification delivery is intentionally asynchronous; allow the worker
+    // one cycle before dropping the engine (which requests shutdown).
+    std::thread::sleep(Duration::from_millis(100));
     drop(engine);
     assert_eq!(
         received.join().unwrap(),
