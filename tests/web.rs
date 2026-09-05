@@ -210,6 +210,7 @@ fn healthz_is_public() {
     assert_eq!(body["version"], env!("CARGO_PKG_VERSION"));
     // No engine in this rig: the guardian says so instead of pretending.
     assert_eq!(body["supervision"], "not-running");
+    assert_eq!(body["notifications"], "not-running");
 }
 
 #[test]

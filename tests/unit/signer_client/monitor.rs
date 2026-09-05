@@ -21,6 +21,7 @@ fn engine(dir: &std::path::Path) -> EngineState {
         data_dir: dir.into(),
         supervisor: Arc::new(Mutex::new(ProcessSupervisor::default())),
         heartbeat: crate::supervision_heartbeat::SupervisionHeartbeat::new(),
+        notifications: crate::supervision_heartbeat::SupervisionHeartbeat::new(),
     }
 }
 

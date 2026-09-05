@@ -284,9 +284,11 @@ fn skipping_an_event_clears_its_persisted_retry_budget() {
         .repository
         .save_alert_progress(0, &BTreeMap::from([(1, 2)]))
         .unwrap();
-    let mut engine = LoopState::bootstrap(&state);
-    engine.route_alerts(&state); // default policy is disabled
+    let mut engine = NotificationWorker::bootstrap(&state);
+    engine.tick(&state); // default policy is disabled
     assert_eq!(engine.last_routed_event, 1);
     assert!(engine.alert_failures.is_empty());
-    assert!(LoopState::bootstrap(&state).alert_failures.is_empty());
+    assert!(NotificationWorker::bootstrap(&state)
+        .alert_failures
+        .is_empty());
 }

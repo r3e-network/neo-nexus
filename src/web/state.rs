@@ -39,6 +39,9 @@ pub struct WebState {
     last_signer_health: Arc<Mutex<Option<SignerHealthClass>>>,
     /// Stamped by the supervision engine this state spawns; /healthz reads it.
     pub supervision: crate::supervision_heartbeat::SupervisionHeartbeat,
+    /// Stamped by the notification worker; /healthz exposes its independent
+    /// liveness rather than hiding a dead alert route behind the supervisor.
+    pub notifications: crate::supervision_heartbeat::SupervisionHeartbeat,
 }
 
 impl WebState {
@@ -70,6 +73,7 @@ impl WebState {
             signer: SignerHandle::default(),
             last_signer_health: Arc::new(Mutex::new(None)),
             supervision: crate::supervision_heartbeat::SupervisionHeartbeat::new(),
+            notifications: crate::supervision_heartbeat::SupervisionHeartbeat::new(),
         }
     }
 
@@ -115,6 +119,7 @@ impl WebState {
             data_dir: self.data_dir.clone(),
             supervisor: self.shared_supervisor(),
             heartbeat: self.supervision.clone(),
+            notifications: self.notifications.clone(),
         }
     }
 
