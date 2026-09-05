@@ -27,15 +27,30 @@ use crate::{
 
 use super::{html, pages::settings, WebState};
 
-pub async fn node_start(State(state): State<WebState>, Path(id): Path<String>) -> Response {
+// Helper struct for CSRF validation
+#[derive(Deserialize)]
+pub struct CsrfProtectedForm {
+    pub csrf_token: String,
+}
+
+pub async fn node_start(State(state): State<WebState>, Path(id): Path<String>, Form(form): Form<CsrfProtectedForm>) -> Response {
+    if !state.auth().consume_csrf_token(&form.csrf_token) {
+        return back_to_node(&id, "invalid or expired CSRF token");
+    }
     control_redirect(&state, &id, LaunchAction::Start)
 }
 
-pub async fn node_restart(State(state): State<WebState>, Path(id): Path<String>) -> Response {
+pub async fn node_restart(State(state): State<WebState>, Path(id): Path<String>, Form(form): Form<CsrfProtectedForm>) -> Response {
+    if !state.auth().consume_csrf_token(&form.csrf_token) {
+        return back_to_node(&id, "invalid or expired CSRF token");
+    }
     control_redirect(&state, &id, LaunchAction::Restart)
 }
 
-pub async fn node_stop(State(state): State<WebState>, Path(id): Path<String>) -> Response {
+pub async fn node_stop(State(state): State<WebState>, Path(id): Path<String>, Form(form): Form<CsrfProtectedForm>) -> Response {
+    if !state.auth().consume_csrf_token(&form.csrf_token) {
+        return back_to_node(&id, "invalid or expired CSRF token");
+    }
     let outcome = load_node(&state.repository, &id)
         .and_then(|node| supervision::stop_node(&state.engine_state(), &node));
     match outcome {

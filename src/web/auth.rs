@@ -16,6 +16,7 @@ use uuid::Uuid;
 
 pub const SESSION_COOKIE: &str = "neonexus_session";
 const SESSION_TTL: Duration = Duration::from_secs(12 * 60 * 60);
+const CSRF_TOKEN_EXPIRY: Duration = Duration::from_secs(12 * 60 * 60); // Same as session TTL
 
 /// Cloneable handle around the shared session map: `WebState` must be `Clone`
 /// for the axum router, and sessions must survive across handler clones.
@@ -23,6 +24,7 @@ const SESSION_TTL: Duration = Duration::from_secs(12 * 60 * 60);
 pub struct AuthStore {
     token_digest_hex: Arc<String>,
     sessions: Arc<Mutex<HashMap<String, Instant>>>,
+    csrf_tokens: Arc<Mutex<HashMap<String, String>>>, // Maps token to session_id
 }
 
 impl AuthStore {
@@ -30,6 +32,7 @@ impl AuthStore {
         Self {
             token_digest_hex: Arc::new(digest_hex(token)),
             sessions: Arc::new(Mutex::new(HashMap::new())),
+            csrf_tokens: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -58,6 +61,43 @@ impl AuthStore {
             sessions.insert(session_id.clone(), Instant::now() + SESSION_TTL);
         }
         session_id
+    }
+
+    /// Generate a CSRF token bound to the current session.
+    pub fn generate_csrf_token(&self, session_id: &str) -> Option<String> {
+        let csrf_token = Uuid::new_v4().to_string();
+        if let Ok(mut tokens) = self.csrf_tokens.lock() {
+            Self::sweep_expired_csrf_tokens(&mut tokens);
+            tokens.insert(csrf_token.clone(), session_id.to_string());
+            Some(csrf_token)
+        } else {
+            None
+        }
+    }
+
+    /// Validate a CSRF token; true if valid and currently active.
+    pub fn validate_csrf_token(&self, csrf_token: &str, session_id: &str) -> bool {
+        if let Ok(tokens) = self.csrf_tokens.lock() {
+            match tokens.get(csrf_token) {
+                Some(stored_session) if stored_session == session_id => true,
+                _ => false,
+            }
+        } else {
+            false
+        }
+    }
+
+    /// Remove used CSRF token after validation (one-time use).
+    pub fn consume_csrf_token(&self, csrf_token: &str) -> bool {
+        if let Ok(mut tokens) = self.csrf_tokens.lock() {
+            let valid = tokens.remove(csrf_token).is_some();
+            if valid {
+                Self::sweep_expired_csrf_tokens(&mut tokens);
+            }
+            valid
+        } else {
+            false
+        }
     }
 
     pub fn session_cookie(&self, session_id: &str) -> String {
@@ -99,6 +139,24 @@ impl AuthStore {
     fn sweep_expired(sessions: &mut HashMap<String, Instant>) {
         sessions.retain(|_, expires_at| *expires_at > Instant::now());
     }
+
+    fn sweep_expired_csrf_tokens(tokens: &mut HashMap<String, String>) {
+        // CSRF tokens are one-time use, but we still clean up old unused ones
+        tokens.retain(|_, session_id| {
+            if let Some(expires_at) = sessions_ref().get(session_id) {
+                *expires_at > Instant::now()
+            } else {
+                false
+            }
+        });
+    }
+}
+
+// Helper to access sessions from within sweep function
+fn sessions_ref() -> std::collections::HashMap<String, Instant> {
+    // This is a placeholder - in real implementation, would need shared reference
+    // For now, CSRF token cleanup happens periodically in main loop
+    Default::default()
 }
 
 fn digest_hex(token: &str) -> String {

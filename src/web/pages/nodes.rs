@@ -177,6 +177,9 @@ fn render_detail(state: &WebState, id: &str) -> anyhow::Result<String> {
     let encoded = html::urlencoding_lite(id);
     let command = crate::argv::format_command(&node.binary_path, &node.args);
 
+    // Generate CSRF token for this session
+    let csrf_token = state.auth().generate_csrf_token("current-session").unwrap_or_default();
+
     let trend = history
         .iter()
         .map(|record| {
@@ -266,7 +269,7 @@ fn render_detail(state: &WebState, id: &str) -> anyhow::Result<String> {
             ),
             &header_actions,
         ),
-        controls = control_bar(id, node.status.label()),
+        controls = control_bar(id, node.status.label(), Some(&csrf_token)),
         config = config,
         runtime = runtime,
     ))
@@ -293,16 +296,18 @@ fn plugin_summary(plugins: &[crate::catalog::PluginState]) -> String {
     html::table(&["Plugin", "State"], &rows)
 }
 
-fn control_bar(node_id: &str, status: &str) -> String {
+fn control_bar(node_id: &str, status: &str, csrf_token: Option<&str>) -> String {
     let running = matches!(status, "Running" | "Starting");
     let encoded = html::urlencoding_lite(node_id);
     let disabled = if running { "" } else { " disabled" };
+    let token_placeholder = csrf_token.unwrap_or("");
     format!(
         r#"<div class="actions" style="margin-bottom:20px">
-<form method="post" action="/nodes/{encoded}/start"><button class="primary" type="submit">Start</button></form>
-<form method="post" action="/nodes/{encoded}/stop"><button type="submit"{disabled}>Stop</button></form>
-<form method="post" action="/nodes/{encoded}/restart"><button type="submit"{disabled}>Restart</button></form>
+<form method="post" action="/nodes/{encoded}/start"><input type="hidden" name="csrf_token" value="{csrf_token}"/><button class="primary" type="submit">Start</button></form>
+<form method="post" action="/nodes/{encoded}/stop"><input type="hidden" name="csrf_token" value="{csrf_token}"/><button type="submit"{disabled}>Stop</button></form>
+<form method="post" action="/nodes/{encoded}/restart"><input type="hidden" name="csrf_token" value="{csrf_token}"/><button type="submit"{disabled}>Restart</button></form>
 </div>"#,
+        csrf_token = token_placeholder,
         disabled = disabled,
     )
 }

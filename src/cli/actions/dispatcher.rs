@@ -81,6 +81,7 @@ pub(in crate::cli) fn action_from_args_vec(args: &[String]) -> Result<CliAction>
         "--agent-restart" => agent_restart_action(args),
         "--agent-list" => agent_list_action(args),
         "--release-transaction" => release_transaction_action(args),
+        "--cleanup-events" => cleanup_events_action_impl(args),
         option => match suggest::suggest_option(option) {
             Some(suggestion) => {
                 anyhow::bail!("unsupported NeoNexus option: {option}; did you mean {suggestion}?")
