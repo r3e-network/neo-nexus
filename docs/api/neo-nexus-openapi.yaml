@@ -1,0 +1,1414 @@
+openapi: 3.0.3
+info:
+  title: NeoOS Nexus API
+  description: |
+    NeoOS Nexus is the central operator console and configuration engine for the 
+    NeoOS ecosystem. It orchestrates node deployment, manages runtime configurations,
+    generates signing keys, handles multi-chain operations, and provides real-time
+    alerting and monitoring.
+    
+    ## Key Responsibilities
+    
+    - **Node Management**: Deploy and configure validator/nodes across networks
+    - **Key Orchestration**: Generate keys, sync with signer service
+    - **Runtime Generation**: Create launch packs for service deployments
+    - **Endpoint Pinning**: Configure signer service endpoints for callers
+    - **Alerting**: Real-time notifications for system events
+    
+    ## Security Model
+    
+    - **No Key Custody**: Nexus cannot open, derive, export or accept private keys
+    - **Consumer Only**: Acts as a consumer of signer service APIs
+    - **Operator Identity**: Uses OIDC identity for authentication
+    
+    ## Architecture
+    
+    Nexus operates in several modes:
+    - `Hermes`: Agent runtime for async operations
+    - `Lifecycle`: Service lifecycle management
+    - `Profile`: Runtime profile generation
+    - `Monitor`: System health monitoring
+    
+    See [ARCHITECTURE.md](../ARCHITECTURE.md) for detailed component interactions.
+  
+  version: 4.1.0
+  contact:
+    name: NeoOS Platform Team
+    email: platform@neo-os.org
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: https://nexus.prod.neo-os.org/v1
+    description: Production environment
+  - url: https://nexus-testnet.neo-os.org/v1
+    description: Testnet environment
+  - url: http://localhost:8797/v1
+    description: Local development
+
+tags:
+  - name: Node Management
+    description: Deploy, configure, and manage consensus nodes
+  - name: Configuration
+    description: Runtime configs, launch packs, and endpoint pinning
+  - name: Key Generation
+    description: Generate cryptographic material (public only)
+  - name: Multi-Chain Operations
+    description: Cross-chain transaction coordination
+  - name: Alerts & Monitoring
+    description: Real-time system notifications and health checks
+  - name: Snapshots
+    description: State snapshots and catalog operations
+
+paths:
+  # ==================== NODE MANAGEMENT ENDPOINTS ====================
+
+  /nodes:
+    get:
+      tags:
+        - Node Management
+      summary: List all registered nodes
+      description: Returns information about all configured consensus and RPC nodes
+      operationId: listNodes
+      parameters:
+        - name: network
+          in: query
+          description: Filter by network (mainnet/testnet/private)
+          schema:
+            type: string
+            enum: ["mainnet", "testnet", "private"]
+        - name: role
+          in: query
+          description: Filter by node role
+          schema:
+            type: string
+            enum: ["validator", "rpc", "archival", "validator-rpc"]
+      responses:
+        '200':
+          description: Nodes retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodesListResponse'
+    post:
+      tags:
+        - Node Management
+      summary: Register a new node
+      description: |
+        Registers a new consensus or RPC node in the configuration. Requires node
+        public key and network configuration.
+      operationId: registerNode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterNodeRequest'
+      responses:
+        '200':
+          description: Node registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeInfo'
+
+  /nodes/{id}:
+    get:
+      tags:
+        - Node Management
+      summary: Get node details
+      description: Retrieves comprehensive information about a specific node
+      operationId: getNode
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Node details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeInfo'
+        '404':
+          description: Node not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorReply'
+    delete:
+      tags:
+        - Node Management
+      summary: Deregister a node
+      description: Removes a node from the configuration
+      operationId: deregisterNode
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Node deregistered successfully
+
+  /nodes/{id}/health:
+    get:
+      tags:
+        - Node Management
+      summary: Check node health status
+      description: |
+        Performs health check on a node including block height, sync status,
+        peer count, and latency measurements.
+      operationId: getNodeHealth
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Health status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeHealth'
+
+  /nodes/{id}/restart:
+    post:
+      tags:
+        - Node Management
+      summary: Restart a node
+      description: Triggers a graceful restart of a deployed node
+      operationId: restartNode
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Restart initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestartResponse'
+
+  # ==================== CONFIGURATION ENDPOINTS ====================
+
+  /configs:
+    get:
+      tags:
+        - Configuration
+      summary: List available configurations
+      description: Returns list of all generated runtime configurations
+      operationId: listConfigs
+      parameters:
+        - name: network
+          in: query
+          schema:
+            type: string
+        - name: service
+          in: query
+          schema:
+            type: string
+            enum: ["signer", "relayer", "explorer", "all"]
+      responses:
+        '200':
+          description: Configurations listed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigsListResponse'
+    post:
+      tags:
+        - Configuration
+      summary: Generate runtime configuration
+      description: |
+        Generates a complete runtime configuration package for deployment.
+        Includes signer service endpoint pinning, node lists, and security policies.
+      operationId: generateConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateConfigRequest'
+      responses:
+        '200':
+          description: Configuration generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigPackage'
+
+  /configs/{id}:
+    get:
+      tags:
+        - Configuration
+      summary: Get configuration details
+      description: Retrieves a specific configuration package
+      operationId: getConfig
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Configuration retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigPackage'
+        '404':
+          description: Configuration not found
+
+  /configs/{id}/validate:
+    post:
+      tags:
+        - Configuration
+      summary: Validate configuration
+      description: Validates a configuration against current node registry and signer policies
+      operationId: validateConfig
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Validation results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResult'
+
+  # ==================== KEY GENERATION ENDPOINTS ====================
+
+  /keys/generate:
+    post:
+      tags:
+        - Key Generation
+      summary: Generate key pair for provisioning
+      description: |
+        Generates a P-256 or K-256 key pair to be provisioned into the signer service.
+        This is a one-time generation that returns both private and public key,
+        which must then be imported via the Signer Service API.
+        
+        WARNING: Private key is returned once and should be immediately imported
+        into the signer service.
+      operationId: generateKeyPair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KeyGenerationRequest'
+      responses:
+        '200':
+          description: Key pair generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneratedKeyPair'
+        '400':
+          description: Invalid generation parameters
+
+  /keys/{keyId}/status:
+    get:
+      tags:
+        - Key Generation
+      summary: Check key provisioning status
+      description: |
+        Verifies whether a generated key has been successfully provisioned into
+        the signer service.
+      operationId: getKeyProvisioningStatus
+      parameters:
+        - name: keyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyProvisioningStatus'
+
+  # ==================== MULTI-CHAIN OPERATIONS ====================
+
+  /chains:
+    get:
+      tags:
+        - Multi-Chain Operations
+      summary: List available chains
+      description: Returns supported blockchain networks and their configuration
+      operationId: listChains
+      responses:
+        '200':
+          description: Chains listed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChainsList'
+
+  /chains/{chainId}/transactions:
+    post:
+      tags:
+        - Multi-Chain Operations
+      summary: Construct transaction for submission
+      description: |
+        Constructs a raw transaction for the specified chain using unsigned
+        bytes. Does NOT sign - returns unsigned transaction for signer service.
+      operationId: constructTransaction
+      parameters:
+        - name: chainId
+          in: path
+          required: true
+          schema:
+            type: integer
+            description: Target chain ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConstructTxRequest'
+      responses:
+        '200':
+          description: Transaction constructed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConstructedTx'
+
+  /chains/{chainId}/estimate-fees:
+    get:
+      tags:
+        - Multi-Chain Operations
+      summary: Estimate transaction fees
+      description: Estimates gas/network fees for different transaction types
+      operationId: estimateFees
+      parameters:
+        - name: chainId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: tx_type
+          in: query
+          schema:
+            type: string
+            enum: ["transfer", "contract_call", "consensus"]
+      responses:
+        '200':
+          description: Fee estimate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeeEstimate'
+
+  # ==================== ALERTS & MONITORING ====================
+
+  /alerts:
+    get:
+      tags:
+        - Alerts & Monitoring
+      summary: List active alerts
+      description: Returns current system alerts and warnings
+      operationId: listAlerts
+      parameters:
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: ["debug", "info", "warning", "error", "critical"]
+        - name: acknowledged
+          in: query
+          schema:
+            type: boolean
+            description: Include acknowledged alerts
+      responses:
+        '200':
+          description: Alerts retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertsList'
+    post:
+      tags:
+        - Alerts & Monitoring
+      summary: Create manual alert
+      description: Creates a custom alert for operational events
+      operationId: createAlert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAlertRequest'
+      responses:
+        '201':
+          description: Alert created
+
+  /alerts/rules:
+    get:
+      tags:
+        - Alerts & Monitoring
+      summary: List alert rules
+      description: Returns configured alert detection rules
+      operationId: listAlertRules
+      responses:
+        '200':
+          description: Rules listed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertRulesList'
+    post:
+      tags:
+        - Alerts & Monitoring
+      summary: Configure alert rule
+      description: Sets up a new alert detection rule
+      operationId: createAlertRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertRule'
+      responses:
+        '201':
+          description: Rule configured
+
+  /alerts/providers:
+    get:
+      tags:
+        - Alerts & Monitoring
+      summary: List alert providers
+      description: Returns configured notification providers (Slack, Discord, PagerDuty, etc.)
+      operationId: listAlertProviders
+      responses:
+        '200':
+          description: Providers listed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderList'
+    post:
+      tags:
+        - Alerts & Monitoring
+      summary: Configure alert provider
+      description: Adds or updates a notification provider
+      operationId: configureAlertProvider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertProvider'
+      responses:
+        '200':
+          description: Provider configured
+
+  /monitoring/metrics:
+    get:
+      tags:
+        - Alerts & Monitoring
+      summary: Get system metrics
+      description: Returns Prometheus-format metrics for Nexus itself
+      operationId: getSystemMetrics
+      responses:
+        '200':
+          description: Metrics retrieved
+          headers:
+            Content-Type:
+              schema:
+                type: string
+              example: text/plain; version=0.0.4; charset=utf-8
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /monitoring/status:
+    get:
+      tags:
+        - Alerts & Monitoring
+      summary: Get overall system status
+      description: Returns health status of all Nexus components
+      operationId: getSystemStatus
+      responses:
+        '200':
+          description: System status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStatus'
+
+  # ==================== SNAPSHOT MANAGEMENT ====================
+
+  /snapshots:
+    get:
+      tags:
+        - Snapshots
+      summary: List available snapshots
+      description: Returns catalog of state snapshots
+      operationId: listSnapshots
+      parameters:
+        - name: network
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Snapshots listed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotList'
+
+  /snapshots/latest:
+    get:
+      tags:
+        - Snapshots
+      summary: Get latest snapshot info
+      description: Returns metadata about the most recent snapshot
+      operationId: getLatestSnapshot
+      parameters:
+        - name: network
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Snapshot metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotMetadata'
+
+  /snapshots/download:
+    post:
+      tags:
+        - Snapshots
+      summary: Download snapshot
+      description: Initiates snapshot download process
+      operationId: downloadSnapshot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SnapshotDownloadRequest'
+      responses:
+        '200':
+          description: Download initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadResponse'
+
+  # ==================== ENCLAVE SERVICE ROUTES ====================
+
+  /service/attest:
+    post:
+      tags:
+        - Enclave Service
+      summary: Request enclave attestation
+      description: Gets attestation document for this Nexus instance
+      operationId: requestAttestation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttestationRequest'
+      responses:
+        '200':
+          description: Attestation document
+
+  /service/configure-signer:
+    post:
+      tags:
+        - Enclave Service
+      summary: Configure signer service endpoint
+      description: Pins signer service URL and verifies workload identity
+      operationId: configureSignerEndpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigureSignerRequest'
+      responses:
+        '200':
+          description: Endpoint configured
+
+  /service/heartbeat:
+    post:
+      tags:
+        - Enclave Service
+      summary: Send heartbeat to signer
+      description: Keeps connection alive with signer service
+      operationId: sendHeartbeat
+      responses:
+        '200':
+          description: Heartbeat accepted
+
+components:
+  schemas:
+    # ==================== NODE MODELS ====================
+
+    NodesListResponse:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeInfo'
+        total_count:
+          type: integer
+
+    NodeInfo:
+      type: object
+      required:
+        - id
+        - network
+        - role
+        - public_key
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+        network:
+          type: string
+          enum: ["mainnet", "testnet", "private"]
+        chain_family:
+          type: string
+          enum: ["neo-n3", "neox"]
+        chain_id:
+          type: integer
+        role:
+          type: string
+          enum: ["validator", "rpc", "archival", "validator-rpc"]
+        public_key:
+          type: string
+          format: hex
+        address:
+          type: string
+        endpoints:
+          type: array
+          items:
+            type: string
+            format: uri
+        peer_count:
+          type: integer
+        latest_block_height:
+          type: integer
+          format: uint64
+        synced:
+          type: boolean
+        enabled:
+          type: boolean
+        created_at:
+          type: integer
+          format: uint64
+        updated_at:
+          type: integer
+          format: uint64
+
+    RegisterNodeRequest:
+      type: object
+      required:
+        - network
+        - role
+        - public_key
+        - endpoints
+      properties:
+        label:
+          type: string
+        network:
+          type: string
+          enum: ["mainnet", "testnet", "private"]
+        chain_family:
+          type: string
+          enum: ["neo-n3", "neox"]
+        chain_id:
+          type: integer
+        role:
+          type: string
+          enum: ["validator", "rpc", "archival", "validator-rpc"]
+        public_key:
+          type: string
+          format: hex
+          minLength: 66
+          maxLength: 132
+        endpoints:
+          type: array
+          items:
+            type: string
+            format: uri
+        network_magic:
+          type: integer
+
+    NodeHealth:
+      type: object
+      properties:
+        online:
+          type: boolean
+        last_seen_unix:
+          type: integer
+          format: uint64
+        block_height:
+          type: integer
+          format: uint64
+        sync_progress_percent:
+          type: number
+          minimum: 0
+          maximum: 100
+        peer_count:
+          type: integer
+        latency_ms:
+          type: number
+        errors:
+          type: array
+          items:
+            type: string
+        uptime_seconds:
+          type: integer
+          format: uint64
+
+    RestartResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: ["initiated", "in_progress", "completed"]
+        message:
+          type: string
+
+    # ==================== CONFIGURATION MODELS ====================
+
+    ConfigsListResponse:
+      type: object
+      properties:
+        configs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConfigSummary'
+
+    ConfigSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        network:
+          type: string
+        service:
+          type: string
+        generated_at:
+          type: integer
+          format: uint64
+        version:
+          type: string
+
+    GenerateConfigRequest:
+      type: object
+      required:
+        - network
+        - services
+      properties:
+        network:
+          type: string
+          enum: ["mainnet", "testnet", "private"]
+        services:
+          type: array
+          items:
+            type: string
+            enum: ["signer", "relayer", "explorer", "miniapps"]
+        include_signer_endpoints:
+          type: boolean
+          default: true
+        include_alert_configs:
+          type: boolean
+          default: true
+
+    ConfigPackage:
+      type: object
+      required:
+        - id
+        - generated_at
+        - files
+      properties:
+        id:
+          type: string
+          format: uuid
+        network:
+          type: string
+        version:
+          type: string
+        generated_at:
+          type: integer
+          format: uint64
+        signer_config:
+          type: object
+          description: Signer service configuration
+          additionalProperties: true
+        node_registry:
+          type: object
+          description: Node registration data
+          additionalProperties: true
+        caller_registry:
+          type: object
+          description: Caller identities and tokens
+          additionalProperties: true
+        alert_configs:
+          type: object
+          description: Alert provider configurations
+          additionalProperties: true
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConfigFile'
+
+    ConfigFile:
+      type: object
+      required:
+        - path
+        - content
+      properties:
+        path:
+          type: string
+          description: Relative path in the config package
+        content:
+          type: string
+          description: File content (JSON, YAML, etc.)
+        encoding:
+          type: string
+          enum: ["utf-8", "base64", "hex"]
+        checksum_sha256:
+          type: string
+          format: hash-256
+
+    ValidationResult:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        recommendations:
+          type: array
+          items:
+            type: string
+
+    # ==================== KEY MODEL ====================
+
+    KeyGenerationRequest:
+      type: object
+      required:
+        - chain_family
+        - purpose
+      properties:
+        chain_family:
+          type: string
+          enum: ["neo-n3", "neox"]
+        curve:
+          type: string
+          enum: ["P-256", "secp256k1"]
+        purpose:
+          type: string
+          enum: ["validator", "treasury", "oracle", "relayer", "updater"]
+        network:
+          type: string
+          enum: ["mainnet", "testnet", "private"]
+        label:
+          type: string
+        chain_id:
+          type: integer
+
+    GeneratedKeyPair:
+      type: object
+      required:
+        - public_key
+        - private_key
+        - chain_family
+        - curve
+        - fingerprint
+      properties:
+        public_key:
+          type: string
+          format: hex
+        private_key:
+          type: string
+          format: hex
+          writeOnly: true
+        compressed_public_key:
+          type: string
+          format: hex
+        chain_family:
+          type: string
+          enum: ["neo-n3", "neox"]
+        curve:
+          type: string
+          enum: ["P-256", "secp256k1"]
+        fingerprint:
+          type: string
+          description: SHA-256 fingerprint of public key
+        network_magic:
+          type: integer
+        warning_import_required:
+          type: string
+          description: Instruction to import into signer service
+        warning_once_only:
+          type: string
+
+    KeyProvisioningStatus:
+      type: object
+      properties:
+        key_id:
+          type: string
+        provisioned:
+          type: boolean
+        provisioned_at:
+          type: integer
+          format: uint64
+        signer_key_id:
+          type: string
+        policy_configured:
+          type: boolean
+
+    # ==================== MULTI-CHAIN MODELS ====================
+
+    ChainsList:
+      type: object
+      properties:
+        chains:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChainConfig'
+
+    ChainConfig:
+      type: object
+      properties:
+        id:
+          type: integer
+        chain_family:
+          type: string
+          enum: ["neo-n3", "neox"]
+        name:
+          type: string
+        network_name:
+          type: string
+        native_token:
+          type: string
+        block_time_seconds:
+          type: integer
+        rpc_endpoints:
+          type: array
+          items:
+            type: string
+
+    ConstructTxRequest:
+      type: object
+      required:
+        - chain_id
+        - tx_type
+        - params
+      properties:
+        chain_id:
+          type: integer
+        tx_type:
+          type: string
+          enum: ["transfer", "contract_call", "consensus", "custom"]
+        params:
+          type: object
+          description: Chain-specific transaction parameters
+          additionalProperties: true
+
+    ConstructedTx:
+      type: object
+      required:
+        - chain_id
+        - unsigned_hex
+        - serialize_unsigned_hex
+      properties:
+        chain_id:
+          type: integer
+        unsigned_hex:
+          type: string
+          format: hex
+        serialize_unsigned_hex:
+          type: string
+          format: hex
+        tx_type:
+          type: string
+        needs_witness:
+          type: boolean
+        required_keys:
+          type: array
+          items:
+            type: string
+
+    FeeEstimate:
+      type: object
+      properties:
+        chain_id:
+          type: integer
+        tx_type:
+          type: string
+        estimated_network_fee:
+          type: string
+          description: GAS units as decimal string
+        estimated_system_fee:
+          type: string
+          description: GAS units as decimal string
+        max_gas_price:
+          type: string
+          description: Wei/Gwei as decimal string (EVM)
+        confidence_level:
+          type: string
+          enum: ["low", "medium", "high"]
+        timestamp:
+          type: integer
+          format: uint64
+
+    # ==================== ALERT MODELS ====================
+
+    AlertsList:
+      type: object
+      properties:
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alert'
+        total:
+          type: integer
+
+    Alert:
+      type: object
+      required:
+        - id
+        - severity
+        - message
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        severity:
+          type: string
+          enum: ["debug", "info", "warning", "error", "critical"]
+        category:
+          type: string
+          enum: ["node", "signer", "security", "performance", "maintenance"]
+        message:
+          type: string
+        source:
+          type: string
+        details:
+          type: object
+        acknowledged:
+          type: boolean
+        acknowledged_by:
+          type: string
+        acknowledged_at:
+          type: integer
+          format: uint64
+        created_at:
+          type: integer
+          format: uint64
+        expires_at:
+          type: integer
+          format: uint64
+
+    CreateAlertRequest:
+      type: object
+      required:
+        - severity
+        - message
+      properties:
+        severity:
+          type: string
+          enum: ["debug", "info", "warning", "error", "critical"]
+        category:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+        duration_minutes:
+          type: integer
+
+    AlertRulesList:
+      type: object
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertRule'
+
+    AlertRule:
+      type: object
+      required:
+        - name
+        - condition
+        - severity
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        condition:
+          type: string
+          description: Expression for when to trigger
+        severity:
+          type: string
+          enum: ["warning", "error", "critical"]
+        channels:
+          type: array
+          items:
+            type: string
+        enabled:
+          type: boolean
+
+    ProviderList:
+      type: object
+      properties:
+        providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertProvider'
+
+    AlertProvider:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: ["slack", "discord", "telegram", "pagerduty", "datadog", "opsgenie", "email"]
+        endpoint:
+          type: string
+          format: uri
+        channel:
+          type: string
+        enabled:
+          type: boolean
+        config:
+          type: object
+          description: Provider-specific configuration
+          writeOnly: true
+          additionalProperties: true
+
+    # ==================== SNAPSHOT MODELS ====================
+
+    SnapshotList:
+      type: object
+      properties:
+        snapshots:
+          type: array
+          items:
+            $ref: '#/components/schemas/SnapshotSummary'
+
+    SnapshotSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        network:
+          type: string
+        block_height:
+          type: integer
+          format: uint64
+        created_at:
+          type: integer
+          format: uint64
+        size_bytes:
+          type: integer
+        checksum_sha256:
+          type: string
+        checksum_sha384:
+          type: string
+
+    SnapshotMetadata:
+      allOf:
+        - $ref: '#/components/schemas/SnapshotSummary'
+        - type: object
+          properties:
+            chain_state_root:
+              type: string
+              format: hash-256
+            db_consistency:
+              type: boolean
+            verification_passed:
+              type: boolean
+
+    SnapshotDownloadRequest:
+      type: object
+      required:
+        - snapshot_id
+      properties:
+        snapshot_id:
+          type: string
+          format: uuid
+        destination_url:
+          type: string
+          format: uri
+
+    DownloadResponse:
+      type: object
+      properties:
+        download_url:
+          type: string
+          format: uri
+        expires_at:
+          type: integer
+          format: uint64
+        checksum_sha256:
+          type: string
+
+    # ==================== SERVICE MODEL ====================
+
+    AttestationRequest:
+      type: object
+      properties:
+        nonce:
+          type: string
+          format: hex
+        scope:
+          type: array
+          items:
+            type: string
+
+    ConfigureSignerRequest:
+      type: object
+      required:
+        - signer_origin
+        - workload_audience
+      properties:
+        signer_origin:
+          type: string
+          format: uri
+          description: Canonical signer service origin
+        workload_audience:
+          type: string
+          description: Workload v2 audience (must match signer)
+        worker_public_key:
+          type: string
+          format: hex
+
+    SystemStatus:
+      type: object
+      properties:
+        overall:
+          type: string
+          enum: ["healthy", "degraded", "unhealthy"]
+        components:
+          type: object
+          properties:
+            hermes_runtime:
+              $ref: '#/components/schemas/ComponentStatus'
+            lifecycle_manager:
+              $ref: '#/components/schemas/ComponentStatus'
+            profile_generator:
+              $ref: '#/components/schemas/ComponentStatus'
+            monitor:
+              $ref: '#/components/schemas/ComponentStatus'
+            alert_engine:
+              $ref: '#/components/schemas/ComponentStatus'
+            signature_client:
+              $ref: '#/components/schemas/ComponentStatus'
+
+    ComponentStatus:
+      type: object
+      properties:
+        healthy:
+          type: boolean
+        last_check_unix:
+          type: integer
+          format: uint64
+        error:
+          type: string
+
+    ErrorReply:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code
+        message:
+          type: string
+          description: Human-readable explanation
+        details:
+          type: string
+
+    RefusalReply:
+      type: object
+      required:
+        - allowed
+        - code
+        - message
+      properties:
+        allowed:
+          type: boolean
+          enum: [false]
+        code:
+          type: string
+        message:
+          type: string
+
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    OIDC:
+      type: oauth2
+      description: OpenID Connect identity token
+
+security:
+  - BasicAuth: []
+  - BearerAuth: []
