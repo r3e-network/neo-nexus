@@ -93,14 +93,46 @@ fn render_body(
             ),
             ("Matching", visible.len().to_string()),
         ]),
-        filters = html::filter_form(
+        filters = html::typed_filter_form(
             "/snapshots",
+            &[],
             &[
-                ("network", &params.network),
-                ("runtime", &params.runtime),
-                ("verified", &params.verified),
-                ("cached", &params.cached),
-                ("q", &params.q),
+                html::FilterControl::Text {
+                    label: "Network",
+                    name: "network",
+                    value: &params.network,
+                },
+                html::FilterControl::Text {
+                    label: "Runtime",
+                    name: "runtime",
+                    value: &params.runtime,
+                },
+                html::FilterControl::Select {
+                    label: "Verification",
+                    name: "verified",
+                    selected: &params.verified,
+                    options: &[
+                        ("", "Any verification"),
+                        ("yes", "Verified"),
+                        ("no", "Not verified")
+                    ],
+                },
+                html::FilterControl::Select {
+                    label: "Cache",
+                    name: "cached",
+                    selected: &params.cached,
+                    options: &[
+                        ("", "Any cache state"),
+                        ("yes", "Cached"),
+                        ("no", "Not cached")
+                    ],
+                },
+                html::FilterControl::Search {
+                    label: "Search",
+                    name: "q",
+                    value: &params.q,
+                    placeholder: "Snapshot, source, or checksum",
+                },
             ],
         ),
         table = snapshot_table(visible),

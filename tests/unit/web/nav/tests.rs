@@ -73,3 +73,37 @@ fn render_lists_every_label_and_groups_them() {
         "every section with destinations needs a heading"
     );
 }
+
+#[test]
+fn information_architecture_matches_the_operations_console() {
+    let expected = [
+        ("home", "/", "Fleet overview"),
+        ("nodes", "/nodes", "Nodes"),
+        ("monitor", "/monitor", "Health"),
+        ("logs", "/logs", "Logs"),
+        ("operations", "/operations", "Readiness"),
+        ("events", "/events", "Events"),
+        ("alerts", "/alerts", "Alerts"),
+        ("federation", "/federation", "Federation"),
+        ("roles", "/roles", "Private network"),
+        ("runtimes", "/runtimes", "Runtimes"),
+        ("snapshots", "/snapshots", "Snapshots"),
+        ("plugins", "/plugins", "Plugins"),
+        ("config", "/config", "Configuration"),
+        ("wallets", "/wallets", "Wallets"),
+        ("signer", "/signer", "Signer"),
+        ("metrics", "/metrics", "Metrics"),
+        ("settings", "/settings", "Settings"),
+    ];
+    assert_eq!(
+        keys(),
+        expected.iter().map(|entry| entry.0).collect::<Vec<_>>()
+    );
+    let markup = render("home");
+    for (key, href, label) in expected {
+        assert_eq!(href_for(key), Some(href));
+        assert!(markup.contains(label), "{label} missing from {markup}");
+    }
+    assert!(markup.contains(r#"class="nav-group utility""#));
+    assert!(markup.contains(r#"class="nav-icon""#));
+}

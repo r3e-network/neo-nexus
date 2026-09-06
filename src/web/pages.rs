@@ -2,6 +2,7 @@
 
 pub mod alerts;
 pub mod config;
+pub mod events;
 pub mod federation;
 pub mod home;
 pub mod login;
@@ -15,5 +16,6 @@ pub mod plugins;
 pub mod roles;
 pub mod runtimes;
 pub mod settings;
+pub mod signer;
 pub mod snapshots;
 pub mod wallets;

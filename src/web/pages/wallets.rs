@@ -89,7 +89,24 @@ fn render_body(
                     .to_string(),
             ),
         ]),
-        filters = html::filter_form("/wallets", &[("used", &params.used), ("q", &params.q)]),
+        filters = html::typed_filter_form(
+            "/wallets",
+            &[],
+            &[
+                html::FilterControl::Select {
+                    label: "Usage",
+                    name: "used",
+                    selected: &params.used,
+                    options: &[("", "All wallets"), ("yes", "In use"), ("no", "Not in use")],
+                },
+                html::FilterControl::Search {
+                    label: "Search",
+                    name: "q",
+                    value: &params.q,
+                    placeholder: "Wallet, node, or path",
+                },
+            ],
+        ),
         table = wallet_table(visible),
         privacy = html::note(
             "Only validation metadata is stored: no private keys, passwords, or wallet bytes ever reach this page.",

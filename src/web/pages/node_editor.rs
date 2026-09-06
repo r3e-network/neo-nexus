@@ -318,6 +318,7 @@ fn storage_field(draft: &NodeDraft, errors: &FieldErrors) -> String {
 
 fn binary_field(draft: &NodeDraft, errors: &FieldErrors) -> String {
     html::TextField {
+        id: None,
         label: "Node binary",
         name: "binary_path",
         value: &draft.binary_path,
