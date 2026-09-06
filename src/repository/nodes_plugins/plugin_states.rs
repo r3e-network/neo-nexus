@@ -7,14 +7,28 @@ impl Repository {
         plugin_id: PluginId,
         enabled: bool,
     ) -> Result<()> {
-        let connection = self.connection()?;
-        connection.execute(
+        crate::types::validate_node_id(node_id)?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        let (status_raw, pid) = transaction
+            .query_row(
+                "SELECT status, pid FROM nodes WHERE id = ?1",
+                params![node_id],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<u32>>(1)?)),
+            )
+            .with_context(|| format!("node {node_id} was not found"))?;
+        let status = NodeStatus::from_str(&status_raw)?;
+        if status.is_active() || pid.is_some() {
+            anyhow::bail!("stop node {node_id} before changing its plugin configuration");
+        }
+        transaction.execute(
             "INSERT INTO plugin_states (node_id, plugin_id, enabled)
              VALUES (?1, ?2, ?3)
              ON CONFLICT(node_id, plugin_id)
              DO UPDATE SET enabled = excluded.enabled",
             params![node_id, plugin_id.to_string(), enabled],
         )?;
+        transaction.commit()?;
         Ok(())
     }
 

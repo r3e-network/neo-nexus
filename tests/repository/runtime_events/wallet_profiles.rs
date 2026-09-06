@@ -9,7 +9,7 @@ fn persists_neo_wallet_profiles_without_secret_material() {
         label: "Validator wallet 1".to_string(),
         source_path: "/secure/wallets/validator-1.wallet.json".to_string(),
         wallet_version: Some("3.0".to_string()),
-        primary_address: "AQLASLtT6pWbThcSCYU1biVqhMnzhTgLFq".to_string(),
+        primary_address: "Nemocn5HwBYXiDarSFQ2nJnUC8gHTR2vC3".to_string(),
         contract_public_keys: vec![
             "036dc4bf8f0405dcf5d12a38487b359cb4bd693357a387d74fc438ffc7757948b0".to_string(),
         ],

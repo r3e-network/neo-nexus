@@ -24,6 +24,27 @@ pub(super) fn assert_rejects_unsafe_backup_shapes(target: &Repository, backup: &
     let error = WorkspaceBackupImporter::validate(&duplicate_node_backup).unwrap_err();
     assert!(error.to_string().contains("duplicate backup node id"));
 
+    for unsafe_id in [
+        "../outside",
+        "..\\outside",
+        "/absolute",
+        "C:\\outside",
+        "nested/node",
+        "node-非ascii",
+    ] {
+        let mut unsafe_id_backup = backup.clone();
+        unsafe_id_backup.nodes[0].id = unsafe_id.to_string();
+        let validation_error = WorkspaceBackupImporter::validate(&unsafe_id_backup)
+            .expect_err("unsafe node id must not validate");
+        assert!(
+            validation_error.to_string().contains("unsafe id"),
+            "unexpected validation error for {unsafe_id:?}: {validation_error}"
+        );
+        let import_error = WorkspaceBackupImporter::import(target, &unsafe_id_backup)
+            .expect_err("unsafe node id must not reach repository writes");
+        assert!(import_error.to_string().contains("unsafe id"));
+    }
+
     let mut duplicate_port_backup = backup.clone();
     let mut duplicate_port_node = duplicate_port_backup.nodes[0].clone();
     duplicate_port_node.id = "restore-source-port-conflict".to_string();

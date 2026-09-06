@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use crate::{
     catalog::PluginState,
     config::format::{config_filename, config_format},
-    types::NodeConfig,
+    types::{node_workspace_path, NodeConfig},
 };
 
 use super::super::{model::NodeConfigExportReport, node::ConfigExporter};
@@ -26,7 +26,7 @@ fn export_node_config(
     node: &NodeConfig,
     plugins: &[PluginState],
 ) -> Result<NodeConfigExportReport> {
-    let path = node_config_path(output_dir, node);
+    let path = node_config_path(output_dir, node)?;
     let export = ConfigExporter::write_node_config_to_path(&path, node, plugins)
         .with_context(|| format!("failed to export config for {}", node.name))?;
 
@@ -48,9 +48,6 @@ fn export_node_config(
     })
 }
 
-fn node_config_path(output_dir: &Path, node: &NodeConfig) -> PathBuf {
-    output_dir
-        .join("nodes")
-        .join(&node.id)
-        .join(config_filename(node))
+fn node_config_path(output_dir: &Path, node: &NodeConfig) -> Result<PathBuf> {
+    Ok(node_workspace_path(output_dir.join("nodes"), &node.id)?.join(config_filename(node)))
 }

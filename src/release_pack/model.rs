@@ -32,6 +32,9 @@ impl ReleasePackage {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ReleasePackageVerification {
+    /// `true` only when an explicit trust anchor authenticated a detached
+    /// Ed25519 signature over the canonical sidecar manifest.
+    pub publisher_authenticated: bool,
     pub archive_path: PathBuf,
     pub checksum_path: PathBuf,
     pub manifest_path: PathBuf,
@@ -45,8 +48,19 @@ pub struct ReleasePackageVerification {
 
 impl ReleasePackageVerification {
     pub fn to_cli_text(&self) -> String {
+        let (heading, authenticity) = if self.publisher_authenticated {
+            (
+                "release-package-authenticity: ok",
+                "publisher-authenticated: yes",
+            )
+        } else {
+            (
+                "release-package-integrity: ok",
+                "publisher-authenticated: no (integrity-only)",
+            )
+        };
         format!(
-            "release-package-verification: ok\npackage: {}\narchive: {}\narchive-sha256: {}\narchive-bytes: {}\nmanifest: {}\nchecksum: {}\nbinary: {}\nbinary-sha256: {}\nbinary-bytes: {}\n",
+            "{heading}\n{authenticity}\npackage: {}\narchive: {}\narchive-sha256: {}\narchive-bytes: {}\nmanifest: {}\nchecksum: {}\nbinary: {}\nbinary-sha256: {}\nbinary-bytes: {}\n",
             self.package_id,
             self.archive_path.display(),
             self.archive_sha256,

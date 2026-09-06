@@ -57,7 +57,7 @@ pub(super) fn backup_with_full_workspace(workspace_root: &Path) -> (WorkspaceBac
                 .display()
                 .to_string(),
             wallet_version: Some("3.0".to_string()),
-            primary_address: "AQLASLtT6pWbThcSCYU1biVqhMnzhTgLFq".to_string(),
+            primary_address: "Nemocn5HwBYXiDarSFQ2nJnUC8gHTR2vC3".to_string(),
             contract_public_keys: vec![
                 "036dc4bf8f0405dcf5d12a38487b359cb4bd693357a387d74fc438ffc7757948b0".to_string(),
             ],
@@ -109,11 +109,25 @@ pub(super) fn backup_with_full_workspace(workspace_root: &Path) -> (WorkspaceBac
     source
         .update_node_status(&node_id, NodeStatus::Running, Some(4242))
         .unwrap();
+    // An active node cannot switch identity. Bind while stopped, then restore
+    // the source snapshot's running state to prove status/pid are scrubbed.
+    source
+        .update_node_status(&node_id, NodeStatus::Stopped, None)
+        .unwrap();
+    source
+        .set_node_signer_key(
+            &node_id,
+            Some(&SignerKeyRef::new("neo-os-prod", "committee-three").unwrap()),
+        )
+        .unwrap();
     source
         .set_plugin_enabled(&node_id, PluginId::RpcServer, true)
         .unwrap();
     source
         .set_plugin_enabled(&node_id, PluginId::LevelDbStore, true)
+        .unwrap();
+    source
+        .update_node_status(&node_id, NodeStatus::Running, Some(4242))
         .unwrap();
     source
         .upsert_plugin_installation(&PluginInstallation {

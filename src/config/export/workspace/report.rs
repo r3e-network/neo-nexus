@@ -1,11 +1,9 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 
 use super::super::model::{NodeConfigExportReport, WorkspaceConfigReport};
+use crate::config::export::atomic::StagedWrite;
 
 pub(super) fn build_workspace_config_report(
     database: &Path,
@@ -43,9 +41,13 @@ pub(super) fn write_report_files(
     let stem = format!("node-config-export-{generated_at_unix}");
     let text_path = output_dir.join(format!("{stem}.txt"));
     let json_path = output_dir.join(format!("{stem}.json"));
-    fs::write(&text_path, report.to_text())
+    let text = report.to_text();
+    let json = report.to_json_text()?;
+    let text_stage = StagedWrite::new(&text_path, text.as_bytes(), false)
         .with_context(|| format!("failed to write node config export {}", text_path.display()))?;
-    fs::write(&json_path, report.to_json_text()?)
+    let json_stage = StagedWrite::new(&json_path, json.as_bytes(), false)
         .with_context(|| format!("failed to write node config export {}", json_path.display()))?;
+    text_stage.commit()?;
+    json_stage.commit()?;
     Ok((text_path, json_path))
 }

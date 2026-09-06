@@ -25,8 +25,9 @@ impl ConfigGenerator {
     pub(super) fn neo_cli_sidecars(
         node: &NodeConfig,
         enabled: &[crate::catalog::PluginId],
+        context: &GenerationContext,
     ) -> Vec<PluginSidecar> {
-        sidecar::sidecars_for(node, enabled)
+        sidecar::sidecars_for_with_context(node, enabled, context)
     }
 
     pub fn neo_cli(node: &NodeConfig, plugins: &[PluginState]) -> Result<Value> {

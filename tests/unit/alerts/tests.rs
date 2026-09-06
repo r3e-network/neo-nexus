@@ -5,6 +5,7 @@ use super::*;
 mod delivery_history;
 mod payload_shapes;
 mod policy_provider;
+mod routing;
 mod targets;
 
 fn event(severity: EventSeverity) -> RuntimeEvent {

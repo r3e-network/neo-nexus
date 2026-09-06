@@ -46,16 +46,26 @@ fn check_signer_endpoint(
     signer: &DeploymentCommitteeSignerManifest,
     endpoint: &str,
 ) {
+    let valid = validate_signer_endpoint(endpoint).is_ok();
+    let remote_cleartext = valid && signer_endpoint_is_remote_cleartext(endpoint);
     add_check(
         checks,
         "signer-endpoint",
         &signer.label,
-        if validate_signer_endpoint(endpoint).is_ok() {
+        if remote_cleartext {
+            LaunchPackValidationStatus::Warn
+        } else if valid {
             LaunchPackValidationStatus::Pass
         } else {
             LaunchPackValidationStatus::Fail
         },
-        endpoint.to_string(),
+        if remote_cleartext {
+            format!(
+                "{endpoint}: non-loopback signer traffic uses cleartext HTTP; use HTTPS or a loopback local sidecar"
+            )
+        } else {
+            endpoint.to_string()
+        },
     );
 }
 

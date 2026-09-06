@@ -12,6 +12,10 @@ pub(super) struct LaunchPackFixture {
 }
 
 pub(super) fn build_ready_launch_pack() -> LaunchPackFixture {
+    build_ready_launch_pack_with_endpoint("https://signer.example.test/validator-1")
+}
+
+pub(super) fn build_ready_launch_pack_with_endpoint(endpoint: &str) -> LaunchPackFixture {
     let temp_dir = tempfile::tempdir().unwrap();
     let repo = Repository::open(temp_dir.path().join("neonexus.db")).unwrap();
     let fake_binary = temp_dir.path().join("bin").join("neo-node");
@@ -58,7 +62,7 @@ pub(super) fn build_ready_launch_pack() -> LaunchPackFixture {
         committee: CommitteeRoster::from_public_keys_and_references(
             &committee_key,
             &format!(
-                "{committee_key}|wallets/validator-1.wallet.json|https://signer.example.test/validator-1|signer-bin/neo-signer --wallet {{wallet}} --listen {{endpoint}}"
+                "{committee_key}|wallets/validator-1.wallet.json|{endpoint}|signer-bin/neo-signer --wallet {{wallet}} --listen {{endpoint}}"
             ),
         )
         .unwrap(),

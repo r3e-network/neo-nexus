@@ -33,6 +33,10 @@ pub(super) fn restore_nodes(
         if bindings.wallet_profile_id.is_some() {
             counts.wallet_binding_count += 1;
         }
+        repository.set_node_signer_key(&node.id, bindings.signer_key.as_ref())?;
+        if bindings.signer_key.is_some() {
+            counts.signer_binding_count += 1;
+        }
     }
 
     Ok(counts)

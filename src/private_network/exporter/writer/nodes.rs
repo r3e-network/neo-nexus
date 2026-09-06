@@ -24,7 +24,7 @@ pub(super) fn write_node_configs(
             .get(planned.name.as_str())
             .copied()
             .with_context(|| format!("planned node {} was not materialized", planned.name))?;
-        let node_work_dir = request.node_root_dir.join(&node.id);
+        let node_work_dir = crate::types::node_workspace_path(&request.node_root_dir, &node.id)?;
         let config_path = ConfigExporter::managed_target_path(&node_work_dir, node);
         let plugins = request
             .plugin_states

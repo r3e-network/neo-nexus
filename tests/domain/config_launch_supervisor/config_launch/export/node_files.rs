@@ -46,6 +46,72 @@ fn config_exporter_writes_safe_json_file() {
 }
 
 #[test]
+fn config_exporter_removes_sidecars_for_plugins_that_are_now_disabled() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let repo = Repository::open(temp_dir.path().join("neonexus.db")).unwrap();
+    let node_id = create_node(&repo, "neo-cli sidecar cleanup", NodeType::NeoCli);
+    let node = repo
+        .list_nodes()
+        .unwrap()
+        .into_iter()
+        .find(|node| node.id == node_id)
+        .unwrap();
+    let path = temp_dir.path().join("node").join("config.json");
+
+    let enabled = [PluginState {
+        plugin_id: PluginId::RpcServer,
+        enabled: true,
+    }];
+    let first = ConfigExporter::write_node_config_to_path(&path, &node, &enabled).unwrap();
+    let rpc_sidecar = first
+        .sidecar_paths
+        .into_iter()
+        .find(|path| path.ends_with("Plugins/RpcServer/RpcServer.json"))
+        .expect("RPC sidecar");
+    assert!(rpc_sidecar.is_file());
+
+    let second = ConfigExporter::write_node_config_to_path(&path, &node, &[]).unwrap();
+
+    assert!(second.sidecar_paths.is_empty());
+    assert!(
+        !rpc_sidecar.exists(),
+        "a disabled plugin retained its managed sidecar"
+    );
+}
+
+#[test]
+fn config_exporter_replaces_existing_files_without_leaving_staging_files() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let repo = Repository::open(temp_dir.path().join("neonexus.db")).unwrap();
+    let node_id = create_node(&repo, "atomic config", NodeType::NeoGo);
+    let node = repo
+        .list_nodes()
+        .unwrap()
+        .into_iter()
+        .find(|node| node.id == node_id)
+        .unwrap();
+    let path = temp_dir.path().join("node").join("config.yml");
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(&path, "truncated-old-config").unwrap();
+
+    ConfigExporter::write_node_config_to_path(&path, &node, &[]).unwrap();
+
+    let text = std::fs::read_to_string(&path).unwrap();
+    assert!(text.contains("ProtocolConfiguration:"));
+    let leftovers = std::fs::read_dir(path.parent().unwrap())
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .contains(".neonexus-tmp-")
+        })
+        .collect::<Vec<_>>();
+    assert!(leftovers.is_empty(), "staging files were not cleaned up");
+}
+
+#[test]
 fn config_exporter_writes_neo_go_yaml_file() {
     let temp_dir = tempfile::tempdir().unwrap();
     let repo = Repository::open(temp_dir.path().join("neonexus.db")).unwrap();

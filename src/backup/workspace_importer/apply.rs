@@ -31,6 +31,7 @@ pub(in crate::backup) fn import_backup(
         created_nodes: node_counts.created_nodes,
         role_count: node_counts.role_count,
         wallet_binding_count: node_counts.wallet_binding_count,
+        signer_binding_count: node_counts.signer_binding_count,
         updated_nodes: node_counts.updated_nodes,
         plugin_state_count: node_counts.plugin_state_count,
         plugin_installation_count: node_counts.plugin_installation_count,

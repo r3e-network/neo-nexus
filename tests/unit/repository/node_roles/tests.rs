@@ -1,7 +1,8 @@
 use crate::{
+    catalog::PluginId,
     repository::Repository,
-    roles::NodeRole,
-    types::{Network, NewNode, NodeType, StorageEngine},
+    roles::{NodeRole, RolePlanner},
+    types::{Network, NewNode, NodeStatus, NodeType, StorageEngine},
 };
 use std::path::PathBuf;
 
@@ -104,4 +105,47 @@ fn roles_are_scoped_to_their_node() {
         .set_node_role(&first, Some(NodeRole::Oracle))
         .unwrap();
     assert_eq!(repository.load_node_role(&second).unwrap(), None);
+}
+
+#[test]
+fn applying_a_role_persists_role_and_plugins_together() {
+    let (_dir, repository, id) = repo_with_node();
+    let node = repository
+        .list_nodes()
+        .unwrap()
+        .into_iter()
+        .find(|node| node.id == id)
+        .unwrap();
+    let plan = RolePlanner::plan(&node, NodeRole::Oracle);
+    repository.apply_node_role_plan(&id, &plan).unwrap();
+
+    assert_eq!(
+        repository.load_node_role(&id).unwrap(),
+        Some(NodeRole::Oracle)
+    );
+    let plugins = repository.list_plugin_states(&id).unwrap();
+    for change in plan.plugin_changes {
+        assert_eq!(
+            plugins
+                .iter()
+                .find(|plugin| plugin.plugin_id == change.plugin_id)
+                .map(|plugin| plugin.enabled),
+            Some(change.enabled)
+        );
+    }
+    assert!(plugins
+        .iter()
+        .any(|plugin| plugin.plugin_id == PluginId::OracleService));
+}
+
+#[test]
+fn active_node_cannot_change_duty() {
+    let (_dir, repository, id) = repo_with_node();
+    repository
+        .update_node_status(&id, NodeStatus::Running, Some(42))
+        .unwrap();
+    let error = repository
+        .set_node_role(&id, Some(NodeRole::Oracle))
+        .expect_err("active node identity must remain stable");
+    assert!(error.to_string().contains("stop node"));
 }

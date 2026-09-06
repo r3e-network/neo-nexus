@@ -10,6 +10,7 @@ impl WorkspaceBackupValidation {
             format!("nodes: {}", self.node_count),
             format!("plugin-states: {}", self.plugin_state_count),
             format!("plugin-installations: {}", self.plugin_installation_count),
+            format!("signer-bindings: {}", self.signer_binding_count),
             format!("workspace-settings: {}", self.workspace_setting_count),
             format!("remote-servers: {}", self.remote_server_count),
             format!(

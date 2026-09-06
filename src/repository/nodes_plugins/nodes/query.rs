@@ -38,7 +38,13 @@ impl Repository {
             })
         })?;
 
-        rows.collect::<rusqlite::Result<Vec<_>>>()
-            .context("failed to load nodes")
+        let nodes = rows
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .context("failed to load nodes")?;
+        for node in &nodes {
+            crate::types::validate_node_id(&node.id)
+                .with_context(|| format!("workspace contains unsafe node id {:?}", node.id))?;
+        }
+        Ok(nodes)
     }
 }

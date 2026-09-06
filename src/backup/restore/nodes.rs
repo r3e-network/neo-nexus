@@ -7,7 +7,8 @@ use crate::{
     plugins::PluginInstallation,
     repository::validate_node_config,
     roles::NodeRole,
-    types::{Network, NodeConfig, NodeStatus, NodeType, StorageEngine},
+    signing::SignerKeyRef,
+    types::{validate_node_id, Network, NodeConfig, NodeStatus, NodeType, StorageEngine},
 };
 
 use super::super::schema::{NodeBackup, PluginInstallationBackup};
@@ -20,6 +21,7 @@ use super::super::schema::{NodeBackup, PluginInstallationBackup};
 pub(in crate::backup) struct RestoredNodeBindings {
     pub(in crate::backup) role: Option<NodeRole>,
     pub(in crate::backup) wallet_profile_id: Option<String>,
+    pub(in crate::backup) signer_key: Option<SignerKeyRef>,
 }
 
 pub(in crate::backup) fn restored_node(
@@ -30,9 +32,8 @@ pub(in crate::backup) fn restored_node(
     Vec<PluginInstallation>,
     RestoredNodeBindings,
 )> {
-    if backup.id.trim().is_empty() {
-        anyhow::bail!("backup node id is required");
-    }
+    validate_node_id(&backup.id)
+        .with_context(|| format!("backup node {} has an unsafe id", backup.name))?;
 
     let _backup_status = NodeStatus::from_str(&backup.status)
         .with_context(|| format!("backup node {} has invalid status", backup.id))?;
@@ -75,6 +76,12 @@ pub(in crate::backup) fn restored_node(
             .map(str::trim)
             .filter(|id| !id.is_empty())
             .map(ToString::to_string),
+        signer_key: backup
+            .signer_key
+            .as_ref()
+            .map(|key| SignerKeyRef::new(&key.backend_id, &key.key_id))
+            .transpose()
+            .with_context(|| format!("backup node {} has an invalid signer binding", backup.id))?,
     };
 
     Ok((node, plugins, plugin_installations, bindings))

@@ -11,6 +11,7 @@ pub(super) fn assert_first_import(
     assert_eq!(imported.updated_nodes, 0);
     assert_eq!(imported.plugin_state_count, 2);
     assert_eq!(imported.plugin_installation_count, 1);
+    assert_eq!(imported.signer_binding_count, 1);
     assert_eq!(imported.workspace_setting_count, 6);
     assert_eq!(imported.remote_server_count, 1);
     assert_eq!(imported.runtime_catalog_profile_count, 1);
@@ -25,6 +26,14 @@ pub(super) fn assert_first_import(
     assert_eq!(restored[0].name, "restore source");
     assert_eq!(restored[0].status, NodeStatus::Stopped);
     assert_eq!(restored[0].pid, None);
+    assert!(restored[0].binary_path.as_os_str().is_empty());
+    assert!(restored[0].args.is_empty());
+    let signer = target
+        .load_node_signer_key(node_id)
+        .unwrap()
+        .expect("node signer binding restored");
+    assert_eq!(signer.backend_id, "neo-os-prod");
+    assert_eq!(signer.key_id, "committee-three");
     assert_eq!(target.list_plugin_states(node_id).unwrap().len(), 2);
     let restored_plugins = target.list_plugin_installations(node_id).unwrap();
     assert_eq!(restored_plugins.len(), 1);
@@ -61,7 +70,7 @@ pub(super) fn assert_first_import(
     assert_eq!(wallet_profiles[0].id, "restore-wallet-profile");
     assert_eq!(
         wallet_profiles[0].primary_address,
-        "AQLASLtT6pWbThcSCYU1biVqhMnzhTgLFq"
+        "Nemocn5HwBYXiDarSFQ2nJnUC8gHTR2vC3"
     );
     let snapshots = target.list_fast_sync_snapshots().unwrap();
     assert_eq!(snapshots.len(), 1);
@@ -85,6 +94,7 @@ pub(super) fn assert_second_import(target: &Repository, imported_again: &Workspa
     assert_eq!(imported_again.created_nodes, 0);
     assert_eq!(imported_again.updated_nodes, 1);
     assert_eq!(imported_again.plugin_installation_count, 1);
+    assert_eq!(imported_again.signer_binding_count, 1);
     assert_eq!(imported_again.remote_server_count, 1);
     assert_eq!(imported_again.runtime_catalog_profile_count, 1);
     assert_eq!(imported_again.runtime_signer_profile_count, 1);

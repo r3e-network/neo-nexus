@@ -8,7 +8,7 @@ pub(super) use commands::{
     parse_signer_command_plan, signer_command_plan_matches_command, validate_signer_command,
     validate_signer_command_plan,
 };
-pub(super) use endpoints::validate_signer_endpoint;
+pub(super) use endpoints::{signer_endpoint_is_remote_cleartext, validate_signer_endpoint};
 pub(super) use keys::{has_signer_references, normalize_public_key};
 pub(super) use templates::{expand_signer_command_template, validate_signer_command_template};
 pub(super) use wallets::validate_signer_wallet_path;
