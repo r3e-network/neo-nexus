@@ -42,6 +42,7 @@ define_event_kinds! {
     NodePortsAssigned => "node-ports-assigned",
     NodeExited => "node-exited",
     NodeStartFailed => "node-start-failed",
+    NodeSignerBound => "node-signer-bound",
     PluginUpdated => "plugin-updated",
     PluginInstalled => "plugin-installed",
     RoleApplied => "role-applied",

@@ -18,6 +18,12 @@ pub(super) fn create_inventory_tables(connection: &Connection) -> Result<()> {
             status TEXT NOT NULL,
             pid INTEGER
         );
+        CREATE TABLE IF NOT EXISTS node_runtime_quarantine (
+            node_id TEXT PRIMARY KEY,
+            imported_binary_path TEXT NOT NULL,
+            imported_args TEXT NOT NULL DEFAULT '',
+            FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+        );
         CREATE TABLE IF NOT EXISTS node_roles (
             node_id TEXT PRIMARY KEY,
             role TEXT NOT NULL,
@@ -26,6 +32,12 @@ pub(super) fn create_inventory_tables(connection: &Connection) -> Result<()> {
         CREATE TABLE IF NOT EXISTS node_wallets (
             node_id TEXT PRIMARY KEY,
             wallet_profile_id TEXT NOT NULL,
+            FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS node_signer_bindings (
+            node_id TEXT PRIMARY KEY,
+            backend_id TEXT NOT NULL,
+            key_id TEXT NOT NULL,
             FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
         );
         CREATE TABLE IF NOT EXISTS plugin_states (

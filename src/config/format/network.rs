@@ -2,7 +2,11 @@ use crate::types::Network;
 
 use super::RuntimeConfigProfile;
 
-pub(super) fn network_magic(network: Network) -> u32 {
+/// Chain identity. Crate-visible because signing is not the only code that
+/// needs it: a witness preimage embeds the magic, so a second copy of this
+/// table in the custody path is how one app ends up with keys that sign for two
+/// different chains.
+pub(crate) fn network_magic(network: Network) -> u32 {
     match network {
         Network::Mainnet => 860_833_102,
         Network::Testnet => 894_710_606,

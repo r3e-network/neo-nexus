@@ -77,6 +77,17 @@ impl NodeRole {
         Self::ALL.into_iter().find(|role| role.persist_key() == key)
     }
 
+    /// Whether this duty can emit protocol messages that require a node key.
+    /// Read-only/API/indexing duties must remain launchable without custody;
+    /// validator, oracle, state-root and notary duties must not silently borrow
+    /// a process-wide default signer.
+    pub fn requires_signer(self) -> bool {
+        matches!(
+            self,
+            Self::Consensus | Self::Oracle | Self::StateValidator | Self::Notary
+        )
+    }
+
     /// The `RoleManagement` designation this duty requires before the node can
     /// perform it, if any. `RpcApi`, `Indexer` and `Observer` are purely local
     /// capabilities; the rest are committee-granted.

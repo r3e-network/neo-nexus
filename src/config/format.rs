@@ -6,7 +6,7 @@ mod network;
 mod plugin;
 mod types;
 
-pub use self::context::{GenerationContext, ServiceWallet};
+pub use self::context::{ConsensusSigner, GenerationContext, ServiceWallet};
 pub use types::{ConfigFormat, RenderedConfig, RuntimeConfigProfile};
 
 pub(super) use filenames::{config_filename, config_format};
@@ -17,6 +17,7 @@ pub use neox::{
     neox_block_period_secs, neox_bootnodes, neox_chain_id, neox_genesis_hash, neox_reth_chain,
     neox_validator_count,
 };
+pub(crate) use network::network_magic;
 pub(super) use network::{
     broadcast_history_limit, effective_committee_public_keys, effective_network_magic,
     effective_seed_nodes, effective_validators_count, max_transactions_per_block,
