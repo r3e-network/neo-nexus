@@ -7,9 +7,7 @@ mod probe_filter;
 mod validation;
 
 pub use client::RemoteFederationClient;
-pub use endpoints::{
-    public_endpoint_url, PUBLIC_NODES_PATH, PUBLIC_STATUS_PATH, PUBLIC_SYSTEM_METRICS_PATH,
-};
+pub use endpoints::{public_endpoint_url, PUBLIC_STATUS_PATH};
 pub use filter::{filter_remote_server_profiles, RemoteServerProfileFilter};
 pub use model::{
     NewRemoteServerProfile, RemoteFederationMonitorPolicy, RemoteProbeStatus,
