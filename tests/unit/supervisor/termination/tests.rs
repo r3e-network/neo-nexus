@@ -5,7 +5,10 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    supervisor::{recorded_process, termination::name_matches_binary, RecordedProcess},
+    supervisor::{
+        recorded_process, termination::name_matches_binary, PidStop, ProcessSupervisor,
+        RecordedProcess,
+    },
     types::NodeConfig,
 };
 
@@ -134,5 +137,73 @@ fn a_live_process_is_ours_only_when_the_binary_matches() {
     assert_eq!(recorded_process(&recycled), RecordedProcess::Reused);
 
     let _ = witness.kill();
+    let _ = witness.wait();
+}
+
+#[test]
+fn identical_basenames_at_different_paths_are_not_the_same_process() {
+    let source = if cfg!(windows) {
+        PathBuf::from(r"C:\Windows\System32\ping.exe")
+    } else {
+        PathBuf::from("/bin/sleep")
+    };
+    let first_dir = tempfile::tempdir().expect("first executable directory");
+    let second_dir = tempfile::tempdir().expect("second executable directory");
+    let file_name = source.file_name().expect("witness filename");
+    let actual = first_dir.path().join(file_name);
+    let recorded = second_dir.path().join(file_name);
+    std::fs::copy(&source, &actual).expect("copy actual witness");
+    std::fs::copy(&source, &recorded).expect("copy recorded witness");
+
+    let mut witness = if cfg!(windows) {
+        std::process::Command::new(&actual)
+            .args(["-n", "60", "127.0.0.1"])
+            .spawn()
+            .expect("copied ping witness")
+    } else {
+        std::process::Command::new(&actual)
+            .arg("60")
+            .spawn()
+            .expect("copied sleep witness")
+    };
+    let pid = witness.id();
+
+    // Some restricted process-table implementations do not expose executable
+    // paths. The production code then deliberately falls back to basename;
+    // exercise the strengthened path boundary wherever the OS supplies it.
+    let mut system = sysinfo::System::new();
+    let exposes_path = super::live_process(&mut system, pid)
+        .and_then(sysinfo::Process::exe)
+        .is_some();
+    if exposes_path {
+        assert_eq!(
+            recorded_process(&node_recorded_as(&recorded.to_string_lossy(), Some(pid))),
+            RecordedProcess::Reused
+        );
+    }
+
+    let _ = witness.kill();
+    let _ = witness.wait();
+}
+
+#[test]
+fn pid_stop_reports_success_only_after_the_original_process_is_gone() {
+    let mut witness = spawn_witness();
+    let pid = witness.id();
+    let binary = if cfg!(windows) {
+        r"C:\Windows\System32\ping.exe"
+    } else {
+        "/bin/sleep"
+    };
+    let node = node_recorded_as(binary, Some(pid));
+    let home = tempfile::tempdir().expect("stop log directory");
+    let supervisor = ProcessSupervisor::with_stop_grace_period(std::time::Duration::from_secs(1));
+
+    let outcome = supervisor.stop_recorded_pid(&node, home.path().join("stop.log"));
+    assert!(
+        matches!(outcome, PidStop::Stopped(_)),
+        "a successful witness termination must be confirmed: {outcome:?}"
+    );
+    assert_ne!(recorded_process(&node), RecordedProcess::Alive);
     let _ = witness.wait();
 }

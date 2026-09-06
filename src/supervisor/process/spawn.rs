@@ -6,9 +6,12 @@ use std::{
 use anyhow::{Context, Result};
 
 use super::child::ManagedChild;
-use crate::supervisor::{
-    logging::{append_pid, open_launch_log},
-    ManagedProcessSpec, ProcessStart,
+use crate::{
+    child_environment::scrub_control_plane_environment,
+    supervisor::{
+        logging::{append_pid, open_launch_log},
+        ManagedProcessSpec, ProcessStart,
+    },
 };
 
 pub(super) fn spawn_managed_child(
@@ -22,12 +25,15 @@ pub(super) fn spawn_managed_child(
     let stderr_log = log_file
         .try_clone()
         .with_context(|| format!("failed to clone process log {}", log_path.display()))?;
-    let child = Command::new(&spec.binary_path)
+    let mut command = Command::new(&spec.binary_path);
+    command
         .args(&spec.args)
         .current_dir(&spec.working_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::from(stdout_log))
-        .stderr(Stdio::from(stderr_log))
+        .stderr(Stdio::from(stderr_log));
+    scrub_control_plane_environment(&mut command);
+    let child = command
         .spawn()
         .with_context(|| format!("failed to start {}", spec.binary_path.display()))?;
     let pid = child.id();

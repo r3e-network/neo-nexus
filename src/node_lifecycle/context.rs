@@ -11,10 +11,15 @@
 //! as a relay. The workbench went on showing the duty, because the duty *was*
 //! recorded — it simply never reached the file the node booted from.
 //!
-//! The wallet arrives by path only. Enabling a signing service writes its
-//! password into the config in plaintext, and NeoNexus never holds that
-//! password, so the section is written with an empty one and stays disabled
-//! until an operator supplies it.
+//! The node-runtime wallet arrives by path only. Enabling a native node signing
+//! service writes its password into the config in plaintext, and this lifecycle
+//! path neither loads nor persists that password, so the section is written
+//! with an empty one and stays disabled until an operator supplies it.
+//!
+//! This boundary is separate from NeoNexus's application-level signer backend.
+//! In particular, an active local wallet, local signer or NeoOS signer service
+//! is never implicitly reused for a node duty: doing so would silently bind a
+//! process-wide identity to a particular validator.
 
 use crate::{
     config::{GenerationContext, ServiceWallet},
@@ -34,6 +39,7 @@ pub fn generation_context_for_node(
     GenerationContext {
         role: repository.load_node_role(&node.id).unwrap_or_default(),
         wallet: service_wallet_for_node(repository, node),
+        consensus_signer: None,
     }
 }
 

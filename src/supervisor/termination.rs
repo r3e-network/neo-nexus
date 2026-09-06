@@ -86,6 +86,9 @@ pub enum PidStop {
     AlreadyGone,
     /// Some other process owns the pid now. Nothing was signalled.
     PidReused,
+    /// The recorded process was still ours, but termination could not be
+    /// requested or its exit could not be confirmed before the deadline.
+    Failed { pid: u32, message: String },
 }
 
 /// Stop a process this supervisor holds no handle for.
@@ -103,31 +106,51 @@ pub(super) fn stop_by_pid(node: &NodeConfig, log_path: PathBuf, grace_period: Du
         return PidStop::AlreadyGone;
     };
     let mut system = sysinfo::System::new();
-    match identify_recorded_process(&mut system, node) {
-        Some(_) => {}
-        None if !process_is_live(pid) => return PidStop::AlreadyGone,
+    let started_at = identify_recorded_process(&mut system, node).map(sysinfo::Process::start_time);
+    let Some(started_at) = started_at else {
+        if live_process(&mut system, pid).is_none() {
+            return PidStop::AlreadyGone;
+        }
         // Something answers to that pid, but it is not our node.
-        None => return PidStop::PidReused,
-    }
+        return PidStop::PidReused;
+    };
 
     let graceful_requested = request_graceful_termination(pid).is_ok();
     // As in `stop_child`: no signal sent means nothing to wait for.
     let deadline = Instant::now() + grace_period;
-    while graceful_requested && process_is_live(pid) {
+    while graceful_requested && original_process_is_live(&mut system, node, started_at) {
         if Instant::now() >= deadline {
             break;
         }
         thread::sleep(UNMANAGED_POLL_INTERVAL);
     }
 
-    let forced = process_is_live(pid);
+    let forced = original_process_is_live(&mut system, node, started_at);
     if forced {
-        identify_recorded_process(&mut system, node).map(sysinfo::Process::kill);
+        let requested = identify_original_process(&mut system, node, started_at)
+            .is_some_and(sysinfo::Process::kill);
+        if !requested && original_process_is_live(&mut system, node, started_at) {
+            return PidStop::Failed {
+                pid,
+                message: format!("the operating system refused to force stop pid {pid}"),
+            };
+        }
         // No handle to wait on, so the exit code is genuinely unknowable rather
         // than absent by accident; `append_stop_log` records it as a signal.
         let kill_deadline = Instant::now() + grace_period;
-        while process_is_live(pid) && Instant::now() < kill_deadline {
+        while original_process_is_live(&mut system, node, started_at)
+            && Instant::now() < kill_deadline
+        {
             thread::sleep(UNMANAGED_POLL_INTERVAL);
+        }
+        if original_process_is_live(&mut system, node, started_at) {
+            return PidStop::Failed {
+                pid,
+                message: format!(
+                    "pid {pid} remained alive after a {} ms force-stop deadline",
+                    grace_period.as_millis()
+                ),
+            };
         }
     }
 
@@ -154,8 +177,59 @@ fn identify_recorded_process<'a>(
     process_matches_binary(process, &node.binary_path).then_some(process)
 }
 
+fn identify_original_process<'a>(
+    system: &'a mut sysinfo::System,
+    node: &NodeConfig,
+    started_at: u64,
+) -> Option<&'a sysinfo::Process> {
+    identify_recorded_process(system, node).filter(|process| process.start_time() == started_at)
+}
+
+fn original_process_is_live(
+    system: &mut sysinfo::System,
+    node: &NodeConfig,
+    started_at: u64,
+) -> bool {
+    identify_original_process(system, node, started_at).is_some()
+}
+
 fn process_matches_binary(process: &sysinfo::Process, binary_path: &Path) -> bool {
+    if let Some(actual_path) = process.exe() {
+        if let Some(matches) = executable_paths_match(actual_path, binary_path) {
+            return matches;
+        }
+    }
     name_matches_binary(&process.name().to_string_lossy(), binary_path)
+}
+
+/// Compare executable paths whenever the operating system provides them. A
+/// basename remains a compatibility fallback only when a full path cannot be
+/// resolved; two known paths with the same basename are never treated as the
+/// same process.
+fn executable_paths_match(actual: &Path, expected: &Path) -> Option<bool> {
+    if actual.as_os_str().is_empty() || expected.as_os_str().is_empty() {
+        return None;
+    }
+    match (
+        std::fs::canonicalize(actual),
+        std::fs::canonicalize(expected),
+    ) {
+        (Ok(actual), Ok(expected)) => Some(paths_equal(&actual, &expected)),
+        _ if actual.is_absolute() && expected.is_absolute() => Some(paths_equal(actual, expected)),
+        _ => None,
+    }
+}
+
+#[cfg(windows)]
+fn paths_equal(left: &Path, right: &Path) -> bool {
+    left.to_string_lossy()
+        .replace('/', "\\")
+        .eq_ignore_ascii_case(&right.to_string_lossy().replace('/', "\\"))
+}
+
+#[cfg(not(windows))]
+fn paths_equal(left: &Path, right: &Path) -> bool {
+    left == right
 }
 
 /// Whether a name the OS reports is the executable at `binary_path`.
@@ -193,13 +267,14 @@ pub fn recorded_process(node: &NodeConfig) -> RecordedProcess {
     let Some(pid) = node.pid else {
         return RecordedProcess::Gone;
     };
-    if !process_is_live(pid) {
-        return RecordedProcess::Gone;
-    }
     let mut system = sysinfo::System::new();
-    match identify_recorded_process(&mut system, node) {
-        Some(_) => RecordedProcess::Alive,
-        None => RecordedProcess::Reused,
+    let Some(process) = live_process(&mut system, pid) else {
+        return RecordedProcess::Gone;
+    };
+    if process_matches_binary(process, &node.binary_path) {
+        RecordedProcess::Alive
+    } else {
+        RecordedProcess::Reused
     }
 }
 
@@ -212,7 +287,11 @@ pub fn recorded_process(node: &NodeConfig) -> RecordedProcess {
 pub fn process_is_live(pid: u32) -> bool {
     let probe = unsafe { libc::kill(pid as libc::pid_t, 0) };
     if probe == 0 {
-        return true;
+        // `kill(pid, 0)` also succeeds for a zombie. A terminated, unreaped
+        // child cannot serve the node and must count as gone to lifecycle
+        // callers; sysinfo supplies that final status distinction.
+        let mut system = sysinfo::System::new();
+        return live_process(&mut system, pid).is_some();
     }
     std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
 }
@@ -263,7 +342,9 @@ fn live_process(system: &mut sysinfo::System, pid: u32) -> Option<&sysinfo::Proc
         // loop above would wait out its grace period for nothing.
         true,
     );
-    system.process(target)
+    system
+        .process(target)
+        .filter(|process| process.status() != sysinfo::ProcessStatus::Zombie)
 }
 
 fn append_stop_log(stop: &ProcessStop, grace_period: Duration) {

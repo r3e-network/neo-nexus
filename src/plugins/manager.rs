@@ -71,7 +71,7 @@ impl PluginPackageManager {
         let backup_dir = backup_dir(&control_root, &plugin_dir_name, installed_at_unix);
 
         reset_directory(&staging_dir)?;
-        let install_result = match unpack_plugin_zip(&source_path, &staging_dir) {
+        let install_result = match unpack_plugin_zip(&source_path, &staging_dir, &plugin_dir_name) {
             Ok(result) => result,
             Err(error) => {
                 let _ = fs::remove_dir_all(&staging_dir);
