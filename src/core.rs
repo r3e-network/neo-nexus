@@ -3,6 +3,7 @@ pub mod lifecycle;
 pub mod node;
 pub mod node_chain;
 pub mod node_health;
+pub mod node_signer;
 pub mod operations;
 pub mod quality;
 pub mod runtime;

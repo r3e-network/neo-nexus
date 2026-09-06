@@ -10,6 +10,8 @@ use crate::wallet::{
 
 use super::validate_neo_wallet_profile;
 
+const MAX_WALLET_BYTES: u64 = 2 * 1024 * 1024;
+
 pub(super) fn profile_from_path(
     path: impl AsRef<Path>,
     id: impl Into<String>,
@@ -17,6 +19,17 @@ pub(super) fn profile_from_path(
     validated_at_unix: u64,
 ) -> Result<NeoWalletProfile> {
     let path = path.as_ref();
+    let metadata = fs::metadata(path)
+        .with_context(|| format!("failed to inspect Neo wallet {}", path.display()))?;
+    if !metadata.is_file() {
+        anyhow::bail!("Neo wallet {} is not a regular file", path.display());
+    }
+    if metadata.len() > MAX_WALLET_BYTES {
+        anyhow::bail!(
+            "Neo wallet {} exceeds the {MAX_WALLET_BYTES}-byte limit",
+            path.display()
+        );
+    }
     let bytes =
         fs::read(path).with_context(|| format!("failed to read Neo wallet {}", path.display()))?;
     let value: Value = serde_json::from_slice(&bytes)

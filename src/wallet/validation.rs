@@ -5,6 +5,8 @@ use serde_json::Value;
 
 use super::{NeoWalletValidationCheck, NeoWalletValidationReport, NeoWalletValidationStatus};
 
+const MAX_WALLET_BYTES: u64 = 2 * 1024 * 1024;
+
 mod account;
 mod contract;
 mod report;
@@ -18,6 +20,17 @@ use secret_boundary::check_secret_boundary;
 
 pub(super) fn validate_path(path: impl AsRef<Path>) -> Result<NeoWalletValidationReport> {
     let path = path.as_ref();
+    let metadata = fs::metadata(path)
+        .with_context(|| format!("failed to inspect Neo wallet {}", path.display()))?;
+    if !metadata.is_file() {
+        anyhow::bail!("Neo wallet {} is not a regular file", path.display());
+    }
+    if metadata.len() > MAX_WALLET_BYTES {
+        anyhow::bail!(
+            "Neo wallet {} exceeds the {MAX_WALLET_BYTES}-byte limit",
+            path.display()
+        );
+    }
     let text = fs::read_to_string(path)
         .with_context(|| format!("failed to read Neo wallet {}", path.display()))?;
     let value: Value = serde_json::from_str(&text)

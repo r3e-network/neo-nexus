@@ -9,8 +9,25 @@
 
 use crate::roles::NodeRole;
 
-/// The wallet a signing service unlocks at startup.
+/// How a neo-cli consensus process obtains signatures. This is runtime
+/// configuration, not a fallback chain: exactly one variant is selected for a
+/// signing node.
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConsensusSigner {
+    /// The node unlocks its bound NEP-6 wallet and DBFT follows that wallet.
+    LocalWallet,
+    /// DBFT resolves this exact `ISigner` name, backed by the official
+    /// SignClient gRPC plugin.
+    SignClient {
+        name: String,
+        endpoint: String,
+        public_key: String,
+        network_magic: u32,
+    },
+}
+
+/// The wallet a signing service unlocks at startup.
+#[derive(Clone, PartialEq, Eq)]
 pub struct ServiceWallet {
     /// Path to the NEP-6 wallet file, from the profile assigned to the node.
     pub path: String,
@@ -23,6 +40,16 @@ pub struct ServiceWallet {
     /// the service is written with its path and left disabled, so the operator
     /// fills in one field rather than learning the schema.
     pub password: Option<String>,
+}
+
+impl std::fmt::Debug for ServiceWallet {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ServiceWallet")
+            .field("path", &self.path)
+            .field("password", &self.password.as_ref().map(|_| "<redacted>"))
+            .finish()
+    }
 }
 
 impl ServiceWallet {
@@ -55,6 +82,7 @@ impl ServiceWallet {
 pub struct GenerationContext {
     pub role: Option<NodeRole>,
     pub wallet: Option<ServiceWallet>,
+    pub consensus_signer: Option<ConsensusSigner>,
 }
 
 impl GenerationContext {
@@ -62,11 +90,29 @@ impl GenerationContext {
         Self {
             role: Some(role),
             wallet: None,
+            consensus_signer: None,
         }
     }
 
     pub fn with_wallet(mut self, wallet: ServiceWallet) -> Self {
         self.wallet = Some(wallet);
+        self.consensus_signer = Some(ConsensusSigner::LocalWallet);
+        self
+    }
+
+    pub fn with_sign_client(
+        mut self,
+        name: impl Into<String>,
+        endpoint: impl Into<String>,
+        public_key: impl Into<String>,
+        network_magic: u32,
+    ) -> Self {
+        self.consensus_signer = Some(ConsensusSigner::SignClient {
+            name: name.into(),
+            endpoint: endpoint.into(),
+            public_key: public_key.into(),
+            network_magic,
+        });
         self
     }
 }

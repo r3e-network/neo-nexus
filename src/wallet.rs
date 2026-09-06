@@ -1,4 +1,4 @@
-mod crypto;
+pub(crate) mod crypto;
 mod filter;
 mod model;
 mod profile;

@@ -9,7 +9,7 @@ mod storage;
 
 pub use chain_family::ChainFamily;
 pub use network::Network;
-pub use node::{NewNode, NodeConfig};
+pub use node::{node_workspace_path, validate_node_id, NewNode, NodeConfig};
 pub use node_inventory::{filter_nodes, NodeInventoryFilter};
 pub use node_type::NodeType;
 pub use ports::{validate_node_port, validate_node_ports};

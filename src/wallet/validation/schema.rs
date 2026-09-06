@@ -1,6 +1,8 @@
 use serde_json::Value;
 
-use crate::wallet::{NeoWalletValidationCheck, NeoWalletValidationStatus};
+use crate::wallet::{
+    crypto::valid_scrypt_parameters, NeoWalletValidationCheck, NeoWalletValidationStatus,
+};
 
 use super::add_check;
 
@@ -45,9 +47,10 @@ pub(super) fn check_scrypt(checks: &mut Vec<NeoWalletValidationCheck>, value: Op
     let n = scrypt.get("n").and_then(Value::as_u64);
     let r = scrypt.get("r").and_then(Value::as_u64);
     let p = scrypt.get("p").and_then(Value::as_u64);
-    let status = if n.is_some_and(|value| value > 1 && value.is_power_of_two())
-        && r.is_some_and(|value| value > 0)
-        && p.is_some_and(|value| value > 0)
+    let status = if n
+        .zip(r)
+        .zip(p)
+        .is_some_and(|((n, r), p)| valid_scrypt_parameters(n, r, p))
     {
         NeoWalletValidationStatus::Pass
     } else {
