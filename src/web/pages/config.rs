@@ -14,7 +14,7 @@ use crate::{
     config::WorkspaceConfigExporter,
     core::operations::{EventKind, EventSeverity, NewRuntimeEvent},
     core::workspace::ConfigExporter,
-    types::NodeConfig,
+    types::{node_workspace_path, NodeConfig},
 };
 
 use super::super::{html, WebState};
@@ -25,7 +25,7 @@ pub async fn config(State(state): State<WebState>, RawQuery(query): RawQuery) ->
         Err(error) => html::note(&format!("failed to load nodes: {error}")),
     };
     Html(html::layout(
-        "Config",
+        "Configuration",
         "config",
         &html::flash(query.as_deref()),
         &body,
@@ -48,7 +48,10 @@ fn collect_rows(state: &WebState, nodes: &[NodeConfig]) -> anyhow::Result<Vec<Co
             Ok(ConfigRow {
                 node: node.clone(),
                 plugins,
-                managed_path: ConfigExporter::managed_target_path(node_work_dir(state, node), node),
+                managed_path: ConfigExporter::managed_target_path(
+                    node_work_dir(state, node)?,
+                    node,
+                ),
             })
         })
         .collect()
@@ -56,14 +59,14 @@ fn collect_rows(state: &WebState, nodes: &[NodeConfig]) -> anyhow::Result<Vec<Co
 
 /// The directory a node owns inside the workspace — the same layout the
 /// lifecycle pipeline and the supervisor use.
-fn node_work_dir(state: &WebState, node: &NodeConfig) -> PathBuf {
-    state.workspace_child_dir("nodes").join(&node.id)
+fn node_work_dir(state: &WebState, node: &NodeConfig) -> anyhow::Result<PathBuf> {
+    node_workspace_path(state.workspace_child_dir("nodes"), &node.id)
 }
 
 fn render_body(state: &WebState, nodes: &[NodeConfig]) -> String {
     if nodes.is_empty() {
         return format!(
-            "<h1>Config</h1>\n{}",
+            "<h1>Configuration</h1>\n{}",
             html::note("No nodes are registered yet, so there is no configuration to report.")
         );
     }
@@ -73,7 +76,7 @@ fn render_body(state: &WebState, nodes: &[NodeConfig]) -> String {
     };
     let written = rows.iter().filter(|row| row.managed_path.is_file()).count();
     format!(
-        r#"<h1>Config</h1>
+        r#"<h1>Configuration</h1>
 {tiles}
 {table}
 <h2>Workspace export</h2>

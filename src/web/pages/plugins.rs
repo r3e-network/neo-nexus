@@ -120,6 +120,12 @@ fn state_badge(enabled: bool) -> String {
 
 fn toggle_form(node: &NodeConfig, plugin_id: PluginId, enabled: bool) -> String {
     let label = if enabled { "Disable" } else { "Enable" };
+    if node.status.is_active() || node.pid.is_some() {
+        return format!(
+            r#"<button type="button" disabled title="Stop and settle the node before changing its launch configuration">{}</button>"#,
+            html::escape(label),
+        );
+    }
     html::control_form(
         &format!("/plugins/{}/toggle", node.id),
         &[("plugin", &plugin_id.to_string())],

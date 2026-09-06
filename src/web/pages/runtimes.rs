@@ -153,20 +153,22 @@ fn job_panel(state: &WebState) -> String {
     let banner = if running > 0 {
         html::notice(
             "warn",
-            &format!("{running} job(s) running; this page refreshes as each finishes."),
+            &format!(
+                "{running} job(s) running. Refresh status when you are ready; the page will not move your focus automatically."
+            ),
         )
     } else {
         String::new()
     };
     let table = html::table(&["State", "Work", "Result", "Started"], &rows);
-    // The poll marker wraps only the running case: an idle page must not
-    // reload itself.
-    let body = if running > 0 {
-        format!(r#"<div data-job-poll="4000" aria-live="polite">{table}</div>"#)
+    let refresh = if running > 0 {
+        r#"<a class="btn small" href="/runtimes">Refresh status</a>"#
     } else {
-        table
+        ""
     };
-    format!("<h2>Background work</h2>\n{banner}\n{body}")
+    format!(
+        "<div class=\"section-head\"><h2>Background work</h2>{refresh}</div>\n{banner}\n{table}"
+    )
 }
 
 fn status_badge(status: &JobStatus) -> String {

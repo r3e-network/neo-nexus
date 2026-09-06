@@ -101,3 +101,87 @@ fn query_value_tolerates_malformed_escapes() {
         Some("%中文")
     );
 }
+
+#[test]
+fn layout_has_accessible_desktop_and_native_mobile_navigation() {
+    let page = html::layout("Fleet", "home", "", "<h1>Fleet</h1>");
+    assert!(page.contains(r##"class="skip-link" href="#main-content""##));
+    assert!(page.contains(r#"<nav class="sidebar-nav" aria-label="Primary navigation">"#));
+    assert!(page.contains(r#"<header class="mobile-nav">"#));
+    assert!(page.contains(r#"<details>"#));
+    assert!(page.contains(r#"aria-label="Mobile navigation""#));
+    assert!(page.contains(r#"<main class="content" id="main-content" tabindex="-1">"#));
+    assert!(page.contains(r#"href="/metrics""#));
+    assert_eq!(page.matches(r#"action="/logout""#).count(), 2);
+}
+
+#[test]
+fn tables_have_header_groups_scoped_columns_and_a_keyboard_scroll_region() {
+    let markup = html::table(
+        &["Name", "Status"],
+        &[html::row(&[html::cell("seed-1"), html::cell("Running")])],
+    );
+    assert!(markup.contains(r#"role="region""#));
+    assert!(markup.contains(r#"tabindex="0""#));
+    assert!(markup.contains("<thead><tr>"));
+    assert!(markup.contains(r#"<th scope="col">Name</th>"#));
+    assert!(markup.contains("</thead><tbody><tr>"));
+}
+
+#[test]
+fn fields_accept_unique_ids_and_expose_validation_state() {
+    let first = html::TextField {
+        id: Some("first-label"),
+        label: "Label",
+        name: "label",
+        value: "",
+        error: Some("required"),
+        ..Default::default()
+    }
+    .render();
+    let second = html::TextField {
+        id: Some("second-label"),
+        label: "Label",
+        name: "label",
+        value: "",
+        ..Default::default()
+    }
+    .render();
+    assert!(first.contains(r#"id="first-label""#));
+    assert!(first.contains(r#"aria-invalid="true""#));
+    assert!(first.contains(r#"aria-describedby="first-label-error""#));
+    assert!(second.contains(r#"id="second-label""#));
+}
+
+#[test]
+fn typed_filters_render_human_labels_and_native_controls() {
+    let markup = html::typed_filter_form(
+        "/health",
+        &[],
+        &[
+            html::FilterControl::Search {
+                label: "Search",
+                name: "q",
+                value: "seed",
+                placeholder: "Node or process",
+            },
+            html::FilterControl::Checkbox {
+                label: "High CPU",
+                name: "high_cpu",
+                checked: true,
+            },
+        ],
+    );
+    assert!(markup.contains(r#"type="search" name="q""#));
+    assert!(markup.contains(">Search</span>"));
+    assert!(markup.contains(r#"type="checkbox" name="high_cpu" value="1" checked"#));
+    assert!(!markup.contains(">q</span>"));
+}
+
+#[test]
+fn progressive_script_submits_the_named_intent_without_reloading_jobs() {
+    let script = crate::web::assets::SCRIPT;
+    assert!(script.contains("form.requestSubmit(submitter)"));
+    assert!(script.contains("flag.name = intent"));
+    assert!(!script.contains("window.location.reload"));
+}

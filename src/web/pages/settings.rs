@@ -53,6 +53,7 @@ fn render_body(repository: &Repository) -> anyhow::Result<String> {
         ),
         watchdog = watchdog_form(&watchdog),
         rpc_health = monitor_form(
+            "rpc-health",
             "RPC health monitor",
             "/settings/rpc-health",
             &rpc_health.describe(),
@@ -62,6 +63,7 @@ fn render_body(repository: &Repository) -> anyhow::Result<String> {
             RpcHealthMonitorPolicy::MAX_INTERVAL_SECONDS,
         ),
         federation = monitor_form(
+            "federation",
             "Federation monitor",
             "/settings/federation",
             &federation.describe(),
@@ -86,12 +88,15 @@ fn watchdog_form(policy: &RestartPolicy) -> String {
 <button type="submit">Save</button>
 </form>"#,
         describe = html::escape(&policy.describe()),
-        enabled = html::choice_field(
-            "Status",
-            "enabled",
-            &enabled_choices(),
-            enabled_label(policy.enabled),
-        ),
+        enabled = html::ChoiceField {
+            id: Some("watchdog-enabled"),
+            label: "Status",
+            name: "enabled",
+            options: &enabled_choices(),
+            selected: enabled_label(policy.enabled),
+            ..Default::default()
+        }
+        .render(),
         attempts = html::text_field(
             "Max attempts",
             "max_restart_attempts",
@@ -112,6 +117,7 @@ fn watchdog_form(policy: &RestartPolicy) -> String {
 
 #[allow(clippy::too_many_arguments)]
 fn monitor_form(
+    id_prefix: &str,
     title: &str,
     action: &str,
     describe: &str,
@@ -120,6 +126,8 @@ fn monitor_form(
     min_seconds: u64,
     max_seconds: u64,
 ) -> String {
+    let enabled_id = format!("{id_prefix}-enabled");
+    let interval_id = format!("{id_prefix}-interval");
     format!(
         r#"<h2>{title}</h2>
 <p class="muted">{describe} — accepted range {min}s to {max}s.</p>
@@ -133,17 +141,23 @@ fn monitor_form(
         min = min_seconds,
         max = max_seconds,
         action = html::escape(action),
-        enabled_field = html::choice_field(
-            "Status",
-            "enabled",
-            &enabled_choices(),
-            enabled_label(enabled),
-        ),
-        interval = html::text_field(
-            "Interval (s)",
-            "interval_seconds",
-            &interval_seconds.to_string()
-        ),
+        enabled_field = html::ChoiceField {
+            id: Some(&enabled_id),
+            label: "Status",
+            name: "enabled",
+            options: &enabled_choices(),
+            selected: enabled_label(enabled),
+            ..Default::default()
+        }
+        .render(),
+        interval = html::TextField {
+            id: Some(&interval_id),
+            label: "Interval (s)",
+            name: "interval_seconds",
+            value: &interval_seconds.to_string(),
+            ..Default::default()
+        }
+        .render(),
     )
 }
 
@@ -210,3 +224,7 @@ pub fn enabled_choices() -> Vec<String> {
 pub fn choice_is_enabled(raw: &str) -> bool {
     !raw.trim().eq_ignore_ascii_case("disabled")
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/web/settings/tests.rs"]
+mod tests;

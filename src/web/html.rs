@@ -142,12 +142,157 @@ pub fn row(cells: &[String]) -> String {
 pub fn table(headers: &[&str], rows: &[String]) -> String {
     let head = headers
         .iter()
-        .map(|header| format!("<th>{}</th>", escape(header)))
+        .map(|header| format!(r#"<th scope="col">{}</th>"#, escape(header)))
+        .collect::<String>();
+    let label = format!("Scrollable data table: {}", headers.join(", "));
+    format!(
+        r#"<div class="scroll-x" role="region" aria-label="{label}" tabindex="0"><table><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table></div>"#,
+        label = escape(&label),
+        rows = rows.concat(),
+    )
+}
+
+/// A typed GET-filter control. Page code supplies the human label separately
+/// from the query parameter, so operators never have to decipher internal
+/// names such as `q` or `high_cpu`.
+pub enum FilterControl<'a> {
+    Search {
+        label: &'a str,
+        name: &'a str,
+        value: &'a str,
+        placeholder: &'a str,
+    },
+    Text {
+        label: &'a str,
+        name: &'a str,
+        value: &'a str,
+    },
+    Select {
+        label: &'a str,
+        name: &'a str,
+        selected: &'a str,
+        options: &'a [(&'a str, &'a str)],
+    },
+    Checkbox {
+        label: &'a str,
+        name: &'a str,
+        checked: bool,
+    },
+    Number {
+        label: &'a str,
+        name: &'a str,
+        value: &'a str,
+        min: usize,
+        max: usize,
+    },
+}
+
+/// A progressive, bookmarkable filter form with explicit control types.
+pub fn typed_filter_form(
+    action: &str,
+    hidden: &[(&str, &str)],
+    controls: &[FilterControl<'_>],
+) -> String {
+    let hidden = hidden
+        .iter()
+        .map(|(name, value)| {
+            format!(
+                r#"<input type="hidden" name="{}" value="{}">"#,
+                escape(name),
+                escape(value)
+            )
+        })
+        .collect::<String>();
+    let fields = controls
+        .iter()
+        .enumerate()
+        .map(|(index, control)| render_filter_control(action, index, control))
         .collect::<String>();
     format!(
-        r#"<div class="scroll-x"><table><tr>{head}</tr>{}</table></div>"#,
-        rows.concat()
+        r#"<form class="filters" method="get" action="{action}">{hidden}{fields}<button type="submit">Apply</button></form>"#,
+        action = escape(action),
     )
+}
+
+fn render_filter_control(action: &str, index: usize, control: &FilterControl<'_>) -> String {
+    let (label, name) = match control {
+        FilterControl::Search { label, name, .. }
+        | FilterControl::Text { label, name, .. }
+        | FilterControl::Select { label, name, .. }
+        | FilterControl::Checkbox { label, name, .. }
+        | FilterControl::Number { label, name, .. } => (*label, *name),
+    };
+    let id = filter_control_id(action, name, index);
+    match control {
+        FilterControl::Search {
+            value, placeholder, ..
+        } => format!(
+            r#"<label class="field" for="{id}"><span>{label}</span><input id="{id}" type="search" name="{name}" value="{value}" placeholder="{placeholder}"></label>"#,
+            label = escape(label),
+            name = escape(name),
+            value = escape(value),
+            placeholder = escape(placeholder),
+        ),
+        FilterControl::Text { value, .. } => format!(
+            r#"<label class="field" for="{id}"><span>{label}</span><input id="{id}" name="{name}" value="{value}"></label>"#,
+            label = escape(label),
+            name = escape(name),
+            value = escape(value),
+        ),
+        FilterControl::Select {
+            selected, options, ..
+        } => {
+            let options = options
+                .iter()
+                .map(|(value, option_label)| {
+                    let chosen = if value.eq_ignore_ascii_case(selected.trim()) {
+                        " selected"
+                    } else {
+                        ""
+                    };
+                    format!(
+                        r#"<option value="{}"{chosen}>{}</option>"#,
+                        escape(value),
+                        escape(option_label)
+                    )
+                })
+                .collect::<String>();
+            format!(
+                r#"<label class="field" for="{id}"><span>{label}</span><select id="{id}" name="{name}">{options}</select></label>"#,
+                label = escape(label),
+                name = escape(name),
+            )
+        }
+        FilterControl::Checkbox { checked, .. } => format!(
+            r#"<label class="filter-check" for="{id}"><input id="{id}" type="checkbox" name="{name}" value="1"{checked}><span>{label}</span></label>"#,
+            label = escape(label),
+            name = escape(name),
+            checked = if *checked { " checked" } else { "" },
+        ),
+        FilterControl::Number {
+            value, min, max, ..
+        } => format!(
+            r#"<label class="field" for="{id}"><span>{label}</span><input id="{id}" type="number" inputmode="numeric" name="{name}" value="{value}" min="{min}" max="{max}"></label>"#,
+            label = escape(label),
+            name = escape(name),
+            value = escape(value),
+        ),
+    }
+}
+
+fn filter_control_id(action: &str, name: &str, index: usize) -> String {
+    let page = action
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() {
+                character
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+    let name = name.replace('_', "-");
+    format!("filter-{page}-{name}-{index}")
 }
 
 /// A GET form for page filters. Plain query parameters keep filtering usable
@@ -178,7 +323,7 @@ pub fn filter_form_with_hidden(
         .map(|(name, value)| {
             format!(
                 r#"<label class="field"><span>{}</span><input name="{}" value="{}"></label>"#,
-                escape(name),
+                escape(&filter_label(name)),
                 escape(name),
                 escape(value)
             )
@@ -190,9 +335,44 @@ pub fn filter_form_with_hidden(
     )
 }
 
+fn filter_label(name: &str) -> String {
+    match name {
+        "q" | "query" => "Search".to_string(),
+        "lines" => "Rows".to_string(),
+        "high_cpu" => "High CPU".to_string(),
+        "high_memory" => "High memory".to_string(),
+        _ => name
+            .split('_')
+            .filter(|part| !part.is_empty())
+            .map(|part| {
+                let mut characters = part.chars();
+                characters.next().map_or_else(String::new, |first| {
+                    format!("{}{}", first.to_ascii_uppercase(), characters.as_str())
+                })
+            })
+            .collect::<Vec<_>>()
+            .join(" "),
+    }
+}
+
 /// A POST form carrying hidden fields and one submit button — the shape every
 /// workbench control uses so it works without JavaScript.
 pub fn control_form(action: &str, fields: &[(&str, &str)], label: &str) -> String {
+    control_form_with_class(action, fields, label, "")
+}
+
+/// A destructive control with the same no-script POST behavior as
+/// [`control_form`], but a visibly distinct button.
+pub fn danger_control_form(action: &str, fields: &[(&str, &str)], label: &str) -> String {
+    control_form_with_class(action, fields, label, "danger")
+}
+
+fn control_form_with_class(
+    action: &str,
+    fields: &[(&str, &str)],
+    label: &str,
+    class: &str,
+) -> String {
     let hidden = fields
         .iter()
         .map(|(name, value)| {
@@ -203,8 +383,13 @@ pub fn control_form(action: &str, fields: &[(&str, &str)], label: &str) -> Strin
             )
         })
         .collect::<String>();
+    let class = if class.is_empty() {
+        String::new()
+    } else {
+        format!(r#" class="{}""#, escape(class))
+    };
     format!(
-        r#"<form method="post" action="{action}">{hidden}<button type="submit">{label}</button></form>"#,
+        r#"<form method="post" action="{action}">{hidden}<button{class} type="submit">{label}</button></form>"#,
         action = escape(action),
         label = escape(label)
     )
@@ -232,6 +417,9 @@ pub fn select(name: &str, options: &[String], selected: &str) -> String {
 /// a swapped pair still compiles.
 #[derive(Default)]
 pub struct TextField<'a> {
+    /// Explicit document-unique id. The field name remains the fallback for
+    /// pages that render that name only once.
+    pub id: Option<&'a str>,
     pub label: &'a str,
     pub name: &'a str,
     pub value: &'a str,
@@ -247,6 +435,9 @@ pub struct TextField<'a> {
 /// A labelled dropdown over server-provided options.
 #[derive(Default)]
 pub struct ChoiceField<'a> {
+    /// Explicit document-unique id. Use this whenever multiple forms reuse a
+    /// query/body field name on the same page.
+    pub id: Option<&'a str>,
     pub label: &'a str,
     pub name: &'a str,
     pub options: &'a [String],
@@ -261,7 +452,11 @@ pub struct ChoiceField<'a> {
 
 impl TextField<'_> {
     pub fn render(&self) -> String {
-        let id = format!("f-{}", self.name);
+        let id = escape(
+            self.id
+                .map_or_else(|| format!("f-{}", self.name), str::to_string)
+                .as_str(),
+        );
         let control_class = if self.monospace {
             r#" class="mono""#
         } else {
@@ -272,7 +467,7 @@ impl TextField<'_> {
             .map(|text| format!(r#" placeholder="{}""#, escape(text)))
             .unwrap_or_default();
         format!(
-            r#"<label class="field{classes}" for="{id}"><span>{label}</span><input id="{id}" name="{name}" value="{value}"{control_class}{placeholder}{described}>{messages}</label>"#,
+            r#"<label class="field{classes}" for="{id}"><span>{label}</span><input id="{id}" name="{name}" value="{value}"{control_class}{placeholder}{invalid}{described}>{messages}</label>"#,
             classes = field_classes(self.error, self.full_width),
             id = id,
             label = escape(self.label),
@@ -280,6 +475,11 @@ impl TextField<'_> {
             value = escape(self.value),
             control_class = control_class,
             placeholder = placeholder,
+            invalid = if self.error.is_some() {
+                r#" aria-invalid="true""#
+            } else {
+                ""
+            },
             described = describe(&id, self.help, self.error),
             messages = field_messages(&id, self.help, self.error),
         )
@@ -288,7 +488,11 @@ impl TextField<'_> {
 
 impl ChoiceField<'_> {
     pub fn render(&self) -> String {
-        let id = format!("f-{}", self.name);
+        let id = escape(
+            self.id
+                .map_or_else(|| format!("f-{}", self.name), str::to_string)
+                .as_str(),
+        );
         let options = self
             .options
             .iter()
@@ -306,7 +510,7 @@ impl ChoiceField<'_> {
             })
             .collect::<String>();
         format!(
-            r#"<label class="field{classes}" for="{id}"><span>{label}</span><select id="{id}" name="{name}"{auto}{described}>{options}</select>{messages}</label>"#,
+            r#"<label class="field{classes}" for="{id}"><span>{label}</span><select id="{id}" name="{name}"{auto}{invalid}{described}>{options}</select>{messages}</label>"#,
             classes = field_classes(self.error, self.full_width),
             id = id,
             label = escape(self.label),
@@ -314,6 +518,11 @@ impl ChoiceField<'_> {
             auto = match self.auto_submit {
                 Some(action) => format!(r#" data-autosubmit="{}""#, escape(action)),
                 None => String::new(),
+            },
+            invalid = if self.error.is_some() {
+                r#" aria-invalid="true""#
+            } else {
+                ""
             },
             described = describe(&id, self.help, self.error),
             options = options,
@@ -401,7 +610,7 @@ pub fn breadcrumb(items: &[(&str, &str)]) -> String {
         })
         .collect::<Vec<_>>();
     format!(
-        r#"<nav class="breadcrumb">{}</nav>"#,
+        r#"<nav class="breadcrumb" aria-label="Breadcrumb">{}</nav>"#,
         parts.join(r#"<span class="sep">/</span>"#)
     )
 }
@@ -465,7 +674,7 @@ pub fn text_block(content: &str) -> String {
 /// its route exists.
 pub fn layout(title: &str, active: &str, flash: &str, body: &str) -> String {
     format!(
-        r#"<!DOCTYPE html>
+        r##"<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -474,24 +683,36 @@ pub fn layout(title: &str, active: &str, flash: &str, body: &str) -> String {
 <style>{css}</style>
 </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to main content</a>
+<header class="mobile-nav">
+<details>
+<summary><span class="brand mobile-brand">NeoNexus</span><span class="menu-label">Menu</span></summary>
+<div class="mobile-nav-menu">
+<nav aria-label="Mobile navigation">{mobile_nav}</nav>
+<div class="mobile-utilities"><form method="post" action="/logout"><button class="nav-item logout" type="submit">Sign out</button></form></div>
+</div>
+</details>
+</header>
 <div class="shell">
-<nav class="sidebar">
-<div class="brand">NeoNexus</div>
-{nav}
-<form method="post" action="/logout"><button class="nav-item logout" type="submit">Sign out</button></form>
-</nav>
-<main class="content">
+<aside class="sidebar">
+<a class="brand" href="/">NeoNexus</a>
+<nav class="sidebar-nav" aria-label="Primary navigation">{nav}</nav>
+<div class="sidebar-utilities"><form method="post" action="/logout"><button class="nav-item logout" type="submit">Sign out</button></form></div>
+</aside>
+<main class="content" id="main-content" tabindex="-1">
+<div class="workspace-bar"><span><i aria-hidden="true"></i>Local operator workspace</span><a href="/metrics">Resource metrics</a></div>
 {flash_banner}
 {body}
 </main>
 </div>
 <script>{script}</script>
 </body>
-</html>"#,
+</html>"##,
         title = escape(title),
         css = super::assets::CSS,
         script = super::assets::SCRIPT,
         nav = super::nav::render(active),
+        mobile_nav = super::nav::render(active),
         flash_banner = flash_banner(flash),
         body = body,
     )

@@ -6,7 +6,7 @@
 //! two-step flow because nothing here can undo it.
 
 use axum::{
-    extract::{Path, Query, RawQuery, State},
+    extract::{Form, Path, Query, RawQuery, State},
     response::{Html, IntoResponse, Redirect, Response},
 };
 
@@ -16,6 +16,7 @@ use crate::{
         node_health::node_rpc_health_history,
         operations::{EventKind, EventSeverity, NewRuntimeEvent},
     },
+    signing::SignerKeyRef,
     web::{fleet::Fleet, html, time, WebState},
 };
 
@@ -71,7 +72,30 @@ fn list_body(fleet: &Fleet, params: &NodeListQuery) -> String {
         &all,
         &NodeInventoryFilter::new(status_filter(&params.status), params.q.trim()),
     );
-    let filters = html::filter_form("/nodes", &[("status", &params.status), ("q", &params.q)]);
+    let filters = html::typed_filter_form(
+        "/nodes",
+        &[],
+        &[
+            html::FilterControl::Select {
+                label: "Status",
+                name: "status",
+                selected: &params.status,
+                options: &[
+                    ("", "All statuses"),
+                    ("running", "Running"),
+                    ("starting", "Starting"),
+                    ("stopped", "Stopped"),
+                    ("error", "Error"),
+                ],
+            },
+            html::FilterControl::Search {
+                label: "Search",
+                name: "q",
+                value: &params.q,
+                placeholder: "Name, id, client, or network",
+            },
+        ],
+    );
     let table = if visible.is_empty() {
         html::note("No node matches this filter.")
     } else {
@@ -172,6 +196,7 @@ fn render_detail(state: &WebState, id: &str) -> anyhow::Result<String> {
     let node = &row.node;
     let history = node_rpc_health_history(&state.repository, &node.id, 10)?;
     let plugins = state.repository.list_plugin_states(&node.id)?;
+    let signer = state.repository.load_node_signer_key(&node.id)?;
     let encoded = html::urlencoding_lite(id);
     let command = crate::argv::format_command(&node.binary_path, &node.args);
 
@@ -211,7 +236,8 @@ fn render_detail(state: &WebState, id: &str) -> anyhow::Result<String> {
         command = html::text_block(&command),
     );
     let runtime = format!(
-        "<h2>Plugins</h2>\n{plugins}\n<h2>RPC health history</h2>\n{trend}",
+        "{signer}\n<h2>Plugins</h2>\n{plugins}\n<h2>RPC health history</h2>\n{trend}",
+        signer = signer_binding(state, node, signer.as_ref()),
         plugins = plugin_summary(&plugins),
         trend = if trend.is_empty() {
             html::note("No RPC probes recorded yet.")
@@ -239,10 +265,160 @@ fn render_detail(state: &WebState, id: &str) -> anyhow::Result<String> {
             ),
             &header_actions,
         ),
-        controls = control_bar(id, node.status.label()),
+        controls = control_bar(node),
         config = config,
         runtime = runtime,
     ))
+}
+
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+pub struct SignerBindingForm {
+    backend_id: String,
+    key_id: String,
+}
+
+/// Persist one complete signer route for a stopped node. A blank pair clears
+/// the route (and therefore disables signing-duty launches); a partial pair is
+/// always an error.
+pub async fn save_signer_binding(
+    State(state): State<WebState>,
+    Path(id): Path<String>,
+    Form(input): Form<SignerBindingForm>,
+) -> Response {
+    let backend_id = input.backend_id.trim();
+    let key_id = input.key_id.trim();
+    let result = (|| -> anyhow::Result<String> {
+        let node = state
+            .repository
+            .list_nodes()?
+            .into_iter()
+            .find(|node| node.id == id)
+            .ok_or_else(|| anyhow::anyhow!("node {id} was not found"))?;
+        let key = match (backend_id.is_empty(), key_id.is_empty()) {
+            (true, true) => None,
+            (false, false) => {
+                let key = SignerKeyRef::new(backend_id, key_id)?;
+                let backend = state.custody().registry().backend(&key.backend_id)?;
+                // A process-local wallet has exactly one key. Reject a typo at
+                // save time; service keys are authoritatively checked by the
+                // service on the first dispatch.
+                if let Some(local) = backend.local_wallet_signer() {
+                    let actual = local.key_info();
+                    if actual.key_id != key.key_id {
+                        anyhow::bail!(
+                            "local wallet profile {} owns key {}, not {}",
+                            key.backend_id,
+                            actual.key_id,
+                            key.key_id
+                        );
+                    }
+                }
+                if let Some(local) = backend.local_signer_config() {
+                    if local.public_key() != key.key_id {
+                        anyhow::bail!(
+                            "local signer profile {} owns public key {}, not {}",
+                            key.backend_id,
+                            local.public_key(),
+                            key.key_id
+                        );
+                    }
+                }
+                Some(key)
+            }
+            _ => anyhow::bail!("signer backend and key id must be set or cleared together"),
+        };
+        state
+            .repository
+            .set_node_signer_key(&node.id, key.as_ref())?;
+        let message = key.as_ref().map_or_else(
+            || format!("{} signer binding cleared", node.name),
+            |key| {
+                format!(
+                    "{} signer bound to {} / {}",
+                    node.name, key.backend_id, key.key_id
+                )
+            },
+        );
+        let _ = state.repository.record_event(NewRuntimeEvent {
+            node_id: Some(node.id),
+            node_name: Some(node.name),
+            kind: EventKind::NodeSignerBound,
+            severity: EventSeverity::Info,
+            message: message.clone(),
+        });
+        Ok(message)
+    })();
+    let message = result.unwrap_or_else(|error| format!("signer binding not saved: {error}"));
+    Redirect::to(&format!(
+        "/nodes/{}?flash={}",
+        html::urlencoding_lite(&id),
+        html::urlencoding_lite(&message)
+    ))
+    .into_response()
+}
+
+fn signer_binding(state: &WebState, node: &NodeConfig, selected: Option<&SignerKeyRef>) -> String {
+    let profiles = state.custody().profiles().collect::<Vec<_>>();
+    let selected_backend = selected.map(|key| key.backend_id.as_str()).unwrap_or("");
+    let selected_key = selected.map(|key| key.key_id.as_str()).unwrap_or("");
+    let current = selected.map_or_else(
+        || "Unbound — signing duties cannot start.".to_string(),
+        |key| match state.custody().registry().backend(&key.backend_id) {
+            Ok(backend) => format!(
+                "{} ({}) · key {}",
+                backend.profile().label,
+                backend.profile().kind,
+                key.key_id
+            ),
+            Err(_) => format!(
+                "Unavailable backend {} · key {} (no fallback)",
+                key.backend_id, key.key_id
+            ),
+        },
+    );
+    if node.status.is_active() || node.pid.is_some() {
+        return format!(
+            "<h2>Node signer</h2>{}{}",
+            html::note(&current),
+            html::note("Stop and settle the node before changing its signer identity.")
+        );
+    }
+    let options = std::iter::once(
+        r#"<option value="">No signer (signing duties disabled)</option>"#.to_string(),
+    )
+    .chain(profiles.iter().map(|profile| {
+        let chosen = if profile.id == selected_backend {
+            " selected"
+        } else {
+            ""
+        };
+        format!(
+            r#"<option value="{}"{chosen}>{} · {} ({})</option>"#,
+            html::escape(&profile.id),
+            html::escape(&profile.label),
+            html::escape(profile.kind.label()),
+            html::escape(&profile.id),
+        )
+    }))
+    .collect::<String>();
+    let availability = if profiles.is_empty() {
+        html::note("No signer profile is configured. Configure the signer registry before binding this node.")
+    } else {
+        String::new()
+    };
+    format!(
+        r#"<h2>Node signer</h2>
+{}
+{availability}
+<form method="post" action="/nodes/{id}/signer"><div class="panel"><div class="grid">
+<label class="field" for="node-signer-backend"><span>Signer backend</span><select id="node-signer-backend" name="backend_id">{options}</select><span class="help">Exactly one local wallet, local signer, or NeoOS signer profile. No default or failover is used.</span></label>
+<label class="field" for="node-signer-key"><span>Key id</span><input class="mono" id="node-signer-key" name="key_id" value="{key}"><span class="help">The key owned by that backend; both values form one durable route.</span></label>
+</div><div class="form-actions"><button type="submit">Save signer binding</button></div></div></form>"#,
+        html::note(&current),
+        id = html::urlencoding_lite(&node.id),
+        key = html::escape(selected_key),
+    )
 }
 
 fn plugin_summary(plugins: &[crate::catalog::PluginState]) -> String {
@@ -266,17 +442,29 @@ fn plugin_summary(plugins: &[crate::catalog::PluginState]) -> String {
     html::table(&["Plugin", "State"], &rows)
 }
 
-fn control_bar(node_id: &str, status: &str) -> String {
-    let running = matches!(status, "Running" | "Starting");
-    let encoded = html::urlencoding_lite(node_id);
-    let disabled = if running { "" } else { " disabled" };
+fn control_bar(node: &NodeConfig) -> String {
+    let encoded = html::urlencoding_lite(&node.id);
+    let start_disabled = if node.status.is_active() || node.pid.is_some() {
+        " disabled"
+    } else {
+        ""
+    };
+    let stop_disabled = if node.status.is_active() || node.pid.is_some() {
+        ""
+    } else {
+        " disabled"
+    };
+    let restart_disabled = if node.status.is_running() {
+        ""
+    } else {
+        " disabled"
+    };
     format!(
-        r#"<div class="actions" style="margin-bottom:20px">
-<form method="post" action="/nodes/{encoded}/start"><button class="primary" type="submit">Start</button></form>
-<form method="post" action="/nodes/{encoded}/stop"><button type="submit"{disabled}>Stop</button></form>
-<form method="post" action="/nodes/{encoded}/restart"><button type="submit"{disabled}>Restart</button></form>
+        r#"<div class="actions node-controls">
+<form method="post" action="/nodes/{encoded}/start"><button class="primary" type="submit"{start_disabled}>Start</button></form>
+<form method="post" action="/nodes/{encoded}/stop"><button type="submit"{stop_disabled}>Stop</button></form>
+<form method="post" action="/nodes/{encoded}/restart"><button type="submit"{restart_disabled}>Restart</button></form>
 </div>"#,
-        disabled = disabled,
     )
 }
 
@@ -320,9 +508,10 @@ pub async fn delete_form(State(state): State<WebState>, Path(id): Path<String>) 
         return Redirect::to("/nodes").into_response();
     };
     let encoded = html::urlencoding_lite(&node.id);
-    let detail = "Also removed: plugin state, managed plugin installs and RPC health history \
-                  for this node. Nothing outside the workspace database is touched — the node's \
-                  own files and chain data stay on disk.";
+    let detail =
+        "If the node is running, NeoNexus first stops it and confirms the process exited. \
+                  Also removed: plugin state, managed plugin installs and RPC health history for \
+                  this node. The node's own files and chain data stay on disk.";
     let body = format!(
         r#"{breadcrumb}
 {head}
@@ -350,33 +539,38 @@ pub async fn delete_form(State(state): State<WebState>, Path(id): Path<String>) 
 }
 
 pub async fn delete(State(state): State<WebState>, Path(id): Path<String>) -> Response {
-    let name = state
+    let node = state
         .repository
         .list_nodes()
         .ok()
-        .and_then(|nodes| {
-            nodes
-                .into_iter()
-                .find(|node| node.id == id)
-                .map(|node| node.name)
-        })
+        .and_then(|nodes| nodes.into_iter().find(|node| node.id == id));
+    let name = node
+        .as_ref()
+        .map(|node| node.name.clone())
         .unwrap_or_else(|| id.clone());
 
-    // Journal first: once the row is gone the event could not name the node,
-    // and an audit trail that cannot say what was removed is not a trail.
+    // Keep the name/id snapshot for the post-delete audit event. Recording a
+    // NodeDeleted event before the guarded delete could leave a false audit
+    // claim when a concurrent Start wins the race.
     let outcome = (|| -> anyhow::Result<()> {
-        state.repository.record_event(NewRuntimeEvent {
+        let node = node.ok_or_else(|| anyhow::anyhow!("node {id} was not found"))?;
+        if node.status.is_active() || node.pid.is_some() {
+            crate::supervision::stop_node(&state.engine_state(), &node)?;
+        }
+        state.repository.delete_node(&id)
+    })();
+
+    let message = match outcome {
+        Ok(()) => match state.repository.record_event(NewRuntimeEvent {
             node_id: Some(id.clone()),
             node_name: Some(name.clone()),
             kind: EventKind::NodeDeleted,
             severity: EventSeverity::Warning,
             message: format!("{name} deleted"),
-        })?;
-        state.repository.delete_node(&id)
-    })();
-
-    let message = match outcome {
-        Ok(()) => format!("{name} deleted."),
+        }) {
+            Ok(_) => format!("{name} deleted."),
+            Err(error) => format!("{name} deleted, but its audit event failed: {error}"),
+        },
         Err(error) => format!("delete failed: {error}"),
     };
     Redirect::to(&format!(

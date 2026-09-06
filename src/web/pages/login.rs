@@ -1,15 +1,18 @@
 //! Login: one admin token unlocks a browser session. The token comes from
-//! `--web-token`, the `NEONEXUS_WEB_TOKEN` environment variable, or the
-//! generated value printed at startup.
+//! a protected token file or the bootstrap value printed only to an interactive
+//! terminal.
+
+use std::net::SocketAddr;
 
 use axum::{
-    extract::{RawQuery, State},
-    http::header,
+    extract::{ConnectInfo, RawQuery, State},
+    http::{header, StatusCode},
     response::{Html, IntoResponse, Redirect, Response},
     Form,
 };
 use serde::Deserialize;
 
+use super::super::auth::LoginDecision;
 use super::super::html;
 
 #[derive(Deserialize)]
@@ -27,15 +30,29 @@ pub async fn login_page(RawQuery(query): RawQuery) -> Response {
 
 pub async fn login_submit(
     State(state): State<super::super::WebState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     Form(input): Form<LoginInput>,
 ) -> Response {
-    if !state.auth.token_matches(input.token.trim()) {
-        return Redirect::to("/login?error=1").into_response();
+    match state.auth.authenticate(peer.ip(), input.token.trim()) {
+        LoginDecision::Rejected => return Redirect::to("/login?error=1").into_response(),
+        LoginDecision::Throttled {
+            retry_after_seconds,
+        } => {
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                [(header::RETRY_AFTER, retry_after_seconds.to_string())],
+                Html(login_html(
+                    "Too many sign-in attempts. Wait before trying again.",
+                )),
+            )
+                .into_response()
+        }
+        LoginDecision::Accepted => {}
     }
     let session = state.auth.create_session();
     (
         [
-            (header::SET_COOKIE, state.auth.session_cookie(&session)),
+            (header::SET_COOKIE, state.session_cookie(&session)),
             (header::LOCATION, "/".to_string()),
         ],
         axum::http::StatusCode::SEE_OTHER,
@@ -44,6 +61,11 @@ pub async fn login_submit(
 }
 
 fn login_html(error: &str) -> String {
+    let accessibility = if error.is_empty() {
+        r#" aria-describedby="login-help""#
+    } else {
+        r#" aria-invalid="true" aria-describedby="login-help login-error""#
+    };
     format!(
         r#"<!DOCTYPE html>
 <html lang="en">
@@ -57,9 +79,10 @@ fn login_html(error: &str) -> String {
 <div class="login-wrap">
 <form class="login-card" method="post" action="/login">
 <h1>NeoNexus</h1>
-<p class="muted">Operator sign in. Use the workspace web token.</p>
+<p class="muted" id="login-help">Operator sign in. Use the workspace web token.</p>
 {error}
-<input type="password" name="token" placeholder="web token" autofocus autocomplete="off">
+<label class="field" for="web-token"><span>Web token</span>
+<input id="web-token" type="password" name="token" placeholder="Paste the workspace web token" autofocus autocomplete="current-password" autocapitalize="none" spellcheck="false"{accessibility}></label>
 <button class="primary" type="submit">Sign in</button>
 </form>
 </div>
@@ -69,7 +92,11 @@ fn login_html(error: &str) -> String {
         error = if error.is_empty() {
             String::new()
         } else {
-            format!(r#"<p class="err">{}</p>"#, html::escape(error))
+            format!(
+                r#"<p class="err" id="login-error" role="alert" aria-live="assertive">{}</p>"#,
+                html::escape(error)
+            )
         },
+        accessibility = accessibility,
     )
 }

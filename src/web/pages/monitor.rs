@@ -41,7 +41,7 @@ pub async fn monitor(
         }
         Err(error) => html::note(&format!("failed to collect metrics: {error}")),
     };
-    Html(html::layout("Monitor", "monitor", "", &body)).into_response()
+    Html(html::layout("Health", "monitor", "", &body)).into_response()
 }
 
 fn process_filter(params: &MonitorQuery) -> ProcessFilter {
@@ -69,7 +69,7 @@ fn render_body(
 ) -> String {
     let system = &snapshot.system;
     format!(
-        r#"<h1>Monitor</h1>
+        r#"<h1>Health</h1>
 {tiles}
 {filters}
 <h2>Managed processes</h2>
@@ -88,13 +88,36 @@ fn render_body(
                 format!("{}s ago", captured_age(snapshot.captured_at_unix))
             ),
         ]),
-        filters = html::filter_form(
+        filters = html::typed_filter_form(
             "/monitor",
+            &[],
             &[
-                ("state", &params.state),
-                ("high_cpu", &params.high_cpu),
-                ("high_memory", &params.high_memory),
-                ("q", &params.q),
+                html::FilterControl::Select {
+                    label: "Process state",
+                    name: "state",
+                    selected: &params.state,
+                    options: &[
+                        ("", "All managed processes"),
+                        ("observed", "Observed"),
+                        ("missing", "Missing"),
+                    ],
+                },
+                html::FilterControl::Checkbox {
+                    label: "High CPU",
+                    name: "high_cpu",
+                    checked: is_on(&params.high_cpu),
+                },
+                html::FilterControl::Checkbox {
+                    label: "High memory",
+                    name: "high_memory",
+                    checked: is_on(&params.high_memory),
+                },
+                html::FilterControl::Search {
+                    label: "Search",
+                    name: "q",
+                    value: &params.q,
+                    placeholder: "Node, process, or status",
+                },
             ],
         ),
         table = process_table(rows),

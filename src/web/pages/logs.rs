@@ -57,10 +57,24 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], params: &LogQuery) -> Str
 {filters}
 {content}"#,
         picker = node_picker(nodes, selected),
-        filters = html::filter_form_with_hidden(
+        filters = html::typed_filter_form(
             "/logs",
             &[("node", &selected.id)],
-            &[("query", &params.query), ("lines", &visible.to_string())],
+            &[
+                html::FilterControl::Search {
+                    label: "Search log",
+                    name: "query",
+                    value: &params.query,
+                    placeholder: "Message text",
+                },
+                html::FilterControl::Number {
+                    label: "Rows",
+                    name: "lines",
+                    value: &visible.to_string(),
+                    min: 1,
+                    max: MAX_VISIBLE_LINES,
+                },
+            ],
         ),
         content = render_log(selected, &log_path, params, visible),
     )

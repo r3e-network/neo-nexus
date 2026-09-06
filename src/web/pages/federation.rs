@@ -72,9 +72,23 @@ fn render_body(state: &WebState, params: &FederationQuery) -> anyhow::Result<Str
                 count_status(state, &profiles, RemoteProbeStatus::Unreachable)?,
             ),
         ]),
-        filters = html::filter_form(
+        filters = html::typed_filter_form(
             "/federation",
-            &[("enabled", &params.enabled), ("q", &params.q)],
+            &[],
+            &[
+                html::FilterControl::Select {
+                    label: "Status",
+                    name: "enabled",
+                    selected: &params.enabled,
+                    options: &[("", "All servers"), ("yes", "Enabled"), ("no", "Disabled")],
+                },
+                html::FilterControl::Search {
+                    label: "Search",
+                    name: "q",
+                    value: &params.q,
+                    placeholder: "Server, URL, or profile",
+                },
+            ],
         ),
         table = profile_table(state, &visible)?,
     ))

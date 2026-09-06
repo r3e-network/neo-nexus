@@ -80,7 +80,29 @@ fn render_body(repository: &Repository, params: &AlertQuery) -> anyhow::Result<S
             ),
         ]),
         policy_form = policy_form(&policy),
-        filters = html::filter_form("/alerts", &[("status", &params.status), ("q", &params.q)]),
+        filters = html::typed_filter_form(
+            "/alerts",
+            &[],
+            &[
+                html::FilterControl::Select {
+                    label: "Delivery status",
+                    name: "status",
+                    selected: &params.status,
+                    options: &[
+                        ("", "All deliveries"),
+                        ("delivered", "Delivered"),
+                        ("failed", "Failed"),
+                        ("skipped", "Skipped"),
+                    ],
+                },
+                html::FilterControl::Search {
+                    label: "Search",
+                    name: "q",
+                    value: &params.q,
+                    placeholder: "Route, target, or message",
+                },
+            ],
+        ),
         table = delivery_table(&visible),
     ))
 }
