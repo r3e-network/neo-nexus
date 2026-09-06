@@ -22,6 +22,17 @@ impl LaunchPlanner {
         let managed_config_path = managed_config_path.as_ref().to_path_buf();
         let working_dir = working_dir.as_ref().to_path_buf();
         let mut args = node.args.clone();
+        if node.node_type == NodeType::NeoCli
+            && !args.iter().any(|argument| {
+                argument.eq_ignore_ascii_case("--background")
+                    || argument.eq_ignore_ascii_case("/background")
+            })
+        {
+            // The supervisor has no interactive terminal by default. Stock
+            // neo-cli exits when its console sees EOF unless background mode
+            // is selected.
+            args.push("--background".to_string());
+        }
         let managed_config_path = match node.node_type {
             NodeType::NeoRs => neo_rs_managed_config_path(&mut args, managed_config_path),
             NodeType::NeoGo => neo_go_managed_config_path(&mut args, managed_config_path),

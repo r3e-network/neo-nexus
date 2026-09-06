@@ -42,3 +42,26 @@ fn launch_plan_redacts_sensitive_display_command_without_changing_spawn_args() {
     assert!(!plan.display_command.contains("raw-api-key"));
     assert!(!plan.display_command.contains("raw-password"));
 }
+
+#[test]
+fn managed_neo_cli_always_uses_non_interactive_background_mode() {
+    let node = NodeConfig {
+        id: "node-cli".to_string(),
+        name: "validator".to_string(),
+        node_type: NodeType::NeoCli,
+        network: Network::Testnet,
+        binary_path: PathBuf::from("/opt/neo/neo-cli"),
+        args: Vec::new(),
+        runtime_version: "3.9.2".to_string(),
+        storage_engine: StorageEngine::RocksDb,
+        rpc_port: 20332,
+        p2p_port: 20333,
+        ws_port: None,
+        status: NodeStatus::Stopped,
+        pid: None,
+    };
+
+    let background = LaunchPlanner::plan(&node, "/tmp/config.json", "/tmp/node");
+    assert!(background.args.iter().any(|arg| arg == "--background"));
+    assert!(background.display_command.contains("--background"));
+}

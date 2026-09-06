@@ -10,6 +10,7 @@ use crate::{launch::LaunchPlan, types::NodeConfig};
 
 pub(super) const DEFAULT_STOP_GRACE_PERIOD: Duration = Duration::from_secs(5);
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProcessStart {
     pub pid: u32,
     pub log_path: PathBuf,

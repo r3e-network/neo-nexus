@@ -17,6 +17,7 @@ impl ProcessSupervisor {
         plan: &LaunchPlan,
         log_path: impl AsRef<Path>,
     ) -> Result<ProcessStart> {
+        ensure_node_runtime_bound(node)?;
         let spec = ManagedProcessSpec::for_node(node, plan);
         self.start_process(&spec, log_path)
     }
@@ -48,8 +49,17 @@ impl ProcessSupervisor {
                 managed.child_mut(),
                 log_path,
                 self.stop_grace_period,
-            )?;
-            return Ok(Some(stop));
+            );
+            return match stop {
+                Ok(stop) => Ok(Some(stop)),
+                Err(error) => {
+                    // A failed termination is not ownership transfer. Retain
+                    // the handle so a retry, reaper, or Drop can still reach
+                    // the process instead of silently orphaning it.
+                    self.children.insert(process_id.to_string(), managed);
+                    Err(error)
+                }
+            };
         }
         Ok(None)
     }
@@ -75,6 +85,7 @@ impl ProcessSupervisor {
         plan: &LaunchPlan,
         log_path: impl AsRef<Path>,
     ) -> Result<ProcessStart> {
+        ensure_node_runtime_bound(node)?;
         let spec = ManagedProcessSpec::for_node(node, plan);
         self.restart_process(&spec, log_path)
     }
@@ -102,3 +113,17 @@ impl ProcessSupervisor {
         Ok(None)
     }
 }
+
+fn ensure_node_runtime_bound(node: &NodeConfig) -> Result<()> {
+    if node.binary_path.as_os_str().is_empty() {
+        anyhow::bail!(
+            "node {} has no trusted local runtime; rebind it before launch",
+            node.name
+        );
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "../../../tests/unit/supervisor/lifecycle/tests.rs"]
+mod tests;

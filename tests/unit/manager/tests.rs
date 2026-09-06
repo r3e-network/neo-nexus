@@ -65,16 +65,25 @@ fn manager_parses_web_launch_options() {
         "0.0.0.0",
         "--port",
         "9090",
-        "--web-token",
-        "ops-secret",
+        "--web-token-file",
+        "C:/run/secrets/neonexus-web-token",
+        "--web-public-origin",
+        "https://nexus.example",
     ])
     .expect("web flags should parse");
     let ManagerAction::ServeWeb(launch) = action else {
-        unreachable!("--web with bind/port/token parses to ServeWeb");
+        unreachable!("--web with bind/port/security options parses to ServeWeb");
     };
     assert_eq!(launch.bind, IpAddr::V4(Ipv4Addr::UNSPECIFIED));
     assert_eq!(launch.port, 9090);
-    assert_eq!(launch.token.as_deref(), Some("ops-secret"));
+    assert_eq!(
+        launch.token_file.as_deref(),
+        Some(std::path::Path::new("C:/run/secrets/neonexus-web-token"))
+    );
+    assert_eq!(
+        launch.public_origin.as_deref(),
+        Some("https://nexus.example")
+    );
 }
 
 #[test]
@@ -82,6 +91,13 @@ fn manager_rejects_removed_gui_flag_and_bad_web_options() {
     assert!(action_from_args(["neo-nexus", "--gui"]).is_err());
     assert!(action_from_args(["neo-nexus", "--web", "--port", "not-a-port"]).is_err());
     assert!(action_from_args(["neo-nexus", "--web", "--bind"]).is_err());
+    let separated = action_from_args(["neo-nexus", "--web", "--web-token", "secret-value"])
+        .expect_err("secret-bearing web token flag must be refused");
+    assert!(!format!("{separated:#}").contains("secret-value"));
+
+    let joined = action_from_args(["neo-nexus", "--web-token=joined-secret-value"])
+        .expect_err("joined legacy token flag must be refused before CLI dispatch");
+    assert!(!format!("{joined:#}").contains("joined-secret-value"));
 }
 
 #[test]
