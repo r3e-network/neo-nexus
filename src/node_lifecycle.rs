@@ -31,6 +31,7 @@ use crate::{
     supervisor::{ProcessStart, ProcessSupervisor},
     types::{NodeConfig, NodeStatus},
 };
+use crate::metrics::{init_metrics, set_node_up};
 
 /// Whether to start a fresh process or restart a running one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -215,10 +216,14 @@ fn execute_node_launch_inner(
                 if operation.is_none() {
                     let _ = repository.update_node_status(&node.id, NodeStatus::Error, None);
                 }
+                // Emit metrics for failed start
+                set_node_up(false);
                 return NodeLaunchOutcome::Failed {
                     message: format!("failed to persist running process {pid}: {cleanup}"),
                 };
             }
+            // Success path - emit node up metric
+            set_node_up(true);
             NodeLaunchOutcome::Started { pid, log_path }
         }
         Err(error) => {

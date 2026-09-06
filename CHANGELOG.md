@@ -95,6 +95,32 @@ No breaking changes. Existing deployments can upgrade directly:
 
 For detailed audit findings and remediation evidence, see `docs/SYS_AUDIT_*.md` files.
 
+## [4.2.0-experimental] — Development
+
+**Observability and automation enhancements with experimental Prometheus integration.**
+
+### Added
+
+- **Prometheus metrics exporter** (`src/metrics/prometheus_registry.rs`):
+  - Node status gauge (`neo_nexus_node_up`) tracking operational state
+  - Event total counter with labels (`neo_nexus_events_total{kind,severity,chain}`)
+  - Web request counter (`neo_nexus_web_requests_total{handler,method,status_code}`)
+  - Disk usage gauge (`neo_nexus_disk_usage_bytes{path}`) for backup monitoring
+  - Sync progress histogram (`neo_nexus_sync_progress_seconds`) measuring RPC delays
+  - HTTP endpoint at `/api/metrics-prometheus` following OpenMetrics text format spec
+  - Global metric registry singleton pattern for thread-safe access
+  - Metrics collection integrated into node lifecycle events
+  
+- **Design documentation**:
+  - RFC-001: Prometheus metrics exporter specification (393 lines)
+  - v5.0.0 Product Strategy Roadmap (278 lines)
+  - Complete feature requirements and success criteria
+
+### Changed
+
+- **Architecture**: Core operations module re-exports metrics types through facade pattern
+- **Web API**: Exposed metrics_prometheus handler in api.rs for Prometheus scraping
+
 ## [4.0.0] — 2026-08-28
 
 The workbench is now a web service. One binary runs an HTTP server; operators
