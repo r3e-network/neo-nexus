@@ -50,6 +50,7 @@ mod settings_keys;
 
 use self::helpers::*;
 pub(crate) use self::helpers::{validate_backup_setting_key, validate_node_config};
+pub(crate) use self::model::QuarantinedRuntimeSpec;
 pub use self::model::{RestoreNodeOutcome, RestoredRuntimeEvent, WorkspaceSetting};
 use self::rows::*;
 use self::settings_keys::*;

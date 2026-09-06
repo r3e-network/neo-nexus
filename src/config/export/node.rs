@@ -1,16 +1,16 @@
 use std::{
     fs,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 
 use crate::{
-    catalog::PluginState,
+    catalog::{PluginCatalog, PluginState},
     types::{NodeConfig, NodeType},
 };
 
-use super::model::ConfigExport;
+use super::{atomic::StagedWrite, model::ConfigExport};
 use crate::config::{
     format::{config_filename, GenerationContext, RuntimeConfigProfile},
     generator::ConfigGenerator,
@@ -97,17 +97,8 @@ impl ConfigExporter {
         }
 
         let path = path.as_ref().to_path_buf();
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).with_context(|| {
-                format!("failed to create config directory {}", parent.display())
-            })?;
-        }
-        fs::write(&path, rendered.text.as_bytes())
-            .with_context(|| format!("failed to write config {}", path.display()))?;
-
-        restrict_permissions(&path);
-
-        let sidecars = Self::write_plugin_sidecars(&path, node, plugins)?;
+        let sidecars =
+            Self::write_config_set(&path, rendered.text.as_bytes(), node, plugins, context)?;
 
         Ok(ConfigExport {
             bytes_written: rendered.text.len() + sidecars.bytes_written,
@@ -120,28 +111,41 @@ impl ConfigExporter {
     /// one. neo-cli configures the RPC listener, the oracle service, the state
     /// service and dBFT in `Plugins/<Name>/<Name>.json`, not in `config.json`,
     /// so an export that skips these configures none of them.
-    fn write_plugin_sidecars(
+    fn write_config_set(
         primary: &Path,
+        primary_text: &[u8],
         node: &NodeConfig,
         plugins: &[PluginState],
+        context: &GenerationContext,
     ) -> Result<WrittenSidecars> {
         let Some(node_dir) = primary.parent() else {
-            return Ok(WrittenSidecars::default());
+            bail!(
+                "config target {} has no parent directory",
+                primary.display()
+            );
         };
+
+        let generated = ConfigGenerator::sidecars_for_node_with_context(node, plugins, context);
         let mut written = WrittenSidecars::default();
-        for sidecar in ConfigGenerator::sidecars_for_node(node, plugins) {
-            let path = node_dir.join(&sidecar.relative_path);
-            if let Some(parent) = path.parent() {
-                fs::create_dir_all(parent).with_context(|| {
-                    format!("failed to create plugin directory {}", parent.display())
-                })?;
-            }
-            fs::write(&path, sidecar.text.as_bytes())
-                .with_context(|| format!("failed to write plugin config {}", path.display()))?;
-            restrict_permissions(&path);
+        let mut staged_sidecars = Vec::with_capacity(generated.len());
+        for sidecar in &generated {
+            let path = checked_sidecar_path(node_dir, &sidecar.relative_path)?;
+            staged_sidecars.push(StagedWrite::new(&path, sidecar.text.as_bytes(), true)?);
             written.bytes_written += sidecar.text.len();
             written.paths.push(path);
         }
+
+        // Stage every desired file before replacing any live config. A failure
+        // while writing a temporary file therefore leaves the complete old set
+        // intact rather than mixing a new primary with missing sidecars.
+        let staged_primary = StagedWrite::new(primary, primary_text, true)?;
+        remove_stale_sidecars(node_dir, node, &written.paths)?;
+        for staged in staged_sidecars {
+            staged.commit()?;
+        }
+        // The primary is the commit marker: a successful return always means
+        // it and every desired sidecar were already replaced atomically.
+        staged_primary.commit()?;
         Ok(written)
     }
 }
@@ -152,14 +156,76 @@ struct WrittenSidecars {
     bytes_written: usize,
 }
 
-/// Config files carry network magic, seed addresses and validator keys, and a
-/// plugin file may carry an RPC password, so they stay owner-only on Unix.
-fn restrict_permissions(path: &Path) {
-    #[cfg(unix)]
+fn checked_sidecar_path(node_dir: &Path, relative: &str) -> Result<PathBuf> {
+    let relative = Path::new(relative);
+    if relative.as_os_str().is_empty()
+        || relative
+            .components()
+            .any(|component| !matches!(component, Component::Normal(_)))
     {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o600));
+        bail!("plugin config path {relative:?} must be a contained relative path");
     }
-    #[cfg(not(unix))]
-    let _ = path;
+    Ok(node_dir.join(relative))
+}
+
+fn remove_stale_sidecars(node_dir: &Path, node: &NodeConfig, desired: &[PathBuf]) -> Result<()> {
+    let every_plugin_enabled = PluginCatalog
+        .all()
+        .iter()
+        .map(|plugin| PluginState {
+            plugin_id: plugin.id,
+            enabled: true,
+        })
+        .collect::<Vec<_>>();
+    for sidecar in ConfigGenerator::sidecars_for_node(node, &every_plugin_enabled) {
+        let path = checked_sidecar_path(node_dir, &sidecar.relative_path)?;
+        if desired.contains(&path) {
+            continue;
+        }
+        match fs::symlink_metadata(&path) {
+            Ok(metadata) if metadata.is_file() || metadata.file_type().is_symlink() => {
+                fs::remove_file(&path).with_context(|| {
+                    format!("failed to remove stale plugin config {}", path.display())
+                })?;
+            }
+            Ok(_) => bail!(
+                "stale plugin config path {} is not a regular file",
+                path.display()
+            ),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(error).with_context(|| {
+                    format!("failed to inspect stale plugin config {}", path.display())
+                })
+            }
+        }
+    }
+    if node.node_type == NodeType::NeoCli {
+        for relative in [
+            "Plugins/SignClient/SignClient.json",
+            "Plugins/NeoNexus.SignerBootstrap/SignerBootstrap.json",
+        ] {
+            let path = checked_sidecar_path(node_dir, relative)?;
+            if !desired.contains(&path) {
+                match fs::symlink_metadata(&path) {
+                    Ok(metadata) if metadata.is_file() || metadata.file_type().is_symlink() => {
+                        fs::remove_file(&path).with_context(|| {
+                            format!("failed to remove stale plugin config {}", path.display())
+                        })?;
+                    }
+                    Ok(_) => bail!(
+                        "stale plugin config path {} is not a regular file",
+                        path.display()
+                    ),
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(error) => {
+                        return Err(error).with_context(|| {
+                            format!("failed to inspect stale plugin config {}", path.display())
+                        })
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }

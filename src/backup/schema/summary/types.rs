@@ -12,6 +12,7 @@ pub struct WorkspaceBackupExport {
     pub node_count: usize,
     pub plugin_state_count: usize,
     pub plugin_installation_count: usize,
+    pub signer_binding_count: usize,
     pub workspace_setting_count: usize,
     pub remote_server_count: usize,
     pub runtime_catalog_profile_count: usize,
@@ -30,6 +31,8 @@ pub struct WorkspaceBackupImport {
     pub role_count: usize,
     /// Node-to-wallet bindings restored.
     pub wallet_binding_count: usize,
+    /// Complete node-to-signer-key bindings restored.
+    pub signer_binding_count: usize,
     pub updated_nodes: usize,
     pub plugin_state_count: usize,
     pub plugin_installation_count: usize,
@@ -53,6 +56,7 @@ pub struct WorkspaceBackupValidation {
     pub node_count: usize,
     pub plugin_state_count: usize,
     pub plugin_installation_count: usize,
+    pub signer_binding_count: usize,
     pub workspace_setting_count: usize,
     pub remote_server_count: usize,
     pub runtime_catalog_profile_count: usize,

@@ -28,3 +28,31 @@ mod basics_settings;
 mod nodes_health_plugins;
 #[path = "repository/runtime_events.rs"]
 mod runtime_events;
+
+#[test]
+fn a_new_workspace_creates_no_local_signer_custody_tables() {
+    let home = tempfile::tempdir().expect("temporary workspace");
+    let database = home.path().join("neonexus.db");
+    Repository::open(&database).expect("workspace opens");
+    let connection = rusqlite::Connection::open(&database).expect("database reopens");
+
+    for table in [
+        "signer_keys",
+        "signer_policies",
+        "signer_callers",
+        "signer_audit",
+        "signer_value_events",
+    ] {
+        let count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
+                [table],
+                |row| row.get(0),
+            )
+            .expect("schema query");
+        assert_eq!(
+            count, 0,
+            "{table} makes neo-nexus a second custody database"
+        );
+    }
+}

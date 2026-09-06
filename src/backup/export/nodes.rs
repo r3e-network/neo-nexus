@@ -7,12 +7,15 @@ use crate::{
     types::{NodeConfig, NodeStatus},
 };
 
-use super::super::schema::{NodeBackup, PluginBackup, PluginInstallationBackup};
+use super::super::schema::{
+    NodeBackup, NodeSignerKeyBackup, PluginBackup, PluginInstallationBackup,
+};
 
 pub(in crate::backup) fn node_backup(
     repository: &Repository,
     node: NodeConfig,
 ) -> Result<NodeBackup> {
+    let retained_runtime = repository.quarantined_runtime_spec(&node.id)?;
     let plugins = repository
         .list_plugin_states(&node.id)?
         .into_iter()
@@ -30,14 +33,24 @@ pub(in crate::backup) fn node_backup(
         .load_node_role(&node.id)?
         .map(|role| role.persist_key().to_string());
     let wallet_profile_id = repository.load_node_wallet(&node.id)?;
+    let signer_key = repository
+        .load_node_signer_key(&node.id)?
+        .map(|key| NodeSignerKeyBackup {
+            backend_id: key.backend_id,
+            key_id: key.key_id,
+        });
+
+    let (binary_path, args) = retained_runtime
+        .map(|runtime| (runtime.binary_path, runtime.args))
+        .unwrap_or_else(|| (node.binary_path.clone(), node.args.clone()));
 
     Ok(NodeBackup {
         id: node.id,
         name: node.name,
         node_type: node.node_type.to_string(),
         network: node.network.to_string(),
-        binary_path: node.binary_path.display().to_string(),
-        args: node.args,
+        binary_path: binary_path.display().to_string(),
+        args,
         runtime_version: node.runtime_version,
         storage_engine: node.storage_engine.to_string(),
         rpc_port: node.rpc_port,
@@ -49,6 +62,7 @@ pub(in crate::backup) fn node_backup(
         plugin_installations,
         role,
         wallet_profile_id,
+        signer_key,
     })
 }
 

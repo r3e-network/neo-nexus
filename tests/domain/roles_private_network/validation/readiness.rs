@@ -157,3 +157,32 @@ fn private_network_launch_pack_validator_reports_operator_readiness() {
         serde_json::from_str(&std::fs::read_to_string(&missing_report.json_path).unwrap()).unwrap();
     assert!(missing_report_json["failed_count"].as_u64().unwrap_or(0) > 0);
 }
+
+#[test]
+fn private_network_warns_without_reclassifying_remote_http_as_a_backend() {
+    let fixture =
+        fixture::build_ready_launch_pack_with_endpoint("http://signer.example.test/validator-1");
+    let validation =
+        PrivateNetworkLaunchPackVerifier::validate(&fixture.export.manifest_path).unwrap();
+    assert!(validation.is_success(), "{}", validation.to_cli_text());
+    assert!(validation.checks.iter().any(|check| {
+        check.category == "signer-endpoint"
+            && check.label == "committee-signer-1"
+            && check.status == LaunchPackValidationStatus::Warn
+            && check.message.contains("non-loopback")
+            && check.message.contains("HTTPS")
+    }));
+
+    let loopback = fixture::build_ready_launch_pack_with_endpoint("http://127.0.0.1:9021");
+    let loopback_validation =
+        PrivateNetworkLaunchPackVerifier::validate(&loopback.export.manifest_path).unwrap();
+    assert!(
+        loopback_validation
+            .checks
+            .iter()
+            .any(|check| check.category == "signer-endpoint"
+                && check.status == LaunchPackValidationStatus::Pass),
+        "{}",
+        loopback_validation.to_cli_text()
+    );
+}

@@ -32,7 +32,7 @@ use neo_nexus::{
         format_bytes, MetricsSnapshot, MissingProcessMetric, NodeProcessMetrics, ResourcePressure,
         SystemMetrics,
     },
-    node_lifecycle::{execute_node_launch, LaunchAction, ManagedConfig},
+    node_lifecycle::{execute_node_launch, LaunchAction, ManagedConfig, NodeLaunchRequest},
     plugins::{PluginInstallation, PluginPackageManager, PluginPackageManifest},
     private_network::{
         CommitteeRoster, CommitteeSidecarProcess, LaunchPackValidationStatus,
@@ -50,6 +50,10 @@ use neo_nexus::{
         RuntimeCatalogLoadRequest, RuntimeCatalogProfile, RuntimeDownloadRequest,
         RuntimeInstallation, RuntimePackageManager, RuntimePackageManifest, RuntimePlatform,
         RuntimeReleaseCatalog, RuntimeSignerProfile, RuntimeUpgradePolicy,
+    },
+    signing::{
+        ConfiguredSignerBackend, LocalWalletConfig, LocalWalletSigner, SignerBackendKind,
+        SignerBackendProfile, SignerKeyRef, SignerRegistry,
     },
     snapshots::{
         sha256_file, validate_snapshot_catalog_load_request, validate_snapshot_download_request,
@@ -134,13 +138,13 @@ fn valid_nep6_wallet_json() -> String {
         },
         "accounts": [
             {
-                "address": "AQLASLtT6pWbThcSCYU1biVqhMnzhTgLFq",
+                "address": "Nemocn5HwBYXiDarSFQ2nJnUC8gHTR2vC3",
                 "label": "validator-1",
                 "isDefault": true,
                 "lock": false,
                 "key": "6PYWB8m1bCnu5bQkRUKAwbZp2BHNvQ3BQRLbpLdTuizpyLkQPSZbtZfoxx",
                 "contract": {
-                    "script": "21036dc4bf8f0405dcf5d12a38487b359cb4bd693357a387d74fc438ffc7757948b0ac",
+                    "script": "0c21036dc4bf8f0405dcf5d12a38487b359cb4bd693357a387d74fc438ffc7757948b04156e7b327",
                     "parameters": [],
                     "deployed": false
                 },

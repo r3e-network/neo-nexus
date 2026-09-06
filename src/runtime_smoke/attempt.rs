@@ -12,6 +12,7 @@ use anyhow::{Context, Result};
 
 use crate::{
     argv::format_command,
+    child_environment::scrub_control_plane_environment,
     redaction::{redact_sensitive_args, redact_sensitive_text},
 };
 
@@ -41,11 +42,14 @@ pub(super) fn run_attempt(
         .with_context(|| format!("failed to create {}", stderr_path.display()))?;
 
     let started = Instant::now();
-    let mut child = Command::new(command_path)
+    let mut command = Command::new(command_path);
+    command
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::from(stdout_file))
-        .stderr(Stdio::from(stderr_file))
+        .stderr(Stdio::from(stderr_file));
+    scrub_control_plane_environment(&mut command);
+    let mut child = command
         .spawn()
         .with_context(|| format!("failed to run {}", command_path.display()))?;
 

@@ -106,3 +106,38 @@ fn rejects_duplicate_ports_within_node_on_update() {
         .to_string()
         .contains("RPC and WebSocket ports must be different"));
 }
+
+#[test]
+fn legacy_unsafe_database_node_ids_fail_closed_at_repository_egress() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let db_path = temp_dir.path().join("neonexus.db");
+    let repository = Repository::open(&db_path).unwrap();
+    let node = repository
+        .create_node(NewNode {
+            name: "legacy unsafe".to_string(),
+            node_type: NodeType::NeoCli,
+            network: Network::Private,
+            binary_path: "/usr/local/bin/neo-cli".into(),
+            args: Vec::new(),
+            runtime_version: "latest".to_string(),
+            storage_engine: StorageEngine::LevelDb,
+            rpc_port: 30332,
+            p2p_port: 30333,
+            ws_port: None,
+        })
+        .unwrap();
+    let connection = rusqlite::Connection::open(&db_path).unwrap();
+    connection
+        .execute(
+            "UPDATE nodes SET id = '../outside' WHERE id = ?1",
+            [&node.id],
+        )
+        .unwrap();
+
+    let error = repository
+        .list_nodes()
+        .expect_err("unsafe legacy id must never reach filesystem consumers");
+    assert!(error
+        .to_string()
+        .contains("workspace contains unsafe node id"));
+}

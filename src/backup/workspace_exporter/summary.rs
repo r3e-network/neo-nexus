@@ -17,6 +17,11 @@ pub(super) fn backup_export_summary(
             .iter()
             .map(|node| node.plugin_installations.len())
             .sum(),
+        signer_binding_count: backup
+            .nodes
+            .iter()
+            .filter(|node| node.signer_key.is_some())
+            .count(),
         workspace_setting_count: backup.workspace_settings.len(),
         remote_server_count: backup.remote_servers.len(),
         runtime_catalog_profile_count: backup.runtime_catalog_profiles.len(),

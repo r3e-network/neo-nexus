@@ -34,7 +34,7 @@ fn workspace_backup_exports_nodes_and_plugin_state() {
     assert_eq!(backup.neo_wallet_profiles[0].id, "validator-wallet-backup");
     assert_eq!(
         backup.neo_wallet_profiles[0].primary_address,
-        "AQLASLtT6pWbThcSCYU1biVqhMnzhTgLFq"
+        "Nemocn5HwBYXiDarSFQ2nJnUC8gHTR2vC3"
     );
     assert_eq!(backup.fast_sync_snapshots.len(), 1);
     assert_eq!(backup.fast_sync_snapshots[0].id, "snapshot-backup");
@@ -48,6 +48,9 @@ fn workspace_backup_exports_nodes_and_plugin_state() {
     assert_eq!(backup.nodes[0].name, "backup node");
     assert_eq!(backup.nodes[0].plugins.len(), 2);
     assert_eq!(backup.nodes[0].plugin_installations.len(), 1);
+    let signer = backup.nodes[0].signer_key.as_ref().unwrap();
+    assert_eq!(signer.backend_id, "local-wallet-a");
+    assert_eq!(signer.key_id, "validator-one");
     assert_eq!(backup.events.len(), 1);
     assert_eq!(backup.events[0].kind, "backup-exported");
     assert!(backup.events[0]
@@ -72,6 +75,7 @@ fn workspace_backup_exports_nodes_and_plugin_state() {
     assert_eq!(export.node_count, 1);
     assert_eq!(export.plugin_state_count, 2);
     assert_eq!(export.plugin_installation_count, 1);
+    assert_eq!(export.signer_binding_count, 1);
     assert_eq!(export.workspace_setting_count, 2);
     assert_eq!(export.remote_server_count, 1);
     assert_eq!(export.runtime_catalog_profile_count, 1);
@@ -92,6 +96,7 @@ fn workspace_backup_exports_nodes_and_plugin_state() {
     assert_eq!(validation.node_count, 1);
     assert_eq!(validation.plugin_state_count, 2);
     assert_eq!(validation.plugin_installation_count, 1);
+    assert_eq!(validation.signer_binding_count, 1);
     assert_eq!(validation.workspace_setting_count, 2);
     assert_eq!(validation.remote_server_count, 1);
     assert_eq!(validation.runtime_catalog_profile_count, 1);

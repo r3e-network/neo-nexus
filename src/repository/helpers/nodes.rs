@@ -1,7 +1,7 @@
 use anyhow::Result;
 use uuid::Uuid;
 
-use crate::types::{validate_node_ports, NewNode, NodeConfig, NodeStatus};
+use crate::types::{validate_node_id, validate_node_ports, NewNode, NodeConfig, NodeStatus};
 
 pub(in crate::repository) fn new_node_config(input: NewNode) -> Result<NodeConfig> {
     validate_node_input(&input)?;
@@ -44,9 +44,7 @@ pub(in crate::repository) fn validate_node_input(input: &NewNode) -> Result<()> 
 }
 
 pub(crate) fn validate_node_config(node: &NodeConfig) -> Result<()> {
-    if node.id.trim().is_empty() {
-        anyhow::bail!("node id is required");
-    }
+    validate_node_id(&node.id)?;
     let input = NewNode {
         name: node.name.clone(),
         node_type: node.node_type,

@@ -98,3 +98,82 @@ fn plugin_package_manager_replaces_existing_package_safely() {
         .map(|mut entries| entries.next().is_some())
         .unwrap_or(false));
 }
+
+#[test]
+fn official_plugins_directory_is_flattened_into_the_node_plugin_slot() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let source = temp_dir.path().join("official-rpc-server.zip");
+    write_zip_snapshot(
+        &source,
+        &[
+            ("Plugins/RpcServer/RpcServer.dll", b"official binary"),
+            (
+                "Plugins/RpcServer/RpcServer.json",
+                br#"{"PluginConfiguration":{}}"#,
+            ),
+        ],
+    );
+    let (sha256, _) = sha256_file(&source).unwrap();
+    let repo = Repository::open(temp_dir.path().join("neonexus.db")).unwrap();
+    let node_id = create_node(&repo, "neo-cli-official", NodeType::NeoCli);
+    let node = repo
+        .list_nodes()
+        .unwrap()
+        .into_iter()
+        .find(|node| node.id == node_id)
+        .unwrap();
+
+    let installation = PluginPackageManager::install(
+        &PluginPackageManifest {
+            plugin_id: PluginId::RpcServer,
+            label: "JSON-RPC API".to_string(),
+            source_path: source,
+            expected_sha256: sha256,
+        },
+        &node,
+        temp_dir.path().join("nodes").join(&node.id),
+    )
+    .unwrap();
+
+    assert_eq!(
+        std::fs::read_to_string(installation.installed_path.join("RpcServer.dll")).unwrap(),
+        "official binary"
+    );
+    assert!(!installation.installed_path.join("Plugins").exists());
+}
+
+#[test]
+fn official_layout_cannot_install_files_for_another_plugin() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let source = temp_dir.path().join("mixed-plugin.zip");
+    write_zip_snapshot(
+        &source,
+        &[
+            ("Plugins/RpcServer/RpcServer.dll", b"rpc"),
+            ("Plugins/DBFTPlugin/DBFTPlugin.dll", b"dbft"),
+        ],
+    );
+    let (sha256, _) = sha256_file(&source).unwrap();
+    let repo = Repository::open(temp_dir.path().join("neonexus.db")).unwrap();
+    let node_id = create_node(&repo, "neo-cli-mixed", NodeType::NeoCli);
+    let node = repo
+        .list_nodes()
+        .unwrap()
+        .into_iter()
+        .find(|node| node.id == node_id)
+        .unwrap();
+
+    let error = PluginPackageManager::install(
+        &PluginPackageManifest {
+            plugin_id: PluginId::RpcServer,
+            label: "JSON-RPC API".to_string(),
+            source_path: source,
+            expected_sha256: sha256,
+        },
+        &node,
+        temp_dir.path().join("nodes").join(&node.id),
+    )
+    .unwrap_err();
+
+    assert!(error.to_string().contains("outside Plugins/RpcServer"));
+}

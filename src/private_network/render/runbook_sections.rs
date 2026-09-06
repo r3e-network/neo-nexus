@@ -7,6 +7,7 @@ pub(super) const ARTIFACT_INTEGRITY: &[&str] = &[
 
 pub(super) const SECRET_MATERIAL_BOUNDARY: &[&str] = &[
     "This pack records public committee keys plus optional wallet, signer endpoint, and sidecar command references only.",
+    "These are node-runtime deployment references; they neither configure nor inherit NeoNexus's active signer backend.",
     "It never includes private keys, wallet passwords, or generated genesis key material.",
     "`wallet-provisioning.json` is an operator checklist, not a wallet file and not a secret store.",
 ];

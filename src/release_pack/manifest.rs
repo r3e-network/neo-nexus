@@ -42,7 +42,7 @@ pub(super) struct ReleaseSidecarManifest<'a> {
     pub(super) binary_bytes: u64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub(super) struct ReleaseSidecarManifestOwned {
     pub(super) schema_version: u32,
     pub(super) package_id: String,

@@ -31,6 +31,13 @@ pub struct CommitteeSidecarProcess {
     pub process: ManagedProcessSpec,
 }
 
+/// Deployment handoff metadata for one private-network committee key.
+///
+/// This is deliberately not an application-level
+/// [`crate::signing::SignerBackendProfile`]. A wallet path, health endpoint and
+/// sidecar command may coexist because together they describe artifacts the
+/// launch-pack operator must provision. They never select, inherit or fall
+/// back to NeoNexus's process-wide signer backend.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommitteeSigner {
     pub label: String,

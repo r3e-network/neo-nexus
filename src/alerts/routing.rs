@@ -50,7 +50,11 @@ pub fn deliver_webhook_alert(
         }
     };
 
-    let mut webhook_request = ureq::post(&request.endpoint_url)
+    // Webhook targets are security boundaries: never let a provider response
+    // retarget the POST (and its provider credentials) to a second URL.
+    let agent = ureq::AgentBuilder::new().redirects(0).build();
+    let mut webhook_request = agent
+        .post(&request.endpoint_url)
         .timeout(policy.timeout_duration())
         .set("Content-Type", "application/json")
         .set(
@@ -64,16 +68,41 @@ pub fn deliver_webhook_alert(
     match webhook_request.send_string(&payload_text) {
         Ok(response) => {
             let status = response.status();
-            AlertDeliveryReport {
-                event_id: event.id,
-                route_label: policy.provider.to_string(),
-                target,
-                status: AlertDeliveryStatus::Delivered,
-                http_status: Some(status),
-                message: format!("webhook accepted alert with HTTP {status}"),
+            if (300..400).contains(&status) {
+                AlertDeliveryReport {
+                    event_id: event.id,
+                    route_label: policy.provider.to_string(),
+                    target,
+                    status: AlertDeliveryStatus::Failed,
+                    http_status: Some(status),
+                    message: format!(
+                        "webhook redirect rejected with HTTP {status}; redirects are disabled"
+                    ),
+                }
+            } else {
+                AlertDeliveryReport {
+                    event_id: event.id,
+                    route_label: policy.provider.to_string(),
+                    target,
+                    status: AlertDeliveryStatus::Delivered,
+                    http_status: Some(status),
+                    message: format!("webhook accepted alert with HTTP {status}"),
+                }
             }
         }
         Err(ureq::Error::Status(status, response)) => {
+            if (300..400).contains(&status) {
+                return AlertDeliveryReport {
+                    event_id: event.id,
+                    route_label: policy.provider.to_string(),
+                    target,
+                    status: AlertDeliveryStatus::Failed,
+                    http_status: Some(status),
+                    message: format!(
+                        "webhook redirect rejected with HTTP {status}; redirects are disabled"
+                    ),
+                };
+            }
             let body = response.into_string().unwrap_or_default();
             let suffix = if body.trim().is_empty() {
                 String::new()

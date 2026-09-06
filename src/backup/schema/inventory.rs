@@ -30,6 +30,16 @@ pub struct NodeBackup {
     /// password is never in the workspace, so it is not in the backup either.
     #[serde(default)]
     pub wallet_profile_id: Option<String>,
+    /// Complete node-specific application signer route. Keeping backend and
+    /// key together prevents restore from reintroducing a profile default.
+    #[serde(default)]
+    pub signer_key: Option<NodeSignerKeyBackup>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NodeSignerKeyBackup {
+    pub backend_id: String,
+    pub key_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

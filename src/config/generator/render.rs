@@ -36,6 +36,14 @@ impl ConfigGenerator {
     /// service, the state service and dBFT consensus are actually set, so an
     /// export that writes only the primary file configures none of them.
     pub fn sidecars_for_node(node: &NodeConfig, plugins: &[PluginState]) -> Vec<PluginSidecar> {
+        Self::sidecars_for_node_with_context(node, plugins, &GenerationContext::default())
+    }
+
+    pub fn sidecars_for_node_with_context(
+        node: &NodeConfig,
+        plugins: &[PluginState],
+        context: &GenerationContext,
+    ) -> Vec<PluginSidecar> {
         if node.node_type != NodeType::NeoCli {
             return Vec::new();
         }
@@ -44,7 +52,7 @@ impl ConfigGenerator {
             .filter(|plugin| plugin.enabled)
             .map(|plugin| plugin.plugin_id)
             .collect();
-        Self::neo_cli_sidecars(node, &enabled)
+        Self::neo_cli_sidecars(node, &enabled, context)
     }
 
     pub fn render_for_node(node: &NodeConfig, plugins: &[PluginState]) -> Result<RenderedConfig> {

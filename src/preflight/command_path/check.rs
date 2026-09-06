@@ -12,7 +12,7 @@ pub(in crate::preflight) fn path_check(
         return RuntimePreflightCheck {
             severity: PreflightSeverity::Critical,
             title: "Binary path",
-            detail: "Binary path is empty.".to_string(),
+            detail: "No trusted local runtime is bound. Select a local binary in the node editor or run --node-rebind-runtime before launch.".to_string(),
         };
     }
 

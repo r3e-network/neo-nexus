@@ -34,7 +34,7 @@ fn launch_planner_publishes_neo_cli_config_json_in_workdir() {
 
     let plan = LaunchPlanner::plan(&node, &config_path, "/tmp/neo-cli-work");
 
-    assert!(plan.args.is_empty());
+    assert_eq!(plan.args, ["--background"]);
     assert_eq!(plan.working_dir, PathBuf::from("/tmp/neo-cli-work"));
     assert_eq!(plan.managed_config_path, Some(config_path));
 }

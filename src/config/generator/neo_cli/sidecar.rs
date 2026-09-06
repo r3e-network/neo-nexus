@@ -11,13 +11,17 @@
 //! neo-project/neo-node `plugins/<Name>/<Name>.json`. Two details are easy to
 //! get wrong and are load-bearing:
 //! - `Dependency` is a **sibling** of `PluginConfiguration`, not nested in it.
-//! - Current plugins no longer carry a `Network` key; they inherit the magic
-//!   from the primary config. Emitting one pins the plugin to a network the
-//!   node may not be on.
+//! - neo-node 3.9.2's DBFTPlugin still requires `Network`; 3.10+ inherits it
+//!   from the primary config. The runtime version controls that compatibility
+//!   field.
 
 use serde_json::{json, Value};
 
-use crate::{catalog::PluginId, types::NodeConfig};
+use crate::{
+    catalog::PluginId,
+    config::{ConsensusSigner, GenerationContext},
+    types::NodeConfig,
+};
 
 /// One plugin configuration file, ready to be written beside the primary one.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,33 +32,75 @@ pub struct PluginSidecar {
 }
 
 /// Builds the configuration file for every enabled plugin that has one.
+#[cfg(test)]
 pub(super) fn sidecars_for(node: &NodeConfig, enabled: &[PluginId]) -> Vec<PluginSidecar> {
-    enabled
+    sidecars_for_with_context(node, enabled, &GenerationContext::default())
+}
+
+pub(super) fn sidecars_for_with_context(
+    node: &NodeConfig,
+    enabled: &[PluginId],
+    context: &GenerationContext,
+) -> Vec<PluginSidecar> {
+    let mut sidecars = enabled
         .iter()
-        .filter_map(|plugin| configuration(node, *plugin).map(|value| sidecar(*plugin, &value)))
-        .collect()
+        .filter_map(|plugin| {
+            configuration(node, *plugin, context).map(|value| sidecar(*plugin, &value))
+        })
+        .collect::<Vec<_>>();
+    if let Some(ConsensusSigner::SignClient {
+        name,
+        endpoint,
+        public_key,
+        network_magic,
+    }) = &context.consensus_signer
+    {
+        sidecars.push(named_sidecar("SignClient", &sign_client(name, endpoint)));
+        sidecars.push(PluginSidecar {
+            relative_path: "Plugins/NeoNexus.SignerBootstrap/SignerBootstrap.json".to_string(),
+            text: json_text(&signer_bootstrap(
+                name,
+                endpoint,
+                public_key,
+                *network_magic,
+            )),
+        });
+    }
+    sidecars
 }
 
 fn sidecar(plugin: PluginId, value: &Value) -> PluginSidecar {
     let name = plugin.to_string();
+    named_sidecar(&name, value)
+}
+
+fn named_sidecar(name: &str, value: &Value) -> PluginSidecar {
     PluginSidecar {
         relative_path: format!("Plugins/{name}/{name}.json"),
-        text: format!(
-            "{}\n",
-            serde_json::to_string_pretty(value).unwrap_or_default()
-        ),
+        text: json_text(value),
     }
+}
+
+fn json_text(value: &Value) -> String {
+    format!(
+        "{}\n",
+        serde_json::to_string_pretty(value).unwrap_or_default()
+    )
 }
 
 /// The plugin's file contents, or `None` for plugins that ship no config of
 /// their own (the two storage engines are selected in the primary config).
-fn configuration(node: &NodeConfig, plugin: PluginId) -> Option<Value> {
+fn configuration(
+    node: &NodeConfig,
+    plugin: PluginId,
+    context: &GenerationContext,
+) -> Option<Value> {
     match plugin {
         PluginId::RpcServer => Some(rpc_server(node)),
         PluginId::RestServer => Some(rest_server(node)),
         PluginId::OracleService => Some(oracle_service()),
         PluginId::StateService => Some(state_service()),
-        PluginId::DBFTPlugin => Some(dbft()),
+        PluginId::DBFTPlugin => Some(dbft(node, context)),
         PluginId::ApplicationLogs => Some(application_logs()),
         PluginId::TokensTracker => Some(tokens_tracker()),
         PluginId::LevelDbStore | PluginId::RocksDbStore => None,
@@ -152,15 +198,53 @@ fn state_service() -> Value {
 }
 
 /// dBFT consensus duties.
-fn dbft() -> Value {
-    json!({
+fn dbft(node: &NodeConfig, context: &GenerationContext) -> Value {
+    let auto_start = matches!(context.consensus_signer, Some(ConsensusSigner::LocalWallet));
+    let mut value = json!({
         "PluginConfiguration": {
             "RecoveryLogs": "ConsensusState",
             "IgnoreRecoveryLogs": false,
-            "AutoStart": false,
+            "AutoStart": auto_start,
             "MaxBlockSize": 2_097_152,
             "MaxBlockSystemFee": 2_000_000_000u64,
             "UnhandledExceptionPolicy": "StopNode"
+        }
+    });
+    if dbft_requires_network(&node.runtime_version) {
+        value["PluginConfiguration"]["Network"] = json!(crate::config::network_magic(node.network));
+    }
+    value
+}
+
+fn dbft_requires_network(runtime_version: &str) -> bool {
+    let version = runtime_version.trim().trim_start_matches('v');
+    let mut parts = version.split('.');
+    match (
+        parts.next().and_then(|part| part.parse::<u32>().ok()),
+        parts.next().and_then(|part| part.parse::<u32>().ok()),
+    ) {
+        (Some(major), Some(minor)) => major < 3 || (major == 3 && minor <= 9),
+        _ => false,
+    }
+}
+
+fn sign_client(name: &str, endpoint: &str) -> Value {
+    json!({
+        "PluginConfiguration": {
+            "Name": name,
+            "Endpoint": endpoint
+        }
+    })
+}
+
+fn signer_bootstrap(name: &str, endpoint: &str, public_key: &str, network_magic: u32) -> Value {
+    json!({
+        "PluginConfiguration": {
+            "Network": network_magic,
+            "PublicKey": public_key,
+            "Endpoint": endpoint,
+            "SignerName": name,
+            "StartupTimeoutSeconds": 3_600
         }
     })
 }

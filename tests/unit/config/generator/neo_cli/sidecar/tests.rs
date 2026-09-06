@@ -1,6 +1,8 @@
-use super::sidecars_for;
+use super::{sidecars_for, sidecars_for_with_context};
 use crate::{
     catalog::PluginId,
+    config::{GenerationContext, ServiceWallet},
+    roles::NodeRole,
     types::{Network, NodeConfig, NodeStatus, NodeType, StorageEngine},
 };
 use std::path::PathBuf;
@@ -143,4 +145,58 @@ fn storage_engines_have_no_sidecar() {
 fn only_the_plugins_asked_for_are_rendered() {
     assert!(sidecars_for(&node(), &[]).is_empty());
     assert_eq!(sidecars_for(&node(), &[PluginId::DBFTPlugin]).len(), 1);
+}
+
+#[test]
+fn neo_node_3_9_dbft_sidecar_carries_the_required_network_magic() {
+    let mut legacy = node();
+    legacy.runtime_version = "3.9.2".to_string();
+    let sidecars = sidecars_for(&legacy, &[PluginId::DBFTPlugin]);
+    let value: serde_json::Value = serde_json::from_str(&sidecars[0].text).unwrap();
+    assert_eq!(value["PluginConfiguration"]["Network"], 894_710_606u32);
+}
+
+#[test]
+fn local_wallet_consensus_uses_dbft_wallet_autostart() {
+    let context = GenerationContext::for_role(NodeRole::Consensus)
+        .with_wallet(ServiceWallet::at("validator.wallet.json").unlocked_with("secret"));
+    let sidecars = sidecars_for_with_context(&node(), &[PluginId::DBFTPlugin], &context);
+    let dbft: serde_json::Value = serde_json::from_str(&sidecars[0].text).unwrap();
+    assert_eq!(dbft["PluginConfiguration"]["AutoStart"], true);
+    assert_eq!(sidecars.len(), 1);
+}
+
+#[test]
+fn remote_consensus_writes_exact_sign_client_profile_without_wallet_autostart() {
+    let context = GenerationContext::for_role(NodeRole::Consensus).with_sign_client(
+        "SignClient",
+        "http://127.0.0.1:9991",
+        "031e18532fd4754c02f3041d9c75ceb33b83ffd81ac7ce4fe882ccb1c98bc5896e",
+        894_710_606,
+    );
+    let sidecars = sidecars_for_with_context(&node(), &[PluginId::DBFTPlugin], &context);
+    assert_eq!(sidecars.len(), 3);
+    let dbft: serde_json::Value = serde_json::from_str(&sidecars[0].text).unwrap();
+    assert_eq!(dbft["PluginConfiguration"]["AutoStart"], false);
+    assert_eq!(
+        sidecars[1].relative_path,
+        "Plugins/SignClient/SignClient.json"
+    );
+    let sign_client: serde_json::Value = serde_json::from_str(&sidecars[1].text).unwrap();
+    assert_eq!(sign_client["PluginConfiguration"]["Name"], "SignClient");
+    assert_eq!(
+        sign_client["PluginConfiguration"]["Endpoint"],
+        "http://127.0.0.1:9991"
+    );
+    assert_eq!(
+        sidecars[2].relative_path,
+        "Plugins/NeoNexus.SignerBootstrap/SignerBootstrap.json"
+    );
+    let bootstrap: serde_json::Value = serde_json::from_str(&sidecars[2].text).unwrap();
+    assert_eq!(bootstrap["PluginConfiguration"]["SignerName"], "SignClient");
+    assert_eq!(
+        bootstrap["PluginConfiguration"]["PublicKey"],
+        "031e18532fd4754c02f3041d9c75ceb33b83ffd81ac7ce4fe882ccb1c98bc5896e"
+    );
+    assert_eq!(bootstrap["PluginConfiguration"]["Network"], 894_710_606u32);
 }

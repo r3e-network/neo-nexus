@@ -5,6 +5,9 @@ use super::{
     names::{safe_file_name, validate_sha256},
 };
 
+pub(in crate::release_pack) const MAX_RELEASE_ARCHIVE_BYTES: u64 = 512 * 1024 * 1024;
+pub(in crate::release_pack) const MAX_RELEASE_BINARY_BYTES: u64 = 256 * 1024 * 1024;
+
 pub(in crate::release_pack) fn validate_sidecar_manifest(
     manifest: &ReleaseSidecarManifestOwned,
 ) -> Result<()> {
@@ -34,8 +37,20 @@ pub(in crate::release_pack) fn validate_sidecar_manifest(
     if manifest.archive_bytes == 0 {
         anyhow::bail!("release archive byte count must be greater than zero");
     }
+    if manifest.archive_bytes > MAX_RELEASE_ARCHIVE_BYTES {
+        anyhow::bail!(
+            "release archive exceeds {} byte verification limit",
+            MAX_RELEASE_ARCHIVE_BYTES
+        );
+    }
     if manifest.binary_bytes == 0 {
         anyhow::bail!("release binary byte count must be greater than zero");
+    }
+    if manifest.binary_bytes > MAX_RELEASE_BINARY_BYTES {
+        anyhow::bail!(
+            "release binary exceeds {} byte verification limit",
+            MAX_RELEASE_BINARY_BYTES
+        );
     }
     Ok(())
 }

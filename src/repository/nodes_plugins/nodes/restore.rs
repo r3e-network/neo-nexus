@@ -9,14 +9,23 @@ impl Repository {
         validate_node_config(node)?;
         let mut connection = self.connection()?;
         let transaction = connection.transaction()?;
-        let existed = transaction
+        let existing_runtime = transaction
             .query_row(
-                "SELECT 1 FROM nodes WHERE id = ?1",
+                "SELECT status, pid FROM nodes WHERE id = ?1",
                 params![node.id],
-                |_| Ok(()),
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<u32>>(1)?)),
             )
-            .optional()?
-            .is_some();
+            .optional()?;
+        if let Some((status_raw, pid)) = &existing_runtime {
+            let status = NodeStatus::from_str(status_raw)?;
+            if status.is_active() || pid.is_some() {
+                anyhow::bail!(
+                    "stop node {} and confirm its process exited before restoring over it",
+                    node.id
+                );
+            }
+        }
+        let existed = existing_runtime.is_some();
 
         transaction.execute(
             "INSERT INTO nodes (
@@ -42,8 +51,8 @@ impl Repository {
                 node.name,
                 node.node_type.to_string(),
                 node.network.to_string(),
-                node.binary_path.to_string_lossy(),
-                encode_args(&node.args),
+                "",
+                "",
                 node.runtime_version,
                 node.storage_engine.to_string(),
                 node.rpc_port,
@@ -51,6 +60,19 @@ impl Repository {
                 node.ws_port,
                 node.status.to_string(),
                 node.pid,
+            ],
+        )?;
+        transaction.execute(
+            "INSERT INTO node_runtime_quarantine (
+                node_id, imported_binary_path, imported_args
+             ) VALUES (?1, ?2, ?3)
+             ON CONFLICT(node_id) DO UPDATE SET
+                imported_binary_path = excluded.imported_binary_path,
+                imported_args = excluded.imported_args",
+            params![
+                node.id,
+                node.binary_path.to_string_lossy(),
+                encode_args(&node.args),
             ],
         )?;
         transaction.execute(
@@ -71,5 +93,29 @@ impl Repository {
         } else {
             RestoreNodeOutcome::Created
         })
+    }
+
+    pub(crate) fn quarantined_runtime_spec(
+        &self,
+        node_id: &str,
+    ) -> Result<Option<QuarantinedRuntimeSpec>> {
+        crate::types::validate_node_id(node_id)?;
+        let connection = self.connection()?;
+        connection
+            .query_row(
+                "SELECT imported_binary_path, imported_args
+                 FROM node_runtime_quarantine
+                 WHERE node_id = ?1",
+                params![node_id],
+                |row| {
+                    let args: String = row.get(1)?;
+                    Ok(QuarantinedRuntimeSpec {
+                        binary_path: PathBuf::from(row.get::<_, String>(0)?),
+                        args: decode_args(&args),
+                    })
+                },
+            )
+            .optional()
+            .with_context(|| format!("failed to load quarantined runtime for node {node_id}"))
     }
 }

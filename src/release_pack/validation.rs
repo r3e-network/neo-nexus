@@ -9,5 +9,5 @@ pub(super) use self::{
     checksum::validate_checksum_file,
     names::{safe_file_name, safe_fragment},
     resolve::resolve_release_manifest,
-    sidecar::validate_sidecar_manifest,
+    sidecar::{validate_sidecar_manifest, MAX_RELEASE_ARCHIVE_BYTES, MAX_RELEASE_BINARY_BYTES},
 };

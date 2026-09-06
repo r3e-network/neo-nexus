@@ -19,6 +19,11 @@ pub(in crate::backup) fn validate_backup_summary(
         node_count: backup.nodes.len(),
         plugin_state_count: counts.plugin_state_count,
         plugin_installation_count: counts.plugin_installation_count,
+        signer_binding_count: backup
+            .nodes
+            .iter()
+            .filter(|node| node.signer_key.is_some())
+            .count(),
         workspace_setting_count: backup.workspace_settings.len(),
         remote_server_count: backup.remote_servers.len(),
         runtime_catalog_profile_count: backup.runtime_catalog_profiles.len(),

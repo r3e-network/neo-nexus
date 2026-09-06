@@ -1,3 +1,4 @@
+mod atomic;
 mod model;
 mod node;
 mod workspace;
