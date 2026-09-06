@@ -6,6 +6,9 @@ target/
 target-wt/
 dist/
 
+# CodeGraph (code-index tool) local artifacts
+.codegraph/
+
 # Runtime data
 .neonexus/
 *.db
