@@ -26,6 +26,24 @@ binary, validates RocksDB-oriented TOML configs, supports Fast Sync snapshot
 catalog entries, and routes neo-rs readiness findings into the same Operations
 workflow used for neo-cli and neo-go.
 
+**Signing and key custody.** NeoNexus can load named profiles for all three
+backend families in one process: process-local encrypted NEP-6 wallets,
+locally deployed signers, and NeoOS signer services. A
+`NEONEXUS_SIGNER_PROFILES_FILE` TOML registry explicitly selects the console,
+public-relay, and default internal-signing profiles; every key reference contains
+both `backend_id` and `key_id`, and a failed target never falls back. Legacy
+`NEONEXUS_SIGNER_BACKEND` remains a single-profile compatibility path. Local
+wallets are Neo N3/P-256 transaction signers only: the unsigned transaction is
+strictly parsed, consensus is refused without durable anti-equivocation, raw is
+default-off, and the wallet is never attached to the public relay. Service
+profiles keep admin and least-privilege signing credentials separate and use
+authenticated TLS, including for loopback production deployments. The Signer
+page exposes remote administration only for the explicitly selected service
+profile and never exposes key import. See [the registry example](docs/signer-profiles.example.toml),
+`D:\Git\neo-os\neo-os-services\docs\SIGNER_SERVICE.md` for the contract and
+ownership matrix, and `docs/signer-service-audit.md` for the findings that
+constrain it.
+
 ## Requirements
 
 - Rust 1.91 or newer.
@@ -33,10 +51,9 @@ workflow used for neo-cli and neo-go.
 - Optional node binaries if you want to start real processes:
   `neo-cli`, `neo-go`, or neo-rs `neo-node`.
 
-Linux development packages used by CI include ALSA, Fontconfig, X11, cursor,
-keyboard, RandR, and OpenGL development headers (the GUI toolkit is gone, but
-transitive skia/geometry crates in the tree may still expect them until the
-4.x dependency audit lands — CI installs them today).
+No GUI, WebView, Node.js, or frontend-toolchain dependency is required to
+build NeoNexus. Platform CI compiles and tests the same Rust-only source tree
+on Linux, macOS, and Windows.
 
 ## Run The Web Workbench
 
@@ -44,23 +61,32 @@ transitive skia/geometry crates in the tree may still expect them until the
 cargo run
 ```
 
-No options starts the workbench server on `127.0.0.1:8080` and prints the
-address plus a generated sign-in token. Open the address in a browser and sign
-in with the token.
+No options starts the workbench server on `127.0.0.1:8080`. In an interactive
+terminal it prints the address plus a generated sign-in token. Redirected or
+service startup fails closed unless a protected token file is configured, so a
+bootstrap credential cannot leak into logs.
 
 Cloud-shaped options:
 
 ```bash
-cargo run -- --web --bind 0.0.0.0 --port 8080 --web-token "$NEONEXUS_WEB_TOKEN"
+umask 077
+openssl rand -hex 32 > /run/secrets/neonexus-web-token
+cargo run -- --web --bind 0.0.0.0 --port 8080 \
+  --web-token-file /run/secrets/neonexus-web-token \
+  --web-public-origin https://nexus.example.com
 ```
 
 - `--bind` defaults to `127.0.0.1`; set `0.0.0.0` on a cloud host behind a
   TLS-terminating reverse proxy.
-- `--web-token` sets the operator token explicitly; otherwise the
-  `NEONEXUS_WEB_TOKEN` environment variable is used; otherwise a one-off token
-  is generated and printed at startup. Only the SHA-256 digest is kept in
-  memory.
-- Sessions are HttpOnly cookies with a 12-hour sliding expiry.
+- `--web-token-file` or `NEONEXUS_WEB_TOKEN_FILE` names a regular, access-
+  controlled file containing a token of at least 32 bytes. Secret-bearing
+  `--web-token` and `NEONEXUS_WEB_TOKEN` inputs are refused. Only the SHA-256
+  digest is retained after startup.
+- A non-loopback listener also requires `--web-public-origin` (or
+  `NEONEXUS_WEB_PUBLIC_ORIGIN`) with the browser-facing HTTPS origin.
+- Sessions use 12-hour, HttpOnly, SameSite=Strict cookies; HTTPS deployments
+  also set `Secure`. Protected state-changing requests must present the exact
+  configured Origin (or a same-origin Referer when Origin is absent).
 
 The workspace database lives at `NEONEXUS_DATA_DIR/neonexus.db` (or the OS data
 directory), the same file the CLI writes to — browser operators and scripted
@@ -68,17 +94,23 @@ operators see the same workspace.
 
 ## Workbench Surfaces
 
-| Page | What operators do there |
-|------|--------------------------|
-| **Home** | Fleet counts, host CPU/memory pressure, fleet table with live status polling |
-| **Nodes** | Node list, per-node config facts, RPC health trend, Start/Stop/Restart controls |
-| **Operations** | Fleet readiness evaluation and the runtime event journal |
-| **Metrics** | Workspace metrics snapshot and the Prometheus exposition |
+| Area | Pages | What operators do there |
+|------|-------|--------------------------|
+| **Overview** | Fleet overview | See fleet posture, host pressure, attention items, and live node state |
+| **Fleet** | Nodes, Health, Logs | Register and control nodes, inspect process/RPC health, and diagnose logs |
+| **Operations** | Readiness, Events, Alerts | Resolve launch blockers, search the event journal, and route actionable alerts |
+| **Network** | Federation, Private network | Observe peer workspaces and plan role-aware private networks |
+| **Assets** | Runtimes, Snapshots, Plugins, Configuration, Wallets | Manage verified runtime inputs and metadata without accepting wallet secrets |
+| **Security** | Signer | Inspect all loaded local-wallet, local-signer, and NeoOS service profiles plus their explicit route roles; administer keys, policies, callers, and audit only through the selected console service profile |
+| **Workspace** | Metrics, Settings | Export metrics and tune watchdog, RPC, and federation policies |
 
 Status badges poll `/api/fleet` every 5 seconds; every control also works
-without JavaScript (plain form posts with flash messages). `/healthz` is a
-public liveness endpoint for load balancers. `/api/metrics-prometheus` serves
-the same Prometheus exposition the CLI exports.
+without JavaScript (plain form posts with flash messages). `/healthz` and the
+inventory-minimized `/api/public/status` are the only public status surfaces;
+node identities and host/process detail remain authenticated.
+`/api/metrics-prometheus` serves the same Prometheus exposition the CLI exports.
+All responses are `no-store` and carry a strict hash-pinned CSP plus standard
+frame, MIME, referrer, permissions, and cross-origin hardening headers.
 
 ## Headless CLI
 
@@ -110,16 +142,37 @@ cargo run -- --node-status  /path/to/neonexus.db "node name"
 cargo run -- --node-start   /path/to/neonexus.db "node name"
 cargo run -- --node-stop    /path/to/neonexus.db "node name"
 cargo run -- --node-restart /path/to/neonexus.db "node name"
+cargo run -- --node-rebind-runtime /path/to/neonexus.db "imported node" /local/path/to/neo-node [runtime-args...]
 ```
+
+Backup imports retain the supplied command for backup fidelity but quarantine
+it from execution. The imported node has no active binary or arguments until
+an operator explicitly selects a trusted local runtime with the rebind command
+above (or saves a local runtime through the node editor).
 
 After a release build:
 
 ```bash
 cargo build --release
 target/release/neo-nexus --package-release dist
-target/release/neo-nexus --verify-release-package dist
-target/release/neo-nexus --verify-release-package-json dist
+target/release/neo-nexus --verify-release-package-integrity dist
+target/release/neo-nexus --verify-release-package-integrity-json dist
 ```
+
+Those two commands prove integrity only. A production handoff must also sign
+the exact canonical `*.manifest.json` bytes with an externally held Ed25519
+private key, publish the detached signature as base64 text, and authenticate it
+with an independently distributed/pinned public key:
+
+```bash
+target/release/neo-nexus --verify-release-package dist "$NEONEXUS_RELEASE_PUBLIC_KEY_B64" dist/neo-nexus-<version>-<platform>.manifest.sig
+```
+
+NeoNexus intentionally ships no production trust anchor or signing key.
+Main-branch CI packages also receive a GitHub build-provenance attestation and
+the CI policy gate requires that step to remain present. Consumers can verify
+that independent trust path with `gh attestation verify <artifact> -R <owner>/<repo>`;
+it complements, but does not replace, an operator-pinned Ed25519 publisher key.
 
 ## Verify
 
@@ -161,7 +214,7 @@ The source tree is intentionally Rust-only:
   High-level operations live here: `core::lifecycle` (node start/stop/restart
   orchestration), `core::node_health` and `core::workspace_queries` (read APIs
   so a surface never queries the repository directly during rendering).
-- Domain modules such as `runtime`, `snapshots`, `config`, `launch`,
+- Domain modules such as `runtime`, `snapshots`, `config`, `launch`, `signing`,
   `repository`, `backup`, `wallet`, `private_network`, `supervisor`,
   `source_purity`, `source_quality`, and `ci_policy` hold reusable behavior
   outside any surface.
@@ -197,11 +250,19 @@ Tests are kept out of `src/` so the source tree reads as production only:
 - [Runtime catalog example](docs/runtime-catalog.example.json) and
   [snapshot catalog example](docs/snapshot-catalog.example.json) are importable
   schema samples for Runtime Manager and Fast Sync workflows.
+- [Signer service design](docs/signer-service-design.md) maps all three current
+  signer backends, the v1 service client/control-plane contract, and the original
+  custody-engine design retained as historical policy background.
+- [neo-os signer audit](docs/signer-service-audit.md) records the workspace-wide
+  findings those constraints answer to, each with file and line evidence.
 
 ## Current Gaps
 
 - More Linux and Windows smoke runs against real neo-cli, neo-go, and neo-rs
   binaries through the web workbench.
+- The remote-signer Neo CLI adapter is intentionally ABI-locked to official
+  `neo-node` 3.9.2. A separately reviewed build is required for a newer Neo CLI
+  plugin ABI; NeoNexus refuses a version mismatch instead of guessing.
 - More long-running process-supervision tests with real node data directories.
 - Signed catalog and release-distribution exercises with real operator keys.
 - Optional TLS termination in-process (today: put a reverse proxy in front).

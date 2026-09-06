@@ -70,8 +70,9 @@ jobs:
       - run: ./target/release/neo-nexus --self-check
       - run: .\target\release\neo-nexus.exe --self-check
       - run: ./target/release/neo-nexus --package-release dist
-      - run: ./target/release/neo-nexus --verify-release-package dist
-      - run: ./target/release/neo-nexus --verify-release-package-json dist
+      - run: ./target/release/neo-nexus --verify-release-package-integrity dist
+      - run: ./target/release/neo-nexus --verify-release-package-integrity-json dist
+      - uses: actions/attest@v4
 "#;
 
     let report =
@@ -162,8 +163,9 @@ jobs:
       - run: ./target/release/neo-nexus --self-check
       - run: .\target\release\neo-nexus.exe --self-check
       - run: ./target/release/neo-nexus --package-release dist
-      - run: ./target/release/neo-nexus --verify-release-package dist
-      - run: ./target/release/neo-nexus --verify-release-package-json dist
+      - run: ./target/release/neo-nexus --verify-release-package-integrity dist
+      - run: ./target/release/neo-nexus --verify-release-package-integrity-json dist
+      - uses: actions/attest@v4
 "#;
 
     let report =

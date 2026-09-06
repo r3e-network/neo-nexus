@@ -5,7 +5,9 @@ use super::neo_rs_backup_node;
 fn backup_import_cli_restores_workspace_backup_summary() -> Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let source = Repository::open(temp_dir.path().join("source.db"))?;
-    source.create_node(neo_rs_backup_node("importable neo-rs", 10332, 10333, 10334))?;
+    let mut source_node = neo_rs_backup_node("importable neo-rs", 10332, 10333, 10334);
+    source_node.args = vec!["--config".to_string(), "from-backup.toml".to_string()];
+    source.create_node(source_node)?;
     let export = WorkspaceBackupExporter::write(&source, temp_dir.path().join("backups"), "test")?;
     drop(source);
 
@@ -22,6 +24,71 @@ fn backup_import_cli_restores_workspace_backup_summary() -> Result<()> {
     assert_eq!(nodes.len(), 1);
     assert_eq!(nodes[0].name, "importable neo-rs");
     assert_eq!(nodes[0].status, NodeStatus::Stopped);
+    assert!(nodes[0].binary_path.as_os_str().is_empty());
+    assert!(nodes[0].args.is_empty());
+
+    let preserved = WorkspaceBackupExporter::snapshot(&target, "test", 1_800_000_000)?;
+    assert_eq!(preserved.nodes[0].binary_path, "/usr/local/bin/neo-node");
+    assert_eq!(
+        preserved.nodes[0].args,
+        vec!["--config".to_string(), "from-backup.toml".to_string()]
+    );
+
+    let start = action_from_args([
+        "neo-nexus",
+        "--node-start",
+        &target_arg,
+        "importable neo-rs",
+    ])?;
+    assert!(matches!(
+        start,
+        CliAction::PrintWithExitCode { text, exit_code: 1 }
+            if text.contains("No trusted local runtime") && text.contains("--node-rebind-runtime")
+    ));
+    let restart = action_from_args([
+        "neo-nexus",
+        "--node-restart",
+        &target_arg,
+        "importable neo-rs",
+    ])?;
+    assert!(matches!(
+        restart,
+        CliAction::PrintWithExitCode { text, exit_code: 1 }
+            if text.contains("no trusted local runtime") && text.contains("--node-rebind-runtime")
+    ));
+
+    let rebind = action_from_args([
+        "neo-nexus",
+        "--node-rebind-runtime",
+        &target_arg,
+        "importable neo-rs",
+        "/trusted/local/neo-node",
+        "--config",
+        "local.toml",
+    ])?;
+    assert!(matches!(
+        rebind,
+        CliAction::PrintWithExitCode { text, exit_code: 0 }
+            if text.contains("backup launch quarantine cleared")
+    ));
+    let rebound = target.list_nodes()?;
+    assert_eq!(
+        rebound[0].binary_path,
+        PathBuf::from("/trusted/local/neo-node")
+    );
+    assert_eq!(
+        rebound[0].args,
+        vec!["--config".to_string(), "local.toml".to_string()]
+    );
+    let rebound_backup = WorkspaceBackupExporter::snapshot(&target, "test", 1_800_000_001)?;
+    assert_eq!(
+        rebound_backup.nodes[0].binary_path,
+        "/trusted/local/neo-node"
+    );
+    assert_eq!(
+        rebound_backup.nodes[0].args,
+        vec!["--config".to_string(), "local.toml".to_string()]
+    );
     Ok(())
 }
 

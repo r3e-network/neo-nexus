@@ -58,6 +58,10 @@ jobs:
         .missing_commands
         .iter()
         .any(|command| command == "release-self-check-windows"));
+    assert!(report
+        .missing_commands
+        .iter()
+        .any(|command| command == "release-provenance-attestation"));
     assert!(report.findings.iter().any(|finding| {
         finding.category == "forbidden-ci-tooling" && finding.marker == "actions/setup-node"
     }));

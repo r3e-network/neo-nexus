@@ -1,6 +1,6 @@
 use super::RequiredCommand;
 
-pub(in crate::ci_policy) const REQUIRED_RELEASE_COMMANDS: [RequiredCommand; 6] = [
+pub(in crate::ci_policy) const REQUIRED_RELEASE_COMMANDS: [RequiredCommand; 7] = [
     RequiredCommand {
         label: "release-build",
         fragment: "cargo build --release",
@@ -19,10 +19,14 @@ pub(in crate::ci_policy) const REQUIRED_RELEASE_COMMANDS: [RequiredCommand; 6] =
     },
     RequiredCommand {
         label: "release-verify-text",
-        fragment: "--verify-release-package dist",
+        fragment: "--verify-release-package-integrity dist",
     },
     RequiredCommand {
         label: "release-verify-json",
-        fragment: "--verify-release-package-json dist",
+        fragment: "--verify-release-package-integrity-json dist",
+    },
+    RequiredCommand {
+        label: "release-provenance-attestation",
+        fragment: "actions/attest@v4",
     },
 ];

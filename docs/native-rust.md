@@ -14,8 +14,15 @@ are handled with bounded paging, filters, and focused detail pages.
 
 ```bash
 cargo run                       # start the web workbench on 127.0.0.1:8080
-cargo run -- --web --bind 0.0.0.0 --port 8080 --web-token "$TOKEN"
+cargo run -- --web --bind 0.0.0.0 --port 8080 \
+  --web-token-file /run/secrets/neonexus-web-token \
+  --web-public-origin https://nexus.example.com
 ```
+
+The no-option bootstrap token is printed only to an interactive terminal.
+Services must provide a strong token through a protected file; command-line and
+environment token values are refused. Non-loopback listeners additionally
+require the browser-facing HTTPS origin.
 
 The default experience is the web workbench through `src/manager/`. Every
 other option is treated as an explicit headless command, which keeps CI,
@@ -91,7 +98,7 @@ target/release/neo-nexus --validate-launch-pack /path/to/private-network/manifes
 target/release/neo-nexus --launch-pack-sidecars-json /path/to/private-network/manifest.json
 target/release/neo-nexus --node-start /path/to/neonexus.db "node name"
 target/release/neo-nexus --package-release dist
-target/release/neo-nexus --verify-release-package-json dist
+target/release/neo-nexus --verify-release-package-integrity-json dist
 ```
 
 Text output is for operators; JSON output is for automation and release
@@ -103,13 +110,26 @@ states where automation should stop.
 ```bash
 cargo build --release
 target/release/neo-nexus --package-release dist
-target/release/neo-nexus --verify-release-package dist
-target/release/neo-nexus --verify-release-package-json dist
+target/release/neo-nexus --verify-release-package-integrity dist
+target/release/neo-nexus --verify-release-package-integrity-json dist
 ```
 
 Packaging writes a platform ZIP, sidecar JSON manifest, and `.sha256`
-checksum. Verification checks the sidecar manifest, checksum file, archive
-hash, ZIP contents, packaged binary hash, and embedded release manifest.
+checksum. The explicitly named integrity commands enforce bounded ZIP layout,
+manifest/checksum sizes, archive and expanded sizes, compression ratio, exact
+entries, and binary hashes, but make no publisher-authenticity claim.
+
+Authenticated release verification is a separate production gate:
+
+```bash
+target/release/neo-nexus --verify-release-package dist "$NEONEXUS_RELEASE_PUBLIC_KEY_B64" /secure/handoff/manifest.sig
+```
+
+`manifest.sig` is base64 Ed25519 over the exact canonical sidecar manifest
+bytes emitted by `--package-release`. The signing private key stays in an
+external release system; the trusted 32-byte public key (base64) must be pinned
+and distributed independently of the artifacts. No production key is embedded
+in this repository.
 
 ## Source Layout
 

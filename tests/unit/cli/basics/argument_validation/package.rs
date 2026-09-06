@@ -30,6 +30,10 @@ fn cli_rejects_backup_launch_and_release_argument_errors() {
         &["neo-nexus", "--package-release"][..],
         &["neo-nexus", "--verify-release-package"][..],
         &["neo-nexus", "--verify-release-package-json"][..],
+        &["neo-nexus", "--verify-release-package", "dist"][..],
+        &["neo-nexus", "--verify-release-package", "dist", "key"][..],
+        &["neo-nexus", "--verify-release-package-integrity"][..],
+        &["neo-nexus", "--verify-release-package-integrity-json"][..],
     ] {
         assert_rejects(args);
     }

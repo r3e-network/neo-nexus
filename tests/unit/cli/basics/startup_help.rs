@@ -22,7 +22,8 @@ fn cli_prints_version_and_help_without_gui() -> Result<()> {
     for expected in [
         "--web",
         "--bind / --port",
-        "--web-token",
+        "--web-token-file",
+        "--web-public-origin",
         "APPLICATION MODE",
         "Start the web workbench server",
         "--runtime-smoke-json",
@@ -64,6 +65,8 @@ fn cli_prints_version_and_help_without_gui() -> Result<()> {
         "--launch-pack-sidecars-json",
         "--package-release",
         "--verify-release-package-json",
+        "--verify-release-package-integrity-json",
+        "--node-rebind-runtime",
         "WebView/Tauri Cargo dependencies",
     ] {
         assert!(

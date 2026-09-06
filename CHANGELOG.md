@@ -5,6 +5,58 @@ All notable changes to NeoNexus are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — 2026-09-04
+
+### Added
+
+- A named signer registry that can load `local-wallet`, loopback-HTTPS
+  `local-signer`, and HTTPS `neo-os-service` profiles concurrently. Console,
+  public-relay, and default internal-signing routes are selected independently;
+  key identity is backend-qualified, selection never relies on URL guessing,
+  and runtime failure never falls back across profiles.
+- A process-local encrypted NEP-6 wallet signer for Neo N3/P-256. It pins and
+  revalidates wallet identity, reads the passphrase only from a protected file,
+  strictly parses the complete unsigned transaction, enables transaction
+  signing by default, refuses consensus without durable anti-equivocation,
+  keeps raw signing explicit and default-off, and is never exposed through the
+  public relay or remote administration surfaces. The decrypted scalar is
+  zeroizing but remains cached until the profile's last clone drops.
+- The Rust signer-service integration split into configuration, secret-file,
+  authentication, transport, admin/signing clients, and wire-model modules.
+  It supports protected admin token files, distinct least-privilege internal
+  signing identities, canonical Ed25519 workload assertions, mandatory
+  authenticated TLS, and transparent relay of caller proofs and exact body
+  bytes. Unix permissions and Windows owner/DACL validation fail closed.
+- A dedicated Security / Signer workspace for key inventory, policy, caller and
+  audit operations, with confirmation pages for destructive or credential-
+  rotating actions. Key import and private-key/passphrase inputs remain outside
+  the web boundary.
+- A searchable Events surface and a redesigned operations-console information
+  architecture: Overview, Fleet, Operations, Network, Assets, Security, and
+  Workspace.
+- Hash-pinned Content Security Policy and global no-store, anti-framing,
+  anti-sniffing, referrer, permissions, COOP/CORP, and conditional HSTS headers.
+- Main-branch build provenance through GitHub artifact attestations, alongside
+  the existing explicitly pinned Ed25519 publisher-verification path.
+
+### Changed
+
+- Node Start, Stop, Restart, watchdog recovery, CLI control, and browser control
+  now share a CAS-backed lifecycle protocol. Restart first proves and quiesces
+  the recorded process; stop intent is durable before termination; PID identity,
+  exit confirmation, and concurrent edits/deletes fail closed.
+- Backup-restored runtime commands are quarantined until an operator explicitly
+  rebinds a trusted local binary. Release ZIPs enforce entry, size, duplicate,
+  path, and streaming digest limits; webhook redirects are disabled.
+- Browser authentication accepts strong protected token files only in service
+  mode, rate-limits login attempts, enforces exact-origin writes, scrubs control-
+  plane secrets from child processes, and emits Secure cookies for HTTPS origins.
+- The public federation API now exposes aggregate counts only; node identity,
+  version, health, host, and process inventories require an operator session.
+- Forms, tables, focus behavior, skip navigation, filter controls, labels, live
+  regions, and mobile navigation were reworked for keyboard and screen-reader
+  use. Background jobs no longer force a focus-destroying page refresh.
+
 ## [4.0.0] — 2026-08-28
 
 The workbench is now a web service. One binary runs an HTTP server; operators
@@ -25,10 +77,11 @@ open the printed address in a browser. The desktop GUI is removed.
     the desktop shell had left them reachable only through the Rust API.
     Each reads through the `core::` facade — the same readiness, lifecycle,
     metrics, and catalogue calls the CLI makes.
-  - Auth: single operator token (`--web-token`, `NEONEXUS_WEB_TOKEN`, or
-    generated and printed at startup; only its SHA-256 digest is kept in
-    memory), HttpOnly session cookie with 12-hour sliding expiry, redirect to
-    login for pages and 401 for the API.
+  - Auth: single strong operator token from `--web-token-file` or
+    `NEONEXUS_WEB_TOKEN_FILE` (interactive-only bootstrap on loopback; only its
+    SHA-256 digest is retained), per-peer login throttling, exact-origin checks
+    for protected writes, and an HttpOnly, SameSite=Strict session cookie with
+    `Secure` on HTTPS deployments and 12-hour sliding expiry.
   - API: `/api/fleet`, `/api/readiness`, `/api/metrics-prometheus`,
     `/healthz`. Status badges poll every 5 s; all controls work without
     JavaScript (plain form posts + flash messages).
@@ -126,8 +179,9 @@ open the printed address in a browser. The desktop GUI is removed.
   a browser, a reload still shows it running, and two concurrent installs cannot
   interleave writes into the same tree. The page reports state, result and
   failure reason.
-- `--web` / `--bind` / `--port` / `--web-token` launch options. No options
-  starts the web workbench (the default experience).
+- `--web` / `--bind` / `--port` / `--web-token-file` /
+  `--web-public-origin` launch options. No options starts the web workbench (the
+  default interactive experience).
 - End-to-end web suite (`tests/web.rs`): real server on an ephemeral port,
   auth boundary, JSON API, node creation through the repository, and the
   stop-path persistence, all over plain HTTP.

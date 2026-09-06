@@ -5,10 +5,17 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     name: Verify (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -17,20 +24,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install Linux GUI dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libasound2-dev \
-            libfontconfig1-dev \
-            libx11-dev \
-            libxcursor-dev \
-            libxi-dev \
-            libxkbcommon-dev \
-            libxrandr-dev \
-            libgl1-mesa-dev
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -409,13 +402,13 @@ jobs:
             '  },' \
             '  "accounts": [' \
             '    {' \
-            '      "address": "AQLASLtT6pWbThcSCYU1biVqhMnzhTgLFq",' \
+            '      "address": "Nemocn5HwBYXiDarSFQ2nJnUC8gHTR2vC3",' \
             '      "label": "validator-1",' \
             '      "isDefault": true,' \
             '      "lock": false,' \
             '      "key": "6PYWB8m1bCnu5bQkRUKAwbZp2BHNvQ3BQRLbpLdTuizpyLkQPSZbtZfoxx",' \
             '      "contract": {' \
-            '        "script": "21036dc4bf8f0405dcf5d12a38487b359cb4bd693357a387d74fc438ffc7757948b0ac",' \
+            '        "script": "0c21036dc4bf8f0405dcf5d12a38487b359cb4bd693357a387d74fc438ffc7757948b04156e7b327",' \
             '        "parameters": [],' \
             '        "deployed": false' \
             '      },' \
@@ -454,13 +447,13 @@ jobs:
             "  },"
             "  `"accounts`": ["
             "    {"
-            "      `"address`": `"AQLASLtT6pWbThcSCYU1biVqhMnzhTgLFq`","
+            "      `"address`": `"Nemocn5HwBYXiDarSFQ2nJnUC8gHTR2vC3`","
             "      `"label`": `"validator-1`","
             "      `"isDefault`": true,"
             "      `"lock`": false,"
             "      `"key`": `"6PYWB8m1bCnu5bQkRUKAwbZp2BHNvQ3BQRLbpLdTuizpyLkQPSZbtZfoxx`","
             "      `"contract`": {"
-            "        `"script`": `"21036dc4bf8f0405dcf5d12a38487b359cb4bd693357a387d74fc438ffc7757948b0ac`","
+            "        `"script`": `"0c21036dc4bf8f0405dcf5d12a38487b359cb4bd693357a387d74fc438ffc7757948b04156e7b327`","
             "        `"parameters`": [],"
             "        `"deployed`": false"
             "      },"
@@ -508,20 +501,56 @@ jobs:
         if: runner.os == 'Windows'
         run: .\target\release\neo-nexus.exe --package-release dist
 
-      - name: Verify release package (Unix)
+      - name: Verify release package integrity only (Unix)
         if: runner.os != 'Windows'
         run: |
-          ./target/release/neo-nexus --verify-release-package dist
-          ./target/release/neo-nexus --verify-release-package-json dist
+          ./target/release/neo-nexus --verify-release-package-integrity dist
+          ./target/release/neo-nexus --verify-release-package-integrity-json dist
 
-      - name: Verify release package (Windows)
+      - name: Verify release package integrity only (Windows)
         if: runner.os == 'Windows'
         run: |
-          .\target\release\neo-nexus.exe --verify-release-package dist
-          .\target\release\neo-nexus.exe --verify-release-package-json dist
+          .\target\release\neo-nexus.exe --verify-release-package-integrity dist
+          .\target\release\neo-nexus.exe --verify-release-package-integrity-json dist
 
-      - name: Upload release package
+      - name: Attest main-branch package provenance
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/*
+
+      - name: Upload verified CI package
         uses: actions/upload-artifact@v4
         with:
           name: neo-nexus-${{ runner.os }}-${{ runner.arch }}
           path: dist/*
+
+  signer-contract:
+    name: Cross-repository signer contract
+    runs-on: ubuntu-latest
+    # Sibling source is intentionally executed without NeoNexus OIDC or
+    # attestation authority. Only the release job above receives those grants.
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout NeoNexus
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.98.0
+
+      - name: Checkout neo-os-services signer source
+        uses: actions/checkout@v4
+        with:
+          repository: r3e-network/neo-os-services
+          path: neo-os-services-contract
+          persist-credentials: false
+
+      - name: Run disposable signer contract
+        env:
+          NEO_OS_SERVICES_DIR: ${{ github.workspace }}/neo-os-services-contract
+        run: bash scripts/run-signer-contract.sh

@@ -58,10 +58,21 @@ requires:
 cargo build --release
 ./target/release/neo-nexus --self-check
 ./target/release/neo-nexus --package-release dist
-./target/release/neo-nexus --verify-release-package dist
-./target/release/neo-nexus --verify-release-package-json dist
+./target/release/neo-nexus --verify-release-package-integrity dist
+./target/release/neo-nexus --verify-release-package-integrity-json dist
 ```
 
-The package verifier checks the ZIP layout, the manifests, the checksums, and
-the binary hash before handoff. A release is ready when every verifier exits
-`0` and the packaged `--version` matches `CHANGELOG.md`.
+These explicitly integrity-only checks validate bounded ZIP layout, manifests,
+checksums, and the binary hash. They do not authenticate a publisher. Before a
+production handoff, an external release signer must sign the exact canonical
+sidecar manifest bytes and consumers must run `--verify-release-package` (or
+its JSON form) with the independently pinned base64 Ed25519 public key and the
+base64 detached signature file. Authenticated verification fails when either
+the trust anchor or signature is absent. The repository intentionally contains
+no production signing key or trust anchor.
+
+Pushes to the main branch additionally attest every file in `dist/` with
+GitHub's build-provenance service (`actions/attest@v4`). Verify a downloaded CI
+artifact with `gh attestation verify <artifact> -R <owner>/<repo>`. This proves
+which repository workflow built the bytes; the explicit Ed25519 command above
+remains the offline/operator-controlled publisher trust path.
