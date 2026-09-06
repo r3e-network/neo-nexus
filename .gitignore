@@ -46,3 +46,12 @@ Thumbs.db
 *.pid
 *.pid.lock
 *.seed
+
+# Build artifacts and tooling caches
+clippy-output.txt
+.codegraph/
+.mimosa/
+.zcode/
+
+# Temporary test environments
+test-staging/
