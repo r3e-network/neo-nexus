@@ -1,6 +1,4 @@
-use super::super::endpoints::{
-    public_endpoint_url, PUBLIC_NODES_PATH, PUBLIC_STATUS_PATH, PUBLIC_SYSTEM_METRICS_PATH,
-};
+use super::super::endpoints::{public_endpoint_url, PUBLIC_STATUS_PATH};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewRemoteServerProfile {
@@ -35,13 +33,5 @@ pub struct RemoteServerProfile {
 impl RemoteServerProfile {
     pub fn public_status_url(&self) -> String {
         public_endpoint_url(&self.base_url, PUBLIC_STATUS_PATH)
-    }
-
-    pub fn public_nodes_url(&self) -> String {
-        public_endpoint_url(&self.base_url, PUBLIC_NODES_PATH)
-    }
-
-    pub fn public_system_metrics_url(&self) -> String {
-        public_endpoint_url(&self.base_url, PUBLIC_SYSTEM_METRICS_PATH)
     }
 }

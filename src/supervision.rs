@@ -24,11 +24,13 @@ use std::{
     time::{Duration, Instant},
 };
 
+use anyhow::Context;
+
 use crate::{
     alerts::{deliver_webhook_alert, should_route_alert},
     config::ConfigExporter,
     core::{
-        lifecycle::{execute_node_launch, LaunchAction},
+        lifecycle::{execute_node_launch, stop_node_runtime, LaunchAction, NodeLaunchRequest},
         node::NodeConfig,
         operations::{evaluate_launch_readiness, evaluate_restart_readiness},
     },
@@ -43,10 +45,9 @@ use crate::{
     logs::LogReader,
     repository::Repository,
     rpc_health::probe_node_rpc,
-    supervisor::{
-        live_pids, log_path_for, recorded_process, PidStop, ProcessSupervisor, RecordedProcess,
-    },
-    types::NodeStatus,
+    signing::SignerRegistry,
+    supervisor::{log_path_for, recorded_process, PidStop, ProcessSupervisor, RecordedProcess},
+    types::{node_workspace_path, NodeStatus},
     watchdog::{default_restart_policy, RestartOutcome, RestartPolicy, Watchdog},
 };
 
@@ -69,6 +70,7 @@ pub struct EngineState {
     pub repository: Repository,
     pub data_dir: PathBuf,
     pub supervisor: Arc<Mutex<ProcessSupervisor>>,
+    pub signer_registry: SignerRegistry,
 }
 
 impl EngineState {
@@ -111,26 +113,20 @@ pub fn launch_node(
     node: &NodeConfig,
     action: LaunchAction,
 ) -> anyhow::Result<String> {
+    crate::core::node_signer::resolve_node_signer(&state.repository, &state.signer_registry, node)?;
     let plugins = state.repository.list_plugin_states(&node.id)?;
-    let work_dir = state.workspace_child_dir("nodes").join(&node.id);
+    let all_nodes = state.repository.list_nodes()?;
+    let work_dir = node_workspace_path(state.workspace_child_dir("nodes"), &node.id)?;
     let managed_config_path = ConfigExporter::managed_target_path(&work_dir, node);
     let log_path = log_path_for(state.workspace_child_dir("logs"), node);
 
     let readiness = match action {
-        LaunchAction::Start => evaluate_launch_readiness(
-            node,
-            std::slice::from_ref(node),
-            &plugins,
-            &managed_config_path,
-            &work_dir,
-        ),
-        LaunchAction::Restart => evaluate_restart_readiness(
-            node,
-            std::slice::from_ref(node),
-            &plugins,
-            &managed_config_path,
-            &work_dir,
-        ),
+        LaunchAction::Start => {
+            evaluate_launch_readiness(node, &all_nodes, &plugins, &managed_config_path, &work_dir)
+        }
+        LaunchAction::Restart => {
+            evaluate_restart_readiness(node, &all_nodes, &plugins, &managed_config_path, &work_dir)
+        }
     };
     if let Some(blocker) = readiness.blocking_summary() {
         anyhow::bail!("readiness blocked — {blocker}");
@@ -138,30 +134,34 @@ pub fn launch_node(
 
     let plan = LaunchPlanner::plan(node, &managed_config_path, &work_dir);
     let mut supervisor = state.supervisor();
-    // A restart stops by handle. If the running process came from an earlier
-    // session, quiesce it by pid or this would start a second node on the same
-    // ports.
-    let replaced = action == LaunchAction::Restart
-        && crate::node_lifecycle::quiesce_before_restart(&mut supervisor, node, &log_path);
     let outcome = execute_node_launch(
         &state.repository,
         &mut supervisor,
-        node,
-        &plan,
-        &log_path,
-        action,
-        Some(crate::node_lifecycle::ManagedConfig {
-            path: &managed_config_path,
-            plugins: &plugins,
-        }),
+        NodeLaunchRequest {
+            signer_registry: Some(&state.signer_registry),
+            node,
+            plan: &plan,
+            log_path,
+            action,
+            managed_config: plan.managed_config_path.as_deref().map(|path| {
+                crate::node_lifecycle::ManagedConfig {
+                    path,
+                    plugins: &plugins,
+                }
+            }),
+        },
     );
     drop(supervisor);
 
     match outcome {
-        crate::core::lifecycle::NodeLaunchOutcome::Started { pid, log_path } => {
+        crate::core::lifecycle::NodeLaunchOutcome::Started {
+            pid,
+            log_path,
+            replaced_unmanaged,
+        } => {
             let message = format!(
                 "{}{} launched with PID {}; log {}",
-                if replaced {
+                if replaced_unmanaged {
                     "replaced an unmanaged process; "
                 } else {
                     ""
@@ -198,16 +198,10 @@ pub fn stop_node(state: &EngineState, node: &NodeConfig) -> anyhow::Result<Strin
     let log_path = log_path_for(state.workspace_child_dir("logs"), node);
     let outcome = {
         let mut supervisor = state.supervisor();
-        match supervisor.stop(&node.id)? {
-            Some(stop) => PidStop::Stopped(stop),
-            None => supervisor.stop_recorded_pid(node, &log_path),
-        }
+        stop_node_runtime(&state.repository, &mut supervisor, node, &log_path)?
     };
     match outcome {
         PidStop::Stopped(stop) => {
-            state
-                .repository
-                .update_node_status(&node.id, NodeStatus::Stopped, None)?;
             let message = if stop.forced {
                 format!("{} stopped (forced, pid {})", node.name, stop.pid)
             } else {
@@ -221,12 +215,7 @@ pub fn stop_node(state: &EngineState, node: &NodeConfig) -> anyhow::Result<Strin
             );
             Ok(message)
         }
-        PidStop::AlreadyGone => {
-            state
-                .repository
-                .update_node_status(&node.id, NodeStatus::Stopped, None)?;
-            Ok(format!("{} was not running", node.name))
-        }
+        PidStop::AlreadyGone => Ok(format!("{} was not running", node.name)),
         // The number is held by something else now. We cannot know whether this
         // node is running, so nothing is signalled and no status is written.
         PidStop::PidReused => Err(anyhow::anyhow!(
@@ -234,6 +223,9 @@ pub fn stop_node(state: &EngineState, node: &NodeConfig) -> anyhow::Result<Strin
             node.pid.unwrap_or_default(),
             name = node.name
         )),
+        PidStop::Failed { message, .. } => {
+            Err(anyhow::anyhow!("{} was not stopped: {message}", node.name))
+        }
     }
 }
 
@@ -245,7 +237,7 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn start(state: EngineState) -> Self {
+    pub fn start(state: EngineState) -> anyhow::Result<Self> {
         // Before the first page can be served: a workspace reopened after a
         // crash still claims nodes are Running, and the operator should never
         // see a status the host does not back.
@@ -260,11 +252,12 @@ impl Engine {
                     loop_state.tick(&state);
                     thread::sleep(TICK);
                 }
-            });
-        Self {
+            })
+            .context("failed to start the NeoNexus supervision engine")?;
+        Ok(Self {
             stop,
-            worker: worker.ok(),
-        }
+            worker: Some(worker),
+        })
     }
 }
 
@@ -296,11 +289,27 @@ fn reconcile_startup(state: &EngineState) {
         // One classification per node: each probe reads the process table.
         let verdict = recorded_process(&node);
         if verdict == RecordedProcess::Alive {
+            if node.status.is_starting() {
+                // A controller can die after claiming a restart but before it
+                // changes the still-live old process. Preserve that process and
+                // settle the transient lease back to Running.
+                let _ = state.repository.transition_node_status(
+                    &node.id,
+                    NodeStatus::Starting,
+                    node.pid,
+                    NodeStatus::Running,
+                    node.pid,
+                );
+            }
             continue;
         }
-        let _ = state
-            .repository
-            .update_node_status(&node.id, NodeStatus::Stopped, None);
+        let _ = state.repository.transition_node_status(
+            &node.id,
+            node.status,
+            node.pid,
+            NodeStatus::Stopped,
+            None,
+        );
         match verdict {
             RecordedProcess::Reused => recycled.push(node.name),
             _ => settled.push(node.name),
@@ -402,11 +411,31 @@ impl LoopState {
             let Some(node) = nodes.iter().find(|node| node.id == exit.node_id) else {
                 continue;
             };
+            // `Stopped` is also the durable stop intent used by another CLI
+            // process. A forced/TERM exit caused by that request is not a crash
+            // and must never be scheduled for automatic restart.
+            if !node.status.is_active() {
+                self.watchdog.clear(&node.id);
+                if node.status == NodeStatus::Stopped && node.pid == Some(exit.pid) {
+                    let _ = state.repository.transition_node_status(
+                        &node.id,
+                        NodeStatus::Stopped,
+                        Some(exit.pid),
+                        NodeStatus::Stopped,
+                        None,
+                    );
+                }
+                continue;
+            }
             if exit_was_clean(&exit) {
                 self.watchdog.clear(&node.id);
-                let _ = state
-                    .repository
-                    .update_node_status(&node.id, NodeStatus::Stopped, None);
+                let _ = state.repository.transition_node_status(
+                    &node.id,
+                    node.status,
+                    node.pid,
+                    NodeStatus::Stopped,
+                    None,
+                );
                 state.journal(
                     node,
                     EventKind::NodeExited,
@@ -443,9 +472,19 @@ impl LoopState {
     }
 
     fn schedule_restart(&mut self, state: &EngineState, node: &NodeConfig, reason: &str) {
-        let _ = state
-            .repository
-            .update_node_status(&node.id, NodeStatus::Error, None);
+        let claimed = state.repository.transition_node_status(
+            &node.id,
+            node.status,
+            node.pid,
+            NodeStatus::Error,
+            None,
+        );
+        if !matches!(claimed, Ok(true)) {
+            // A concurrent Stop/Edit/Delete won. Its persisted decision takes
+            // precedence over a stale exit snapshot.
+            self.watchdog.clear(&node.id);
+            return;
+        }
         match self.watchdog.record_failure(&node.id, Instant::now()) {
             RestartOutcome::Scheduled { attempt, delay } => state.journal(
                 node,
@@ -482,19 +521,38 @@ impl LoopState {
                 self.watchdog.clear(&attempt.node_id);
                 continue;
             };
+            if node.status != NodeStatus::Error || node.pid.is_some() {
+                // Most importantly, a CLI stop changes this to Stopped while a
+                // retry is pending. Clear the stale schedule instead of undoing
+                // the operator's request.
+                self.watchdog.clear(&attempt.node_id);
+                continue;
+            }
             match launch_node(state, node, LaunchAction::Start) {
-                Ok(message) => state.journal(
-                    node,
-                    EventKind::WatchdogRestarted,
-                    EventSeverity::Warning,
-                    format!("watchdog attempt {}: {message}", attempt.attempt),
-                ),
-                Err(error) => state.journal(
-                    node,
-                    EventKind::NodeStartFailed,
-                    EventSeverity::Critical,
-                    format!("watchdog attempt {} failed: {error}", attempt.attempt),
-                ),
+                Ok(message) => {
+                    // A successful recovery completes this failure episode.
+                    // A later, unrelated crash starts again at attempt one.
+                    self.watchdog.clear(&node.id);
+                    state.journal(
+                        node,
+                        EventKind::WatchdogRestarted,
+                        EventSeverity::Warning,
+                        format!("watchdog attempt {}: {message}", attempt.attempt),
+                    );
+                }
+                Err(error) => {
+                    let failure = format!("watchdog attempt {} failed: {error}", attempt.attempt);
+                    state.journal(
+                        node,
+                        EventKind::NodeStartFailed,
+                        EventSeverity::Critical,
+                        failure.clone(),
+                    );
+                    // `due_restarts` consumes the pending timestamp. Without a
+                    // fresh failure record, max_restart_attempts was effectively
+                    // always one no matter what Settings said.
+                    self.schedule_restart(state, node, &failure);
+                }
             }
         }
     }
@@ -504,35 +562,48 @@ impl LoopState {
     /// status cannot stay true after the process is gone.
     fn watch_external_processes(&mut self, state: &EngineState) {
         let supervisor = state.supervisor();
-        let candidates: Vec<(NodeConfig, u32)> = state
+        let candidates: Vec<NodeConfig> = state
             .nodes()
             .into_iter()
             .filter(|node| node.status.is_running())
             .filter(|node| node.pid.is_some())
             .filter(|node| !supervisor.is_managing(&node.id))
-            .filter_map(|node| node.pid.map(|pid| (node, pid)))
             .collect();
         drop(supervisor);
         if candidates.is_empty() {
             return;
         }
-        // One pass over the process table for the whole tick, not one per node.
-        let alive = live_pids(&candidates.iter().map(|(_, pid)| *pid).collect::<Vec<_>>());
-        for (node, pid) in candidates {
-            if alive.contains(&pid) {
+        for node in candidates {
+            let pid = node.pid.unwrap_or_default();
+            let verdict = recorded_process(&node);
+            if verdict == RecordedProcess::Alive {
                 continue;
             }
-            let _ = state
-                .repository
-                .update_node_status(&node.id, NodeStatus::Stopped, None);
+            let settled = state.repository.transition_node_status(
+                &node.id,
+                node.status,
+                node.pid,
+                NodeStatus::Stopped,
+                None,
+            );
+            if !matches!(settled, Ok(true)) {
+                continue;
+            }
             state.journal(
                 &node,
                 EventKind::NodeExited,
                 EventSeverity::Warning,
-                format!(
-                    "{} is no longer running (pid {pid}); it was not supervised by this server",
-                    node.name
-                ),
+                match verdict {
+                    RecordedProcess::Gone => format!(
+                        "{} is no longer running (pid {pid}); it was not supervised by this server",
+                        node.name
+                    ),
+                    RecordedProcess::Reused => format!(
+                        "{} stopped being tracked because pid {pid} now belongs to another executable",
+                        node.name
+                    ),
+                    RecordedProcess::Alive => unreachable!(),
+                },
             );
         }
     }
@@ -691,3 +762,7 @@ impl LoopState {
         let _ = report.status;
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/unit/supervision/tests.rs"]
+mod tests;

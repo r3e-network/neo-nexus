@@ -46,7 +46,10 @@ impl RemoteFederationClient {
                     .context("remote status endpoint did not return JSON")
             })?;
         let status = parse_public_status(&status_body);
-        let public_node_count = fetch_public_node_count(&agent, profile).ok().flatten();
+        // The aggregate status document is the intentionally small public
+        // federation surface. Do not fetch node inventory merely to count it:
+        // names, versions and host/process metrics belong behind operator auth.
+        let public_node_count = status.total_nodes;
         let probe_status = remote_probe_status(status.error_nodes, status.running_nodes);
         let message =
             format_remote_probe_message(&profile.name, probe_status, &status, public_node_count);
@@ -67,30 +70,6 @@ impl RemoteFederationClient {
             message,
         })
     }
-}
-
-fn fetch_public_node_count(
-    agent: &ureq::Agent,
-    profile: &RemoteServerProfile,
-) -> Result<Option<u64>> {
-    let body = agent
-        .get(&profile.public_nodes_url())
-        .call()
-        .with_context(|| format!("failed to reach {}", profile.public_nodes_url()))?
-        .into_string()
-        .context("failed to read remote nodes response body")
-        .and_then(|text| {
-            serde_json::from_str::<Value>(&text)
-                .context("remote nodes endpoint did not return JSON")
-        })?;
-
-    if let Some(nodes) = body.get("nodes").and_then(Value::as_array) {
-        return Ok(Some(nodes.len() as u64));
-    }
-    if let Some(nodes) = body.as_array() {
-        return Ok(Some(nodes.len() as u64));
-    }
-    Ok(None)
 }
 
 fn current_unix_time() -> Result<u64> {
