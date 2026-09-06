@@ -56,6 +56,14 @@ pub(super) const KNOWN_OPTIONS: &[&str] = &[
     "--package-release",
     "--verify-release-package",
     "--verify-release-package-json",
+    "--verify-release-package-integrity",
+    "--verify-release-package-integrity-json",
+    "--node-start",
+    "--node-stop",
+    "--node-restart",
+    "--node-rebind-runtime",
+    "--node-list",
+    "--node-status",
 ];
 
 /// Returns the recognized option closest to `unknown`, but only when the edit

@@ -1,0 +1,55 @@
+# NeoNexus signer registry v1. This file contains only non-secret settings and
+# paths to protected files. Relative paths resolve beside this document.
+version = 1
+
+# The browser administration page operates on this profile.
+console_backend = "neo-os"
+# The sessionless caller relay forwards only to this service profile.
+relay_backend = "neo-os"
+# Managed nodes bind one explicit (backend_id, key_id) in the workspace. There
+# is intentionally no process-wide default signing backend.
+
+[[backends]]
+id = "wallet"
+label = "Local operations wallet"
+kind = "local-wallet"
+wallet_path = "../wallets/operations.wallet.json"
+password_file = "../secrets/operations-wallet-password"
+account = "NNxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+network = "mainnet"
+network_magic = 860833102
+allow_transaction = true
+# Local consensus is deliberately unavailable without durable anti-equivocation.
+allow_consensus = false
+allow_raw = false
+
+[[backends]]
+id = "host-signer"
+label = "Host signer"
+kind = "local-signer"
+# Official Neo SecureSign gRPC endpoint consumed by the neo-cli SignClient
+# plugin. It is consensus-only and has no NeoOS HTTP admin surface.
+endpoint = "http://127.0.0.1:9991"
+public_key = "031e18532fd4754c02f3041d9c75ceb33b83ffd81ac7ce4fe882ccb1c98bc5896e"
+network_magic = 860833102
+
+[[backends]]
+id = "neo-os"
+label = "NeoOS production signer"
+kind = "neo-os-service"
+url = "https://signer.internal.example"
+timeout_seconds = 10
+admin_caller_id = "neo-nexus-admin"
+admin_workload_key_file = "../secrets/neo-os-admin-ed25519-seed"
+admin_workload_subject = "neo-nexus-production"
+# Optional restricted identity for NeoNexus-initiated signing. The public relay
+# never substitutes this identity for the external caller's credentials.
+signing_caller_id = "neo-nexus-node-manager"
+signing_workload_key_file = "../secrets/neo-os-sign-ed25519-seed"
+signing_workload_subject = "neo-nexus-production"
+# Optional node-facing pure-Rust gRPC bridge. All three fields are required
+# together. The bridge is a separate least-privilege data plane pinned to this
+# public key; `url` above remains the NeoOS HTTP custody/control plane.
+endpoint = "http://127.0.0.1:9992"
+public_key = "031e18532fd4754c02f3041d9c75ceb33b83ffd81ac7ce4fe882ccb1c98bc5896e"
+network_magic = 860833102

@@ -101,7 +101,9 @@ validates references and rejects inline secret material.
 ## Release Handoff Patterns
 
 Settings and CLI release flows both package the executable, write a manifest
-and checksum, verify the archive, and record audit evidence. This mirrors
+and checksum, run explicitly integrity-only archive checks, and record audit
+evidence. Production publisher authentication is a separate Ed25519 gate with
+an externally distributed trust anchor. This mirrors
 node-operations products where release artifacts must be inspected and handed
 off without relying on a running browser session.
 

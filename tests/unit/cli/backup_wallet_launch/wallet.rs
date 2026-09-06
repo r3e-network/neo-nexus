@@ -54,7 +54,7 @@ fn wallet_profile_import_cli_validates_and_persists_encrypted_metadata() -> Resu
     assert_eq!(profiles[0].id, "validator-wallet-1");
     assert_eq!(
         profiles[0].primary_address,
-        "AQLASLtT6pWbThcSCYU1biVqhMnzhTgLFq"
+        "Nemocn5HwBYXiDarSFQ2nJnUC8gHTR2vC3"
     );
     assert_eq!(
         profiles[0].contract_public_keys[0],
@@ -104,7 +104,7 @@ fn wallet_validation_cli_rejects_address_contract_mismatch() -> Result<()> {
     let wallet_path = temp_dir.path().join("mismatched.wallet.json");
     let mut wallet: serde_json::Value = serde_json::from_str(&valid_nep6_wallet_json())?;
     wallet["accounts"][0]["contract"]["script"] =
-        serde_json::Value::String(format!("2102{}ac", "a".repeat(64)));
+        serde_json::Value::String(format!("0c2102{}4156e7b327", "a".repeat(64)));
     std::fs::write(&wallet_path, serde_json::to_string_pretty(&wallet)?)?;
     let wallet_arg = wallet_path.display().to_string();
 

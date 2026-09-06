@@ -16,6 +16,7 @@ struct ReleasePackageVerificationJsonReport<'a> {
 struct ReleasePackageVerificationFailureJsonReport<'a> {
     schema_version: u32,
     status: &'static str,
+    verification_mode: &'a str,
     message: &'a str,
 }
 
@@ -30,11 +31,13 @@ pub(in crate::cli) fn release_package_verification_json_text(
 }
 
 pub(in crate::cli) fn release_package_verification_failure_json_text(
+    verification_mode: &str,
     message: &str,
 ) -> Result<String> {
     json_text(&ReleasePackageVerificationFailureJsonReport {
         schema_version: 1,
         status: "failed",
+        verification_mode,
         message,
     })
 }

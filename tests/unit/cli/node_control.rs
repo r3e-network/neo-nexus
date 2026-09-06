@@ -1,9 +1,26 @@
 use super::super::*;
 
+use std::path::PathBuf;
+
 use crate::{
     repository::Repository,
-    types::{Network, NewNode, NodeType, StorageEngine},
+    types::{Network, NewNode, NodeStatus, NodeType, StorageEngine},
 };
+
+fn controllable_long_running_command() -> (PathBuf, Vec<String>) {
+    if cfg!(windows) {
+        (
+            PathBuf::from(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"),
+            vec![
+                "-NoProfile".to_string(),
+                "-Command".to_string(),
+                "Start-Sleep -Seconds 120".to_string(),
+            ],
+        )
+    } else {
+        (PathBuf::from("/bin/sleep"), vec!["120".to_string()])
+    }
+}
 
 /// `--node-start` runs the same core launch pipeline as the GUI. A node whose
 /// binary cannot be resolved is a readiness block, so the CLI must report it as
@@ -87,6 +104,44 @@ fn node_stop_cli_reports_not_running() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn node_stop_cli_does_not_signal_or_mark_stopped_on_pid_identity_mismatch() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let db_path = temp_dir.path().join("neonexus.db");
+    let repository = Repository::open(&db_path)?;
+    let node = repository.create_node(NewNode {
+        name: "reused pid".to_string(),
+        node_type: NodeType::NeoRs,
+        network: Network::Testnet,
+        binary_path: "/definitely/not/the-test-process/neo-node".into(),
+        args: Vec::new(),
+        runtime_version: "test".to_string(),
+        storage_engine: StorageEngine::RocksDb,
+        rpc_port: 25332,
+        p2p_port: 25333,
+        ws_port: None,
+    })?;
+    let unrelated_pid = std::process::id();
+    repository.update_node_status(&node.id, NodeStatus::Running, Some(unrelated_pid))?;
+    drop(repository);
+
+    let db_arg = db_path.display().to_string();
+    let action = action_from_args(["neo-nexus", "--node-stop", &db_arg, "reused pid"])?;
+    assert!(
+        matches!(action, CliAction::PrintWithExitCode { ref text, exit_code: 1 }
+            if text.contains("different process") && text.contains("status unchanged")),
+        "identity mismatch must fail closed: {action:?}"
+    );
+    let stored = Repository::open(&db_path)?
+        .list_nodes()?
+        .into_iter()
+        .find(|stored| stored.id == node.id)
+        .expect("node remains registered");
+    assert_eq!(stored.status, NodeStatus::Running);
+    assert_eq!(stored.pid, Some(unrelated_pid));
+    Ok(())
+}
+
 /// `--node-restart` on a node that is not running refuses to restart (mirrors
 /// the GUI's guard), proving the CLI restart path is reached.
 #[test]
@@ -115,6 +170,60 @@ fn node_restart_cli_refuses_when_not_running() -> Result<()> {
         matches!(action, CliAction::PrintWithExitCode { text, exit_code: 1 }
             if text.contains("must be running before restart"))
     );
+    Ok(())
+}
+
+#[test]
+fn node_restart_cli_quiesces_the_recorded_process_before_spawning() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let db_path = temp_dir.path().join("neonexus.db");
+    let repository = Repository::open(&db_path)?;
+    let (binary, args) = controllable_long_running_command();
+    let mut original = std::process::Command::new(&binary).args(&args).spawn()?;
+    let original_pid = original.id();
+    let node = repository.create_node(NewNode {
+        name: "restart witness".to_string(),
+        node_type: NodeType::NeoCli,
+        network: Network::Testnet,
+        binary_path: binary,
+        args,
+        runtime_version: "test".to_string(),
+        storage_engine: StorageEngine::LevelDb,
+        rpc_port: 34332,
+        p2p_port: 34333,
+        ws_port: None,
+    })?;
+    repository.update_node_status(&node.id, NodeStatus::Running, Some(original_pid))?;
+    drop(repository);
+
+    let db_arg = db_path.display().to_string();
+    let restart = action_from_args(["neo-nexus", "--node-restart", &db_arg, "restart witness"]);
+    let stored = Repository::open(&db_path)?
+        .list_nodes()?
+        .into_iter()
+        .find(|stored| stored.id == node.id)
+        .expect("restart witness remains registered");
+    let original_is_alive = crate::supervisor::process_is_live(original_pid);
+
+    // Always clean up both possible generations before asserting, so a failed
+    // regression cannot leave a two-minute witness behind on the test host.
+    if stored.pid.is_some() {
+        let _ = action_from_args(["neo-nexus", "--node-stop", &db_arg, "restart witness"]);
+    }
+    let _ = original.kill();
+    let _ = original.wait();
+
+    let restart = restart?;
+    assert!(
+        matches!(restart, CliAction::PrintWithExitCode { exit_code: 0, .. }),
+        "restart should launch one replacement: {restart:?}"
+    );
+    assert!(
+        !original_is_alive,
+        "the original pid {original_pid} survived CLI restart"
+    );
+    assert_eq!(stored.status, NodeStatus::Running);
+    assert_ne!(stored.pid, Some(original_pid));
     Ok(())
 }
 

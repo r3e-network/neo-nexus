@@ -12,11 +12,39 @@ use workspace::{node_by_name, open_workspace, workspace_child_dir};
 
 use super::*;
 
-use crate::core::lifecycle::{execute_node_launch, LaunchAction, ManagedConfig, NodeLaunchOutcome};
+use crate::core::lifecycle::{
+    execute_node_launch, stop_node_runtime, LaunchAction, ManagedConfig, NodeLaunchOutcome,
+    NodeLaunchRequest,
+};
+use crate::core::node::node_workspace_path;
+use crate::core::node_signer::{node_signer_key, resolve_node_signer};
 use crate::core::operations::{evaluate_launch_readiness, evaluate_restart_readiness};
 use crate::core::workspace::ConfigExporter;
 use crate::launch::LaunchPlanner;
 use crate::supervisor::{log_path_for, PidStop, ProcessSupervisor};
+
+/// `--node-rebind-runtime <db> <node-name> <binary> [runtime-args...]`:
+/// replace backup-supplied launch material with a deliberate local choice.
+pub(in crate::cli::actions) fn node_rebind_runtime_action(args: &[String]) -> Result<CliAction> {
+    if args.len() < 5 {
+        anyhow::bail!(
+            "--node-rebind-runtime is missing required arguments; run neo-nexus --help for usage"
+        );
+    }
+    let repository = open_workspace(&args[2])?;
+    let node = node_by_name(&repository, &args[3])?;
+    let rebound = repository
+        .rebind_node_runtime(&node.id, PathBuf::from(&args[4]), args[5..].to_vec())
+        .context("failed to bind the trusted local node runtime")?;
+    Ok(CliAction::PrintWithExitCode {
+        exit_code: 0,
+        text: format!(
+            "{} runtime rebound to {}; backup launch quarantine cleared",
+            rebound.name,
+            rebound.binary_path.display()
+        ),
+    })
+}
 
 /// `--node-start <db> <node-name>`: launch a node through the SAME core pipeline
 /// the GUI uses (`execute_node_launch`), so the two modes stay behaviourally
@@ -43,6 +71,15 @@ pub(in crate::cli::actions) fn node_restart_action(args: &[String]) -> Result<Cl
     require_arg_count(args, 4, "--node-restart")?;
     let repository = open_workspace(&args[2])?;
     let node = node_by_name(&repository, &args[3])?;
+    if node.binary_path.as_os_str().is_empty() {
+        return Ok(CliAction::PrintWithExitCode {
+            exit_code: 1,
+            text: format!(
+                "{} not restarted: no trusted local runtime is bound; run --node-rebind-runtime first",
+                node.name
+            ),
+        });
+    }
     if !node.status.is_running() {
         return Ok(CliAction::PrintWithExitCode {
             exit_code: 1,
@@ -69,28 +106,31 @@ fn launch_node(
     verb_past: &str,
     fail_verb: &str,
 ) -> Result<CliAction> {
+    let signer_registry = if node_signer_key(repository, node)?.is_some() {
+        let registry = crate::signing::SignerRegistry::from_process_environment()
+            .context("failed to load the signer registry for this node")?;
+        resolve_node_signer(repository, &registry, node)?;
+        Some(registry)
+    } else {
+        None
+    };
     let plugins = repository
         .list_plugin_states(&node.id)
         .context("failed to read plugin states")?;
-    let work_dir = workspace_child_dir(repository, "nodes").join(&node.id);
+    let all_nodes = repository
+        .list_nodes()
+        .context("failed to read the node inventory")?;
+    let work_dir = node_workspace_path(workspace_child_dir(repository, "nodes"), &node.id)?;
     let managed_config_path = ConfigExporter::managed_target_path(&work_dir, node);
     let log_path = log_path_for(workspace_child_dir(repository, "logs"), node);
 
     let readiness = match action {
-        LaunchAction::Start => evaluate_launch_readiness(
-            node,
-            std::slice::from_ref(node),
-            &plugins,
-            &managed_config_path,
-            &work_dir,
-        ),
-        LaunchAction::Restart => evaluate_restart_readiness(
-            node,
-            std::slice::from_ref(node),
-            &plugins,
-            &managed_config_path,
-            &work_dir,
-        ),
+        LaunchAction::Start => {
+            evaluate_launch_readiness(node, &all_nodes, &plugins, &managed_config_path, &work_dir)
+        }
+        LaunchAction::Restart => {
+            evaluate_restart_readiness(node, &all_nodes, &plugins, &managed_config_path, &work_dir)
+        }
     };
     if let Some(blocker) = readiness.blocking_summary() {
         return Ok(CliAction::PrintWithExitCode {
@@ -107,14 +147,20 @@ fn launch_node(
     let outcome = execute_node_launch(
         repository,
         &mut supervisor,
-        node,
-        &plan,
-        &log_path,
-        action,
-        Some(ManagedConfig {
-            path: &managed_config_path,
-            plugins: &plugins,
-        }),
+        NodeLaunchRequest {
+            signer_registry: signer_registry.as_ref(),
+            node,
+            plan: &plan,
+            log_path,
+            action,
+            managed_config: plan
+                .managed_config_path
+                .as_deref()
+                .map(|path| ManagedConfig {
+                    path,
+                    plugins: &plugins,
+                }),
+        },
     );
 
     // A one-shot command cannot supervise: `ProcessSupervisor` terminates
@@ -127,7 +173,7 @@ fn launch_node(
     }
 
     Ok(match outcome {
-        NodeLaunchOutcome::Started { pid, log_path } => CliAction::PrintWithExitCode {
+        NodeLaunchOutcome::Started { pid, log_path, .. } => CliAction::PrintWithExitCode {
             exit_code: 0,
             text: format!(
                 "{} {verb_past} with PID {}; log {}",
@@ -155,37 +201,27 @@ pub(in crate::cli::actions) fn node_stop_action(args: &[String]) -> Result<CliAc
 
     let log_path = log_path_for(workspace_child_dir(&repository, "logs"), &node);
     let mut supervisor = ProcessSupervisor::default();
-    let outcome = match supervisor
-        .stop(&node.id)
-        .context("failed to stop the supervised process")?
-    {
-        Some(stop) => PidStop::Stopped(stop),
-        None => supervisor.stop_recorded_pid(&node, &log_path),
-    };
-    if matches!(outcome, PidStop::PidReused) {
-        // The number belongs to something else now: nothing was signalled and
-        // the recorded status stays as it was, because we cannot know.
-        return Ok(CliAction::PrintWithExitCode {
-            exit_code: 1,
-            text: format!(
-                "pid {} belongs to a different process; {} was left alone and its status unchanged",
-                node.pid.unwrap_or_default(),
-                node.name
-            ),
-        });
-    }
-    repository
-        .update_node_status(&node.id, NodeStatus::Stopped, None)
-        .context("failed to persist stopped status")?;
+    let outcome = stop_node_runtime(&repository, &mut supervisor, &node, &log_path)?;
     let _ = supervisor;
     Ok(CliAction::PrintWithExitCode {
-        exit_code: 0,
+        exit_code: match outcome {
+            PidStop::PidReused | PidStop::Failed { .. } => 1,
+            _ => 0,
+        },
         text: match outcome {
             PidStop::Stopped(stop) if stop.forced => {
                 format!("{} stopped (forced, pid {})", node.name, stop.pid)
             }
             PidStop::Stopped(stop) => format!("{} stopped (pid {})", node.name, stop.pid),
-            _ => format!("{} was not running", node.name),
+            PidStop::AlreadyGone => format!("{} was not running", node.name),
+            PidStop::PidReused => format!(
+                "pid {} belongs to a different process; {} was left alone and its status unchanged",
+                node.pid.unwrap_or_default(),
+                node.name
+            ),
+            PidStop::Failed { message, .. } => {
+                format!("{} was not stopped: {message}", node.name)
+            }
         },
     })
 }
