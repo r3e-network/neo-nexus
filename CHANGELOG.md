@@ -21,6 +21,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **4 unit tests for supervision runtime upgrade scheduling** (`test_probe_runtime_upgrade_disabled_by_default`, `test_probe_runtime_upgrade_respects_interval`, `test_probe_runtime_upgrade_respects_maintenance_window`, `test_probe_runtime_upgrade_returns_early_without_catalog_config`) verifying policy gating logic without network dependencies.
 
+## [4.2.0] — 2026-09-08
+
+**Note:** This release was initially planned and documented; implementation completed in v4.1.x development cycle.
+
+### Added
+
+- Compact single-line inventory and fleet `node_row` anatomy (40pt slots)
+  after geometry proof: status dot, name, type/net badges, RPC port, status pill.
+- Headless operator walkthrough suite (`tests/ui_operator_walkthrough.rs`):
+  Comfortable↔Compact chrome invariance, primary surface paint, density reload.
+- Compact inventory page-fit unit gate and denser `list_row_frame` vertical
+  margins for ≤40pt slots.
+- Runtime Install `loading_callout` when package install/download work is in
+  progress; disable Install/Download while busy.
+
+### Changed
+
+- `DensityMetrics::COMPACT` list heights: inventory/fleet **40 / 40** (was 44/56);
+  journal empty slots remain **52**; chrome remains density-invariant **60 / 28 / 212**.
+- Residual view spacing tokenised to `theme::XS` / `theme::SM` on several surfaces.
+
 ## [4.1.0] — 2026-09-06
 
 ### Added
@@ -248,27 +269,6 @@ action on them:
 - TLS is not terminated in the binary; a reverse proxy is expected in front of
   the bound address.
 
-## [3.2.0] — 2026-07-15
-
-**Note:** This release was initially planned and documented; implementation completed in v4.1.x development cycle.
-
-### Added
-
-- Compact single-line inventory and fleet `node_row` anatomy (40pt slots)
-  after geometry proof: status dot, name, type/net badges, RPC port, status pill.
-- Headless operator walkthrough suite (`tests/ui_operator_walkthrough.rs`):
-  Comfortable↔Compact chrome invariance, primary surface paint, density reload.
-- Compact inventory page-fit unit gate and denser `list_row_frame` vertical
-  margins for ≤40pt slots.
-- Runtime Install `loading_callout` when package install/download work is in
-  progress; disable Install/Download while busy.
-
-### Changed
-
-- `DensityMetrics::COMPACT` list heights: inventory/fleet **40 / 40** (was 44/56);
-  journal empty slots remain **52**; chrome remains density-invariant **60 / 28 / 212**.
-- Residual view spacing tokenised to `theme::XS` / `theme::SM` on several surfaces.
-
 ## [3.1.0] — 2026-07-15
 
 ### Added
@@ -290,6 +290,6 @@ action on them:
 - Six-primary information architecture, partial widget kit, god-state split,
   headless UI contract tests.
 
-[4.0.0]: https://github.com/r3e-network/neo-nexus/compare/v3.2.0...v4.0.0
-[3.2.0]: https://github.com/r3e-network/neo-nexus/compare/v3.1.0...v3.2.0
+[4.2.0]: https://github.com/r3e-network/neo-nexus/compare/v4.1.0...v4.2.0
+[4.0.0]: https://github.com/r3e-network/neo-nexus/compare/v3.1.0...v4.0.0
 [3.1.0]: https://github.com/r3e-network/neo-nexus/compare/v3.0.0...v3.1.0
