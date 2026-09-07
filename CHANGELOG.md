@@ -250,9 +250,11 @@ action on them:
 
 ## [3.2.0] — 2026-07-15
 
+**Note:** This release was initially planned and documented; implementation completed in v4.1.x development cycle.
+
 ### Added
 
-- Compact **single-line** inventory and fleet `node_row` anatomy (40pt slots)
+- Compact single-line inventory and fleet `node_row` anatomy (40pt slots)
   after geometry proof: status dot, name, type/net badges, RPC port, status pill.
 - Headless operator walkthrough suite (`tests/ui_operator_walkthrough.rs`):
   Comfortable↔Compact chrome invariance, primary surface paint, density reload.
