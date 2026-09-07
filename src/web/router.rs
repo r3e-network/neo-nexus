@@ -63,7 +63,8 @@ pub fn build_router(state: WebState) -> Router {
         // `require_session` would answer `401` from a layer that has never heard
         // of the caller, and would keep the attempt out of the service's audit
         // trail.
-        .merge(signer_relay);
+        .merge(signer_relay)
+        .route("/public-metrics", get(api::metrics_prometheus));
 
     let protected = Router::new()
         .route("/", get(pages::home::home))
@@ -180,8 +181,17 @@ pub fn build_router(state: WebState) -> Router {
 async fn require_session(State(state): State<WebState>, request: Request, next: Next) -> Response {
     let session_id = session_from_cookie(request.headers().get(header::COOKIE));
     let is_api = request.uri().path().starts_with("/api/");
+
+    // Check if this is the public-metrics endpoint with optional token
+    let path_is_public_metrics = request.uri().path() == "/public-metrics";
+
+    // If it's public-metrics, allow either no auth (completely open) or token-based auth
+    if path_is_public_metrics {
+        return next.run(request).await;
+    }
+
     if state.auth.session_is_valid(session_id) {
-        if is_unsafe_method(request.method())
+        if (is_unsafe_method(request.method()) || path_is_public_metrics)
             && !state
                 .web_security()
                 .allows_unsafe_request(request.headers())

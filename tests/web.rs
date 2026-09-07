@@ -404,6 +404,37 @@ fn protected_mutations_require_exact_origin_or_matching_referer() {
 }
 
 #[test]
+fn public_metrics_route_accessible_without_authentication() {
+    let server = spawn_server();
+    let http = agent();
+    
+    // /public-metrics should be accessible without any authentication
+    let response = into_response(
+        http.get(&format!("{}/public-metrics", server.base_url)).call(),
+    );
+    assert_eq!(response.status(), 200);
+    assert_eq!(
+        response.header("content-type"),
+        Some("text/plain; version=0.0.4")
+    );
+    let body = response.into_string().expect("utf-8 response body");
+    assert!(body.contains("# HELP"), "Prometheus metrics must start with help comments");
+    assert!(body.contains("# TYPE"), "Prometheus metrics must contain type declarations");
+}
+
+#[test]
+fn api_metrics_prometheus_requires_session_authentication() {
+    let server = spawn_server();
+    let http = agent();
+    
+    // /api/metrics-prometheus should require session cookie
+    let response = into_response(
+        http.get(&format!("{}/api/metrics-prometheus", server.base_url)).call(),
+    );
+    assert_eq!(response.status(), 401);
+}
+
+#[test]
 fn fleet_api_lists_created_nodes_and_control_persists_state() {
     let server = spawn_server();
     let http = agent();
