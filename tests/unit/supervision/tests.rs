@@ -3,6 +3,9 @@ use std::{path::PathBuf, sync::Arc};
 use super::*;
 use crate::types::{Network, NewNode, NodeType, StorageEngine};
 
+#[path = "upgrade/tests.rs"]
+mod upgrade;
+
 #[test]
 fn failed_watchdog_attempt_schedules_the_next_attempt() {
     let directory = tempfile::tempdir().unwrap();
