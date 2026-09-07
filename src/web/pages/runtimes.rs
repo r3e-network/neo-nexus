@@ -19,7 +19,7 @@ use crate::core::{
 
 use super::super::{
     html,
-    jobs::JobStatus,
+    jobs::{Job, JobStatus},
     runtime_ops::{self, LANE},
     time, WebState,
 };
@@ -98,9 +98,19 @@ fn render_body(state: &WebState, params: &RuntimeQuery) -> anyhow::Result<String
         .iter()
         .filter(|installation| installation.signature_verified)
         .count();
+    // The runtime lane serialises fetch and install together, so one running
+    // job means every install/download control on this page must wait.
+    let busy_job = running_runtime_job(state);
+    let callout = busy_job.as_ref().map_or_else(String::new, |job| {
+        html::loading_callout(&format!(
+            "{} is in progress. Install and download controls are disabled until it finishes.",
+            job.description
+        ))
+    });
     Ok(format!(
         r#"<h1>Runtimes</h1>
 {tiles}
+{callout}
 {jobs}
 <h2>Installed binaries</h2>
 {installations}
@@ -121,11 +131,23 @@ fn render_body(state: &WebState, params: &RuntimeQuery) -> anyhow::Result<String
                 ),
             ),
         ]),
+        callout = callout,
         jobs = job_panel(state),
         installations = installation_table(&installations),
         profiles = profile_table(&profiles),
-        staged = catalogue_section(state, params)?,
+        staged = catalogue_section(state, params, busy_job.is_some())?,
     ))
+}
+
+/// The runtime-lane job that is running right now, if any. Its description is
+/// what the loading callout names, and its presence is what disables the
+/// install control at render time.
+fn running_runtime_job(state: &WebState) -> Option<Job> {
+    state
+        .jobs
+        .recent()
+        .into_iter()
+        .find(|job| job.lane == LANE && job.status == JobStatus::Running)
 }
 
 /// What is running now, and what the last few attempts produced.
@@ -184,7 +206,11 @@ fn status_badge(status: &JobStatus) -> String {
 }
 
 /// The catalogue for the chosen profile, and the review step for a release.
-fn catalogue_section(state: &WebState, params: &RuntimeQuery) -> anyhow::Result<String> {
+fn catalogue_section(
+    state: &WebState,
+    params: &RuntimeQuery,
+    busy: bool,
+) -> anyhow::Result<String> {
     let profile_id = params.profile.trim();
     if profile_id.is_empty() {
         return browse_prompt(state);
@@ -248,7 +274,7 @@ fn catalogue_section(state: &WebState, params: &RuntimeQuery) -> anyhow::Result<
         String::new()
     } else {
         match runtime_ops::stage(state, profile_id, params.release.trim()) {
-            Ok(staged) => review_panel(&staged, &profile.id),
+            Ok(staged) => review_panel(&staged, &profile.id, busy),
             Err(error) => html::notice("danger", &error.to_string()),
         }
     };
@@ -282,7 +308,9 @@ fn browse_prompt(state: &WebState) -> anyhow::Result<String> {
 }
 
 /// The review step: what would be installed, and the only place the button is.
-fn review_panel(staged: &runtime_ops::Staged, profile_id: &str) -> String {
+/// While the runtime lane is busy the button is rendered disabled so a second
+/// install cannot be posted before the running job settles.
+fn review_panel(staged: &runtime_ops::Staged, profile_id: &str, busy: bool) -> String {
     let rows = runtime_ops::review_lines(staged)
         .iter()
         .map(|(label, value)| html::row(&[html::cell(label), html::cell(value)]))
@@ -295,18 +323,28 @@ fn review_panel(staged: &runtime_ops::Staged, profile_id: &str) -> String {
         );
         return format!("<h2>Review</h2>\n{facts}\n{notice}");
     }
-    let form = html::control_form(
-        "/runtimes/install",
-        &[("profile", profile_id), ("release", &staged.release.id)],
-        &format!(
-            "Install {} {}",
-            staged.release.node_type, staged.release.version
-        ),
+    let label = format!(
+        "Install {} {}",
+        staged.release.node_type, staged.release.version
     );
+    let control = if busy {
+        // No live form while a job runs: a disabled button cannot submit, which
+        // keeps the one-job-per-lane rule from being reached by a second click.
+        format!(
+            r#"<button type="submit" disabled data-busy="true">{}</button>"#,
+            html::escape(&label)
+        )
+    } else {
+        html::control_form(
+            "/runtimes/install",
+            &[("profile", profile_id), ("release", &staged.release.id)],
+            &label,
+        )
+    };
     let note = html::note(
         "The package is downloaded, its digest and signature checked, and only then copied into the workspace. A verification failure writes nothing.",
     );
-    format!("<h2>Review</h2>\n{facts}\n<div class=\"actions\">{form}</div>\n{note}")
+    format!("<h2>Review</h2>\n{facts}\n<div class=\"actions\">{control}</div>\n{note}")
 }
 
 fn installation_table(installations: &[RuntimeInstallation]) -> String {
