@@ -106,7 +106,15 @@ pub fn build_router(state: WebState) -> Router {
         .route("/runtimes", get(pages::runtimes::runtimes))
         .route("/runtimes/install", post(pages::runtimes::install))
         .route("/snapshots", get(pages::snapshots::snapshots))
+        .route(
+            "/snapshots/{snapshot_id}/apply/{node_id}",
+            post(control::apply_snapshot),
+        )
         .route("/wallets", get(pages::wallets::wallets))
+        .route(
+            "/backup",
+            get(pages::backup::backup_page).post(control::handle_backup_export),
+        )
         .route("/signer", get(pages::signer::signer))
         .route("/signer/keys/generate", post(signer_control::generate))
         .route("/signer/keys/{id}", get(pages::signer::key_detail))

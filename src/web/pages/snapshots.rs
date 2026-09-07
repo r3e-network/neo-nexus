@@ -13,6 +13,7 @@ use crate::core::{
     operations::format_bytes,
     runtime::{filter_snapshots, FastSyncSnapshot, SnapshotFilter},
 };
+use crate::types::NodeConfig;
 
 use super::super::{html, WebState};
 
@@ -35,13 +36,34 @@ pub async fn snapshots(
     RawQuery(flash): RawQuery,
     Query(params): Query<SnapshotQuery>,
 ) -> Response {
-    let body = match state.repository.list_fast_sync_snapshots() {
-        Ok(snapshots) => {
-            let visible = filter_snapshots(&snapshots, &snapshot_filter(&params));
-            render_body(&snapshots, &visible, &params)
+    let (snapshots, nodes) = match (
+        state.repository.list_fast_sync_snapshots(),
+        state.repository.list_nodes(),
+    ) {
+        (Ok(snapshots), Ok(nodes)) => (snapshots, nodes),
+        (Err(error), _) => {
+            return Html(html::layout(
+                "Snapshots",
+                "snapshots",
+                &html::flash(flash.as_deref()),
+                &html::note(&format!("failed to load snapshots: {error}")),
+            ))
+            .into_response()
         }
-        Err(error) => html::note(&format!("failed to load snapshots: {error}")),
+        (_, Err(error)) => {
+            return Html(html::layout(
+                "Snapshots",
+                "snapshots",
+                &html::flash(flash.as_deref()),
+                &html::note(&format!("failed to load nodes: {error}")),
+            ))
+            .into_response()
+        }
     };
+
+    let visible = filter_snapshots(&snapshots, &snapshot_filter(&params));
+    let body = render_body(&snapshots, &visible, &nodes, &params);
+
     Html(html::layout(
         "Snapshots",
         "snapshots",
@@ -74,6 +96,7 @@ fn tri_state(raw: &str) -> Option<bool> {
 fn render_body(
     all: &[FastSyncSnapshot],
     visible: &[FastSyncSnapshot],
+    nodes: &[NodeConfig],
     params: &SnapshotQuery,
 ) -> String {
     format!(
@@ -135,7 +158,7 @@ fn render_body(
                 },
             ],
         ),
-        table = snapshot_table(visible),
+        table = snapshot_table(visible, nodes),
     )
 }
 
@@ -147,13 +170,44 @@ fn count(snapshots: &[FastSyncSnapshot], wanted: impl Fn(&FastSyncSnapshot) -> b
         .to_string()
 }
 
-fn snapshot_table(snapshots: &[FastSyncSnapshot]) -> String {
+fn snapshot_table(snapshots: &[FastSyncSnapshot], nodes: &[NodeConfig]) -> String {
     if snapshots.is_empty() {
         return html::note("No fast-sync snapshots are registered in this workspace.");
     }
     let rows = snapshots
         .iter()
         .map(|snapshot| {
+            // Find nodes that can use this snapshot (matching node_type)
+            let compatible_nodes: Vec<&NodeConfig> = nodes
+                .iter()
+                .filter(|node| node.node_type == snapshot.node_type)
+                .collect();
+
+            // Build apply buttons HTML for compatible nodes
+            let apply_actions = if snapshot.verified_sha256.is_some()
+                && snapshot.cached_path.is_some()
+                && !compatible_nodes.is_empty()
+            {
+                let buttons: Vec<String> = compatible_nodes
+                    .iter()
+                    .map(|node| {
+                        format!(
+                        "<form method='POST' action='/snapshots/{}/apply/{}' style='display:inline'>
+                            <button type='submit' class='btn btn-sm'>Apply to {}</button>
+                        </form>",
+                        html::urlencoding_lite(&snapshot.id),
+                        html::urlencoding_lite(&node.id),
+                        html::urlencoding_lite(&node.name)
+                    )
+                    })
+                    .collect();
+                format!("<div class='actions'>{}</div>", buttons.join(" "))
+            } else if !compatible_nodes.is_empty() {
+                "<span class='badge badge-warning'>Not ready</span>".to_string()
+            } else {
+                "<span class='badge badge-muted'>No compatible nodes</span>".to_string()
+            };
+
             html::row(&[
                 html::cell(&snapshot.label),
                 html::cell(&snapshot.network.to_string()),
@@ -177,6 +231,7 @@ fn snapshot_table(snapshots: &[FastSyncSnapshot]) -> String {
                         }),
                 ),
                 html::cell(&snapshot.bytes.map_or("—".to_string(), format_bytes)),
+                html::cell(&apply_actions),
             ])
         })
         .collect::<Vec<_>>();
@@ -191,6 +246,7 @@ fn snapshot_table(snapshots: &[FastSyncSnapshot]) -> String {
             "Expected",
             "Verified",
             "Size",
+            "Actions",
         ],
         &rows,
     )
