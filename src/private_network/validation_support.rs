@@ -12,3 +12,7 @@ pub(in crate::private_network) use self::{
     },
     wallets::check_signer_wallet_reference,
 };
+
+#[cfg(test)]
+#[path = "../../tests/unit/private_network/validation_support/wallets.rs"]
+mod tests;
