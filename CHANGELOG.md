@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Scheduled runtime upgrade execution** in the supervision engine: `LoopState::probe_runtime_upgrade()` periodically evaluates fleet-wide upgrade opportunities via `RuntimePackageManager::plan_catalog_fleet_upgrades()`, applies updates within configurable intervals and maintenance windows, automatically stopping running nodes before installation and restarting them post-upgrade. Policy configuration (`enabled`, `interval_minutes`, `max_nodes_per_run`, `maintenance_window`) takes effect without restarts; events are journaled to the Event Journal.
+
+- **Web UI for Snapshot Apply**: POST handler `/snapshots/{snapshot_id}/apply/{node_id}` that verifies snapshot readiness, validates compatibility (network type, node type), calls `FastSyncSnapshotManager::apply_to_node()` to apply snapshots to compatible nodes, and returns flash-message feedback. Snapshots page now shows Apply buttons for verified, cached snapshots alongside compatible nodes.
+
+- **Web UI for Backup Export**: POST handler `/backup/export` that triggers workspace backup exports using `WorkspaceBackupExporter`, displays a new `/backup` page with export status indicators and stat tiles (nodes, signer profiles, snapshots, events count), and records `BackupExported` audit events with artifact summary messages.
+
+- **Private network magic override security fix**: Cross-replay prevention mechanism combining node identity binding, one-time token consumption, and monotonic generation counters with TTL enforcement. Magic override tokens are rejected when attempted on wrong nodes (`WrongNode`), expired (`Expired`), or replayed (`AlreadyConsumed`). Integrated into config export path to validate tokens before applying magic number changes.
+
+- **60 unit tests for private_network module** covering scripts, verifier, exporter, validation support (wallets, sidecars), committee parsing, reports rendering, and signers endpoint handling — replacing placeholder assertions with behavioral coverage.
+
+- **4 unit tests for supervision runtime upgrade scheduling** (`test_probe_runtime_upgrade_disabled_by_default`, `test_probe_runtime_upgrade_respects_interval`, `test_probe_runtime_upgrade_respects_maintenance_window`, `test_probe_runtime_upgrade_returns_early_without_catalog_config`) verifying policy gating logic without network dependencies.
+
 ## [4.1.0] — 2026-09-06
 
 ### Added
