@@ -1,9 +1,9 @@
 mod discovery;
-mod export;
+pub mod export;
 mod restore;
 mod schema;
 mod validation;
-mod workspace_exporter;
+pub mod workspace_exporter;
 mod workspace_importer;
 
 pub use self::schema::{
