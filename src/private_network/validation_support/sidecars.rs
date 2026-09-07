@@ -7,3 +7,7 @@ pub(in crate::private_network) use plans::signer_command_plan_status;
 pub(in crate::private_network) use processes::{
     check_signer_sidecar_process_spec, committee_sidecar_process, deployment_sidecar_processes,
 };
+
+#[cfg(test)]
+#[path = "../../../tests/unit/private_network/validation_support/sidecars/processes.rs"]
+mod tests;

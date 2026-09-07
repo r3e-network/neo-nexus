@@ -13,3 +13,7 @@ pub use model::{
     CommitteeHandoffSummary, CommitteeRoster, CommitteeSidecarProcess, CommitteeSigner,
     SignerCommandPlan,
 };
+
+#[cfg(test)]
+#[path = "../../tests/unit/private_network/committee.rs"]
+mod tests;

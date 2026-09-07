@@ -71,3 +71,7 @@ impl PrivateNetworkLaunchPackVerifier {
         Ok((root_path, manifest_path, manifest))
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/private_network/verifier.rs"]
+mod tests;

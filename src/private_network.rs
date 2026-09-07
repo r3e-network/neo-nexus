@@ -22,6 +22,7 @@ use crate::{
 mod committee;
 mod constants;
 mod exporter;
+pub mod magic_override;
 mod manifest;
 mod render;
 mod reports;

@@ -7,3 +7,7 @@ pub use sidecars::PrivateNetworkLaunchPackSidecarReport;
 pub use validation::{
     PrivateNetworkLaunchPackValidation, PrivateNetworkLaunchPackValidationReport,
 };
+
+#[cfg(test)]
+#[path = "../../tests/unit/private_network/reports.rs"]
+mod tests;

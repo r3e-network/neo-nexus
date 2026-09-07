@@ -12,3 +12,7 @@ pub(super) use endpoints::{signer_endpoint_is_remote_cleartext, validate_signer_
 pub(super) use keys::{has_signer_references, normalize_public_key};
 pub(super) use templates::{expand_signer_command_template, validate_signer_command_template};
 pub(super) use wallets::validate_signer_wallet_path;
+
+#[cfg(test)]
+#[path = "../../tests/unit/private_network/signers.rs"]
+mod tests;
