@@ -13,3 +13,7 @@ pub(in crate::private_network) use self::{
         render_windows_stop_script,
     },
 };
+
+#[cfg(test)]
+#[path = "../../tests/unit/private_network/scripts.rs"]
+mod tests;

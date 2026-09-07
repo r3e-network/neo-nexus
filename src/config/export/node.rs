@@ -16,6 +16,7 @@ use crate::config::{
     generator::ConfigGenerator,
     validation::ConfigValidator,
 };
+use crate::private_network::magic_override::{ConsumedMagicOverride, MagicOverrideRequest};
 
 pub struct ConfigExporter;
 
@@ -57,11 +58,12 @@ impl ConfigExporter {
         plugins: &[PluginState],
         profile: Option<&RuntimeConfigProfile>,
     ) -> Result<ConfigExport> {
-        Self::write_node_config_to_path_with_context(
+        Self::write_node_config_to_path_with_profile_and_context(
             path,
             node,
             plugins,
             profile,
+            None, // No magic override verification by default
             &GenerationContext::default(),
         )
     }
@@ -107,8 +109,65 @@ impl ConfigExporter {
         })
     }
 
+    /// Write config with optional magic override token verification
+    ///
+    /// If `override_token` is provided, this function will verify that:
+    /// 1. The token was created specifically for this node ID
+    /// 2. The token hasn't been consumed before (prevents replay)
+    /// 3. The token hasn't expired
+    ///
+    /// This prevents cross-node magic number replay attacks where a profile
+    /// intended for one node could be mistakenly applied to another node.
+    pub fn write_node_config_to_path_with_profile_and_context(
+        path: impl AsRef<Path>,
+        node: &NodeConfig,
+        plugins: &[PluginState],
+        profile: Option<&RuntimeConfigProfile>,
+        override_token: Option<&MagicOverrideRequest>,
+        context: &GenerationContext,
+    ) -> Result<ConfigExport> {
+        // Validate magic override if provided
+        if let (Some(token), Some(profile)) = (override_token, profile) {
+            // Verify this token is bound to this specific node
+            let consumption = token.consume_for_node(&node.id)?;
+
+            // Cross-check that consumption matches input profile
+            if consumption.network_magic != profile.network_magic {
+                anyhow::bail!(
+                    "magic override token network_magic {} does not match requested profile {}",
+                    consumption.network_magic,
+                    profile.network_magic
+                );
+            }
+
+            // Use the validated token data to ensure node binding
+            return Self::write_node_config_with_validated_override(
+                path,
+                node,
+                plugins,
+                &consumption,
+                context,
+            );
+        }
+
+        // Profile without token: use standard flow (backward compatible)
+        Self::write_node_config_to_path_with_context(path, node, plugins, profile, context)
+    }
+
+    /// Write configuration using a validated magic override
+    fn write_node_config_with_validated_override(
+        path: impl AsRef<Path>,
+        node: &NodeConfig,
+        plugins: &[PluginState],
+        consumption: &ConsumedMagicOverride,
+        context: &GenerationContext,
+    ) -> Result<ConfigExport> {
+        // Create a fresh profile from validated data
+        let profile = consumption.into_runtime_config_profile();
+        Self::write_node_config_to_path_with_context(path, node, plugins, Some(&profile), context)
+    }
+
     /// Writes each enabled plugin's own configuration file beside the primary
-    /// one. neo-cli configures the RPC listener, the oracle service, the state
     /// service and dBFT in `Plugins/<Name>/<Name>.json`, not in `config.json`,
     /// so an export that skips these configures none of them.
     fn write_config_set(
