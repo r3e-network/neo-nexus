@@ -125,6 +125,21 @@ td.path, td.mono { color: var(--muted); word-break: break-all; }
 .node-meta { display: block; margin-top: 2px; color: var(--faint); font-size: 11.5px; }
 .dashboard-table td { height: 58px; }
 
+/* Density — content-only modifiers; chrome (sidebar, header) stays invariant.
+   Comfortable keeps the current baseline; compact tightens row padding and the
+   XS/SM spacing tokens so an inventory row settles near a 40px slot. */
+.density-comfortable { --xs: var(--s2); --sm: var(--s3); --row-pad-y: 11px; }
+.density-compact { --xs: var(--s1); --sm: var(--s2); --row-pad-y: 8px; }
+.density-compact td, .density-compact th { padding-top: var(--row-pad-y); padding-bottom: var(--row-pad-y); }
+.density-compact .card, .density-compact .stat { padding-top: var(--sm); padding-bottom: var(--sm); }
+.node-line { display: flex; align-items: center; gap: var(--sm, var(--s3)); min-height: 22px; }
+.node-line .node-name { font-weight: 650; text-decoration: none; }
+.node-line .node-port { margin-left: auto; color: var(--muted); }
+.status-dot { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--idle); }
+.status-dot.running { background: var(--jade); }
+.status-dot.starting { background: var(--amber); }
+.status-dot.error { background: var(--red); }
+
 /* Status and intent */
 .badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px;
   border: 1px solid var(--line-strong); border-radius: 999px; color: var(--muted);

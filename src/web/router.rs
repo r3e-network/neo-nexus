@@ -149,6 +149,7 @@ pub fn build_router(state: WebState) -> Router {
         )
         .route("/metrics", get(pages::metrics_page::metrics))
         .route("/settings", get(pages::settings::settings))
+        .route("/settings/density", post(control::save_density))
         .route("/settings/watchdog", post(control::save_watchdog))
         .route(
             "/settings/rpc-health",

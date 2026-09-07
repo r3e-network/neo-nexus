@@ -27,7 +27,7 @@ use crate::{
     types::NodeConfig,
 };
 
-use super::{html, pages::settings, WebState};
+use super::{assets::DensityMode, html, pages::settings, WebState};
 
 pub async fn node_start(State(state): State<WebState>, Path(id): Path<String>) -> Response {
     control_redirect(&state, &id, LaunchAction::Start)
@@ -150,6 +150,27 @@ pub struct MonitorForm {
     enabled: String,
     #[serde(default)]
     interval_seconds: String,
+}
+
+#[derive(Deserialize)]
+pub struct DensityForm {
+    #[serde(default)]
+    ui_density: String,
+}
+
+/// Save the UI density preference. The submitted label is normalised through
+/// [`DensityMode`] so a hand-edited post can only ever persist a value the
+/// workbench recognises — anything unknown falls back to comfortable.
+pub async fn save_density(
+    State(state): State<WebState>,
+    Form(input): Form<DensityForm>,
+) -> Response {
+    let outcome = (|| -> anyhow::Result<String> {
+        let density = DensityMode::from_str(&input.ui_density);
+        state.repository.save_app_ui_density(density.as_str())?;
+        Ok(format!("UI density saved — {density}"))
+    })();
+    respond_to("/settings", outcome)
 }
 
 pub async fn save_watchdog(

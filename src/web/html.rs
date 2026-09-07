@@ -2,6 +2,8 @@
 //! component helpers the pages compose. All interpolated values flow through
 //! [`escape`] so operator data can never inject markup.
 
+use super::assets::DensityMode;
+
 pub fn escape(value: &str) -> String {
     value
         .replace('&', "&amp;")
@@ -21,6 +23,18 @@ pub fn status_badge(status: &str) -> String {
         _ => "badge stopped",
     };
     format!(r#"<span class="{class}" data-node-status="{status}">{status}</span>"#)
+}
+
+/// A bare status indicator dot, no label. Compact node rows lead with this and
+/// close with the full [`status_badge`] pill; the two share the status palette.
+pub fn status_dot(status: &str) -> String {
+    let class = match status {
+        "Running" => "status-dot running",
+        "Starting" => "status-dot starting",
+        "Error" => "status-dot error",
+        _ => "status-dot stopped",
+    };
+    format!(r#"<span class="{class}" data-node-status="{status}" aria-hidden="true"></span>"#)
 }
 
 pub fn flash_query(message: &str) -> String {
@@ -628,6 +642,16 @@ pub fn notice(kind: &str, message: &str) -> String {
     )
 }
 
+/// A callout that work is underway. The same amber `notice warn` surface, but
+/// announced with `role="status"` so a running background job is heard, not
+/// only seen; the message is escaped like every other operator-facing string.
+pub fn loading_callout(message: &str) -> String {
+    format!(
+        r#"<div class="notice warn" role="status">{}</div>"#,
+        escape(message)
+    )
+}
+
 /// What a page shows when there is nothing to show, with the action that would
 /// fix it. An empty list with no way forward is a dead end, not a state.
 pub fn empty_state(title: &str, body: &str, actions: &str) -> String {
@@ -672,7 +696,23 @@ pub fn text_block(content: &str) -> String {
 /// The page shell: grouped sidebar navigation, a header, and the page body.
 /// The sidebar comes from [`super::nav`], so a new page appears everywhere once
 /// its route exists.
+///
+/// Renders at the comfortable density. Pages that resolve the stored density
+/// preference call [`layout_with_density`] instead.
 pub fn layout(title: &str, active: &str, flash: &str, body: &str) -> String {
+    layout_with_density(title, active, flash, body, DensityMode::DEFAULT)
+}
+
+/// The page shell with an explicit UI density. The mode is carried as a class
+/// on `<body>`, so the stylesheet's density modifiers scope the page body while
+/// the chrome (sidebar, header) stays invariant.
+pub fn layout_with_density(
+    title: &str,
+    active: &str,
+    flash: &str,
+    body: &str,
+    density: DensityMode,
+) -> String {
     format!(
         r##"<!DOCTYPE html>
 <html lang="en">
@@ -682,7 +722,7 @@ pub fn layout(title: &str, active: &str, flash: &str, body: &str) -> String {
 <title>{title} · NeoNexus</title>
 <style>{css}</style>
 </head>
-<body>
+<body class="{density_class}">
 <a class="skip-link" href="#main-content">Skip to main content</a>
 <header class="mobile-nav">
 <details>
@@ -715,6 +755,7 @@ pub fn layout(title: &str, active: &str, flash: &str, body: &str) -> String {
         mobile_nav = super::nav::render(active),
         flash_banner = flash_banner(flash),
         body = body,
+        density_class = density.body_class(),
     )
 }
 
