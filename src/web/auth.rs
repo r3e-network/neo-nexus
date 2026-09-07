@@ -22,6 +22,7 @@ pub const TOKEN_FILE_ENV: &str = "NEONEXUS_WEB_TOKEN_FILE";
 pub const PUBLIC_ORIGIN_ENV: &str = "NEONEXUS_WEB_PUBLIC_ORIGIN";
 pub const LEGACY_TOKEN_ENV: &str = "NEONEXUS_WEB_TOKEN";
 pub const MIN_OPERATOR_TOKEN_BYTES: usize = 32;
+pub const METRICS_TOKEN_ENV: &str = "NEONEXUS_METRICS_TOKEN";
 
 const MAX_OPERATOR_TOKEN_BYTES: usize = 4 * 1024;
 const SESSION_TTL: Duration = Duration::from_secs(12 * 60 * 60);

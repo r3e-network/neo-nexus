@@ -13,7 +13,16 @@ use serde::Serialize;
 
 use crate::core::workspace_queries;
 
-use super::{fleet::Fleet, pages::metrics_page, WebState};
+use super::{fleet::Fleet, WebState};
+
+/// Collect Prometheus-formatted metrics from all nodes.
+/// Shared by both authenticated (/api/metrics-prometheus) and public (/public-metrics) routes.
+pub fn collect_metrics_snapshot(
+    repository: &crate::repository::Repository,
+) -> anyhow::Result<String> {
+    let snapshot = crate::web::pages::metrics_page::collect_snapshot(repository)?;
+    Ok(snapshot.to_prometheus_text())
+}
 
 #[derive(Serialize)]
 pub struct FleetNode {
@@ -82,13 +91,13 @@ pub async fn readiness(State(state): State<WebState>) -> Response {
 }
 
 pub async fn metrics_prometheus(State(state): State<WebState>) -> Response {
-    match metrics_page::collect_snapshot(&state.repository) {
+    match collect_metrics_snapshot(&state.repository) {
         Ok(snapshot) => (
             [(
                 axum::http::header::CONTENT_TYPE,
                 "text/plain; version=0.0.4",
             )],
-            snapshot.to_prometheus_text(),
+            snapshot,
         )
             .into_response(),
         Err(error) => error_response(&error),
