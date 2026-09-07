@@ -7,6 +7,8 @@
 
 mod script;
 mod styles;
+mod theme;
 
 pub use script::SCRIPT;
 pub use styles::CSS;
+pub use theme::{spacing, DensityMode, DENSITY_COMFORTABLE_CLASS, DENSITY_COMPACT_CLASS};

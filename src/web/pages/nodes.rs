@@ -17,7 +17,7 @@ use crate::{
         operations::{EventKind, EventSeverity, NewRuntimeEvent},
     },
     signing::SignerKeyRef,
-    web::{fleet::Fleet, html, time, WebState},
+    web::{assets::DensityMode, fleet::Fleet, html, time, WebState},
 };
 
 #[derive(Default, serde::Deserialize)]
@@ -33,20 +33,34 @@ pub async fn node_list(
     RawQuery(flash): RawQuery,
     Query(params): Query<NodeListQuery>,
 ) -> Response {
+    let density = resolve_density(&state);
     let body = match Fleet::load(&state.repository) {
-        Ok(fleet) => list_body(&fleet, &params),
+        Ok(fleet) => list_body(&fleet, &params, density),
         Err(error) => html::note(&format!("failed to load nodes: {error}")),
     };
-    Html(html::layout(
+    Html(html::layout_with_density(
         "Nodes",
         "nodes",
         &html::flash(flash.as_deref()),
         &body,
+        density,
     ))
     .into_response()
 }
 
-fn list_body(fleet: &Fleet, params: &NodeListQuery) -> String {
+/// Resolve the stored UI density preference, falling back to comfortable when
+/// it is unset or the settings read fails, so the list still renders.
+fn resolve_density(state: &WebState) -> DensityMode {
+    state
+        .repository
+        .load_app_ui_density()
+        .ok()
+        .flatten()
+        .as_deref()
+        .map_or(DensityMode::DEFAULT, DensityMode::from_str)
+}
+
+fn list_body(fleet: &Fleet, params: &NodeListQuery, density: DensityMode) -> String {
     let head = html::page_head(
         "Nodes",
         "Every node this workspace can configure, launch and watch.",
@@ -98,6 +112,8 @@ fn list_body(fleet: &Fleet, params: &NodeListQuery) -> String {
     );
     let table = if visible.is_empty() {
         html::note("No node matches this filter.")
+    } else if density == DensityMode::Compact {
+        manager_table_compact(fleet, &visible)
     } else {
         manager_table(fleet, &visible)
     };
@@ -168,20 +184,50 @@ fn manager_table(fleet: &Fleet, visible: &[NodeConfig]) -> String {
     )
 }
 
+/// The compact inventory anatomy: one line per node in a ~40px slot — status
+/// dot, name, type and network badges, RPC port, then the status pill. It trades
+/// the comfortable layout's separate columns for density; the actions stay in
+/// their own cell so the row keeps the same controls.
+fn manager_table_compact(fleet: &Fleet, visible: &[NodeConfig]) -> String {
+    let rows = visible
+        .iter()
+        .filter_map(|node| fleet.rows.iter().find(|row| row.node.id == node.id))
+        .map(|row| {
+            let id = html::urlencoding_lite(&row.node.id);
+            let actions = format!(
+                r#"<div class="row-actions"><a class="btn small" href="/nodes/{id}">View</a><a class="btn small" href="/nodes/{id}/edit">Edit</a><a class="btn small danger" href="/nodes/{id}/delete">Delete</a></div>"#
+            );
+            let line = format!(
+                r#"<div class="node-line">{dot}<a class="node-name" href="/nodes/{id}">{name}</a><span class="badge">{node_type}</span><span class="badge">{network}</span><span class="num node-port">RPC {rpc}</span>{pill}</div>"#,
+                dot = html::status_dot(row.node.status.label()),
+                name = html::escape(&row.node.name),
+                node_type = html::escape(&row.node.node_type.to_string()),
+                network = html::escape(&row.node.network.to_string()),
+                rpc = row.node.rpc_port,
+                pill = html::status_badge(row.node.status.label()),
+            );
+            html::row(&[html::raw_cell(&line), html::raw_cell(&actions)])
+        })
+        .collect::<Vec<_>>();
+    html::table(&["Node", "Actions"], &rows)
+}
+
 pub async fn node_detail(
     State(state): State<WebState>,
     Path(id): Path<String>,
     RawQuery(query): RawQuery,
 ) -> Response {
+    let density = resolve_density(&state);
     let body = match render_detail(&state, &id) {
         Ok(body) => body,
         Err(_) => return Redirect::to("/nodes").into_response(),
     };
-    Html(html::layout(
+    Html(html::layout_with_density(
         "Node",
         "nodes",
         &html::flash(query.as_deref()),
         &body,
+        density,
     ))
     .into_response()
 }

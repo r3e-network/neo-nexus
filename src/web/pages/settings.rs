@@ -14,11 +14,13 @@ use crate::{
         runtime::{RestartPolicy, RuntimeUpgradePolicy},
     },
     repository::Repository,
+    web::assets::DensityMode,
 };
 
 use super::super::{html, WebState};
 
 const ENABLED_CHOICES: &[&str] = &["Enabled", "Disabled"];
+const DENSITY_CHOICES: &[&str] = &["Comfortable", "Compact"];
 
 pub async fn settings(State(state): State<WebState>, RawQuery(query): RawQuery) -> Response {
     let body = match render_body(&state.repository) {
@@ -39,9 +41,14 @@ fn render_body(repository: &Repository) -> anyhow::Result<String> {
     let rpc_health = repository.load_rpc_health_monitor_policy()?;
     let federation = repository.load_remote_federation_monitor_policy()?;
     let upgrade = repository.load_runtime_upgrade_policy()?;
+    let density = repository
+        .load_app_ui_density()?
+        .as_deref()
+        .map_or(DensityMode::DEFAULT, DensityMode::from_str);
     Ok(format!(
         r#"<h1>Settings</h1>
 {engine_note}
+{appearance}
 {watchdog}
 {rpc_health}
 {federation}
@@ -51,6 +58,7 @@ fn render_body(repository: &Repository) -> anyhow::Result<String> {
             "ok",
             "Applied by this workbench process: the supervision engine reads these on its own tick, so a saved change takes effect without a restart.",
         ),
+        appearance = density_form(density),
         watchdog = watchdog_form(&watchdog),
         rpc_health = monitor_form(
             "rpc-health",
@@ -74,6 +82,26 @@ fn render_body(repository: &Repository) -> anyhow::Result<String> {
         ),
         upgrade = upgrade_facts(&upgrade),
     ))
+}
+
+fn density_form(density: DensityMode) -> String {
+    format!(
+        r#"<h2>Appearance</h2>
+<p class="muted">Compact density tightens row height and spacing for denser fleets; comfortable is the default. Applied on the next page load.</p>
+<form class="filters" method="post" action="/settings/density">
+{density_field}
+<button type="submit">Save</button>
+</form>"#,
+        density_field = html::ChoiceField {
+            id: Some("appearance-density"),
+            label: "UI density",
+            name: "ui_density",
+            options: &density_choices(),
+            selected: density_label(density),
+            ..Default::default()
+        }
+        .render(),
+    )
 }
 
 fn watchdog_form(policy: &RestartPolicy) -> String {
@@ -214,6 +242,22 @@ pub fn enabled_label(enabled: bool) -> &'static str {
 
 pub fn enabled_choices() -> Vec<String> {
     ENABLED_CHOICES
+        .iter()
+        .map(|choice| (*choice).to_string())
+        .collect()
+}
+
+/// The capitalised label for a density mode, matching the `DENSITY_CHOICES`
+/// entries so the dropdown pre-selects the stored preference.
+pub fn density_label(density: DensityMode) -> &'static str {
+    match density {
+        DensityMode::Comfortable => "Comfortable",
+        DensityMode::Compact => "Compact",
+    }
+}
+
+pub fn density_choices() -> Vec<String> {
+    DENSITY_CHOICES
         .iter()
         .map(|choice| (*choice).to_string())
         .collect()
