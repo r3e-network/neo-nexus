@@ -10,6 +10,7 @@
 //! powers light polling from the embedded script.
 
 pub mod api;
+pub mod api_tokens;
 pub mod assets;
 pub mod auth;
 pub mod control;

@@ -2963,7 +2963,7 @@ fn logs_page_requires_authentication() {
     // Authenticated request should render the page
     let login = post_form(&http, &format!("{base}/login"), &format!("token={TOKEN}"));
     let session = cookie_value(&login).expect("session cookie set");
-    
+
     let page = into_response(
         http.get(&format!("{base}/logs"))
             .set("cookie", &session)
@@ -2986,11 +2986,11 @@ fn clear_logs_cleared_log_files_and_records_event() {
     // Create some log files in the workspace logs directory
     let logs_dir = server.state.workspace_child_dir("logs");
     std::fs::create_dir_all(&logs_dir).expect("create logs dir");
-    
+
     let log_file1 = logs_dir.join("node.log");
     let log_file2 = logs_dir.join("error.LOG");
     let non_log_file = logs_dir.join("config.txt");
-    
+
     std::fs::write(&log_file1, "some log content").expect("write log1");
     std::fs::write(&log_file2, "another log").expect("write log2");
     std::fs::write(&non_log_file, "not a log").expect("write non-log");
@@ -3001,14 +3001,9 @@ fn clear_logs_cleared_log_files_and_records_event() {
     assert!(non_log_file.exists());
 
     // POST to /logs (with node context to preserve selection)
-    let response = post_form_as(
-        &http,
-        &session,
-        &format!("{base}/logs"),
-        "node=",
-    );
+    let response = post_form_as(&http, &session, &format!("{base}/logs"), "node=");
     assert_eq!(response.status(), 303);
-    
+
     let location = response.header("location").expect("redirect location");
     assert!(location.starts_with("/logs?flash="));
     assert!(location.contains("cleared+2+log+file(s)"));
@@ -3021,9 +3016,11 @@ fn clear_logs_cleared_log_files_and_records_event() {
     // Verify LogCleared event was recorded
     let repository = Repository::open(&server.db_path).expect("reopen workspace");
     let events = repository
-        .list_events(neo_nexus::core::operations::RuntimeEventFilter::new(None, "", 200))
+        .list_events(neo_nexus::core::operations::RuntimeEventFilter::new(
+            None, "", 200,
+        ))
         .expect("events");
-    
+
     let has_log_cleared = events
         .iter()
         .any(|event| event.kind.to_string() == "log-cleared");
@@ -3044,7 +3041,7 @@ fn clear_logs_rejected_without_session() {
             .send_string("node=")
             .call(),
     );
-    
+
     // Should redirect to login instead of processing the request
     assert_eq!(response.status(), 303);
     assert_eq!(response.header("location"), Some("/login"));

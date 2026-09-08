@@ -60,7 +60,10 @@ pub fn clear_all_logs(log_dir: &Path) -> Result<usize> {
         }
 
         // Check if it's a .log file
-        if path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("log")) {
+        if path
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("log"))
+        {
             // Attempt to delete the file
             match fs::remove_file(&path) {
                 Ok(()) => {
