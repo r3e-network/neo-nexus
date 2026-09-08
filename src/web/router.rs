@@ -13,8 +13,19 @@ use axum::{
 use std::time::Duration;
 use tower_http::timeout::TimeoutLayer;
 
-use super::{api, control, health, pages, public_api, signer_api, signer_control, WebState};
+use super::{
+    api, api_tokens, control, health, pages, public_api, signer_api, signer_control, WebState,
+};
 use crate::signer_client::MAX_REQUEST_BODY_BYTES;
+
+/// Authentication modes supported by the web layer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuthMode {
+    /// Browser session cookie (traditional)
+    Session,
+    /// API Bearer token (for CI/automation scripts)
+    ApiToken,
+}
 
 pub fn build_router(state: WebState) -> Router {
     // The public relay accepts raw bytes so workload signatures remain valid.
@@ -150,6 +161,14 @@ pub fn build_router(state: WebState) -> Router {
         )
         .route("/metrics", get(pages::metrics_page::metrics))
         .route("/settings", get(pages::settings::settings))
+        .route(
+            "/settings/api-tokens",
+            get(pages::api_tokens::api_tokens_page),
+        )
+        .route(
+            "/settings/api-tokens/{token_id}/delete",
+            post(pages::api_tokens::delete_token),
+        )
         .route("/settings/density", post(control::save_density))
         .route("/settings/watchdog", post(control::save_watchdog))
         .route(
@@ -180,16 +199,18 @@ pub fn build_router(state: WebState) -> Router {
 
 async fn require_session(State(state): State<WebState>, request: Request, next: Next) -> Response {
     let session_id = session_from_cookie(request.headers().get(header::COOKIE));
+    let bearer_token = bearer_token_from_request(&request);
     let is_api = request.uri().path().starts_with("/api/");
 
-    // Check if this is the public-metrics endpoint with optional token
+    // Check if this is the public-metrics endpoint (completely open)
     let path_is_public_metrics = request.uri().path() == "/public-metrics";
 
-    // If it's public-metrics, allow either no auth (completely open) or token-based auth
+    // If it's public-metrics, allow it (no auth required)
     if path_is_public_metrics {
         return next.run(request).await;
     }
 
+    // Try session cookie first
     if state.auth.session_is_valid(session_id) {
         if (is_unsafe_method(request.method()) || path_is_public_metrics)
             && !state
@@ -204,6 +225,25 @@ async fn require_session(State(state): State<WebState>, request: Request, next: 
         }
         return next.run(request).await;
     }
+
+    // Try Bearer token authentication
+    if let Some(token_secret) = bearer_token {
+        if let Ok(Some(_)) = state.repository.verify_token_secret(&token_secret) {
+            // Token is valid - API routes accept it directly
+            if is_api {
+                return next.run(request).await;
+            }
+            // For browser routes, we could potentially support Bearer tokens too
+            // but for now, they require session cookies for CSRF protection
+            return (
+                StatusCode::UNAUTHORIZED,
+                "Bearer tokens are only accepted on /api/* endpoints",
+            )
+                .into_response();
+        }
+    }
+
+    // No valid authentication found
     if is_api {
         (
             axum::http::StatusCode::UNAUTHORIZED,
@@ -225,6 +265,24 @@ fn session_from_cookie(cookie_header: Option<&header::HeaderValue>) -> Option<&s
         let (name, value) = pair.trim().split_once('=')?;
         (name == super::auth::SESSION_COOKIE).then_some(value.trim())
     })
+}
+
+/// Extract Bearer token from Authorization header.
+///
+/// Returns the token secret if present and properly formatted,
+/// None otherwise.
+fn bearer_token_from_request(request: &Request) -> Option<String> {
+    let auth_header = request
+        .headers()
+        .get(header::AUTHORIZATION)?
+        .to_str()
+        .ok()?;
+
+    if !auth_header.starts_with("Bearer ") {
+        return None;
+    }
+
+    Some(auth_header["Bearer ".len()..].to_string())
 }
 
 async fn logout(State(state): State<WebState>, request: Request) -> Response {

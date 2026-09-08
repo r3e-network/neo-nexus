@@ -1,6 +1,7 @@
 //! Page handlers, grouped per workbench destination.
 
 pub mod alerts;
+pub mod api_tokens;
 pub mod backup;
 pub mod config;
 pub mod events;

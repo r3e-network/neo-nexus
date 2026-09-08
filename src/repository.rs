@@ -37,6 +37,7 @@ use crate::{
     watchdog::{default_restart_policy, RestartPolicy},
 };
 
+mod api_tokens;
 mod events_health;
 mod helpers;
 mod model;
