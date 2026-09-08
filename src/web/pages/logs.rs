@@ -1,6 +1,6 @@
 //! Logs: the supervised output of one node, with the same pattern diagnosis the
-//! CLI support bundle runs. Deliberately read-only — truncating a log stays a
-//! conscious operator action rather than a button next to the fleet view.
+//! CLI support bundle runs. Read-only viewing is the default — truncating log
+//! files requires a deliberate POST with explicit confirmation.
 
 use axum::{
     extract::{Query, State},
@@ -53,10 +53,11 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], params: &LogQuery) -> Str
     let log_path = log_path_for(state.workspace_child_dir("logs"), selected);
     format!(
         r#"<h1>Logs</h1>
-<div class="actions">{picker}</div>
+<div class="actions">{picker}{clear_button}</div>
 {filters}
 {content}"#,
         picker = node_picker(nodes, selected),
+        clear_button = clear_logs_button(&selected.id),
         filters = html::typed_filter_form(
             "/logs",
             &[("node", &selected.id)],
@@ -200,5 +201,18 @@ fn diagnosis_panel(diagnosis: &LogDiagnosis) -> String {
             &["Severity", "Pattern", "Line", "Excerpt", "Recommendation"],
             &rows
         )
+    )
+}
+
+/// Provide a destructive action button with inline confirmation form.
+/// The form POSTs to /logs and includes hidden inputs for node context,
+/// ensuring the redirect preserves the selected node after clearing.
+fn clear_logs_button(node_id: &str) -> String {
+    format!(
+        r#"<form method="POST" action="/logs" style="display:inline; margin-left:8px;">
+  <button type="submit" class="btn danger" onclick="return confirm('This will permanently delete all .log files in the workspace logs directory. Are you sure you want to continue?');">Clear Logs</button>
+  <input type="hidden" name="node" value="{}">
+</form>"#,
+        html::urlencoding_lite(node_id)
     )
 }

@@ -90,7 +90,7 @@ pub fn build_router(state: WebState) -> Router {
             post(pages::nodes::save_signer_binding),
         )
         .route("/monitor", get(pages::monitor::monitor))
-        .route("/logs", get(pages::logs::logs))
+        .route("/logs", get(pages::logs::logs).post(control::clear_logs))
         .route("/operations", get(pages::operations::operations))
         .route("/events", get(pages::events::events))
         .route("/alerts", get(pages::alerts::alerts))

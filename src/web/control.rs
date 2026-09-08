@@ -355,6 +355,38 @@ fn journal_policy(state: &WebState, kind: EventKind, message: &str) {
     });
 }
 
+/// Clear all log files from the workspace logs directory. This is a destructive
+/// operation requiring confirmation via POST, and records an audit event on
+/// successful completion.
+pub async fn clear_logs(State(state): State<WebState>) -> Response {
+    let outcome = (|| -> anyhow::Result<String> {
+        // Get the logs directory
+        let logs_dir = state.workspace_child_dir("logs");
+
+        // Clear all log files
+        let cleared_count = crate::logs::clear_all_logs(&logs_dir)?;
+
+        // Record audit event
+        let message = format!("cleared {} log file(s)", cleared_count);
+        let _ = state.repository.record_event(NewRuntimeEvent {
+            node_id: None,
+            node_name: None,
+            kind: EventKind::LogCleared,
+            severity: EventSeverity::Info,
+            message: message.clone(),
+        });
+
+        Ok(message)
+    })();
+
+    let message = match outcome {
+        Ok(message) => message,
+        Err(error) => format!("failed to clear logs: {error}"),
+    };
+
+    Redirect::to(&format!("/logs?flash={}", html::urlencoding_lite(&message))).into_response()
+}
+
 /// The shared tail of every settings-style control: describe the outcome and
 /// send the browser back to the page that owns it.
 fn respond_to(path: &str, outcome: anyhow::Result<String>) -> Response {

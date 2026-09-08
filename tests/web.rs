@@ -407,10 +407,11 @@ fn protected_mutations_require_exact_origin_or_matching_referer() {
 fn public_metrics_route_accessible_without_authentication() {
     let server = spawn_server();
     let http = agent();
-    
+
     // /public-metrics should be accessible without any authentication
     let response = into_response(
-        http.get(&format!("{}/public-metrics", server.base_url)).call(),
+        http.get(&format!("{}/public-metrics", server.base_url))
+            .call(),
     );
     assert_eq!(response.status(), 200);
     assert_eq!(
@@ -418,18 +419,25 @@ fn public_metrics_route_accessible_without_authentication() {
         Some("text/plain; version=0.0.4")
     );
     let body = response.into_string().expect("utf-8 response body");
-    assert!(body.contains("# HELP"), "Prometheus metrics must start with help comments");
-    assert!(body.contains("# TYPE"), "Prometheus metrics must contain type declarations");
+    assert!(
+        body.contains("# HELP"),
+        "Prometheus metrics must start with help comments"
+    );
+    assert!(
+        body.contains("# TYPE"),
+        "Prometheus metrics must contain type declarations"
+    );
 }
 
 #[test]
 fn api_metrics_prometheus_requires_session_authentication() {
     let server = spawn_server();
     let http = agent();
-    
+
     // /api/metrics-prometheus should require session cookie
     let response = into_response(
-        http.get(&format!("{}/api/metrics-prometheus", server.base_url)).call(),
+        http.get(&format!("{}/api/metrics-prometheus", server.base_url))
+            .call(),
     );
     assert_eq!(response.status(), 401);
 }
@@ -2937,4 +2945,107 @@ fn the_boundary_reported_back_is_the_one_the_service_stored() {
         1,
         "a form this process could not finish still reached the vault"
     );
+}
+
+/// The logs page requires authentication and supports clearing all .log files
+/// from the workspace logs directory via POST with explicit confirmation.
+#[test]
+fn logs_page_requires_authentication() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+
+    // Anonymous request should redirect to login
+    let response = into_response(http.get(&format!("{base}/logs")).call());
+    assert_eq!(response.status(), 303);
+    assert_eq!(response.header("location"), Some("/login"));
+
+    // Authenticated request should render the page
+    let login = post_form(&http, &format!("{base}/login"), &format!("token={TOKEN}"));
+    let session = cookie_value(&login).expect("session cookie set");
+    
+    let page = into_response(
+        http.get(&format!("{base}/logs"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(page.status(), 200);
+    let body = page.into_string().expect("logs page body");
+    assert!(body.contains("<h1>Logs</h1>"));
+}
+
+/// Clearing logs via POST endpoint clears .log files and records an event.
+#[test]
+fn clear_logs_cleared_log_files_and_records_event() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let login = post_form(&http, &format!("{base}/login"), &format!("token={TOKEN}"));
+    let session = cookie_value(&login).expect("session cookie set");
+
+    // Create some log files in the workspace logs directory
+    let logs_dir = server.state.workspace_child_dir("logs");
+    std::fs::create_dir_all(&logs_dir).expect("create logs dir");
+    
+    let log_file1 = logs_dir.join("node.log");
+    let log_file2 = logs_dir.join("error.LOG");
+    let non_log_file = logs_dir.join("config.txt");
+    
+    std::fs::write(&log_file1, "some log content").expect("write log1");
+    std::fs::write(&log_file2, "another log").expect("write log2");
+    std::fs::write(&non_log_file, "not a log").expect("write non-log");
+
+    // Verify files exist before clearing
+    assert!(log_file1.exists());
+    assert!(log_file2.exists());
+    assert!(non_log_file.exists());
+
+    // POST to /logs (with node context to preserve selection)
+    let response = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/logs"),
+        "node=",
+    );
+    assert_eq!(response.status(), 303);
+    
+    let location = response.header("location").expect("redirect location");
+    assert!(location.starts_with("/logs?flash="));
+    assert!(location.contains("cleared+2+log+file(s)"));
+
+    // Verify log files were deleted but non-log files remain
+    assert!(!log_file1.exists());
+    assert!(!log_file2.exists());
+    assert!(non_log_file.exists());
+
+    // Verify LogCleared event was recorded
+    let repository = Repository::open(&server.db_path).expect("reopen workspace");
+    let events = repository
+        .list_events(neo_nexus::core::operations::RuntimeEventFilter::new(None, "", 200))
+        .expect("events");
+    
+    let has_log_cleared = events
+        .iter()
+        .any(|event| event.kind.to_string() == "log-cleared");
+    assert!(has_log_cleared, "LogCleared event should be recorded");
+}
+
+/// Clear logs without authentication is rejected.
+#[test]
+fn clear_logs_rejected_without_session() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+
+    // Try to POST without authentication
+    let response = into_response(
+        http.post(&format!("{base}/logs"))
+            .set("content-type", "application/x-www-form-urlencoded")
+            .send_string("node=")
+            .call(),
+    );
+    
+    // Should redirect to login instead of processing the request
+    assert_eq!(response.status(), 303);
+    assert_eq!(response.header("location"), Some("/login"));
 }
