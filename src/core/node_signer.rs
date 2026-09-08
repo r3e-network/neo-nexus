@@ -13,6 +13,7 @@ use anyhow::{Context, Result};
 use crate::{
     catalog::{PluginId, PluginState},
     config::{network_magic, GenerationContext, ServiceWallet},
+    events::NewRuntimeEvent,
     preflight::resolve_command_path,
     repository::Repository,
     roles::NodeRole,
@@ -439,7 +440,7 @@ fn same_path(left: &Path, right: &Path) -> bool {
 /// A missing profile is an error, never a reason to use a process-wide default
 /// or another healthy backend.
 pub fn resolve_node_signer<'a>(
-    repository: &Repository,
+    repository: &'a Repository,
     registry: &'a SignerRegistry,
     node: &NodeConfig,
 ) -> Result<Option<NodeSignerRoute<'a>>> {
@@ -452,7 +453,11 @@ pub fn resolve_node_signer<'a>(
             node.name, key.backend_id
         )
     })?;
-    Ok(Some(NodeSignerRoute { registry, key }))
+    Ok(Some(NodeSignerRoute {
+        registry,
+        key,
+        repository,
+    }))
 }
 
 /// The only application-level signer dispatch handle for a node.
@@ -460,6 +465,7 @@ pub fn resolve_node_signer<'a>(
 pub struct NodeSignerRoute<'a> {
     registry: &'a SignerRegistry,
     key: SignerKeyRef,
+    repository: &'a Repository,
 }
 
 impl<'a> NodeSignerRoute<'a> {
@@ -472,22 +478,75 @@ impl<'a> NodeSignerRoute<'a> {
     }
 
     pub fn sign_transaction(&self, request: &SignRequest) -> Result<Outcome<Signature>> {
-        self.registry.sign_transaction(&self.key, request)
+        let result = self.registry.sign_transaction(&self.key, request)?;
+
+        // Record wallet usage after successful signing
+        let _ = self.repository.record_event(NewRuntimeEvent {
+            node_id: None,
+            node_name: None,
+            kind: crate::events::EventKind::NeoWalletProfileUsed,
+            severity: crate::events::EventSeverity::Info,
+            message: format!(
+                "wallet profile '{}' used for transaction signing",
+                self.key.key_id
+            ),
+        });
+
+        Ok(result)
     }
 
     pub fn sign_consensus(&self, request: &SignRequest) -> Result<Outcome<Signature>> {
-        self.registry.sign_consensus(&self.key, request)
+        let result = self.registry.sign_consensus(&self.key, request)?;
+
+        // Record wallet usage after successful consensus signing
+        let _ = self.repository.record_event(NewRuntimeEvent {
+            node_id: None,
+            node_name: None,
+            kind: crate::events::EventKind::NeoWalletProfileUsed,
+            severity: crate::events::EventSeverity::Info,
+            message: format!(
+                "wallet profile '{}' used for consensus signing",
+                self.key.key_id
+            ),
+        });
+
+        Ok(result)
     }
 
     pub fn sign_raw(&self, request: &RawSignRequest) -> Result<Outcome<RawSignature>> {
-        self.registry.sign_raw(&self.key, request)
+        let result = self.registry.sign_raw(&self.key, request)?;
+
+        // Record wallet usage after successful raw signing
+        let _ = self.repository.record_event(NewRuntimeEvent {
+            node_id: None,
+            node_name: None,
+            kind: crate::events::EventKind::NeoWalletProfileUsed,
+            severity: crate::events::EventSeverity::Info,
+            message: format!("wallet profile '{}' used for raw signing", self.key.key_id),
+        });
+
+        Ok(result)
     }
 
     pub fn sign_eip191_fulfillment(
         &self,
         request: &Eip191FulfillmentRequest,
     ) -> Result<Outcome<Eip191FulfillmentSignature>> {
-        self.registry.sign_eip191_fulfillment(&self.key, request)
+        let result = self.registry.sign_eip191_fulfillment(&self.key, request)?;
+
+        // Record wallet usage after successful EIP-191 fulfillment
+        let _ = self.repository.record_event(NewRuntimeEvent {
+            node_id: None,
+            node_name: None,
+            kind: crate::events::EventKind::NeoWalletProfileUsed,
+            severity: crate::events::EventSeverity::Info,
+            message: format!(
+                "wallet profile '{}' used for EIP-191 fulfillment",
+                self.key.key_id
+            ),
+        });
+
+        Ok(result)
     }
 
     pub fn key_info(&self) -> Result<Outcome<KeyPublic>> {
