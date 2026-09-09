@@ -13,8 +13,6 @@ use axum::{
 use crate::wallet::TokenPermission;
 use crate::web::WebState;
 
-const PERMISSION_CHOICES: &[&str] = &["Read Fleet", "Read Readiness", "Full Admin"];
-
 pub async fn api_tokens_page(State(state): State<WebState>) -> Response {
     let Some(body) = render_body(&state.repository).ok() else {
         return Response::builder()
@@ -110,7 +108,8 @@ pub async fn delete_token(
     }
 }
 
-struct TokenCreateForm {
+#[derive(serde::Deserialize)]
+pub struct TokenCreateForm {
     name: String,
     read_fleet: bool,
     read_readiness: bool,
@@ -161,7 +160,7 @@ fn render_token_details(token: &crate::wallet::ApiToken) -> String {
     let created_at = pretty_timestamp(token.created_at_unix);
     let expires = token
         .expires_at_unix
-        .map_or_else(|| "Never".to_string(), |ts| pretty_timestamp(ts));
+        .map_or_else(|| "Never".to_string(), pretty_timestamp);
 
     let permissions_str = token
         .permissions
@@ -211,8 +210,7 @@ fn render_token_details(token: &crate::wallet::ApiToken) -> String {
 }
 
 fn create_token_form() -> String {
-    format!(
-        r#"<form method="post" action="/settings/api-tokens/create" class="filters">
+    r#"<form method="post" action="/settings/api-tokens/create" class="filters">
     <div class="form-group">
         <label for="token-name">Token Name</label>
         <input type="text" id="token-name" name="name" placeholder="e.g., CI/CD Pipeline" required>
@@ -235,7 +233,7 @@ fn create_token_form() -> String {
     
     <button type="submit" class="primary-btn">Generate Token</button>
 </form>"#
-    )
+        .to_string()
 }
 
 fn render_token_table(tokens: &[crate::wallet::ApiToken]) -> String {
@@ -315,7 +313,7 @@ fn render_token_table(tokens: &[crate::wallet::ApiToken]) -> String {
 
 fn pretty_timestamp(unix_ts: i64) -> String {
     // Simple formatting - could use chrono for better date handling
-    format!("{}", unix_ts)
+    unix_ts.to_string()
 }
 
 fn escape_html(s: &str) -> String {

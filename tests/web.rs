@@ -495,6 +495,75 @@ fn fleet_api_lists_created_nodes_and_control_persists_state() {
     );
 }
 
+/// Bearer-token API auth end to end: a valid `AdminAll` token authenticates and
+/// its permission authorizes a protected `/api/*` endpoint, a permission-scoped
+/// token is confined to the endpoints it was granted, and a missing or unknown
+/// token is rejected at the boundary — the exact contract a CI script relies on.
+#[test]
+fn api_bearer_token_authenticates_and_enforces_permissions() {
+    use neo_nexus::wallet::TokenPermission;
+
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+
+    // Mint tokens straight through the repository, exactly as the settings page does.
+    let repository = Repository::open(&server.db_path).expect("reopen workspace");
+    let (_admin, admin_secret) = repository
+        .create_api_token("ci-admin", vec![TokenPermission::AdminAll], None)
+        .expect("admin token");
+    let (_readiness_only, readiness_secret) = repository
+        .create_api_token("ci-readiness", vec![TokenPermission::ReadReadiness], None)
+        .expect("readiness token");
+
+    create_node(&server.db_path, "bearer-suite-node", 24332);
+
+    // A valid AdminAll token reaches /api/fleet (AdminAll implies ReadFleet).
+    let fleet = into_response(
+        http.get(&format!("{base}/api/fleet"))
+            .set("authorization", &format!("Bearer {admin_secret}"))
+            .call(),
+    );
+    assert_eq!(fleet.status(), 200);
+    let nodes = json_body(fleet)["nodes"]
+        .as_array()
+        .expect("nodes array")
+        .clone();
+    assert!(
+        nodes.iter().any(|node| node["name"] == "bearer-suite-node"),
+        "AdminAll bearer token must see the fleet inventory"
+    );
+
+    // No Authorization header at all is turned away by the authentication boundary.
+    let anonymous = into_response(http.get(&format!("{base}/api/fleet")).call());
+    assert_eq!(anonymous.status(), 401);
+
+    // A syntactically valid but unknown secret never authenticates.
+    let bogus = into_response(
+        http.get(&format!("{base}/api/fleet"))
+            .set("authorization", "Bearer not-a-real-token")
+            .call(),
+    );
+    assert_eq!(bogus.status(), 401);
+
+    // A token that authenticates but lacks the fleet grant is refused by the
+    // per-route authorization layer — 403, not 401.
+    let forbidden = into_response(
+        http.get(&format!("{base}/api/fleet"))
+            .set("authorization", &format!("Bearer {readiness_secret}"))
+            .call(),
+    );
+    assert_eq!(forbidden.status(), 403);
+
+    // The same readiness-scoped token *is* allowed on the readiness endpoint.
+    let readiness = into_response(
+        http.get(&format!("{base}/api/readiness"))
+            .set("authorization", &format!("Bearer {readiness_secret}"))
+            .call(),
+    );
+    assert_eq!(readiness.status(), 200);
+}
+
 /// The Metrics page tells operators to scrape this path, so the route has to
 /// exist, serve text, and stay behind the same session boundary as the API.
 #[test]
@@ -3006,7 +3075,7 @@ fn clear_logs_cleared_log_files_and_records_event() {
 
     let location = response.header("location").expect("redirect location");
     assert!(location.starts_with("/logs?flash="));
-    assert!(location.contains("cleared+2+log+file(s)"));
+    assert!(location.contains("cleared%202%20log%20file%28s%29"));
 
     // Verify log files were deleted but non-log files remain
     assert!(!log_file1.exists());
@@ -3038,8 +3107,7 @@ fn clear_logs_rejected_without_session() {
     let response = into_response(
         http.post(&format!("{base}/logs"))
             .set("content-type", "application/x-www-form-urlencoded")
-            .send_string("node=")
-            .call(),
+            .send_string("node="),
     );
 
     // Should redirect to login instead of processing the request

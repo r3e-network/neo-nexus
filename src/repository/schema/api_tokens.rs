@@ -1,5 +1,5 @@
 use anyhow::Result;
-use rusqlite::{params, Connection};
+use rusqlite::Connection;
 
 /// Create the api_tokens table if it doesn't exist.
 /// This stores API authentication tokens for programmatic access.

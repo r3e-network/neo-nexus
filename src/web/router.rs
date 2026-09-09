@@ -13,9 +13,8 @@ use axum::{
 use std::time::Duration;
 use tower_http::timeout::TimeoutLayer;
 
-use super::{
-    api, api_tokens, control, health, pages, public_api, signer_api, signer_control, WebState,
-};
+use super::api_tokens::{api_permissions::RequiredPermission, require_permission, AuthIdentity};
+use super::{api, control, health, pages, public_api, signer_api, signer_control, WebState};
 use crate::signer_client::MAX_REQUEST_BODY_BYTES;
 
 /// Authentication modes supported by the web layer.
@@ -166,6 +165,10 @@ pub fn build_router(state: WebState) -> Router {
             get(pages::api_tokens::api_tokens_page),
         )
         .route(
+            "/settings/api-tokens/create",
+            post(pages::api_tokens::create_token),
+        )
+        .route(
             "/settings/api-tokens/{token_id}/delete",
             post(pages::api_tokens::delete_token),
         )
@@ -180,9 +183,26 @@ pub fn build_router(state: WebState) -> Router {
             post(control::save_federation_monitor),
         )
         .route("/logout", post(logout))
-        .route("/api/fleet", get(api::fleet))
-        .route("/api/readiness", get(api::readiness))
-        .route("/api/metrics-prometheus", get(api::metrics_prometheus))
+        .route(
+            "/api/fleet",
+            get(api::fleet).route_layer(middleware::from_fn(|req: Request, next: Next| {
+                require_permission(req, next, RequiredPermission::ReadFleet)
+            })),
+        )
+        .route(
+            "/api/readiness",
+            get(api::readiness).route_layer(middleware::from_fn(|req: Request, next: Next| {
+                require_permission(req, next, RequiredPermission::ReadReadiness)
+            })),
+        )
+        .route(
+            "/api/metrics-prometheus",
+            get(api::metrics_prometheus).route_layer(middleware::from_fn(
+                |req: Request, next: Next| {
+                    require_permission(req, next, RequiredPermission::ReadFleet)
+                },
+            )),
+        )
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             require_session,
@@ -197,7 +217,11 @@ pub fn build_router(state: WebState) -> Router {
         .with_state(state)
 }
 
-async fn require_session(State(state): State<WebState>, request: Request, next: Next) -> Response {
+async fn require_session(
+    State(state): State<WebState>,
+    mut request: Request,
+    next: Next,
+) -> Response {
     let session_id = session_from_cookie(request.headers().get(header::COOKIE));
     let bearer_token = bearer_token_from_request(&request);
     let is_api = request.uri().path().starts_with("/api/");
@@ -223,18 +247,22 @@ async fn require_session(State(state): State<WebState>, request: Request, next: 
             )
                 .into_response();
         }
+        request.extensions_mut().insert(AuthIdentity::Session);
         return next.run(request).await;
     }
 
     // Try Bearer token authentication
     if let Some(token_secret) = bearer_token {
-        if let Ok(Some(_)) = state.repository.verify_token_secret(&token_secret) {
-            // Token is valid - API routes accept it directly
+        if let Ok(Some(token)) = state.repository.verify_token_secret(&token_secret) {
+            // The token authenticates the caller; per-route `require_permission`
+            // layers then authorize the specific endpoint against its grants.
             if is_api {
+                request
+                    .extensions_mut()
+                    .insert(AuthIdentity::Token(Box::new(token)));
                 return next.run(request).await;
             }
-            // For browser routes, we could potentially support Bearer tokens too
-            // but for now, they require session cookies for CSRF protection
+            // Browser routes stay session-only so their CSRF-origin proof holds.
             return (
                 StatusCode::UNAUTHORIZED,
                 "Bearer tokens are only accepted on /api/* endpoints",

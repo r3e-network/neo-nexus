@@ -27,18 +27,13 @@ impl Repository {
                 permissions: parse_permissions(row.get::<_, String>(2)?),
                 created_at_unix: row.get(3)?,
                 expires_at_unix: row.get(4)?,
-                secret_hash: row
-                    .get::<_, Vec<u8>>(5)?
-                    .try_into()
-                    .unwrap_or_else(|_| [0u8; 32]),
+                secret_hash: row.get::<_, Vec<u8>>(5)?.try_into().unwrap_or([0u8; 32]),
             })
         });
 
         let mut results = Vec::new();
-        for token_result in tokens? {
-            if let Ok(token) = token_result {
-                results.push(token);
-            }
+        for token in tokens?.flatten() {
+            results.push(token);
         }
 
         Ok(results)
@@ -142,10 +137,7 @@ impl Repository {
                     permissions: parse_permissions(row.get::<_, String>(2)?),
                     created_at_unix: row.get(3)?,
                     expires_at_unix: row.get(4)?,
-                    secret_hash: row
-                        .get::<_, Vec<u8>>(5)?
-                        .try_into()
-                        .unwrap_or_else(|_| [0u8; 32]),
+                    secret_hash: row.get::<_, Vec<u8>>(5)?.try_into().unwrap_or([0u8; 32]),
                 })
             },
         );
