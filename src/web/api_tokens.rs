@@ -1,82 +1,67 @@
-//! Handler functions for API requests requiring permission-based authorization.
+//! Permission-based authorization for the JSON API surface.
 //!
-//! These handlers wrap existing API routes and enforce fine-grained permissions
-//! based on the authenticated API token's granted permissions.
+//! The router authenticates each request once (browser session or API bearer
+//! token) and tags it with an [`AuthIdentity`]. This module turns that identity
+//! into a per-endpoint permission decision, keeping token scoping and route
+//! wiring in one place instead of re-reading credentials on every handler.
 
 use axum::{
-    extract::{Request, State},
+    extract::Request,
     http::StatusCode,
     middleware::Next,
-    response::Response,
+    response::{IntoResponse, Response},
 };
 
-use crate::web::WebState;
+use crate::wallet::{ApiToken, TokenPermission};
 
-/// Middleware layer that enforces API token permissions on /api/* routes.
+/// Identity established by the outer authentication boundary and attached to the
+/// request so downstream authorization can decide without re-reading headers.
+#[derive(Clone, Debug)]
+pub enum AuthIdentity {
+    /// A signed-in browser operator, carrying full operator authority.
+    Session,
+    /// A verified API bearer token, limited to its granted permissions.
+    Token(Box<ApiToken>),
+}
+
+/// Authorization middleware that enforces the permission a specific `/api/*`
+/// route requires.
+///
+/// Authentication already happened in the router's session/bearer boundary,
+/// which tagged the request with an [`AuthIdentity`]. A browser session carries
+/// full operator authority and passes unconditionally; an API bearer token must
+/// hold the required permission, with `AdminAll` implying every other grant.
 pub async fn require_permission(
-    State(state): State<WebState>,
     request: Request,
     next: Next,
-    required_permission: api_permissions::RequiredPermission,
-) -> Result<Response, (StatusCode, String)> {
-    // Extract Bearer token from Authorization header
-    let auth_header = request
-        .headers()
-        .get(axum::http::header::AUTHORIZATION)
-        .and_then(|h| h.to_str().ok())
-        .filter(|s| s.starts_with("Bearer "))
-        .ok_or_else(|| {
-            (
-                StatusCode::UNAUTHORIZED,
-                "Authorization header missing or invalid".to_string(),
-            )
-        })?;
-
-    let token_secret = &auth_header["Bearer ".len()..];
-
-    // Verify token and get its metadata
-    let maybe_token = state
-        .repository
-        .verify_token_secret(token_secret)
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Token verification error: {}", e),
-            )
-        })?;
-
-    let token = maybe_token.ok_or_else(|| {
-        (
+    required: api_permissions::RequiredPermission,
+) -> Response {
+    let identity = request.extensions().get::<AuthIdentity>().cloned();
+    match identity {
+        Some(AuthIdentity::Session) => next.run(request).await,
+        Some(AuthIdentity::Token(token)) => {
+            if token.has_permission(&required.permission()) {
+                next.run(request).await
+            } else {
+                (
+                    StatusCode::FORBIDDEN,
+                    "Insufficient permissions for this endpoint",
+                )
+                    .into_response()
+            }
+        }
+        None => (
             StatusCode::UNAUTHORIZED,
-            "Invalid or expired API token".to_string(),
+            r#"{"error":"authentication required"}"#,
         )
-    })?;
-
-    // Check if token has required permission
-    let has_access = match required_permission {
-        api_permissions::RequiredPermission::ReadFleet => {
-            token.has_permission(&crate::wallet::TokenPermission::ReadFleet)
-        }
-        api_permissions::RequiredPermission::ReadReadiness => {
-            token.has_permission(&crate::wallet::TokenPermission::ReadReadiness)
-        }
-        api_permissions::RequiredPermission::AdminAll => {
-            token.has_permission(&crate::wallet::TokenPermission::AdminAll)
-        }
-    };
-
-    if has_access {
-        Ok(next.run(request).await)
-    } else {
-        Err((
-            StatusCode::FORBIDDEN,
-            "Insufficient permissions for this endpoint".to_string(),
-        ))
+            .into_response(),
     }
 }
 
 /// Permission requirements for different API endpoints.
 pub mod api_permissions {
+    use super::TokenPermission;
+
     /// Required permission level for an API endpoint.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum RequiredPermission {
@@ -86,5 +71,16 @@ pub mod api_permissions {
         ReadReadiness,
         /// Full admin access (all read + write operations)
         AdminAll,
+    }
+
+    impl RequiredPermission {
+        /// The token permission a caller must hold to satisfy this requirement.
+        pub(crate) fn permission(self) -> TokenPermission {
+            match self {
+                RequiredPermission::ReadFleet => TokenPermission::ReadFleet,
+                RequiredPermission::ReadReadiness => TokenPermission::ReadReadiness,
+                RequiredPermission::AdminAll => TokenPermission::AdminAll,
+            }
+        }
     }
 }
