@@ -28,8 +28,10 @@ mod security_headers;
 pub mod server;
 pub mod signer_api;
 pub mod signer_control;
+pub mod snapshot_ops;
 pub mod state;
 pub mod time;
+pub mod wallet_ops;
 
 pub use server::{run_web_server, WebLaunch};
 pub use state::{Admin, Custody, WebState};

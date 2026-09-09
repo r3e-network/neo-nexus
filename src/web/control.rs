@@ -29,6 +29,8 @@ use crate::{
 
 use super::{assets::DensityMode, html, pages::settings, WebState};
 
+use crate::runtime_smoke;
+
 pub async fn node_start(State(state): State<WebState>, Path(id): Path<String>) -> Response {
     control_redirect(&state, &id, LaunchAction::Start)
 }
@@ -82,14 +84,26 @@ pub async fn apply_snapshot(
         // Apply the snapshot
         let application = FastSyncSnapshotManager::apply_to_node(&snapshot, &node, &node_data_dir)?;
 
-        Ok(format!(
+        let message = format!(
             "snapshot '{}' applied to node '{}' ({}) — {} files, {} decompressed",
             snapshot.label,
             node.id,
             node.name,
             application.imported_files,
             crate::core::operations::format_bytes(application.expanded_bytes),
-        ))
+        );
+
+        // The apply already happened; a journal failure must not be reported as
+        // if the apply itself had failed.
+        let _ = state.repository.record_event(NewRuntimeEvent {
+            node_id: Some(node.id.clone()),
+            node_name: Some(node.name.clone()),
+            kind: EventKind::SnapshotApplied,
+            severity: EventSeverity::Info,
+            message: message.clone(),
+        });
+
+        Ok(message)
     })();
 
     match outcome {
@@ -400,4 +414,54 @@ fn respond_to(path: &str, outcome: anyhow::Result<String>) -> Response {
         path = path
     ))
     .into_response()
+}
+
+/// Run a runtime smoke test against a node's current binary.
+pub async fn smoke_test_node(State(state): State<WebState>, Path(id): Path<String>) -> Response {
+    use std::time::Duration;
+
+    // First load the node synchronously
+    let node = match load_node(&state.repository, &id) {
+        Ok(n) => n,
+        Err(error) => return back_to_node(&id, &format!("node not found: {error}")),
+    };
+
+    // Run smoke test in a blocking thread since it spawns processes
+    let report = match tokio::task::spawn_blocking({
+        let node_config = node.clone();
+        move || runtime_smoke::smoke_node_binary(&node_config, Duration::from_secs(3))
+    })
+    .await
+    .map_err(|e| anyhow::anyhow!("smoke test task failed: {e}"))
+    {
+        Ok(r) => r,
+        Err(e) => {
+            return back_to_node(&id, &format!("smoke test failed: {e}"));
+        }
+    };
+
+    let message = format!(
+        "runtime smoke test {} — {}",
+        if report.status.is_success() {
+            "passed"
+        } else {
+            "failed"
+        },
+        report.message
+    );
+
+    // Record event with severity matching status
+    let _ = state.repository.record_event(NewRuntimeEvent {
+        node_id: Some(id.clone()),
+        node_name: Some(node.name.clone()),
+        kind: EventKind::RuntimeSmokeTested,
+        severity: if report.status.is_success() {
+            EventSeverity::Info
+        } else {
+            EventSeverity::Warning
+        },
+        message: message.clone(),
+    });
+
+    back_to_node(&id, &message)
 }

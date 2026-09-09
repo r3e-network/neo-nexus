@@ -61,10 +61,12 @@ fn render_body(
 ) -> String {
     format!(
         r#"<h1>Wallets</h1>
+{import_form}
 {tiles}
 {filters}
 {table}
 {privacy}"#,
+        import_form = render_import_form(),
         tiles = html::cards(&[
             ("Profiles", all.len().to_string()),
             (
@@ -114,6 +116,23 @@ fn render_body(
     )
 }
 
+fn render_import_form() -> String {
+    r#"<form method="POST" action="/wallets/import" style="max-width: 300px; margin-bottom: 24px; padding: 16px; background-color: #f8f9fa; border-radius: 8px;">          <div style="margin-bottom: 12px;">
+            <label for="file_path" style="display: block; margin-bottom: 4px; font-weight: bold;">Wallet File Path:</label>
+            <input type="text" id="file_path" name="file_path" required style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box;" placeholder="/path/to/wallet.json">
+          </div>
+          <div style="margin-bottom: 12px;">
+            <label for="id" style="display: block; margin-bottom: 4px;">ID (optional):</label>
+            <input type="text" id="id" name="id" style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box;" placeholder="auto-generated if empty">
+          </div>
+          <div style="margin-bottom: 12px;">
+            <label for="label" style="display: block; margin-bottom: 4px;">Label (optional):</label>
+            <input type="text" id="label" name="label" style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box;" placeholder="Descriptive name">
+          </div>
+          <button type="submit" style="background-color: #007bff; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">Import Wallet</button>
+        </form>"#.to_string()
+}
+
 fn wallet_table(profiles: &[NeoWalletProfile]) -> String {
     if profiles.is_empty() {
         return html::note("No wallet profiles have been validated in this workspace.");
@@ -132,6 +151,10 @@ fn wallet_table(profiles: &[NeoWalletProfile]) -> String {
                 html::cell(&profile.contract_public_keys.len().to_string()),
                 html::cell(&profile.wallet_sha256.chars().take(12).collect::<String>()),
                 html::raw_cell(&time::time_cell(Some(profile.validated_at_unix))),
+                html::raw_cell(&format!(
+                    r#"<a href="/wallets/{}/delete">Delete</a>"#,
+                    html::escape(&profile.id)
+                )),
             ])
         })
         .collect::<Vec<_>>();
@@ -147,6 +170,7 @@ fn wallet_table(profiles: &[NeoWalletProfile]) -> String {
             "Keys",
             "File SHA-256",
             "Validated",
+            "Delete",
         ],
         &rows,
     )

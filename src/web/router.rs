@@ -14,7 +14,10 @@ use std::time::Duration;
 use tower_http::timeout::TimeoutLayer;
 
 use super::api_tokens::{api_permissions::RequiredPermission, require_permission, AuthIdentity};
-use super::{api, control, health, pages, public_api, signer_api, signer_control, WebState};
+use super::{
+    api, control, health, pages, public_api, signer_api, signer_control, snapshot_ops, wallet_ops,
+    WebState,
+};
 use crate::signer_client::MAX_REQUEST_BODY_BYTES;
 
 /// Authentication modes supported by the web layer.
@@ -95,6 +98,7 @@ pub fn build_router(state: WebState) -> Router {
         .route("/nodes/{id}/start", post(control::node_start))
         .route("/nodes/{id}/stop", post(control::node_stop))
         .route("/nodes/{id}/restart", post(control::node_restart))
+        .route("/nodes/{id}/smoke-test", post(control::smoke_test_node))
         .route(
             "/nodes/{id}/signer",
             post(pages::nodes::save_signer_binding),
@@ -117,11 +121,29 @@ pub fn build_router(state: WebState) -> Router {
         .route("/runtimes", get(pages::runtimes::runtimes))
         .route("/runtimes/install", post(pages::runtimes::install))
         .route("/snapshots", get(pages::snapshots::snapshots))
+        .route("/snapshots/save", post(snapshot_ops::save_snapshot))
+        .route(
+            "/snapshots/{snapshot_id}/verify",
+            post(snapshot_ops::verify_snapshot),
+        )
+        .route(
+            "/snapshots/{snapshot_id}/download",
+            post(snapshot_ops::download_snapshot),
+        )
+        .route(
+            "/snapshots/{snapshot_id}/cache",
+            post(snapshot_ops::cache_snapshot),
+        )
         .route(
             "/snapshots/{snapshot_id}/apply/{node_id}",
             post(control::apply_snapshot),
         )
         .route("/wallets", get(pages::wallets::wallets))
+        .route("/wallets/import", post(wallet_ops::import_wallet_profile))
+        .route(
+            "/wallets/{id}/delete",
+            get(wallet_ops::show_delete_form).post(wallet_ops::delete_wallet_profile),
+        )
         .route(
             "/backup",
             get(pages::backup::backup_page).post(control::handle_backup_export),
