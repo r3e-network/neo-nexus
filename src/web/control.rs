@@ -75,8 +75,11 @@ pub async fn apply_snapshot(
         let node = load_node(&state.repository, &node_id)?;
 
         // Construct node data directory path
-        let workspace_root = std::path::Path::new("workspaces"); // TODO: Make this configurable
-        let node_workspace = node_workspace_path(workspace_root, &node.id)?;
+        const NODES_DIR: &str = "nodes";
+        let node_workspace = node_workspace_path(
+            state.workspace_child_dir(NODES_DIR), // ✅ Use data_dir-based path
+            &node.id,
+        )?;
         let node_data_dir = node_workspace
             .join("data")
             .join(snapshot.network.to_string());
@@ -529,7 +532,7 @@ pub async fn smoke_test_node(State(state): State<WebState>, Path(id): Path<Strin
         severity: if report.status.is_success() {
             EventSeverity::Info
         } else {
-            EventSeverity::Warning
+            EventSeverity::Critical // ⚠️ Failed smoke tests indicate potential binary corruption
         },
         message: message.clone(),
     });

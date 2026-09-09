@@ -122,8 +122,10 @@ pub fn build_router(state: WebState) -> Router {
             "/plugins/install",
             // A plugin package may be up to 2 GiB, far past the default request
             // body cap; the handler streams it and enforces the size limit
-            // itself, so the built-in limit is disabled just for this route.
-            post(plugin_ops::install_plugin).layer(DefaultBodyLimit::disable()),
+            // itself, so we use max() instead of disable() for proper scoping.
+            post(plugin_ops::install_plugin).layer(DefaultBodyLimit::max(
+                crate::plugins::PLUGIN_PACKAGE_MAX_BYTES as usize,
+            )),
         )
         .route("/runtimes", get(pages::runtimes::runtimes))
         .route("/runtimes/install", post(pages::runtimes::install))

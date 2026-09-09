@@ -153,19 +153,25 @@ pub async fn install_plugin(State(state): State<WebState>, mut multipart: Multip
         "install plugin {} ({}) on {}",
         manifest.plugin_id, manifest.label, node.name
     );
+
+    // The closure takes ownership of its own copy of the path so the job body
+    // can remove the upload once it settles. Keep the original for the
+    // lane-busy path, where the job never runs and must be cleaned up here.
     let job_state = state.clone();
     let closure_temp = temp_path.clone();
-    let message = match state.jobs.submit(LANE, description, move || {
+    match state.jobs.submit(LANE, description, move || {
         install_plugin_job(&job_state, &manifest, &node, &node_work_dir, &closure_temp)
     }) {
-        Ok(job) => format!("install started: {}", job.description),
+        Ok(job) => redirect_back(&node_id, &format!("install started: {}", job.description)),
         Err(busy) => {
             // The job never ran, so its cleanup never fires: remove the upload here.
             let _ = fs::remove_file(&temp_path);
-            format!("not started: {} is already running", busy.description)
+            redirect_back(
+                &node_id,
+                &format!("not started: {} is already running", busy.description),
+            )
         }
-    };
-    redirect_back(&node_id, &message)
+    }
 }
 
 /// Stream an uploaded field to `path`, refusing anything past the size cap
