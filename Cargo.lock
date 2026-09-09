@@ -948,7 +948,7 @@ checksum = "743fb55ba31b18fb1ecef6bdc9aa2743314978ac084044301a7eee33fb99a20d"
 
 [[package]]
 name = "neo-nexus"
-version = "4.2.0"
+version = "4.3.0"
 dependencies = [
  "aes",
  "anyhow",
