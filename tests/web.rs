@@ -15,7 +15,7 @@ use std::{
 
 use axum::serve;
 use neo_nexus::{
-    core::operations::RuntimeEventFilter,
+    core::operations::{EventSeverity, RuntimeEventFilter},
     repository::Repository,
     signer_client::{SignerClient, SignerConfig},
     types::{Network, NewNode, NodeType, StorageEngine},
@@ -3196,20 +3196,226 @@ fn clear_logs_rejected_without_session() {
     assert_eq!(response.header("location"), Some("/login"));
 }
 
-// SKIPPED: These tests need further debugging around event recording paths
-// /// Integration test demonstrating snapshot event recording flows.
-// #[test]
-// fn snapshot_lifecycle_events_from_web_handlers() {
-//     // Test temporarily skipped while debugging event flow
-// }
-//
-// /// A control-plane node can trigger apply-to-node over HTTP after the snapshot is
-// /// verified and cached. This test asserts the SnapshotApplied event now appears
-// /// in the journal (the Part A fix).
-// #[test]
-// fn apply_snapshot_records_snapshot_applied_event_now() {
-//     // Test temporarily skipped while debugging event flow
-// }
+/// The snapshot lifecycle web handlers each journal the stage they drive: the
+/// register form records SnapshotSaved, the cache control records SnapshotCached,
+/// and the verify control records SnapshotVerified. Driving all three over HTTP
+/// and reading the journal back proves the producers are wired end to end.
+#[test]
+fn snapshot_lifecycle_events_from_web_handlers() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+    let repository = Repository::open(&server.db_path).expect("open workspace");
+
+    // A real source archive the cache and verify stages can hash. Its digest is
+    // what the register form must carry so both stages accept it as authentic.
+    let source_dir = tempfile::tempdir().expect("temp snapshot source");
+    let source_path = source_dir.path().join("chain.acc");
+    std::fs::write(&source_path, "fast sync snapshot payload").expect("write snapshot source");
+    let (sha256, _bytes) =
+        neo_nexus::snapshots::sha256_file(&source_path).expect("hash snapshot source");
+
+    // Register the snapshot: this is the sole producer of SnapshotSaved.
+    let save = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/snapshots/save"),
+        &format!(
+            "id=lifecycle-snap&label=Lifecycle+Snapshot&network=testnet&node_type=neo-rs\
+             &source_path={}&source_url=&download_file_name=&download_max_bytes=&expected_sha256={}",
+            html::urlencoding_lite(&source_path.display().to_string()),
+            sha256,
+        ),
+    );
+    assert_eq!(
+        save.status(),
+        303,
+        "register form should redirect on success"
+    );
+    assert!(
+        save.header("location")
+            .expect("redirect")
+            .starts_with("/snapshots?flash="),
+        "register should land back on the inventory page"
+    );
+
+    let snapshots = repository
+        .list_fast_sync_snapshots()
+        .expect("list snapshots");
+    assert_eq!(
+        snapshots.len(),
+        1,
+        "the register form should persist one snapshot"
+    );
+    let snapshot_id = snapshots[0].id.clone();
+
+    // Cache the snapshot from its source path: records SnapshotCached.
+    let cache = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/snapshots/{snapshot_id}/cache"),
+        "",
+    );
+    assert_eq!(
+        cache.status(),
+        303,
+        "cache control should redirect on success"
+    );
+
+    // Verify the snapshot against its recorded digest: records SnapshotVerified.
+    let verify = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/snapshots/{snapshot_id}/verify"),
+        "",
+    );
+    assert_eq!(
+        verify.status(),
+        303,
+        "verify control should redirect on success"
+    );
+
+    // The journal should now tell the whole story: saved, cached, verified.
+    let kinds: Vec<String> = repository
+        .list_events(RuntimeEventFilter::new(None, "", 200))
+        .expect("events")
+        .into_iter()
+        .map(|event| event.kind.to_string())
+        .collect();
+
+    for expected in ["snapshot-saved", "snapshot-cached", "snapshot-verified"] {
+        assert!(
+            kinds.iter().any(|kind| kind == expected),
+            "{expected} event should be recorded, journal held {kinds:?}"
+        );
+    }
+}
+
+/// A control-plane node can trigger apply-to-node over HTTP after the snapshot is
+/// verified and cached. This test asserts the SnapshotApplied event now appears
+/// in the journal (the Part A fix).
+#[test]
+fn apply_snapshot_records_snapshot_applied_event_now() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+    let repository = Repository::open(&server.db_path).expect("open workspace");
+
+    // A plain source file applies as a single raw import; its digest is what the
+    // register form carries so the cache and verify stages both accept it.
+    let source_dir = tempfile::tempdir().expect("temp snapshot source");
+    let source_path = source_dir.path().join("chain.acc");
+    std::fs::write(&source_path, "node data package").expect("write snapshot source");
+    let (sha256, _bytes) =
+        neo_nexus::snapshots::sha256_file(&source_path).expect("hash snapshot source");
+
+    // The target node must match the snapshot's network and runtime, or the apply
+    // is refused before it ever reaches the journal.
+    let node = repository
+        .create_node(NewNode {
+            name: "apply-target".to_string(),
+            node_type: NodeType::NeoRs,
+            network: Network::Testnet,
+            binary_path: PathBuf::from("./neo-node"),
+            args: Vec::new(),
+            runtime_version: "v0.1.0".to_string(),
+            storage_engine: StorageEngine::RocksDb,
+            rpc_port: 53332,
+            p2p_port: 53333,
+            ws_port: None,
+        })
+        .expect("create node");
+
+    // Register, cache, then verify the snapshot over HTTP so it reaches the apply
+    // stage in exactly the state the browser would leave it.
+    let save = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/snapshots/save"),
+        &format!(
+            "id=apply-snap&label=Apply+Snapshot&network=testnet&node_type=neo-rs\
+             &source_path={}&source_url=&download_file_name=&download_max_bytes=&expected_sha256={}",
+            html::urlencoding_lite(&source_path.display().to_string()),
+            sha256,
+        ),
+    );
+    assert_eq!(
+        save.status(),
+        303,
+        "register form should redirect on success"
+    );
+
+    let snapshot_id = repository
+        .list_fast_sync_snapshots()
+        .expect("list snapshots")
+        .into_iter()
+        .next()
+        .expect("one snapshot registered")
+        .id;
+
+    let cache = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/snapshots/{snapshot_id}/cache"),
+        "",
+    );
+    assert_eq!(
+        cache.status(),
+        303,
+        "cache control should redirect on success"
+    );
+
+    let verify = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/snapshots/{snapshot_id}/verify"),
+        "",
+    );
+    assert_eq!(
+        verify.status(),
+        303,
+        "verify control should redirect on success"
+    );
+
+    // Apply the verified, cached snapshot to the node. This is the path the Part A
+    // fix taught to journal SnapshotApplied once the import succeeds.
+    let apply = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/snapshots/{snapshot_id}/apply/{}", node.id),
+        "",
+    );
+    assert_eq!(apply.status(), 303, "apply control should redirect");
+    let location = apply.header("location").expect("redirect back to node");
+    assert!(
+        location.starts_with(&format!("/nodes/{}?flash=", node.id)),
+        "apply should land back on the node detail page: {location}"
+    );
+    assert!(
+        location.contains("applied"),
+        "the flash should report a successful apply, not a failure: {location}"
+    );
+
+    // The Part A fix: SnapshotApplied now appears in the journal, tied to the node
+    // it was applied to.
+    let events = repository
+        .list_events(RuntimeEventFilter::new(None, "", 50))
+        .expect("events");
+    let applied = events.iter().find(|event| {
+        event.kind.to_string() == "snapshot-applied"
+            && event.node_id.as_deref() == Some(node.id.as_str())
+    });
+    assert!(
+        applied.is_some(),
+        "SnapshotApplied event should be recorded for the node, journal held {:?}",
+        events
+            .iter()
+            .map(|event| (event.kind.to_string(), event.node_id.clone()))
+            .collect::<Vec<_>>()
+    );
+}
 
 /// A runtime smoke test can be triggered from a node detail page POST.
 #[test]
@@ -3277,18 +3483,72 @@ fn smoke_test_triggers_and_records_runtime_smoke_tested_event() {
         "flash message should describe result: {location}"
     );
 
-    // Verify RuntimeSmokeTested event was recorded in the journal
+    // Verify RuntimeSmokeTested event was recorded in the journal, and that a
+    // passing probe (exit 0) is journalled at Info — low-noise for a healthy
+    // binary.
     let events = repository
         .list_events(RuntimeEventFilter::new(None, "", 200))
         .expect("events");
 
-    let has_smoke_tested = events.iter().any(|event| {
+    let success_event = events.iter().find(|event| {
         event.kind.to_string() == "runtime-smoke-tested"
             && event.node_id.as_deref() == Some(node.id.as_str())
     });
+    let success_event =
+        success_event.expect("RuntimeSmokeTested event should be recorded in journal");
+    assert_eq!(
+        success_event.severity,
+        EventSeverity::Info,
+        "a passing smoke test should be journalled at Info severity"
+    );
+
+    // A failing smoke test signals a possibly corrupt binary, so it must surface
+    // at Critical — high enough that operators scanning for serious issues will
+    // not miss it under the Info/Warning noise.
+    let (crash_binary, crash_args) = crashing_command();
+    let failing_node = repository
+        .create_node(NewNode {
+            name: "smoke-test-failing-node".to_string(),
+            node_type: NodeType::NeoGo,
+            network: Network::Testnet,
+            binary_path: crash_binary,
+            args: crash_args,
+            runtime_version: "test".to_string(),
+            storage_engine: StorageEngine::LevelDb,
+            rpc_port: 45632,
+            p2p_port: 45633,
+            ws_port: None,
+        })
+        .expect("failing node creation");
+
+    let failing_response = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/nodes/{}/smoke-test", failing_node.id),
+        "",
+    );
+    assert_eq!(failing_response.status(), 303);
+    let failing_location = failing_response
+        .header("location")
+        .expect("redirect back to node");
     assert!(
-        has_smoke_tested,
-        "RuntimeSmokeTested event should be recorded in journal"
+        failing_location.contains("failed"),
+        "a crashing binary should report a failed smoke test: {failing_location}"
+    );
+
+    let events = repository
+        .list_events(RuntimeEventFilter::new(None, "", 200))
+        .expect("events");
+    let failure_event = events.iter().find(|event| {
+        event.kind.to_string() == "runtime-smoke-tested"
+            && event.node_id.as_deref() == Some(failing_node.id.as_str())
+    });
+    let failure_event =
+        failure_event.expect("failing smoke test should record a RuntimeSmokeTested event");
+    assert_eq!(
+        failure_event.severity,
+        EventSeverity::Critical,
+        "a failed smoke test should be journalled at Critical severity"
     );
 }
 
