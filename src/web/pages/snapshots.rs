@@ -102,6 +102,7 @@ fn render_body(
     format!(
         r#"<h1>Snapshots</h1>
 {tiles}
+{register}
 {filters}
 {table}"#,
         tiles = html::cards(&[
@@ -116,6 +117,7 @@ fn render_body(
             ),
             ("Matching", visible.len().to_string()),
         ]),
+        register = register_form(),
         filters = html::typed_filter_form(
             "/snapshots",
             &[],
@@ -231,7 +233,7 @@ fn snapshot_table(snapshots: &[FastSyncSnapshot], nodes: &[NodeConfig]) -> Strin
                         }),
                 ),
                 html::cell(&snapshot.bytes.map_or("—".to_string(), format_bytes)),
-                html::cell(&apply_actions),
+                html::raw_cell(&format!("{}{}", lifecycle_actions(snapshot), apply_actions)),
             ])
         })
         .collect::<Vec<_>>();
@@ -264,4 +266,109 @@ fn stage(snapshot: &FastSyncSnapshot) -> &'static str {
     } else {
         "declared"
     }
+}
+
+/// The stage-advancing controls for one row, shown only where they can do
+/// something: a download needs an HTTPS source and an empty cache; a local cache
+/// needs a source file and an empty cache; a verify needs a cached file whose
+/// hash has not been recorded yet. This mirrors the readiness `stage()` reports.
+fn lifecycle_actions(snapshot: &FastSyncSnapshot) -> String {
+    let cached = snapshot.cached_path.is_some();
+    let verified = snapshot.verified_sha256.is_some();
+    let has_source_path = !snapshot.source_path.as_os_str().is_empty();
+
+    let mut buttons: Vec<String> = Vec::new();
+    if snapshot.source_url.is_some() && !cached {
+        buttons.push(lifecycle_button(&snapshot.id, "download", "Download"));
+    }
+    if has_source_path && !cached {
+        buttons.push(lifecycle_button(&snapshot.id, "cache", "Cache"));
+    }
+    if cached && !verified {
+        buttons.push(lifecycle_button(&snapshot.id, "verify", "Verify"));
+    }
+    if buttons.is_empty() {
+        return String::new();
+    }
+    format!("<div class='actions'>{}</div>", buttons.join(" "))
+}
+
+/// One stage-advancing button, styled like the apply buttons on the same row.
+fn lifecycle_button(snapshot_id: &str, action: &str, label: &str) -> String {
+    format!(
+        "<form method='POST' action='/snapshots/{}/{action}' style='display:inline'>
+            <button type='submit' class='btn btn-sm'>{label}</button>
+        </form>",
+        html::urlencoding_lite(snapshot_id),
+    )
+}
+
+/// The browser entry point for registering a snapshot manifest. It posts to
+/// `snapshot_ops::save_snapshot`, which stores the snapshot and journals it as
+/// saved. A source path or an HTTPS URL is required, along with the checksum.
+fn register_form() -> String {
+    format!(
+        r#"<h2>Register snapshot</h2>
+<p class="muted">Record a fast-sync archive so it can be downloaded, cached, hash-verified and applied. Give it a source path or an HTTPS URL, and the expected SHA-256.</p>
+<form class="filters" method="post" action="/snapshots/save">
+{id}
+{label}
+{network}
+{runtime}
+{source_path}
+{source_url}
+{file_name}
+{max_bytes}
+{sha256}
+<button type="submit">Save snapshot</button>
+</form>"#,
+        id = html::text_field("Snapshot id", "id", ""),
+        label = html::text_field("Label", "label", ""),
+        network = html::TextField {
+            label: "Network",
+            name: "network",
+            placeholder: Some("mainnet"),
+            ..html::TextField::default()
+        }
+        .render(),
+        runtime = html::TextField {
+            label: "Runtime",
+            name: "node_type",
+            placeholder: Some("neo-rs"),
+            ..html::TextField::default()
+        }
+        .render(),
+        source_path = html::TextField {
+            label: "Source path",
+            name: "source_path",
+            placeholder: Some("/path/to/snapshot.acc"),
+            monospace: true,
+            ..html::TextField::default()
+        }
+        .render(),
+        source_url = html::TextField {
+            label: "Source URL",
+            name: "source_url",
+            placeholder: Some("https://…"),
+            monospace: true,
+            ..html::TextField::default()
+        }
+        .render(),
+        file_name = html::text_field("Download file name", "download_file_name", ""),
+        max_bytes = html::TextField {
+            label: "Download size limit (bytes)",
+            name: "download_max_bytes",
+            placeholder: Some("optional"),
+            ..html::TextField::default()
+        }
+        .render(),
+        sha256 = html::TextField {
+            label: "Expected SHA-256",
+            name: "expected_sha256",
+            monospace: true,
+            full_width: true,
+            ..html::TextField::default()
+        }
+        .render(),
+    )
 }

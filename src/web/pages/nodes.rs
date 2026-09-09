@@ -510,6 +510,7 @@ fn control_bar(node: &NodeConfig) -> String {
 <form method="post" action="/nodes/{encoded}/start"><button class="primary" type="submit"{start_disabled}>Start</button></form>
 <form method="post" action="/nodes/{encoded}/stop"><button type="submit"{stop_disabled}>Stop</button></form>
 <form method="post" action="/nodes/{encoded}/restart"><button type="submit"{restart_disabled}>Restart</button></form>
+<form method="post" action="/nodes/{encoded}/smoke-test" onclick="return confirm('Run smoke test now?');"><button type="submit">Run smoke test</button></form>
 </div>"#,
     )
 }
