@@ -21,6 +21,7 @@ pub mod jobs;
 pub mod nav;
 pub mod node_form;
 pub mod pages;
+pub mod plugin_ops;
 pub mod public_api;
 pub mod router;
 pub mod runtime_ops;

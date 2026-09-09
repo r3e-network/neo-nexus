@@ -15,8 +15,8 @@ use tower_http::timeout::TimeoutLayer;
 
 use super::api_tokens::{api_permissions::RequiredPermission, require_permission, AuthIdentity};
 use super::{
-    api, control, health, pages, public_api, signer_api, signer_control, snapshot_ops, wallet_ops,
-    WebState,
+    api, control, health, pages, plugin_ops, public_api, signer_api, signer_control, snapshot_ops,
+    wallet_ops, WebState,
 };
 use crate::signer_client::MAX_REQUEST_BODY_BYTES;
 
@@ -118,6 +118,13 @@ pub fn build_router(state: WebState) -> Router {
         .route("/config/export", post(pages::config::export_all))
         .route("/plugins", get(pages::plugins::plugins))
         .route("/plugins/{id}/toggle", post(pages::plugins::toggle))
+        .route(
+            "/plugins/install",
+            // A plugin package may be up to 2 GiB, far past the default request
+            // body cap; the handler streams it and enforces the size limit
+            // itself, so the built-in limit is disabled just for this route.
+            post(plugin_ops::install_plugin).layer(DefaultBodyLimit::disable()),
+        )
         .route("/runtimes", get(pages::runtimes::runtimes))
         .route("/runtimes/install", post(pages::runtimes::install))
         .route("/snapshots", get(pages::snapshots::snapshots))
@@ -203,6 +210,10 @@ pub fn build_router(state: WebState) -> Router {
         .route(
             "/settings/federation",
             post(control::save_federation_monitor),
+        )
+        .route(
+            "/settings/runtime-upgrade",
+            post(control::save_runtime_upgrade_policy),
         )
         .route("/logout", post(logout))
         .route(

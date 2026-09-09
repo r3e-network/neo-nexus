@@ -20,7 +20,7 @@ use crate::{
             AlertProvider, AlertRoutingPolicy, EventKind, EventSeverity, NewRuntimeEvent,
             RemoteFederationMonitorPolicy, RpcHealthMonitorPolicy,
         },
-        runtime::RestartPolicy,
+        runtime::{validate_runtime_upgrade_policy, RestartPolicy, RuntimeUpgradePolicy},
     },
     snapshots::FastSyncSnapshotManager,
     supervision,
@@ -249,6 +249,77 @@ pub async fn save_federation_monitor(
             EventKind::RemoteFederationMonitorPolicyUpdated,
             &message,
         );
+        Ok(message)
+    })();
+    respond_to("/settings", outcome)
+}
+
+#[derive(Deserialize)]
+pub struct RuntimeUpgradeForm {
+    #[serde(default)]
+    enabled: Option<bool>,
+    #[serde(default)]
+    catalog_profile_id: String,
+    #[serde(default)]
+    interval_minutes: String,
+    #[serde(default)]
+    require_signed_catalog: Option<bool>,
+    #[serde(default)]
+    max_nodes_per_run: String,
+    #[serde(default)]
+    maintenance_window_enabled: Option<bool>,
+    #[serde(default)]
+    maintenance_window_start_minute_utc: String,
+    #[serde(default)]
+    maintenance_window_end_minute_utc: String,
+    #[serde(default)]
+    wave_delay_minutes: String,
+}
+
+/// Save the runtime upgrade policy. The two timestamp fields are the engine's
+/// own record of what it did, so they never appear in the form — the current
+/// values are loaded and carried across, leaving only the operator-editable
+/// fields to the submission.
+pub async fn save_runtime_upgrade_policy(
+    State(state): State<WebState>,
+    Form(input): Form<RuntimeUpgradeForm>,
+) -> Response {
+    let outcome = (|| -> anyhow::Result<String> {
+        let current = state.repository.load_runtime_upgrade_policy()?;
+        let interval_minutes = whole_number(&input.interval_minutes, "interval")?;
+        let max_nodes = whole_number(&input.max_nodes_per_run, "nodes per run")?;
+        let window_start =
+            whole_number(&input.maintenance_window_start_minute_utc, "window start")?;
+        let window_end = whole_number(&input.maintenance_window_end_minute_utc, "window end")?;
+        let wave_delay = whole_number(&input.wave_delay_minutes, "wave delay")?;
+        let profile = input.catalog_profile_id.trim();
+        let policy = RuntimeUpgradePolicy {
+            enabled: input.enabled.unwrap_or(false),
+            catalog_profile_id: if profile.is_empty() {
+                None
+            } else {
+                Some(profile.to_string())
+            },
+            interval_minutes,
+            require_signed_catalog: input.require_signed_catalog.unwrap_or(false),
+            max_nodes_per_run: usize::try_from(max_nodes)
+                .map_err(|_| anyhow::anyhow!("nodes per run is out of range"))?,
+            maintenance_window_enabled: input.maintenance_window_enabled.unwrap_or(false),
+            maintenance_window_start_minute_utc: u16::try_from(window_start)
+                .map_err(|_| anyhow::anyhow!("window start is out of range"))?,
+            maintenance_window_end_minute_utc: u16::try_from(window_end)
+                .map_err(|_| anyhow::anyhow!("window end is out of range"))?,
+            wave_delay_minutes: wave_delay,
+            last_checked_at_unix: current.last_checked_at_unix,
+            last_applied_at_unix: current.last_applied_at_unix,
+        };
+        validate_runtime_upgrade_policy(&policy)?;
+        let message = format!(
+            "runtime upgrade policy saved \u{2014} {}",
+            policy.describe()
+        );
+        state.repository.save_runtime_upgrade_policy(&policy)?;
+        journal_policy(&state, EventKind::RuntimeUpgradePolicyUpdated, &message);
         Ok(message)
     })();
     respond_to("/settings", outcome)

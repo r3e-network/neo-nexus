@@ -690,6 +690,87 @@ fn settings_form_persists_a_policy_and_rejects_unparseable_input() {
     );
 }
 
+/// The runtime upgrade policy is editable from the Settings page: a valid form
+/// persists the operator's choices and journals the change, while a value the
+/// domain refuses is flashed back without touching what is stored.
+#[test]
+fn runtime_upgrade_form_persists_a_policy_and_rejects_out_of_range_input() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let login = post_form(&http, &format!("{base}/login"), &format!("token={TOKEN}"));
+    let session = cookie_value(&login).expect("session cookie set");
+
+    let valid = "enabled=true&catalog_profile_id=mainnet-catalog&interval_minutes=720\
+&require_signed_catalog=true&max_nodes_per_run=5\
+&maintenance_window_start_minute_utc=0&maintenance_window_end_minute_utc=360\
+&wave_delay_minutes=30";
+    let saved = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/settings/runtime-upgrade"),
+        valid,
+    );
+    assert_eq!(saved.status(), 303);
+    let location = saved.header("location").expect("redirect back to settings");
+    assert!(
+        location.contains("flash="),
+        "outcome must reach the operator: {location}"
+    );
+
+    let repository = Repository::open(&server.db_path).expect("reopen workspace");
+    let policy = repository
+        .load_runtime_upgrade_policy()
+        .expect("runtime upgrade policy");
+    assert!(policy.enabled);
+    assert_eq!(policy.interval_minutes, 720);
+    assert_eq!(
+        policy.catalog_profile_id.as_deref(),
+        Some("mainnet-catalog")
+    );
+    assert_eq!(policy.max_nodes_per_run, 5);
+
+    let kinds = repository
+        .list_events(RuntimeEventFilter::new(None, "", 200))
+        .expect("events")
+        .iter()
+        .map(|event| event.kind.to_string())
+        .collect::<Vec<_>>();
+    assert!(
+        kinds
+            .iter()
+            .any(|kind| kind == "runtime-upgrade-policy-updated"),
+        "journal: {kinds:?}"
+    );
+
+    // An interval below the domain minimum is refused, and the stored policy is
+    // left exactly as the earlier valid save wrote it.
+    let rejected = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/settings/runtime-upgrade"),
+        "enabled=true&catalog_profile_id=mainnet-catalog&interval_minutes=5\
+&require_signed_catalog=true&max_nodes_per_run=5\
+&maintenance_window_start_minute_utc=0&maintenance_window_end_minute_utc=360\
+&wave_delay_minutes=30",
+    );
+    assert_eq!(rejected.status(), 303);
+    let location = rejected
+        .header("location")
+        .expect("redirect back to settings");
+    assert!(
+        location.contains("not%20saved"),
+        "a refused save must say so: {location}"
+    );
+    let unchanged = repository
+        .load_runtime_upgrade_policy()
+        .expect("runtime upgrade policy");
+    assert_eq!(
+        unchanged.interval_minutes, 720,
+        "a rejected form must leave the stored policy alone"
+    );
+}
+
 /// A blank webhook field means "keep what is stored". Echoing the redacted value
 /// back into the database would destroy the real target.
 #[test]
@@ -3228,4 +3309,216 @@ fn smoke_test_rejected_without_session() {
     // Should redirect to login instead of processing the request
     assert_eq!(response.status(), 303);
     assert_eq!(response.header("location"), Some("/login"));
+}
+
+/// A stored-method ZIP with a single top-level file. Built by hand so the suite
+/// depends on nothing beyond the library and its dev-dependencies, yet produces
+/// an archive the `zip` reader inside the installer accepts.
+fn minimal_zip(name: &str, content: &[u8]) -> Vec<u8> {
+    fn crc32(data: &[u8]) -> u32 {
+        let mut crc: u32 = 0xFFFF_FFFF;
+        for &byte in data {
+            crc ^= u32::from(byte);
+            for _ in 0..8 {
+                let mask = (crc & 1).wrapping_neg();
+                crc = (crc >> 1) ^ (0xEDB8_8320 & mask);
+            }
+        }
+        !crc
+    }
+
+    let name_bytes = name.as_bytes();
+    let crc = crc32(content);
+    let size = content.len() as u32;
+    let name_len = name_bytes.len() as u16;
+    let mut zip = Vec::new();
+
+    // Local file header, stored (uncompressed) so compressed == uncompressed.
+    zip.extend_from_slice(&0x0403_4b50u32.to_le_bytes());
+    zip.extend_from_slice(&20u16.to_le_bytes()); // version needed
+    zip.extend_from_slice(&0u16.to_le_bytes()); // flags
+    zip.extend_from_slice(&0u16.to_le_bytes()); // method: stored
+    zip.extend_from_slice(&0u16.to_le_bytes()); // mod time
+    zip.extend_from_slice(&0u16.to_le_bytes()); // mod date
+    zip.extend_from_slice(&crc.to_le_bytes());
+    zip.extend_from_slice(&size.to_le_bytes()); // compressed size
+    zip.extend_from_slice(&size.to_le_bytes()); // uncompressed size
+    zip.extend_from_slice(&name_len.to_le_bytes());
+    zip.extend_from_slice(&0u16.to_le_bytes()); // extra length
+    zip.extend_from_slice(name_bytes);
+    zip.extend_from_slice(content);
+
+    let central_offset = zip.len() as u32;
+    // Central directory header.
+    zip.extend_from_slice(&0x0201_4b50u32.to_le_bytes());
+    zip.extend_from_slice(&20u16.to_le_bytes()); // version made by
+    zip.extend_from_slice(&20u16.to_le_bytes()); // version needed
+    zip.extend_from_slice(&0u16.to_le_bytes()); // flags
+    zip.extend_from_slice(&0u16.to_le_bytes()); // method
+    zip.extend_from_slice(&0u16.to_le_bytes()); // mod time
+    zip.extend_from_slice(&0u16.to_le_bytes()); // mod date
+    zip.extend_from_slice(&crc.to_le_bytes());
+    zip.extend_from_slice(&size.to_le_bytes());
+    zip.extend_from_slice(&size.to_le_bytes());
+    zip.extend_from_slice(&name_len.to_le_bytes());
+    zip.extend_from_slice(&0u16.to_le_bytes()); // extra length
+    zip.extend_from_slice(&0u16.to_le_bytes()); // comment length
+    zip.extend_from_slice(&0u16.to_le_bytes()); // disk number start
+    zip.extend_from_slice(&0u16.to_le_bytes()); // internal attrs
+    zip.extend_from_slice(&0u32.to_le_bytes()); // external attrs
+    zip.extend_from_slice(&0u32.to_le_bytes()); // local header offset
+    zip.extend_from_slice(name_bytes);
+
+    let central_size = zip.len() as u32 - central_offset;
+    // End of central directory.
+    zip.extend_from_slice(&0x0605_4b50u32.to_le_bytes());
+    zip.extend_from_slice(&0u16.to_le_bytes()); // disk number
+    zip.extend_from_slice(&0u16.to_le_bytes()); // disk with cd
+    zip.extend_from_slice(&1u16.to_le_bytes()); // entries this disk
+    zip.extend_from_slice(&1u16.to_le_bytes()); // total entries
+    zip.extend_from_slice(&central_size.to_le_bytes());
+    zip.extend_from_slice(&central_offset.to_le_bytes());
+    zip.extend_from_slice(&0u16.to_le_bytes()); // comment length
+    zip
+}
+
+/// Assemble a `multipart/form-data` body from ordered text fields and one file
+/// part, returning the body bytes and the content-type header to send with it.
+fn multipart_body(
+    boundary: &str,
+    fields: &[(&str, &str)],
+    file_field: &str,
+    file_name: &str,
+    file_bytes: &[u8],
+) -> (String, Vec<u8>) {
+    let mut body = Vec::new();
+    for (name, value) in fields {
+        body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+        body.extend_from_slice(
+            format!("Content-Disposition: form-data; name=\"{name}\"\r\n\r\n").as_bytes(),
+        );
+        body.extend_from_slice(value.as_bytes());
+        body.extend_from_slice(b"\r\n");
+    }
+    body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+    body.extend_from_slice(
+        format!(
+            "Content-Disposition: form-data; name=\"{file_field}\"; filename=\"{file_name}\"\r\n"
+        )
+        .as_bytes(),
+    );
+    body.extend_from_slice(b"Content-Type: application/zip\r\n\r\n");
+    body.extend_from_slice(file_bytes);
+    body.extend_from_slice(b"\r\n");
+    body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+    (format!("multipart/form-data; boundary={boundary}"), body)
+}
+
+/// Register a stopped neo-cli node, the only runtime plugin packages target.
+fn create_neo_cli_node(db_path: &Path, name: &str, rpc_port: u16) -> String {
+    let repository = Repository::open(db_path).expect("reopen workspace");
+    let node = repository
+        .create_node(NewNode {
+            name: name.to_string(),
+            node_type: NodeType::NeoCli,
+            network: Network::Testnet,
+            binary_path: PathBuf::from("./neo-cli"),
+            args: Vec::new(),
+            runtime_version: "v3.7.0".to_string(),
+            storage_engine: StorageEngine::RocksDb,
+            rpc_port,
+            p2p_port: rpc_port + 1,
+            ws_port: None,
+        })
+        .expect("neo-cli node creation");
+    node.id
+}
+
+/// A plugin package uploaded over multipart is installed by the background job:
+/// the handler returns at once, the installation row lands, and the journal
+/// records `plugin-installed`. An unauthenticated upload never reaches the job.
+#[test]
+fn plugin_package_upload_installs_and_journals_via_a_background_job() {
+    use neo_nexus::catalog::PluginId;
+
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+    let node_id = create_neo_cli_node(&server.db_path, "plugin-host", 27332);
+
+    let package = minimal_zip("RpcServer.dll", b"neo-cli plugin payload stub");
+    let expected_sha256 = neo_nexus::snapshots::sha256_bytes(&package);
+    let (content_type, body) = multipart_body(
+        "neonexusPluginBoundary",
+        &[
+            ("node_id", &node_id),
+            ("plugin_id", "RpcServer"),
+            ("label", "RPC server"),
+            ("expected_sha256", &expected_sha256),
+        ],
+        "package",
+        "rpc-server.zip",
+        &package,
+    );
+
+    let url = format!("{base}/plugins/install");
+    let accepted = into_response(
+        http.post(&url)
+            .set("cookie", &session)
+            .set("origin", &request_origin(&url))
+            .set("content-type", &content_type)
+            .send_bytes(&body),
+    );
+    assert_eq!(accepted.status(), 303);
+    let location = accepted
+        .header("location")
+        .expect("redirect back to plugins");
+    assert!(
+        location.contains("/plugins?node=") && location.contains("install%20started"),
+        "the upload should start a job and say so: {location}"
+    );
+
+    let repository = Repository::open(&server.db_path).expect("reopen workspace");
+    let installed = wait_until(Duration::from_secs(10), || {
+        repository
+            .list_plugin_installations(&node_id)
+            .map(|rows| rows.iter().any(|row| row.plugin_id == PluginId::RpcServer))
+            .unwrap_or(false)
+    });
+    assert!(
+        installed,
+        "the background job should persist a plugin installation row"
+    );
+
+    let journalled = wait_until(Duration::from_secs(10), || {
+        repository
+            .list_events(RuntimeEventFilter::new(None, "", 200))
+            .map(|events| {
+                events
+                    .iter()
+                    .any(|event| event.kind.to_string() == "plugin-installed")
+            })
+            .unwrap_or(false)
+    });
+    assert!(
+        journalled,
+        "a successful install must record a plugin-installed event"
+    );
+
+    // Without a session the upload is turned away before any job is submitted.
+    let (anon_type, anon_body) = multipart_body(
+        "neonexusPluginBoundary",
+        &[("node_id", &node_id), ("plugin_id", "RpcServer")],
+        "package",
+        "rpc-server.zip",
+        &package,
+    );
+    let anonymous = into_response(
+        http.post(&url)
+            .set("content-type", &anon_type)
+            .send_bytes(&anon_body),
+    );
+    assert_eq!(anonymous.status(), 303);
+    assert_eq!(anonymous.header("location"), Some("/login"));
 }
