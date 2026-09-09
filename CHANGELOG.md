@@ -7,8 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.0] - 2026-09-10
+
+This release expands the web workbench to reach actions that were previously
+CLI/API-only, adds API token authentication for CI/automation, and resolves
+findings from an Ultra CodeReview pass.
+
 ### Added
 
+- **API token authentication for CI/automation** (P1-5): SHA-256-hashed bearer
+  tokens with a `TokenPermission` enum, a two-layer `require_session` +
+  `require_permission` middleware, and an `AuthIdentity` that distinguishes
+  `Session` from `Token` callers, so automation can authenticate without a
+  browser session while inheriting least-privilege permission scoping.
+- **Prometheus metrics independent authentication route** (P0-1):
+  `/api/metrics-prometheus` is now reachable with the `ReadFleet` permission
+  rather than only a browser session, so an external scraper no longer has to
+  authenticate as a browser does.
+- **Web wallet profile import** (P0-2): `POST /wallets/import` with SHA-256
+  validation and path-traversal protection.
+- **Web wallet profile delete** (P2-3): `POST /wallets/{id}/delete`, recording a
+  `NeoWalletProfileDeleted` event.
+- **Web snapshot lifecycle events** (P1-1): save/verify/download/cache handlers
+  now record `SnapshotSaved`, `SnapshotVerified`, `SnapshotDownloaded`, and
+  `SnapshotCached` events.
+- **Web plugin package installation** (P1-2): multipart upload processed on a
+  background job with a 2GiB cap and SHA-256 verification, journaling a
+  `PluginInstalled` event.
+- **Web runtime smoke test trigger** (P1-3): `POST /nodes/{id}/smoke-test`
+  records a `RuntimeSmokeTested` event.
+- **Web log clear functionality** (P1-4): operators can clear a node's logs from
+  the browser.
+- **Runtime upgrade policy edit form** (P1-7): `POST /settings/runtime-upgrade`
+  edits the policy from Settings, recording a `RuntimeUpgradePolicyUpdated`
+  event.
+- **`workspace_root` environment variable configuration** (P1-6): the workspace
+  directory can now be set from the environment.
+- **`ConfigApplied` and `NeoWalletProfileUsed` event producers** (P2-7).
 - **Scheduled runtime upgrade execution** in the supervision engine: `LoopState::probe_runtime_upgrade()` periodically evaluates fleet-wide upgrade opportunities via `RuntimePackageManager::plan_catalog_fleet_upgrades()`, applies updates within configurable intervals and maintenance windows, automatically stopping running nodes before installation and restarting them post-upgrade. Policy configuration (`enabled`, `interval_minutes`, `max_nodes_per_run`, `maintenance_window`) takes effect without restarts; events are journaled to the Event Journal.
 
 - **Web UI for Snapshot Apply**: POST handler `/snapshots/{snapshot_id}/apply/{node_id}` that verifies snapshot readiness, validates compatibility (network type, node type), calls `FastSyncSnapshotManager::apply_to_node()` to apply snapshots to compatible nodes, and returns flash-message feedback. Snapshots page now shows Apply buttons for verified, cached snapshots alongside compatible nodes.
@@ -20,6 +55,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **60 unit tests for private_network module** covering scripts, verifier, exporter, validation support (wallets, sidecars), committee parsing, reports rendering, and signers endpoint handling — replacing placeholder assertions with behavioral coverage.
 
 - **4 unit tests for supervision runtime upgrade scheduling** (`test_probe_runtime_upgrade_disabled_by_default`, `test_probe_runtime_upgrade_respects_interval`, `test_probe_runtime_upgrade_respects_maintenance_window`, `test_probe_runtime_upgrade_returns_early_without_catalog_config`) verifying policy gating logic without network dependencies.
+
+### Changed
+
+- **Runtime upgrade settings surface** changed from read-only facts to an
+  editable form, paired with the `POST /settings/runtime-upgrade` handler.
+
+### Fixed
+
+- **Ultra CodeReview**: `apply_snapshot` now derives the workspace path from
+  `data_dir` instead of the hardcoded `"workspaces"` directory.
+- **Ultra CodeReview**: the plugin upload body limit uses `DefaultBodyLimit::max`
+  as a 2GiB DoS safety net.
+- **Ultra CodeReview**: failed runtime smoke-test events are raised to
+  `Critical` severity for operator visibility.
 
 ## [4.2.0] — 2026-09-08
 
@@ -290,6 +339,7 @@ action on them:
 - Six-primary information architecture, partial widget kit, god-state split,
   headless UI contract tests.
 
+[4.3.0]: https://github.com/r3e-network/neo-nexus/compare/v4.2.0...v4.3.0
 [4.2.0]: https://github.com/r3e-network/neo-nexus/compare/v4.1.0...v4.2.0
 [4.0.0]: https://github.com/r3e-network/neo-nexus/compare/v3.1.0...v4.0.0
 [3.1.0]: https://github.com/r3e-network/neo-nexus/compare/v3.0.0...v3.1.0
