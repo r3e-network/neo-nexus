@@ -10,9 +10,9 @@ use axum::{
 use serde::Deserialize;
 
 use crate::{
-    catalog::{PluginCatalog, PluginId},
+    catalog::{PluginCatalog, PluginDefinition, PluginId},
     core::operations::{EventKind, EventSeverity, NewRuntimeEvent},
-    types::NodeConfig,
+    types::{NodeConfig, NodeType},
 };
 
 use super::super::{html, WebState};
@@ -80,7 +80,8 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], wanted: &str) -> String {
         r#"<h1>Plugins</h1>
 <div class="actions">{picker}</div>
 {tiles}
-{table}"#,
+{table}
+{install}"#,
         picker = node_picker(nodes, node),
         tiles = html::cards(&[
             ("Node", node.name.clone()),
@@ -103,6 +104,45 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], wanted: &str) -> String {
             &["Plugin", "Category", "Purpose", "Reload", "State", "Control"],
             &rows,
         ),
+        install = install_form(node, &applicable),
+    )
+}
+
+/// The upload form that installs a plugin package onto the selected node.
+///
+/// Plugin packages are a neo-cli capability, so for any other runtime the form
+/// is replaced by a plain note rather than offering an action that can only
+/// fail. The node is fixed to the one the page is showing, and the plugin choice
+/// is confined to the catalogue entries that node's runtime can actually load.
+fn install_form(node: &NodeConfig, applicable: &[&PluginDefinition]) -> String {
+    if node.node_type != NodeType::NeoCli {
+        return format!(
+            "<h2>Install a package</h2>\n{}",
+            html::note("Plugin packages can be installed on neo-cli nodes only.")
+        );
+    }
+    let options = applicable
+        .iter()
+        .map(|definition| {
+            format!(
+                r#"<option value="{}">{}</option>"#,
+                html::escape(&definition.id.to_string()),
+                html::escape(definition.name),
+            )
+        })
+        .collect::<String>();
+    format!(
+        r#"<h2>Install a package</h2>
+<form class="filters" method="post" action="/plugins/install" enctype="multipart/form-data">
+<input type="hidden" name="node_id" value="{node_id}">
+<label class="field"><span>Plugin</span><select name="plugin_id">{options}</select></label>
+<label class="field"><span>Label</span><input name="label" required></label>
+<label class="field"><span>Package (.zip)</span><input type="file" name="package" accept=".zip" required></label>
+<label class="field"><span>Expected SHA-256</span><input name="expected_sha256" class="mono" required></label>
+<button type="submit">Install plugin</button>
+</form>"#,
+        node_id = html::escape(&node.id),
+        options = options,
     )
 }
 

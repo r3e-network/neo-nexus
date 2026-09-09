@@ -80,7 +80,7 @@ fn render_body(repository: &Repository) -> anyhow::Result<String> {
             RemoteFederationMonitorPolicy::MIN_INTERVAL_SECONDS,
             RemoteFederationMonitorPolicy::MAX_INTERVAL_SECONDS,
         ),
-        upgrade = upgrade_facts(&upgrade),
+        upgrade = upgrade_form(&upgrade),
     ))
 }
 
@@ -189,47 +189,120 @@ fn monitor_form(
     )
 }
 
-fn upgrade_facts(policy: &RuntimeUpgradePolicy) -> String {
-    let facts = [
-        ("Status", enabled_label(policy.enabled).to_string()),
-        ("Interval", format!("{} minutes", policy.interval_minutes)),
-        (
-            "Signed catalog",
-            enabled_label(policy.require_signed_catalog).to_string(),
+/// The runtime upgrade policy the supervision engine reads on its own tick. The
+/// two timestamp fields are its own record of what it did, so the form omits
+/// them and shows their current values as read-only context instead.
+fn upgrade_form(policy: &RuntimeUpgradePolicy) -> String {
+    let last_checked = policy
+        .last_checked_at_unix
+        .map_or_else(|| "never".to_string(), |unix| format!("{unix} (unix)"));
+    let last_applied = policy
+        .last_applied_at_unix
+        .map_or_else(|| "never".to_string(), |unix| format!("{unix} (unix)"));
+    format!(
+        r#"<p class="muted">The supervision engine reads this policy on its own tick and upgrades eligible fleet nodes within the batch size and maintenance window it defines. Last checked {last_checked}; last applied {last_applied}.</p>
+<form class="filters" method="post" action="/settings/runtime-upgrade">
+{enabled}
+{profile}
+{interval}
+{signed}
+{batch}
+{window_enabled}
+{window_start}
+{window_end}
+{wave_delay}
+<button type="submit">Save</button>
+</form>"#,
+        last_checked = html::escape(&last_checked),
+        last_applied = html::escape(&last_applied),
+        enabled = upgrade_checkbox("upgrade-enabled", "Enabled", "enabled", policy.enabled),
+        profile = html::TextField {
+            id: Some("upgrade-catalog-profile"),
+            label: "Catalog profile",
+            name: "catalog_profile_id",
+            value: policy.catalog_profile_id.as_deref().unwrap_or(""),
+            help: Some("Required while enabled; leave blank to clear."),
+            ..Default::default()
+        }
+        .render(),
+        interval = upgrade_number(
+            "upgrade-interval",
+            "Interval (minutes)",
+            "interval_minutes",
+            &policy.interval_minutes.to_string(),
+            RuntimeUpgradePolicy::MIN_INTERVAL_MINUTES,
+            RuntimeUpgradePolicy::MAX_INTERVAL_MINUTES,
         ),
-        ("Nodes per run", policy.max_nodes_per_run.to_string()),
-        (
+        signed = upgrade_checkbox(
+            "upgrade-signed",
+            "Require signed catalog",
+            "require_signed_catalog",
+            policy.require_signed_catalog,
+        ),
+        batch = upgrade_number(
+            "upgrade-batch",
+            "Nodes per run",
+            "max_nodes_per_run",
+            &policy.max_nodes_per_run.to_string(),
+            1,
+            RuntimeUpgradePolicy::MAX_NODES_PER_RUN as u64,
+        ),
+        window_enabled = upgrade_checkbox(
+            "upgrade-window",
             "Maintenance window",
-            if policy.maintenance_window_enabled {
-                format!(
-                    "{:02}:{:02}–{:02}:{:02} UTC",
-                    policy.maintenance_window_start_minute_utc / 60,
-                    policy.maintenance_window_start_minute_utc % 60,
-                    policy.maintenance_window_end_minute_utc / 60,
-                    policy.maintenance_window_end_minute_utc % 60
-                )
-            } else {
-                "unbounded".to_string()
-            },
+            "maintenance_window_enabled",
+            policy.maintenance_window_enabled,
         ),
-        (
-            "Catalog profile",
-            policy
-                .catalog_profile_id
-                .clone()
-                .unwrap_or_else(|| "default".to_string()),
+        window_start = upgrade_number(
+            "upgrade-window-start",
+            "Window start (minute UTC)",
+            "maintenance_window_start_minute_utc",
+            &policy.maintenance_window_start_minute_utc.to_string(),
+            0,
+            u64::from(RuntimeUpgradePolicy::MINUTES_PER_DAY),
         ),
-    ];
-    let rows = facts
-        .iter()
-        .map(|(label, value)| html::row(&[html::cell(label), html::cell(value)]))
-        .collect::<Vec<_>>();
-    let caveat = html::notice(
-        "warn",
-        "Recorded, not enforced: no scheduler applies this policy yet, so nothing upgrades a node on this interval. The values below are shown as stored; editing them changes nothing until that scheduler exists.",
-    );
-    let table = html::table(&["Setting", "Value"], &rows);
-    format!("{caveat}\n{table}")
+        window_end = upgrade_number(
+            "upgrade-window-end",
+            "Window end (minute UTC)",
+            "maintenance_window_end_minute_utc",
+            &policy.maintenance_window_end_minute_utc.to_string(),
+            0,
+            u64::from(RuntimeUpgradePolicy::MINUTES_PER_DAY),
+        ),
+        wave_delay = upgrade_number(
+            "upgrade-wave-delay",
+            "Wave delay (minutes)",
+            "wave_delay_minutes",
+            &policy.wave_delay_minutes.to_string(),
+            0,
+            RuntimeUpgradePolicy::MAX_WAVE_DELAY_MINUTES,
+        ),
+    )
+}
+
+/// A bounded number input that mirrors the field markup of [`html::TextField`],
+/// so the runtime-upgrade form matches the other settings forms while still
+/// carrying the `min`/`max` the domain enforces server-side.
+fn upgrade_number(id: &str, label: &str, name: &str, value: &str, min: u64, max: u64) -> String {
+    format!(
+        r#"<label class="field" for="{id}"><span>{label}</span><input type="number" id="{id}" name="{name}" value="{value}" min="{min}" max="{max}"></label>"#,
+        id = html::escape(id),
+        label = html::escape(label),
+        name = html::escape(name),
+        value = html::escape(value),
+    )
+}
+
+/// A checkbox whose submitted value is `true`, so an unchecked box sends nothing
+/// and the handler reads it as off through a defaulted `Option<bool>`.
+fn upgrade_checkbox(id: &str, label: &str, name: &str, checked: bool) -> String {
+    let checked_attr = if checked { " checked" } else { "" };
+    format!(
+        r#"<label class="field" for="{id}"><span>{label}</span><input type="checkbox" id="{id}" name="{name}" value="true"{checked_attr}></label>"#,
+        id = html::escape(id),
+        label = html::escape(label),
+        name = html::escape(name),
+    )
 }
 
 pub fn enabled_label(enabled: bool) -> &'static str {
