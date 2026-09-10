@@ -116,11 +116,28 @@ pub async fn apply_snapshot(
 }
 
 fn control_redirect(state: &WebState, id: &str, action: LaunchAction) -> Response {
-    let outcome = load_node(&state.repository, id)
-        .and_then(|node| supervision::launch_node(&state.engine_state(), &node, action));
-    match outcome {
+    let node = match load_node(&state.repository, id) {
+        Ok(node) => node,
+        Err(error) => return back_to_node(id, &format!("failed: {error}")),
+    };
+    match supervision::launch_node(&state.engine_state(), &node, action) {
         Ok(message) => back_to_node(id, &message),
-        Err(error) => back_to_node(id, &format!("failed: {error}")),
+        Err(error) => {
+            let message = format!("failed: {error}");
+            // A manual launch failure must leave a trail, not just a flash that
+            // vanishes on the next page load. The watchdog already journals
+            // NodeStartFailed for its automatic retries, so a hand-driven start
+            // or restart that fails records the same way — "why did this never
+            // come up at 03:00?" then has an answer.
+            let _ = state.repository.record_event(NewRuntimeEvent {
+                node_id: Some(node.id.clone()),
+                node_name: Some(node.name.clone()),
+                kind: EventKind::NodeStartFailed,
+                severity: EventSeverity::Warning,
+                message: message.clone(),
+            });
+            back_to_node(id, &message)
+        }
     }
 }
 
