@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v4.3.1] - 2026-09-10
+
+### Fixed
+
+- **Node lifecycle event audit**: manual node launch failures in web/CLI paths are now recorded as `RuntimeLaunchedFailed` events, ensuring the Event Journal captures when an operator or automation initiates a Start that cannot complete due to workspace locks, binary mismatches, or port conflicts.
+
 ## [4.3.0] - 2026-09-10
 
 This release expands the web workbench to reach actions that were previously
