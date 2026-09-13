@@ -26,6 +26,20 @@ impl WorkspaceCommands {
         Self { repository }
     }
 
+    /// Register or update a runtime catalog source.
+    ///
+    /// Until this was exposed, the only caller of the repository method was the
+    /// backup importer — so a fresh workspace could never gain a catalog
+    /// profile, `/runtimes` had nothing to install from, and the runtime
+    /// upgrade policy required a `catalog_profile_id` that could only come from
+    /// a backup of a workspace that could not have created one either.
+    pub fn upsert_runtime_catalog_profile(
+        &self,
+        profile: &crate::runtime::RuntimeCatalogProfile,
+    ) -> Result<()> {
+        self.repository.upsert_runtime_catalog_profile(profile)
+    }
+
     pub fn record_event(&self, event: NewRuntimeEvent) -> Result<crate::events::RuntimeEvent> {
         self.repository.record_event(event)
     }

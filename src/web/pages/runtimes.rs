@@ -91,6 +91,132 @@ fn or_unknown(value: &str) -> &str {
     }
 }
 
+/// A catalogue source the operator registers.
+#[derive(Default, Deserialize)]
+pub struct CatalogForm {
+    #[serde(default)]
+    id: String,
+    #[serde(default)]
+    label: String,
+    #[serde(default)]
+    source: String,
+    #[serde(default)]
+    signature_source: String,
+    #[serde(default)]
+    ed25519_public_key: String,
+    #[serde(default)]
+    max_bytes: String,
+}
+
+/// How large a catalogue document may be. A catalogue is a manifest, not a
+/// payload, so this is generous rather than tuned.
+const DEFAULT_CATALOG_MAX_BYTES: u64 = 4 * 1024 * 1024;
+
+/// Register a runtime catalogue.
+///
+/// This is the path that did not exist. `upsert_runtime_catalog_profile` had
+/// exactly one caller — the backup importer — so on a workspace that had never
+/// restored a backup, `/runtimes` could only ever say "No runtime catalog
+/// profiles are configured", and there was no supported way to install a first
+/// node runtime through the product.
+pub async fn save_catalog(
+    State(state): State<WebState>,
+    Form(form): Form<CatalogForm>,
+) -> Response {
+    let optional = |value: &str| {
+        let trimmed = value.trim();
+        (!trimmed.is_empty()).then(|| trimmed.to_string())
+    };
+    let result = (|| -> anyhow::Result<String> {
+        let max_bytes = match form.max_bytes.trim() {
+            "" => DEFAULT_CATALOG_MAX_BYTES,
+            raw => raw
+                .parse::<u64>()
+                .map_err(|_| anyhow::anyhow!("size limit must be a whole number of bytes"))?,
+        };
+        let profile = RuntimeCatalogProfile {
+            id: form.id.trim().to_string(),
+            label: form.label.trim().to_string(),
+            source: form.source.trim().to_string(),
+            signature_source: optional(&form.signature_source),
+            ed25519_public_key: optional(&form.ed25519_public_key),
+            max_bytes,
+            enabled: true,
+            last_loaded_at_unix: None,
+            last_signature_verified: None,
+            last_bytes: None,
+        };
+        // The domain already states what a usable catalogue is — id, label, and
+        // a load request it will accept. Borrow that rather than restate it.
+        state.commands.upsert_runtime_catalog_profile(&profile)?;
+        Ok(format!("catalog \"{}\" saved", profile.label))
+    })();
+    let message = result.unwrap_or_else(|error| format!("catalog not saved: {error}"));
+    Redirect::to(&format!(
+        "/runtimes?flash={}",
+        html::urlencoding_lite(&message)
+    ))
+    .into_response()
+}
+
+fn catalog_form() -> String {
+    format!(
+        r#"<h2>Add a runtime catalogue</h2>
+<p class="muted">A catalogue lists the releases this workspace may install. Point it at a manifest you trust; supply a signature source and its ed25519 public key to have releases verified before install.</p>
+<form class="filters" method="post" action="/runtimes/catalog">
+{id}
+{label}
+{source}
+{signature}
+{key}
+{max_bytes}
+<button type="submit">Save catalogue</button>
+</form>"#,
+        id = html::TextField {
+            label: "Identifier",
+            name: "id",
+            placeholder: Some("neo-official"),
+            monospace: true,
+            ..html::TextField::default()
+        }
+        .render(),
+        label = html::text_field("Label", "label", ""),
+        source = html::TextField {
+            label: "Catalogue source",
+            name: "source",
+            placeholder: Some("https://… or a path in this workspace"),
+            monospace: true,
+            full_width: true,
+            ..html::TextField::default()
+        }
+        .render(),
+        signature = html::TextField {
+            label: "Signature source",
+            name: "signature_source",
+            help: Some("Optional. Without it, releases install unverified."),
+            monospace: true,
+            ..html::TextField::default()
+        }
+        .render(),
+        key = html::TextField {
+            label: "Ed25519 public key",
+            name: "ed25519_public_key",
+            help: Some("Optional. Required to check the signature."),
+            monospace: true,
+            ..html::TextField::default()
+        }
+        .render(),
+        max_bytes = html::TextField {
+            label: "Size limit (bytes)",
+            name: "max_bytes",
+            placeholder: Some(&DEFAULT_CATALOG_MAX_BYTES.to_string()),
+            help: Some("Leave blank for the default."),
+            ..html::TextField::default()
+        }
+        .render(),
+    )
+}
+
 fn render_body(state: &WebState, params: &RuntimeQuery) -> anyhow::Result<String> {
     let installations = state.workspace.list_runtime_installations()?;
     let profiles = state.workspace.list_runtime_catalog_profiles()?;
@@ -129,10 +255,11 @@ fn render_body(state: &WebState, params: &RuntimeQuery) -> anyhow::Result<String
 </div>
 {installations}
 <div class="section-head" style="margin-top: 20px;">
-    <h2>Catalog Repositories</h2>
-    <span class="muted" style="font-size: 12px;">Remote verified publisher registries</span>
+    <h2>Catalogues</h2>
+    <span class="muted" style="font-size: 12px;">Where this workspace may install runtimes from</span>
 </div>
 {profiles}
+{catalog_form}
 {staged}"#,
         breadcrumb = breadcrumb,
         head = head,
@@ -154,6 +281,7 @@ fn render_body(state: &WebState, params: &RuntimeQuery) -> anyhow::Result<String
         jobs = job_panel(state),
         installations = installation_table(&installations),
         profiles = profile_table(&profiles),
+        catalog_form = catalog_form(),
         staged = catalogue_section(state, params, busy_job.is_some())?,
     ))
 }

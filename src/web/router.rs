@@ -141,6 +141,7 @@ pub fn build_router(state: WebState) -> Router {
         )
         .route("/runtimes", get(pages::runtimes::runtimes))
         .route("/runtimes/install", post(pages::runtimes::install))
+        .route("/runtimes/catalog", post(pages::runtimes::save_catalog))
         .route("/snapshots", get(pages::snapshots::snapshots))
         .route("/snapshots/save", post(snapshot_ops::save_snapshot))
         .route(
