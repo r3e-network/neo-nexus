@@ -126,8 +126,8 @@ fn spawn_supervised_server() -> Server {
     server
 }
 
-/// A command that exits non-zero immediately, so the watchdog has something
-/// real to notice.
+/// A command that exits non-zero immediately — a runtime that cannot start at
+/// all, which the launch barrier is expected to catch and report synchronously.
 fn crashing_command() -> (PathBuf, Vec<String>) {
     if cfg!(windows) {
         (
@@ -138,6 +138,26 @@ fn crashing_command() -> (PathBuf, Vec<String>) {
         (
             PathBuf::from("/bin/sh"),
             vec!["-c".to_string(), "exit 3".to_string()],
+        )
+    }
+}
+
+/// A command that starts cleanly, outlives the launch barrier, and only then
+/// dies — the crash the watchdog exists to notice.
+///
+/// This is a different failure from [`crashing_command`] and must stay that
+/// way: a runtime that dies inside the settle window is reported to whoever
+/// pressed Start, and never reaches the watchdog at all.
+fn crashing_after_startup_command() -> (PathBuf, Vec<String>) {
+    if cfg!(windows) {
+        (
+            PathBuf::from(r"C:\Windows\System32\cmd.exe"),
+            vec!["/c".to_string(), "timeout /t 2 >NUL & exit 3".to_string()],
+        )
+    } else {
+        (
+            PathBuf::from("/bin/sh"),
+            vec!["-c".to_string(), "sleep 2; exit 3".to_string()],
         )
     }
 }
@@ -1457,15 +1477,87 @@ fn editor_routes_require_a_session() {
 
 /// A command that stays running long enough to observe, on every platform the
 /// suite runs on.
+///
+/// It has to behave like a node runtime, not merely like a long-running
+/// process: `LaunchPlanner` puts each client's own flags on the command line
+/// (`node` and `--config-file` for NeoGo, `--config` for NeoRs, `--background`
+/// for neo-cli), so a stand-in that rejects unrecognised arguments — `sleep`
+/// does — exits immediately and is a broken fixture rather than a running node.
+/// This one ignores whatever it is handed and keeps running, which is what a
+/// real client does with a config path it understands.
 fn long_running_command() -> (PathBuf, Vec<String>) {
-    if cfg!(windows) {
-        (
-            PathBuf::from(r"C:\Windows\System32\ping.exe"),
-            vec!["-n".to_string(), "120".to_string(), "127.0.0.1".to_string()],
-        )
-    } else {
-        (PathBuf::from("/bin/sleep"), vec!["120".to_string()])
-    }
+    (stub_runtime::stub_runtime_binary(), Vec::new())
+}
+
+#[path = "support/stub_runtime.rs"]
+mod stub_runtime;
+
+/// A runtime that rejects its own command line dies in milliseconds. Reporting
+/// that as "launched with PID n" hands the operator a number that is already
+/// dead and a row that says Running, and leaves them to find out from the log
+/// themselves. The launch has to fail, say why, and leave the node in Error.
+#[test]
+fn a_runtime_that_dies_on_startup_is_reported_as_a_failed_launch() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+
+    let repository = Repository::open(&server.db_path).expect("open workspace");
+    let node = repository
+        .create_node(NewNode {
+            name: "stillborn".to_string(),
+            node_type: NodeType::NeoGo,
+            network: Network::Testnet,
+            // Rejects the `node` / `--config-file` arguments a NeoGo launch puts
+            // on the command line, exactly as a mismatched real runtime would.
+            binary_path: PathBuf::from("/bin/sleep"),
+            args: vec!["120".to_string()],
+            runtime_version: "test".to_string(),
+            storage_engine: StorageEngine::LevelDb,
+            rpc_port: 43432,
+            p2p_port: 43433,
+            ws_port: None,
+        })
+        .expect("node creation");
+
+    let started = into_response(
+        http.post(&format!("{base}/nodes/{}/start", node.id))
+            .set("cookie", &session)
+            .set("origin", base)
+            .call(),
+    );
+    assert_eq!(started.status(), 303);
+    let location = started.header("location").expect("redirect back to node");
+    let flash = neo_nexus::web::html::percent_decode(location);
+    assert!(
+        !flash.contains("launched with PID"),
+        "a process that died on startup was reported as launched: {flash}"
+    );
+    assert!(
+        flash.contains("exited during startup"),
+        "the operator was not told the launch failed: {flash}"
+    );
+    assert!(
+        flash.contains("invalid time interval"),
+        "the runtime's own reason was not surfaced: {flash}"
+    );
+
+    let stored = repository
+        .list_nodes()
+        .expect("nodes")
+        .into_iter()
+        .find(|stored| stored.id == node.id)
+        .expect("node");
+    assert_eq!(
+        stored.status,
+        neo_nexus::types::NodeStatus::Error,
+        "a node whose process died on startup must not be left claiming Running"
+    );
+    assert_eq!(
+        stored.pid, None,
+        "a dead process must not leave a pid behind for a later Stop to chase"
+    );
 }
 
 /// Whether the OS still has this process — the same probe the workbench uses.
@@ -1717,7 +1809,7 @@ fn the_watchdog_notices_a_crash_and_restarts_the_node() {
         ))
         .expect("watchdog policy");
 
-    let (binary, args) = crashing_command();
+    let (binary, args) = crashing_after_startup_command();
     let node = repository
         .create_node(NewNode {
             name: "crasher".to_string(),

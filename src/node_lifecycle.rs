@@ -31,7 +31,7 @@ use crate::{
     launch::LaunchPlan,
     repository::Repository,
     signing::SignerRegistry,
-    supervisor::{PidStop, ProcessStart, ProcessSupervisor},
+    supervisor::{PidStop, ProcessStart, ProcessSupervisor, LAUNCH_SETTLE_WINDOW},
     types::{NodeConfig, NodeStatus},
 };
 
@@ -234,6 +234,24 @@ pub fn execute_node_launch(
 
     match start {
         Ok(ProcessStart { pid, log_path }) => {
+            // `spawn` returning only proves the kernel accepted the executable.
+            // Watch the process long enough to notice one that dies of its own
+            // arguments, so the row never says Running for something that is
+            // already gone and the operator gets the runtime's own reason
+            // instead of a pid to go hunting for.
+            if let Some(reason) = supervisor
+                .confirm_startup(&node.id, LAUNCH_SETTLE_WINDOW)
+                .failure_summary(&node.name)
+            {
+                let _ = repository.transition_node_status(
+                    &node.id,
+                    NodeStatus::Starting,
+                    claim_pid,
+                    NodeStatus::Error,
+                    None,
+                );
+                return NodeLaunchOutcome::Failed { message: reason };
+            }
             let persisted = repository.transition_node_status(
                 &node.id,
                 NodeStatus::Starting,

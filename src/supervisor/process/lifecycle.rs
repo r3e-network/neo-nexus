@@ -1,4 +1,8 @@
-use std::path::Path;
+use std::{
+    io::{Read, Seek, SeekFrom},
+    path::Path,
+    time::{Duration, Instant},
+};
 
 use anyhow::Result;
 
@@ -7,10 +11,67 @@ use crate::{launch::LaunchPlan, types::NodeConfig};
 use super::{reap::reap_finished_children, spawn::spawn_managed_child, ProcessSupervisor};
 use crate::supervisor::{
     termination::{stop_by_pid, stop_child},
-    ManagedProcessSpec, PidStop, ProcessExit, ProcessStart, ProcessStop,
+    LaunchConfirmation, ManagedProcessSpec, PidStop, ProcessExit, ProcessStart, ProcessStop,
 };
 
+/// How long a freshly spawned process is watched before its launch counts as
+/// successful.
+///
+/// This is not a readiness or health window — a Neo node takes minutes to sync
+/// and must not be waited on here. It is only long enough to catch a process
+/// that dies of its own arguments: a rejected flag, an unparseable config, a
+/// port already bound. Those all fail within a few tens of milliseconds, and
+/// the cost of looking is one barely perceptible pause on the launch button.
+pub const LAUNCH_SETTLE_WINDOW: Duration = Duration::from_millis(600);
+
+/// How often the window is sampled. `try_wait` is a `waitpid(WNOHANG)`, so this
+/// is cheap enough to ask often and still return the instant a child dies.
+const LAUNCH_SETTLE_POLL: Duration = Duration::from_millis(25);
+
+/// How much of the child's own output a failure report quotes.
+const STARTUP_OUTPUT_BUDGET: usize = 8 * 1024;
+
+/// How many of its last lines are worth showing.
+const STARTUP_OUTPUT_LINES: usize = 6;
+
 impl ProcessSupervisor {
+    /// Watch a just-started process for [`LAUNCH_SETTLE_WINDOW`] and report
+    /// whether it survived its own startup.
+    ///
+    /// Returns as soon as the child exits, so a healthy launch pays the full
+    /// window and a broken one is reported immediately.
+    ///
+    /// A process this supervisor holds no handle for — one started by another
+    /// process, or already reaped — cannot be judged here and is reported as
+    /// surviving. Inventing a failure for a node we cannot see would be worse
+    /// than the silence it replaces.
+    pub fn confirm_startup(&mut self, process_id: &str, window: Duration) -> LaunchConfirmation {
+        let deadline = Instant::now() + window;
+        loop {
+            let Some(managed) = self.children.get_mut(process_id) else {
+                return LaunchConfirmation::Survived;
+            };
+            match managed.try_wait(process_id) {
+                Ok(Some(status)) => {
+                    let output = read_startup_output(managed.log_path(), managed.output_offset());
+                    self.children.remove(process_id);
+                    return LaunchConfirmation::ExitedDuringStartup {
+                        exit_code: status.code(),
+                        output,
+                    };
+                }
+                // Still running, or the handle cannot be inspected. Neither is
+                // evidence of failure.
+                Ok(None) => {}
+                Err(_) => return LaunchConfirmation::Survived,
+            }
+            if Instant::now() >= deadline {
+                return LaunchConfirmation::Survived;
+            }
+            std::thread::sleep(LAUNCH_SETTLE_POLL);
+        }
+    }
+
     pub fn start(
         &mut self,
         node: &NodeConfig,
@@ -117,6 +178,36 @@ impl ProcessSupervisor {
         }
         Ok(None)
     }
+}
+
+/// Read what the child itself wrote, starting past NeoNexus's launch header.
+///
+/// Best effort by design: this runs while reporting a failure that has already
+/// happened, so an unreadable log degrades to an empty quote rather than
+/// replacing the real reason with an IO error.
+fn read_startup_output(log_path: &Path, offset: u64) -> String {
+    let Ok(mut file) = std::fs::File::open(log_path) else {
+        return String::new();
+    };
+    if file.seek(SeekFrom::Start(offset)).is_err() {
+        return String::new();
+    }
+    let mut buffer = Vec::new();
+    if file
+        .take(STARTUP_OUTPUT_BUDGET as u64)
+        .read_to_end(&mut buffer)
+        .is_err()
+    {
+        return String::new();
+    }
+    let text = String::from_utf8_lossy(&buffer);
+    let lines: Vec<&str> = text
+        .lines()
+        .map(str::trim_end)
+        .filter(|line| !line.trim().is_empty())
+        .collect();
+    let tail = lines.len().saturating_sub(STARTUP_OUTPUT_LINES);
+    lines[tail..].join("; ")
 }
 
 fn ensure_node_runtime_bound(node: &NodeConfig) -> Result<()> {

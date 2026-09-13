@@ -7,19 +7,11 @@ use crate::{
     types::{Network, NewNode, NodeStatus, NodeType, StorageEngine},
 };
 
+#[path = "../../support/stub_runtime.rs"]
+mod stub_runtime;
+
 fn controllable_long_running_command() -> (PathBuf, Vec<String>) {
-    if cfg!(windows) {
-        (
-            PathBuf::from(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"),
-            vec![
-                "-NoProfile".to_string(),
-                "-Command".to_string(),
-                "Start-Sleep -Seconds 120".to_string(),
-            ],
-        )
-    } else {
-        (PathBuf::from("/bin/sleep"), vec!["120".to_string()])
-    }
+    (stub_runtime::stub_runtime_binary(), Vec::new())
 }
 
 /// `--node-start` runs the same core launch pipeline as the GUI. A node whose

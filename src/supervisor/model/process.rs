@@ -80,6 +80,51 @@ pub struct ProcessStart {
     pub log_path: PathBuf,
 }
 
+/// What a freshly spawned process was doing at the end of its settle window.
+///
+/// `spawn` succeeding only proves the kernel accepted the executable. A node
+/// that rejects its arguments, cannot bind its ports, or cannot parse its
+/// config is already gone milliseconds later — so reporting "launched with PID
+/// n" straight off the spawn tells the operator something that is no longer
+/// true by the time they read it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LaunchConfirmation {
+    /// Still running when the window closed. This is not a health check: the
+    /// node may still be syncing, unreachable, or wedged. It only means the
+    /// process survived its own startup.
+    Survived,
+    /// Exited inside the window. Whatever it printed before dying is the most
+    /// useful thing an operator can be shown, so it is carried here.
+    ExitedDuringStartup {
+        exit_code: Option<i32>,
+        /// The child's own output, header excluded, already trimmed to the
+        /// last few meaningful lines.
+        output: String,
+    },
+}
+
+impl LaunchConfirmation {
+    /// The sentence an operator or a journal entry should carry. `None` when
+    /// the process survived and there is nothing to explain.
+    pub fn failure_summary(&self, node_name: &str) -> Option<String> {
+        let Self::ExitedDuringStartup { exit_code, output } = self else {
+            return None;
+        };
+        let code = exit_code.map_or_else(
+            || "terminated by signal".to_string(),
+            |code| format!("exit code {code}"),
+        );
+        let detail = if output.trim().is_empty() {
+            "it wrote nothing to its log".to_string()
+        } else {
+            output.trim().to_string()
+        };
+        Some(format!(
+            "{node_name} exited during startup ({code}): {detail}"
+        ))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProcessStop {
     pub process_id: String,

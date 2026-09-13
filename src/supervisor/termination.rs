@@ -193,6 +193,14 @@ fn original_process_is_live(
     identify_original_process(system, node, started_at).is_some()
 }
 
+/// Whether the process holding a node's pid is that node's runtime.
+///
+/// Known limitation: a runtime that is a `#!` script is launched by the kernel
+/// through its interpreter, so the OS reports the interpreter as the executable
+/// and this returns `false` — such a node reads as a recycled pid and cannot be
+/// stopped by pid. Resolving it needs the process argv, which macOS does not
+/// hand out here (`sysinfo::Process::cmd` comes back empty), so there is no
+/// portable check to make. Point a node at the real binary, not at a wrapper.
 fn process_matches_binary(process: &sysinfo::Process, binary_path: &Path) -> bool {
     if let Some(actual_path) = process.exe() {
         if let Some(matches) = executable_paths_match(actual_path, binary_path) {

@@ -27,6 +27,8 @@ mod lifecycle;
 mod reap;
 mod spawn;
 
+pub use lifecycle::LAUNCH_SETTLE_WINDOW;
+
 use child::ManagedChild;
 
 pub struct ProcessSupervisor {

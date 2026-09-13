@@ -15,8 +15,8 @@ pub use adapters::NodeAdapters;
 pub use log_parsers::{FatalError, LogEntry, LogParserAdapter, SyncProgress};
 pub use metrics::MetricsExporterAdapter;
 pub use process::{
-    unix_timestamp, ManagedProcessKind, ManagedProcessSpec, PluginMetadata, PluginSystemAdapter,
-    ProcessExit, ProcessStart, ProcessStop,
+    unix_timestamp, LaunchConfirmation, ManagedProcessKind, ManagedProcessSpec, PluginMetadata,
+    PluginSystemAdapter, ProcessExit, ProcessStart, ProcessStop,
 };
 
 pub(super) const DEFAULT_STOP_GRACE_PERIOD: Duration = Duration::from_secs(5);

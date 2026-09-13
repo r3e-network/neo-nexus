@@ -38,9 +38,14 @@ pub(super) fn spawn_managed_child(
         .with_context(|| format!("failed to start {}", spec.binary_path.display()))?;
     let pid = child.id();
     append_pid(&mut log_file, &log_path, pid)?;
+    // Everything past this point in the file is the child's own stdout/stderr.
+    // A failure report quotes from here rather than guessing which lines were
+    // the header. A file we just wrote to and cannot measure is not worth
+    // failing a launch over; 0 degrades to "quote the whole file".
+    let output_offset = log_file.metadata().map(|meta| meta.len()).unwrap_or(0);
 
     Ok((
-        ManagedChild::new(child, log_path.clone(), spec.id.clone()),
+        ManagedChild::new(child, log_path.clone(), spec.id.clone(), output_offset),
         ProcessStart { pid, log_path },
     ))
 }

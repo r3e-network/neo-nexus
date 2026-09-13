@@ -18,14 +18,25 @@ pub(super) struct ManagedChild {
     /// spec instead of being assumed equal to it, which is what a sidecar with
     /// its own key would need.
     node_id: String,
+    /// Where this generation's own output starts in the shared log file, i.e.
+    /// the length of the file once NeoNexus had finished writing its launch
+    /// header. Reading from here yields what the child said and nothing this
+    /// process wrote about it, which is what a failure report needs to quote.
+    output_offset: u64,
 }
 
 impl ManagedChild {
-    pub(super) fn new(child: Child, log_path: PathBuf, node_id: String) -> Self {
+    pub(super) fn new(
+        child: Child,
+        log_path: PathBuf,
+        node_id: String,
+        output_offset: u64,
+    ) -> Self {
         Self {
             child,
             log_path,
             node_id,
+            output_offset,
         }
     }
 
@@ -35,6 +46,10 @@ impl ManagedChild {
 
     pub(super) fn log_path(&self) -> &PathBuf {
         &self.log_path
+    }
+
+    pub(super) fn output_offset(&self) -> u64 {
+        self.output_offset
     }
 
     pub(super) fn try_wait(&mut self, process_id: &str) -> Result<Option<ExitStatus>> {

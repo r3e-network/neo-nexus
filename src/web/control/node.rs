@@ -19,19 +19,46 @@ use crate::{
 use super::super::{html, WebState};
 
 pub async fn node_start(State(state): State<WebState>, Path(id): Path<String>) -> Response {
-    control_redirect(&state, &id, LaunchAction::Start)
+    blocking(move || control_redirect(&state, &id, LaunchAction::Start)).await
 }
 
 pub async fn node_restart(State(state): State<WebState>, Path(id): Path<String>) -> Response {
-    control_redirect(&state, &id, LaunchAction::Restart)
+    blocking(move || control_redirect(&state, &id, LaunchAction::Restart)).await
 }
 
 pub async fn node_stop(State(state): State<WebState>, Path(id): Path<String>) -> Response {
-    let outcome = load_node(&state.workspace, &id)
-        .and_then(|node| supervision::stop_node(&state.engine_state(), &node));
-    match outcome {
-        Ok(message) => back_to_node(&id, &message),
-        Err(error) => back_to_node(&id, &format!("stop failed: {error}")),
+    blocking(move || {
+        let outcome = load_node(&state.workspace, &id)
+            .and_then(|node| supervision::stop_node(&state.engine_state(), &node));
+        match outcome {
+            Ok(message) => back_to_node(&id, &message),
+            Err(error) => back_to_node(&id, &format!("stop failed: {error}")),
+        }
+    })
+    .await
+}
+
+/// Run a lifecycle operation off the async executor.
+///
+/// Starting, restarting and stopping a node all block: they render config to
+/// disk, spawn or signal a process, and wait out the launch settle window or
+/// the termination grace period. Holding a Tokio worker thread for that stalls
+/// every other request the server is serving, so the work moves to the blocking
+/// pool and only the response comes back here.
+async fn blocking<F>(work: F) -> Response
+where
+    F: FnOnce() -> Response + Send + 'static,
+{
+    match tokio::task::spawn_blocking(work).await {
+        Ok(response) => response,
+        // The only way to get here is a panic inside the operation. The node is
+        // in whatever state the panic left it, so say so rather than implying
+        // the request did nothing.
+        Err(error) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            format!("the lifecycle operation did not complete: {error}"),
+        )
+            .into_response(),
     }
 }
 
@@ -151,14 +178,27 @@ pub async fn batch_node_action(State(state): State<WebState>, RawForm(body): Raw
     let mut failures = 0;
     for id in &node_ids {
         let outcome = match action_slug.as_str() {
-            "start" => load_node(&state.workspace, id).and_then(|node| {
-                supervision::launch_node(&state.engine_state(), &node, LaunchAction::Start)
-            }),
-            "restart" => load_node(&state.workspace, id).and_then(|node| {
-                supervision::launch_node(&state.engine_state(), &node, LaunchAction::Restart)
-            }),
-            "stop" => load_node(&state.workspace, id)
-                .and_then(|node| supervision::stop_node(&state.engine_state(), &node)),
+            "start" | "restart" | "stop" => {
+                // Same reason as the single-node controls: each of these blocks
+                // on process work, and a batch multiplies it by the selection.
+                let state = state.clone();
+                let id = id.clone();
+                let slug = action_slug.clone();
+                tokio::task::spawn_blocking(move || {
+                    let node = load_node(&state.workspace, &id)?;
+                    let engine = state.engine_state();
+                    match slug.as_str() {
+                        "start" => supervision::launch_node(&engine, &node, LaunchAction::Start),
+                        "restart" => {
+                            supervision::launch_node(&engine, &node, LaunchAction::Restart)
+                        }
+                        _ => supervision::stop_node(&engine, &node),
+                    }
+                })
+                .await
+                .map_err(|error| anyhow::anyhow!("{action_slug} did not complete: {error}"))
+                .and_then(|outcome| outcome)
+            }
             "smoke" => {
                 let report_res = match load_node(&state.workspace, id) {
                     Ok(node) => tokio::task::spawn_blocking(move || {
