@@ -48,6 +48,7 @@ pub mod events;
 pub mod health_events;
 pub mod logs;
 pub mod metrics;
+pub mod observe;
 pub mod readiness_report;
 pub mod redaction;
 pub mod rpc_health;
