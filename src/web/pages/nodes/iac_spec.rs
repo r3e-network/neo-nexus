@@ -117,7 +117,11 @@ pub fn generate_json_spec(
             "iam_signer_lease": signer_val,
             "hermes_copilot": hermes_val,
             "binary_path": node.binary_path.display().to_string(),
-            "args": node.args,
+            // Served to any read-fleet credential and meant to be pasted into a
+            // manifest, so a secret an operator put on the command line is
+            // redacted rather than re-exported. Supply it through the target
+            // platform's own secret mechanism.
+            "args": crate::redaction::redact_sensitive_args(&node.args),
         }
     });
     serde_json::to_string_pretty(&json_val).unwrap_or_else(|_| "{}".to_string())

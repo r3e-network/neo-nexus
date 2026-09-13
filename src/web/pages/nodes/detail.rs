@@ -18,13 +18,12 @@ pub async fn node_detail(
     RawQuery(query): RawQuery,
 ) -> Response {
     let density = resolve_density(&state);
-    let new_token = query.as_deref().and_then(|q| {
-        q.split('&')
-            .filter_map(|pair| pair.split_once('='))
-            .find(|(k, _)| *k == "hermes_token")
-            .map(|(_, v)| v)
-    });
-    let body = match render_detail(&state, &id, new_token) {
+    // A freshly minted agent secret is never read back from the URL. It used to
+    // be: provisioning redirected to `?hermes_token=<secret>`, which put the
+    // credential in the browser's history, in the `Referer` of everything the
+    // page loads, and in any proxy or access log between here and the operator.
+    // The POST that mints it renders the page itself and shows it once.
+    let body = match render_detail(&state, &id, None) {
         Ok(body) => body,
         Err(err) => {
             eprintln!("Error rendering node detail for '{id}': {err:?}");
@@ -169,12 +168,31 @@ pub async fn provision_hermes_token(
                     severity: crate::core::operations::EventSeverity::Info,
                     message: format!("Provisioned scoped Hermes Agent token for {}", node.name),
                 });
-            Redirect::to(&format!(
-                "/nodes/{}?hermes_token={}&flash=Hermes%20Agent%20scoped%20token%20provisioned",
-                html::urlencoding_lite(&id),
-                html::urlencoding_lite(&secret),
-            ))
-            .into_response()
+            // Answer this POST with the page itself. The alternative — redirect
+            // and carry the secret in the query string — writes the credential
+            // into browser history, `Referer` headers and proxy logs, and this
+            // is the only moment it exists in plaintext.
+            let density = resolve_density(&state);
+            match render_detail(&state, &id, Some(&secret)) {
+                Ok(body) => Html(html::layout_with_density(
+                    "Node",
+                    "nodes",
+                    &html::flash(Some("flash=Hermes%20Agent%20scoped%20token%20provisioned")),
+                    &body,
+                    density,
+                ))
+                .into_response(),
+                // The credential exists and cannot be shown again, so send the
+                // operator somewhere that says so rather than a blank failure.
+                Err(error) => Redirect::to(&format!(
+                    "/nodes/{}?flash={}",
+                    html::urlencoding_lite(&id),
+                    html::urlencoding_lite(&format!(
+                        "Token provisioned, but the page could not be rendered to show it ({error}). Revoke it under API tokens and provision again."
+                    )),
+                ))
+                .into_response(),
+            }
         }
         Err(e) => Redirect::to(&format!(
             "/nodes/{}?flash=Failed%20to%20provision%20token%3A%20{}",

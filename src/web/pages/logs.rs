@@ -202,9 +202,19 @@ fn log_body(node: &NodeConfig, lines: &[&LogLine], truncated: bool, params: &Log
         };
         return format!("{}\n{}", html::note(&reason), truncation_note(truncated));
     }
+    // A node's log is its own output plus the launch header NeoNexus writes,
+    // and either can carry a credential the runtime echoed. The support bundle
+    // redacts this same content before it leaves the host; a page that serves
+    // it over HTTP has no reason to be laxer.
     let text = lines
         .iter()
-        .map(|line| format!("{:>6} | {}\n", line.number, line.text))
+        .map(|line| {
+            format!(
+                "{:>6} | {}\n",
+                line.number,
+                crate::redaction::redact_sensitive_text(&line.text)
+            )
+        })
         .collect::<String>();
     format!(
         "{}\n{}",

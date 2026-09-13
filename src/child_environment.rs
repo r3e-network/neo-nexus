@@ -2,16 +2,22 @@
 
 use std::{ffi::OsStr, process::Command};
 
-/// Web and signer control-plane settings belong to NeoNexus, never to a runtime
-/// binary, node, sidecar, or helper it launches.
+/// NeoNexus's own settings belong to NeoNexus, never to a runtime binary, node,
+/// sidecar, or helper it launches.
 ///
-/// Match the namespace instead of enumerating today's four settings. That keeps
-/// a future credential-file or workload-key setting from becoming inherited
-/// merely because this boundary was not updated in the same release. The match
-/// is ASCII case-insensitive because environment names are case-insensitive on
-/// Windows, where `neonexus_signer_service_token` names the same setting as the
-/// upper-case spelling read by [`std::env::var`].
-const CONTROL_PLANE_ENV_PREFIXES: [&str; 2] = ["NEONEXUS_SIGNER_", "NEONEXUS_WEB_"];
+/// The whole namespace, not a list of prefixes. Scrubbing only
+/// `NEONEXUS_SIGNER_` and `NEONEXUS_WEB_` left `NEONEXUS_LOCAL_SIGNER_ENDPOINT`
+/// and `NEONEXUS_LOCAL_SIGNER_PUBLIC_KEY` — the consensus signer endpoint and
+/// the identity behind it — inherited by every node process, which is exactly
+/// the cross-instance reach the lease model exists to prevent. A node is
+/// configured by its managed config file and its command line; nothing it needs
+/// arrives this way, so the safe boundary is the namespace itself and a setting
+/// added later is excluded by default.
+///
+/// The match is ASCII case-insensitive because environment names are
+/// case-insensitive on Windows, where `neonexus_signer_service_token` names the
+/// same setting as the upper-case spelling read by [`std::env::var`].
+const CONTROL_PLANE_ENV_PREFIXES: [&str; 1] = ["NEONEXUS_"];
 
 /// Record explicit removals on a child command for every NeoNexus control-plane
 /// variable present in this process. `Command::env_remove` blocks inheritance;

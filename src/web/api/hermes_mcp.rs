@@ -289,7 +289,9 @@ pub async fn mcp_endpoint(
                             "agent_version": a.agent_version,
                         })),
                         "binary_path": node.binary_path.display().to_string(),
-                        "args": node.args,
+                        // A copilot needs to know how the node is launched, not
+                        // what secret is on its command line.
+                        "args": crate::redaction::redact_sensitive_args(&node.args),
                     });
                     let text = serde_json::to_string_pretty(&config_json)
                         .unwrap_or_else(|_| "{}".to_string());
@@ -318,7 +320,9 @@ pub async fn mcp_endpoint(
                             if lines.is_empty() {
                                 "No recent log output recorded for this node.".to_string()
                             } else {
-                                lines.join("\n")
+                                // Goes to a third-party model. Redact as the
+                                // support bundle and the logs page do.
+                                crate::redaction::redact_sensitive_text(&lines.join("\n"))
                             }
                         }
                         Err(e) => format!("Could not read logs for {}: {e}", node.id),

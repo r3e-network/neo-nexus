@@ -19,6 +19,13 @@ fn every_control_plane_setting_is_removed_from_the_child() {
         "NEONEXUS_WEB_TOKEN_FILE",
         "NEONEXUS_WEB_PUBLIC_ORIGIN",
         "neonexus_web_future_credential_file",
+        // The consensus signer endpoint and the identity expected behind it.
+        // These sit outside `NEONEXUS_SIGNER_` and were inherited by every node
+        // process while the boundary was a list of two prefixes.
+        "NEONEXUS_LOCAL_SIGNER_ENDPOINT",
+        "NEONEXUS_LOCAL_SIGNER_PUBLIC_KEY",
+        "NEONEXUS_LOCAL_SIGNER_NETWORK_MAGIC",
+        "NEONEXUS_METRICS_TOKEN",
     ];
     let mut command = Command::new("not-started-by-this-test");
     remove_control_plane_environment(
@@ -26,7 +33,7 @@ fn every_control_plane_setting_is_removed_from_the_child() {
         control_plane_names
             .iter()
             .copied()
-            .chain(["NEONEXUS_NODE_MARKER"]),
+            .chain(["PATH", "HOME", "NEO_NODE_MARKER"]),
     );
 
     let overrides = command
@@ -40,37 +47,44 @@ fn every_control_plane_setting_is_removed_from_the_child() {
             "{name} was still inheritable"
         );
     }
-    assert!(
-        !overrides.contains_key(&OsString::from("NEONEXUS_NODE_MARKER")),
-        "an unrelated node setting was removed"
-    );
+    for inherited in ["PATH", "HOME", "NEO_NODE_MARKER"] {
+        assert!(
+            !overrides.contains_key(&OsString::from(inherited)),
+            "{inherited} is not NeoNexus's to withhold from a node"
+        );
+    }
 }
 
 #[test]
-fn only_the_control_plane_namespaces_are_classified_as_control_plane_state() {
-    assert!(is_control_plane_environment(
-        "NEONEXUS_SIGNER_SERVICE_TOKEN".as_ref()
-    ));
-    assert!(is_control_plane_environment(
-        "neonexus_signer_future_secret".as_ref()
-    ));
-    assert!(is_control_plane_environment(
-        "NEONEXUS_WEB_TOKEN_FILE".as_ref()
-    ));
-    assert!(is_control_plane_environment(
-        "neonexus_web_future_secret".as_ref()
-    ));
-    for ordinary in [
-        "NEONEXUS_SIGNER",
-        "NEONEXUS_SIGNERS_SERVICE_TOKEN",
-        "NEONEXUS_NODE_SIGNER_ENDPOINT",
-        "NEONEXUS_WEB",
-        "NEONEXUS_WEBHOOK_URL",
-        "PATH",
+fn the_whole_neonexus_namespace_is_withheld_from_a_child() {
+    for withheld in [
+        "NEONEXUS_SIGNER_SERVICE_TOKEN",
+        "neonexus_signer_future_secret",
+        "NEONEXUS_WEB_TOKEN_FILE",
+        "NEONEXUS_LOCAL_SIGNER_ENDPOINT",
+        "NEONEXUS_DATA_DIR",
+        // The point of matching the namespace: a setting nobody has written yet
+        // is withheld without this list being revisited.
+        "NEONEXUS_SOME_FUTURE_CREDENTIAL",
+        "neonexus_lowercase_on_windows",
     ] {
         assert!(
-            !is_control_plane_environment(ordinary.as_ref()),
-            "{ordinary} is outside the control-plane namespace"
+            is_control_plane_environment(withheld.as_ref()),
+            "{withheld} belongs to NeoNexus and must not reach a node"
+        );
+    }
+
+    // A node's own environment is its operator's business, not ours to strip.
+    for inherited in [
+        "NEONEXUS",
+        "NEONEXUSX_THING",
+        "NEO_NODE_SIGNER_ENDPOINT",
+        "PATH",
+        "HOME",
+    ] {
+        assert!(
+            !is_control_plane_environment(inherited.as_ref()),
+            "{inherited} is outside NeoNexus's namespace"
         );
     }
 }

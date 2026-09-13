@@ -4583,6 +4583,68 @@ fn an_instance_scoped_credential_cannot_leave_its_own_instance() {
     );
 }
 
+/// Node arguments are operator-supplied, so a `--password` lands in them. The
+/// launch log and the support bundle have always redacted this; the read
+/// surfaces that serve the same data over HTTP had not.
+#[test]
+fn a_secret_on_a_node_command_line_is_not_served_back_by_the_read_surfaces() {
+    const SECRET: &str = "hunter2-should-never-be-served";
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+    let repository = Repository::open(&server.db_path).expect("workspace");
+    let node = repository
+        .create_node(NewNode {
+            name: "leaky".to_string(),
+            node_type: NodeType::NeoCli,
+            network: Network::Testnet,
+            binary_path: PathBuf::from("neo-cli.dll"),
+            args: vec!["--wallet-password".to_string(), SECRET.to_string()],
+            runtime_version: "3.6.0".to_string(),
+            storage_engine: StorageEngine::LevelDb,
+            rpc_port: 48332,
+            p2p_port: 48333,
+            ws_port: None,
+        })
+        .expect("create node");
+    let token = repository
+        .create_api_token("fleet-reader", vec![TokenPermission::ReadFleet], None)
+        .expect("token")
+        .1;
+
+    // The instance detail page renders the command line for the operator.
+    let detail = into_response(
+        http.get(&format!("{base}/nodes/{}", node.id))
+            .set("cookie", &session)
+            .call(),
+    )
+    .into_string()
+    .expect("detail body");
+    assert!(
+        !detail.contains(SECRET),
+        "the instance page served a secret from the node command line"
+    );
+
+    // The IaC export is served to any read-fleet credential and is meant to be
+    // pasted into a manifest.
+    let iac = into_response(
+        http.get(&format!("{base}/api/nodes/{}/iac?format=json", node.id))
+            .set("authorization", &format!("Bearer {token}"))
+            .call(),
+    )
+    .into_string()
+    .expect("iac body");
+    assert!(
+        !iac.contains(SECRET),
+        "the IaC export re-exported a secret from the node command line"
+    );
+    assert!(
+        iac.contains("--wallet-password"),
+        "redaction removed the argument itself, not just its value: {iac}"
+    );
+}
+
 /// Post one MCP JSON-RPC call as the given bearer and return `(status, body)`.
 fn mcp_call(
     http: &ureq::Agent,

@@ -244,12 +244,20 @@ impl ConfigReconciler {
                     target_backup.display()
                 )
             })?;
+            // `fs::copy` carries the source mode across, so a file written by
+            // an older, wider reconcile would keep its permissions in a copy
+            // that is never cleaned up. State the mode rather than inherit it.
+            restrict_to_owner(&target_backup)?;
             backup_path = Some(target_backup);
         }
 
         let rendered = ConfigGenerator::render_for_node(node, &[])?;
         let contents = rendered.text.as_bytes();
-        let staged = StagedWrite::new(config_path, contents, false)?;
+        // Owner-only, matching `ConfigExporter`. Reconciling is a rewrite of the
+        // same managed config, and writing it at the umask default silently
+        // widened a 0600 file that can carry a wallet unlock password to 0644
+        // — turning a drift repair into a permission downgrade.
+        let staged = StagedWrite::new(config_path, contents, true)?;
         staged.commit()?;
 
         let post_check = ConfigDriftDetector::check(node, config_path)?;
@@ -275,6 +283,22 @@ fn current_unix_time() -> u64 {
         .duration_since(std::time::SystemTime::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
+}
+
+/// Restrict a managed config file to its owner, matching `ConfigExporter`.
+#[cfg(unix)]
+fn restrict_to_owner(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+        .with_context(|| format!("failed to restrict permissions for {}", path.display()))
+}
+
+/// Windows inherits the parent directory's ACL, which the workspace directory
+/// already restricts; there is no mode to set here.
+#[cfg(not(unix))]
+fn restrict_to_owner(_path: &Path) -> Result<()> {
+    Ok(())
 }
 
 #[cfg(test)]

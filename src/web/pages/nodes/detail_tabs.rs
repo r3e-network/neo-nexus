@@ -110,7 +110,13 @@ pub fn render_tab_details(node: &NodeConfig) -> String {
         node.ws_port
             .map_or_else(|| "Not configured".to_string(), |p| p.to_string())
     };
-    let command = crate::argv::format_command(&node.binary_path, &node.args);
+    // The same redaction the launch log and the support bundle apply to this
+    // exact expression. Node arguments are operator-supplied, so a `--password`
+    // or `--wif` lands here, and this page is served to any session.
+    let command = crate::argv::format_command(
+        &node.binary_path,
+        &crate::redaction::redact_sensitive_args(&node.args),
+    );
 
     let facts = [
         ("Instance Identifier", node.id.clone()),
