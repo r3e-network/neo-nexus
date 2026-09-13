@@ -1,0 +1,200 @@
+name: Performance Benchmarks
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC (run when development activity is low)
+  
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'benches/**'
+      - 'Cargo.toml'
+      
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'benches/**'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+
+jobs:
+  benchmark-daily:
+    name: Daily Performance Baseline
+    if: github.event_name == 'schedule'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt, clippy
+      
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      
+      - name: Run all benchmarks
+        run: cargo bench --bench node_manager_bench
+        timeout-minutes: 60
+        
+      - name: Save benchmark data
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-data-${{ runner.os }}-${{ github.run_number }}
+          path: |
+            target/criterion/
+            *.log
+          retention-days: 30
+      
+      - name: Generate performance summary
+        if: success() || failure()
+        run: |
+          echo "### 📊 Daily Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**OS:** ${{ runner.os }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Check for any benchmark failures
+          if [[ -f "target/criterion/report/benchmark_summary.txt" ]]; then
+            cat target/criterion/report/benchmark_summary.txt >> $GITHUB_STEP_SUMMARY
+          fi
+
+  benchmark-pr-check:
+    name: PR Performance Check
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+      
+      - name: Create baseline from main branch
+        run: |
+          git fetch origin main
+          cargo bench --bench node_manager_bench --baseline main --save-baseline baseline_main
+      
+      - name: Run benchmarks on PR branch
+        run: |
+          cargo bench --bench node_manager_bench --save-baseline pr_branch
+      
+      - name: Compare benchmarks
+        id: compare
+        run: |
+          echo "Comparing PR results against main..."
+          
+          # Use criterion-compare if available, otherwise manual comparison
+          if command -v criterion-compare &> /dev/null; then
+            criterion-compare baseline_main pr_branch > benchmark_diff.txt
+          else
+            # Fallback: just log current results
+            echo "criterion-compare not available, using artifact upload only"
+          fi
+      
+      - name: Upload comparison results
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-benchmark-results
+          path: |
+            target/criterion/
+            benchmark_diff.txt
+          retention-days: 7
+      
+      - name: Check for significant regressions
+        id: check-regressions
+        run: |
+          echo "Checking for performance regressions..."
+          
+          # This is a simplified check - in production you'd parse actual benchmark output
+          # For now, we'll just warn and rely on human review of artifacts
+          echo "Warning: Automated regression detection requires criterion-compare tool"
+          echo "Please review the uploaded benchmark artifacts manually"
+
+  benchmark-nightly-report:
+    name: Performance Trend Analysis
+    needs: [benchmark-daily]
+    runs-on: ubuntu-latest
+    if: success() || failure()
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download benchmark data
+        uses: actions/download-artifact@v4
+        with:
+          pattern: benchmark-data-*
+          merge-multiple: true
+      
+      - name: Generate trend report
+        run: |
+          echo "# 📈 Performance Trends" > performance-trends.md
+          echo "" >> performance-trends.md
+          echo "This report summarizes daily benchmark performance across all platforms." >> performance-trends.md
+          echo "" >> performance-trends.md
+          
+          # Count days analyzed
+          DAYS_COUNT=$(ls -1 | grep -E "^benchmark-data-" | wc -l)
+          echo "**Days Analyzed:** ${DAYS_COUNT}" >> performance-trends.md
+          echo "" >> performance-trends.md
+      
+      - name: Upload trend report
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-trend-reports
+          path: performance-trends.md
+          retention-days: 90
+
+  benchmark-flamegraph:
+    name: CPU Profiling with Flame Graphs
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install flamegraph tool
+        run: cargo install cargo-flamegraph
+      
+      - name: Run benchmark with flamegraph
+        run: |
+          cargo flamegraph --bench node_manager_bench \
+            --output flamegraph.svg \
+            --freq 99 \
+            --title "NeoNexus Node Manager Benchmarks"
+      
+      - name: Upload flamegraph
+        uses: actions/upload-artifact@v4
+        with:
+          name: flamegraphs
+          path: flamegraph.svg
+          retention-days: 30
+      
+      - name: Embed flamegraph in commit
+        run: |
+          echo "<img src='flamegraph.svg' alt='Flame Graph' />" > FLAMEGRAPH.md
+          echo "[Full flamegraph](flamegraph.svg)" >> FLAMEGRAPH.md
+          cat FLAMEGRAPH.md
+      
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Add flamegraph from benchmark profiling"
+          file_pattern: FLAMEGRAPH.md flamegraph.svg
