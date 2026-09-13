@@ -40,6 +40,14 @@ pub(super) fn create_inventory_tables(connection: &Connection) -> Result<()> {
             key_id TEXT NOT NULL,
             FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
         );
+        CREATE TABLE IF NOT EXISTS node_hermes_agents (
+            node_id TEXT PRIMARY KEY,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            autonomous_healing INTEGER NOT NULL DEFAULT 1,
+            last_heartbeat INTEGER,
+            agent_version TEXT NOT NULL DEFAULT '0.5.0',
+            FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+        );
         CREATE TABLE IF NOT EXISTS plugin_states (
             node_id TEXT NOT NULL,
             plugin_id TEXT NOT NULL,

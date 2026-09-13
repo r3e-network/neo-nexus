@@ -6,6 +6,7 @@ mod validation;
 pub mod workspace_exporter;
 mod workspace_importer;
 
+pub use self::restore::restored_workspace_setting;
 pub use self::schema::{
     EventBackup, FastSyncSnapshotBackup, NeoWalletProfileBackup, NodeBackup, PluginBackup,
     PluginInstallationBackup, RemoteServerProfileBackup, RuntimeCatalogProfileBackup,

@@ -75,11 +75,13 @@ pub(super) fn reth_args(
     }
     push_missing(args, "--datadir", &data_dir(working_dir));
 
-    if !has_flag(args, "--http") {
-        args.push("--http".to_string());
+    if node.rpc_port > 0 {
+        if !has_flag(args, "--http") {
+            args.push("--http".to_string());
+        }
+        push_missing(args, "--http.addr", "127.0.0.1");
+        push_missing(args, "--http.port", &node.rpc_port.to_string());
     }
-    push_missing(args, "--http.addr", "127.0.0.1");
-    push_missing(args, "--http.port", &node.rpc_port.to_string());
     push_missing(args, "--port", &node.p2p_port.to_string());
 
     // A private network has no bootnodes to find, so discovery would only

@@ -18,6 +18,10 @@
 
 use std::path::{Path, PathBuf};
 
+mod context;
+
+pub use context::generation_context_for_node;
+
 use anyhow::{Context, Result};
 
 use crate::{
@@ -224,8 +228,10 @@ pub fn execute_node_launch(
     }
 
     let start = match action {
-        LaunchAction::Start => supervisor.start(node, plan, &log_path),
-        LaunchAction::Restart => supervisor.restart(node, plan, &log_path),
+        LaunchAction::Start => supervisor.start_with_type(node, plan, &log_path, node.node_type),
+        LaunchAction::Restart => {
+            supervisor.restart_with_type(node, plan, &log_path, node.node_type)
+        }
     };
 
     match start {
@@ -280,13 +286,6 @@ pub fn execute_node_launch(
     }
 }
 
-/// Stop whatever is currently running for `node` before a restart.
-///
-/// `ProcessSupervisor::restart` stops **by handle**. A node whose process came
-/// from an earlier server session, or from a `--node-start` in another process,
-/// has no handle here — so a plain restart would leave it running and launch a
-/// second process to fight it for the same ports. Returns whether a process was
-/// actually stopped, so the caller can say which kind of restart happened.
 pub fn quiesce_before_restart(
     supervisor: &mut ProcessSupervisor,
     node: &NodeConfig,

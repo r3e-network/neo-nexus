@@ -6,6 +6,7 @@
 pub use crate::roles::ChainRole;
 
 pub use crate::chain_state::{
-    designation_status, governance_snapshot, CandidateStanding, ChainQueryError, DesignationStatus,
-    GovernanceSnapshot, RoleDesignation,
+    designation_status, governance_snapshot, mempool_telemetry, peer_telemetry, CandidateStanding,
+    ChainQueryError, DesignationStatus, GovernanceSnapshot, MempoolCongestion, MempoolTelemetry,
+    PeerConnectivity, PeerEndpoint, PeerTelemetry, RoleDesignation,
 };

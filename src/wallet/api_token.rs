@@ -11,6 +11,8 @@ pub enum TokenPermission {
     ReadReadiness,
     /// All operations including POST/PUT/DELETE on all endpoints
     AdminAll,
+    /// Scoped access for a Hermes Agent to operate on a specific node instance
+    HermesAgent(String),
 }
 
 impl std::fmt::Display for TokenPermission {
@@ -19,6 +21,7 @@ impl std::fmt::Display for TokenPermission {
             TokenPermission::ReadFleet => write!(f, "read_fleet"),
             TokenPermission::ReadReadiness => write!(f, "read_readiness"),
             TokenPermission::AdminAll => write!(f, "admin_all"),
+            TokenPermission::HermesAgent(node_id) => write!(f, "hermes_agent:{node_id}"),
         }
     }
 }
@@ -26,6 +29,36 @@ impl std::fmt::Display for TokenPermission {
 impl From<TokenPermission> for String {
     fn from(permission: TokenPermission) -> Self {
         permission.to_string()
+    }
+}
+
+impl std::str::FromStr for TokenPermission {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let trimmed = s.trim();
+        if let Some(rest) = trimmed.strip_prefix("hermes_agent:") {
+            let id = rest.trim();
+            if id.is_empty() {
+                anyhow::bail!("hermes_agent permission requires a node_id");
+            }
+            return Ok(TokenPermission::HermesAgent(id.to_string()));
+        }
+        if let Some(rest) = trimmed.strip_prefix("agent:") {
+            let id = rest.trim();
+            if id.is_empty() {
+                anyhow::bail!("agent permission requires a node_id");
+            }
+            return Ok(TokenPermission::HermesAgent(id.to_string()));
+        }
+        match trimmed.to_ascii_lowercase().as_str() {
+            "read_fleet" | "read:fleet" | "fleet" => Ok(TokenPermission::ReadFleet),
+            "read_readiness" | "read:readiness" | "readiness" => Ok(TokenPermission::ReadReadiness),
+            "admin_all" | "admin" | "all" => Ok(TokenPermission::AdminAll),
+            other => anyhow::bail!(
+                "unknown token permission '{other}'; supported: read_fleet, read_readiness, admin_all, hermes_agent:<node_id>"
+            ),
+        }
     }
 }
 
@@ -140,22 +173,6 @@ impl ApiToken {
     pub fn display_id(&self) -> String {
         format!("neo-{}", &self.id.hyphenated().to_string()[..8])
     }
-
-    /// Get the full secret string - only call immediately after generation!
-    ///
-    /// # Panics
-    /// Panics if called on a token loaded from storage.
-    /// This should only be used once during the initial generation response.
-    ///
-    /// # Returns
-    /// The plaintext secret string
-    #[deprecated(
-        since = "1.0.0",
-        note = "This method should only be called immediately after ApiToken::generate()"
-    )]
-    pub fn raw_secret(&self) -> &str {
-        panic!("raw_secret() can only be called on the original token from generate()");
-    }
 }
 
 /// Generate a cryptographically secure random string suitable for API tokens.
@@ -190,12 +207,10 @@ pub fn sha256_bytes(input: &[u8]) -> [u8; 32] {
 /// Get current Unix timestamp in seconds.
 #[must_use]
 pub fn current_unix_timestamp() -> i64 {
-    use std::time::SystemTime;
-
-    SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_secs() as i64
+    match std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH) {
+        Ok(duration) => i64::try_from(duration.as_secs()).unwrap_or(i64::MAX),
+        Err(_) => 0,
+    }
 }
 
 #[cfg(test)]

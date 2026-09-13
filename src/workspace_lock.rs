@@ -13,6 +13,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use fs2::FileExt;
+use log::error;
 
 const LOCK_FILE_NAME: &str = ".neonexus-supervisor.lock";
 
@@ -61,7 +62,7 @@ impl WorkspaceSupervisorLock {
 impl Drop for WorkspaceSupervisorLock {
     fn drop(&mut self) {
         if let Err(error) = FileExt::unlock(&self.file) {
-            eprintln!(
+            error!(
                 "NeoNexus could not release supervisor lock {}: {error}",
                 self.path.display()
             );

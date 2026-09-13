@@ -3,6 +3,7 @@ mod model;
 mod node;
 mod workspace;
 
+pub(crate) use atomic::StagedWrite;
 pub use model::{
     ConfigExport, NodeConfigExportReport, WorkspaceConfigExport, WorkspaceConfigReport,
 };

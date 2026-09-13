@@ -122,7 +122,7 @@ pub(super) fn remediation_hint(category: &str) -> &'static str {
 }
 
 pub(super) fn should_skip_directory(name: &str) -> bool {
-    matches!(name, ".git" | "target" | "dist")
+    matches!(name, ".git" | "target" | "dist" | ".neonexus")
 }
 
 pub(super) fn is_rust_source(path: &Path) -> bool {

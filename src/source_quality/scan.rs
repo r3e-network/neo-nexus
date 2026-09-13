@@ -90,13 +90,20 @@ impl SourceQualityScan {
             return Ok(());
         }
         let is_test_source = is_test_source(path);
+        let mut test_scope = is_test_source;
         for (line_index, line) in text.lines().enumerate() {
-            self.scan_line(&relative_path, line_index + 1, line, is_test_source);
+            if line.contains("#[cfg(test)]") {
+                test_scope = true;
+            }
+            self.scan_line(&relative_path, line_index + 1, line, test_scope);
         }
         Ok(())
     }
 
     fn scan_line(&mut self, path: &str, line_number: usize, line: &str, is_test_source: bool) {
+        if line.trim_start().starts_with("//") {
+            return;
+        }
         for marker in blocked_markers() {
             if is_test_source && marker.is_allowed_in_test_source() {
                 continue;

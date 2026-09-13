@@ -7,7 +7,9 @@
 mod report;
 mod workspace;
 
-pub(in crate::cli::actions) use report::{node_list_action, node_status_action};
+pub(in crate::cli::actions) use report::{
+    node_list_action, node_list_json_action, node_status_action, node_status_json_action,
+};
 use workspace::{node_by_name, open_workspace, workspace_child_dir};
 
 use super::*;

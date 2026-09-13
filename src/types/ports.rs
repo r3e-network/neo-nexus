@@ -1,16 +1,18 @@
 use anyhow::Result;
 
 pub fn validate_node_ports(rpc_port: u16, p2p_port: u16, ws_port: Option<u16>) -> Result<()> {
-    validate_node_port(rpc_port, "RPC")?;
+    if rpc_port > 0 {
+        validate_node_port(rpc_port, "RPC")?;
+    }
     validate_node_port(p2p_port, "P2P")?;
     if let Some(ws_port) = ws_port {
         validate_node_port(ws_port, "WebSocket")?;
     }
 
-    if rpc_port == p2p_port {
+    if rpc_port > 0 && rpc_port == p2p_port {
         anyhow::bail!("RPC and P2P ports must be different");
     }
-    if ws_port.is_some_and(|port| port == rpc_port) {
+    if rpc_port > 0 && ws_port.is_some_and(|port| port == rpc_port) {
         anyhow::bail!("RPC and WebSocket ports must be different");
     }
     if ws_port.is_some_and(|port| port == p2p_port) {

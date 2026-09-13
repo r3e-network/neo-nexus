@@ -1,8 +1,13 @@
+mod drift;
 mod export;
 mod format;
 mod generator;
 mod validation;
 
+pub use self::drift::{
+    ConfigDifference, ConfigDriftDetector, ConfigDriftReport, ConfigDriftStatus, ConfigReconciler,
+    ConfigReconciliationReport,
+};
 pub use self::export::{
     ConfigExport, ConfigExporter, NodeConfigExportReport, WorkspaceConfigExport,
     WorkspaceConfigExporter, WorkspaceConfigReport,

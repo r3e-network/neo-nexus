@@ -19,13 +19,17 @@ impl Repository {
             .as_deref()
             .and_then(|value| value.parse::<u64>().ok())
             .unwrap_or(default_policy.max_delay.as_secs());
+        let jitter_enabled = load_setting(&connection, SETTING_WATCHDOG_JITTER_ENABLED)?
+            .as_deref()
+            .is_some_and(parse_bool_setting);
 
         Ok(RestartPolicy::with_enabled(
             enabled,
             max_restart_attempts,
             Duration::from_secs(base_delay_seconds),
             Duration::from_secs(max_delay_seconds),
-        ))
+        )
+        .with_jitter(jitter_enabled))
     }
 
     pub fn save_watchdog_policy(&self, policy: RestartPolicy) -> Result<()> {
@@ -51,6 +55,15 @@ impl Repository {
             &transaction,
             SETTING_WATCHDOG_MAX_DELAY_SECONDS,
             &policy.max_delay.as_secs().to_string(),
+        )?;
+        save_setting(
+            &transaction,
+            SETTING_WATCHDOG_JITTER_ENABLED,
+            if policy.jitter_enabled {
+                "true"
+            } else {
+                "false"
+            },
         )?;
         transaction.commit()?;
         Ok(())

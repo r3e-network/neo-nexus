@@ -124,3 +124,77 @@ fn remote_signer_adapter_is_locked_to_the_reviewed_neo_cli_abi() {
     node.runtime_version = "v3.9.2".to_string();
     ensure_sign_client_runtime(&node, NodeRole::Consensus).unwrap();
 }
+
+#[test]
+fn double_signing_hazard_fails_when_another_node_is_running_with_same_signer_key() {
+    let (directory, repository, node1) = repository_node();
+    let node2 = repository
+        .create_node(NewNode {
+            name: "validator-backup".to_string(),
+            node_type: NodeType::NeoCli,
+            network: Network::Testnet,
+            binary_path: PathBuf::from("/opt/neo-cli"),
+            args: Vec::new(),
+            runtime_version: "v3.9.2".to_string(),
+            storage_engine: StorageEngine::LevelDb,
+            rpc_port: 20334,
+            p2p_port: 20335,
+            ws_port: None,
+        })
+        .unwrap();
+
+    let public_key = "031e18532fd4754c02f3041d9c75ceb33b83ffd81ac7ce4fe882ccb1c98bc5896e";
+    let key = SignerKeyRef::new("host-signer", public_key).unwrap();
+    let profile =
+        SignerBackendProfile::new("host-signer", "Host signer", SignerBackendKind::LocalSigner)
+            .unwrap();
+    let backend = ConfiguredSignerBackend::local_signer(
+        profile,
+        LocalSignerConfig::new("http://127.0.0.1:9991", public_key, 894_710_606).unwrap(),
+    )
+    .unwrap();
+    let registry = SignerRegistry::new([backend], None, None).unwrap();
+
+    repository
+        .set_node_role(&node1.id, Some(NodeRole::Consensus))
+        .unwrap();
+    repository
+        .set_node_signer_key(&node1.id, Some(&key))
+        .unwrap();
+
+    repository
+        .set_node_role(&node2.id, Some(NodeRole::Consensus))
+        .unwrap();
+    // Simulate legacy/imported database state where node2 also holds this binding
+    let conn = rusqlite::Connection::open(directory.path().join("workspace.db")).unwrap();
+    conn.execute(
+        "INSERT INTO node_signer_bindings (node_id, backend_id, key_id) VALUES (?1, ?2, ?3)",
+        rusqlite::params![node2.id, key.backend_id, key.key_id],
+    )
+    .unwrap();
+
+    // Mark node1 as actively running with a PID
+    repository
+        .update_node_status(&node1.id, crate::types::NodeStatus::Running, Some(4242))
+        .unwrap();
+
+    // Launching node2 with the same key must fail with double-signing hazard
+    let err = prepare_node_signer_launch(&repository, Some(&registry), &node2, &[], directory.path())
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("double-signing hazard"),
+        "expected double-signing hazard, got: {err}"
+    );
+
+    // If node1 is stopped, node2 can proceed past the double-signing barrier
+    repository
+        .update_node_status(&node1.id, crate::types::NodeStatus::Stopped, None)
+        .unwrap();
+    let res = prepare_node_signer_launch(&repository, Some(&registry), &node2, &[], directory.path());
+    if let Err(e) = res {
+        assert!(
+            !e.to_string().contains("double-signing hazard"),
+            "should not fail with double-signing hazard when node1 is stopped"
+        );
+    }
+}

@@ -11,7 +11,7 @@ pub use chain_family::ChainFamily;
 pub use network::Network;
 pub use node::{node_workspace_path, validate_node_id, NewNode, NodeConfig};
 pub use node_inventory::{filter_nodes, NodeInventoryFilter};
-pub use node_type::NodeType;
+pub use node_type::{NodeType, NodeTypeTraits};
 pub use ports::{validate_node_port, validate_node_ports};
 pub use status::NodeStatus;
 pub use storage::StorageEngine;

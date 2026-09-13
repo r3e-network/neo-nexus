@@ -59,7 +59,7 @@ impl ConfigGenerator {
                 broadcast_history_limit: broadcast_history_limit(node.network),
             },
             rpc: NeoRsRpcConfig {
-                enabled: true,
+                enabled: node.rpc_port > 0,
                 port: node.rpc_port,
                 bind_address: "127.0.0.1".to_string(),
             },

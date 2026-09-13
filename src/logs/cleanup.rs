@@ -8,6 +8,7 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use log::warn;
 
 /// Clear all `.log` files from a given directory.
 ///
@@ -68,11 +69,11 @@ pub fn clear_all_logs(log_dir: &Path) -> Result<usize> {
             match fs::remove_file(&path) {
                 Ok(()) => {
                     cleared_count += 1;
-                    eprintln!("Cleared log file: {}", path.display());
+                    warn!("Cleared log file: {}", path.display());
                 }
                 Err(error) => {
                     // Log error but continue with other files
-                    eprintln!(
+                    warn!(
                         "Failed to clear {}: {} (permission denied or file locked)",
                         path.display(),
                         error.kind()

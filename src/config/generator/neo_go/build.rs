@@ -100,12 +100,18 @@ fn p2p_configuration(node: &NodeConfig) -> NeoGoP2pConfiguration {
 }
 
 fn rpc_configuration(node: &NodeConfig) -> NeoGoRpcConfiguration {
+    let enabled = node.rpc_port > 0;
+    let addresses = if enabled {
+        vec![bind_address(LOOPBACK_HOST, node.rpc_port)]
+    } else {
+        Vec::new()
+    };
     NeoGoRpcConfiguration {
-        enabled: true,
-        addresses: vec![bind_address(LOOPBACK_HOST, node.rpc_port)],
+        enabled,
+        addresses,
         enable_cors_workaround: false,
         max_gas_invoke: 20,
-        session_enabled: true,
+        session_enabled: enabled,
         session_lifetime: GoDuration::seconds(300),
     }
 }

@@ -4,9 +4,7 @@ use crate::repository::{validate_backup_setting_key, WorkspaceSetting};
 
 use super::super::schema::WorkspaceSettingBackup;
 
-pub(in crate::backup) fn restored_workspace_setting(
-    backup: &WorkspaceSettingBackup,
-) -> Result<WorkspaceSetting> {
+pub fn restored_workspace_setting(backup: &WorkspaceSettingBackup) -> Result<WorkspaceSetting> {
     if backup.key.trim().is_empty() {
         anyhow::bail!("backup workspace setting key is required");
     }

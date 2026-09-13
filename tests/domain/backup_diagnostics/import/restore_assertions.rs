@@ -1,5 +1,6 @@
 use neo_nexus::backup::WorkspaceBackupImport;
 
+use super::source_workspace::EXPECTED_WORKSPACE_SETTINGS;
 use super::*;
 
 pub(super) fn assert_first_import(
@@ -12,7 +13,17 @@ pub(super) fn assert_first_import(
     assert_eq!(imported.plugin_state_count, 2);
     assert_eq!(imported.plugin_installation_count, 1);
     assert_eq!(imported.signer_binding_count, 1);
-    assert_eq!(imported.workspace_setting_count, 6);
+    let restored_settings = target.list_workspace_settings_for_backup().unwrap();
+    let mut settings = restored_settings
+        .iter()
+        .map(|setting| (setting.key.as_str(), setting.value.as_str()))
+        .collect::<Vec<_>>();
+    settings.sort_unstable();
+    assert_eq!(settings.as_slice(), EXPECTED_WORKSPACE_SETTINGS);
+    assert_eq!(
+        imported.workspace_setting_count,
+        EXPECTED_WORKSPACE_SETTINGS.len()
+    );
     assert_eq!(imported.remote_server_count, 1);
     assert_eq!(imported.runtime_catalog_profile_count, 1);
     assert_eq!(imported.runtime_signer_profile_count, 1);

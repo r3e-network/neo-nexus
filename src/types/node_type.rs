@@ -1,11 +1,73 @@
-use std::{fmt, str::FromStr};
+use std::{fmt, path::PathBuf, str::FromStr};
 
 use anyhow::Result;
 use serde::Serialize;
 
 use super::{ChainFamily, StorageEngine};
+use crate::config::ConfigFormat;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+/// Trait defining type-agnostic interface for node runtime variants.
+///
+/// This abstraction enables generic operations across different Neo node
+/// implementations (neo-cli, neo-go, neo-rs, neox-geth, neox-rs) without
+/// requiring callers to know type-specific details.
+pub trait NodeTypeTraits {
+    /// Returns configuration file format (JSON, YAML, or TOML)
+    fn config_format(&self) -> ConfigFormat;
+
+    /// Returns expected config path relative to working directory
+    fn config_path(&self) -> PathBuf;
+
+    /// Returns plugin directory path if applicable (None for types without plugins)
+    fn plugin_directory(&self) -> Option<PathBuf>;
+
+    /// Returns true if type supports dynamic plugins/extensions
+    fn supports_plugins(&self) -> bool;
+
+    /// Returns the default runtime binary name for this type
+    fn default_binary_name(&self) -> &str;
+}
+
+impl NodeTypeTraits for NodeType {
+    fn config_format(&self) -> ConfigFormat {
+        match self {
+            Self::NeoCli => ConfigFormat::Json,
+            Self::NeoGo => ConfigFormat::Yaml,
+            Self::NeoRs | Self::NeoXGeth | Self::NeoXReth => ConfigFormat::Json,
+        }
+    }
+
+    fn config_path(&self) -> PathBuf {
+        match self {
+            Self::NeoCli => PathBuf::from("config.json"),
+            Self::NeoGo => PathBuf::from("config/config.yml"),
+            Self::NeoRs | Self::NeoXGeth | Self::NeoXReth => PathBuf::from("config/config.json"),
+        }
+    }
+
+    fn plugin_directory(&self) -> Option<PathBuf> {
+        match self {
+            Self::NeoCli => Some(PathBuf::from("Plugins")),
+            Self::NeoGo | Self::NeoRs | Self::NeoXGeth | Self::NeoXReth => None,
+        }
+    }
+
+    fn supports_plugins(&self) -> bool {
+        *self == Self::NeoCli
+    }
+
+    fn default_binary_name(&self) -> &str {
+        match self {
+            Self::NeoCli => "neo-cli.exe",
+            Self::NeoGo => "neo-go",
+            Self::NeoRs => "neo-node",
+            Self::NeoXGeth => "neox-geth",
+            Self::NeoXReth => "neox-rs",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum NodeType {
     NeoCli,
@@ -79,6 +141,56 @@ impl NodeType {
             Self::NeoXGeth | Self::NeoXReth => storage_engine == StorageEngine::RocksDb,
         }
     }
+
+    /// Infers node type from a binary path, filename, or text identifier.
+    ///
+    /// Matches common executable filenames and binary stems across platforms
+    /// (e.g. `neox-geth`, `geth`, `neo-node`, `neo-cli`, `neo-go`, `reth`, `neox-rs`).
+    pub fn infer_from_str(s: &str) -> Option<Self> {
+        let trimmed = s.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+        if let Ok(direct) = trimmed.parse::<Self>() {
+            return Some(direct);
+        }
+        let normalized = trimmed.replace('\\', "/");
+        let filename = normalized.rsplit('/').next().unwrap_or(trimmed);
+        let lower = filename.to_ascii_lowercase();
+        let stem = lower.strip_suffix(".exe").unwrap_or(&lower);
+        let stem = stem.strip_suffix(".dll").unwrap_or(stem);
+
+        match stem {
+            "neo-cli" => Some(Self::NeoCli),
+            "neo-go" => Some(Self::NeoGo),
+            "neo-node" | "neo-rs" => Some(Self::NeoRs),
+            "neox-geth" | "geth" => Some(Self::NeoXGeth),
+            "neox-rs" | "reth" | "neox-reth" => Some(Self::NeoXReth),
+            _ => {
+                if stem.contains("neox-geth") || (stem.contains("geth") && !stem.contains("reth")) {
+                    Some(Self::NeoXGeth)
+                } else if stem.contains("neox-rs") || stem.contains("reth") {
+                    Some(Self::NeoXReth)
+                } else if stem.contains("neo-node") {
+                    Some(Self::NeoRs)
+                } else if stem.contains("neo-go") {
+                    Some(Self::NeoGo)
+                } else if stem.contains("neo-cli") {
+                    Some(Self::NeoCli)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    /// Infers node type from a file path.
+    pub fn infer_from_path(path: &std::path::Path) -> Option<Self> {
+        path.file_name()
+            .and_then(|n| n.to_str())
+            .and_then(Self::infer_from_str)
+            .or_else(|| path.to_str().and_then(Self::infer_from_str))
+    }
 }
 
 impl fmt::Display for NodeType {
@@ -111,3 +223,8 @@ impl FromStr for NodeType {
 #[cfg(test)]
 #[path = "../../tests/unit/types/node_type/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/types/node_type/traits_tests.rs"]
+mod traits_tests;
+

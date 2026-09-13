@@ -20,23 +20,12 @@ impl Repository {
              ORDER BY created_at_unix DESC",
         )?;
 
-        let tokens = statement.query_map([], |row| {
-            Ok(ApiToken {
-                id: row.get::<_, String>(0)?.parse().unwrap_or_default(),
-                name: row.get(1)?,
-                permissions: parse_permissions(row.get::<_, String>(2)?),
-                created_at_unix: row.get(3)?,
-                expires_at_unix: row.get(4)?,
-                secret_hash: row.get::<_, Vec<u8>>(5)?.try_into().unwrap_or([0u8; 32]),
-            })
-        });
+        let tokens = statement
+            .query_map([], row_to_api_token)?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .context("failed to read API tokens from database")?;
 
-        let mut results = Vec::new();
-        for token in tokens?.flatten() {
-            results.push(token);
-        }
-
-        Ok(results)
+        Ok(tokens)
     }
 
     /// Create a new API token and store it in the database.
@@ -130,16 +119,7 @@ impl Repository {
              FROM api_tokens
              WHERE secret_hash = ?1",
             params![&provided_hash[..]],
-            |row| {
-                Ok(ApiToken {
-                    id: row.get::<_, String>(0)?.parse().unwrap_or_default(),
-                    name: row.get(1)?,
-                    permissions: parse_permissions(row.get::<_, String>(2)?),
-                    created_at_unix: row.get(3)?,
-                    expires_at_unix: row.get(4)?,
-                    secret_hash: row.get::<_, Vec<u8>>(5)?.try_into().unwrap_or([0u8; 32]),
-                })
-            },
+            row_to_api_token,
         );
 
         match maybe_token {
@@ -151,7 +131,35 @@ impl Repository {
     }
 }
 
-/// Parse a CSV string of permission names into a vector of TokenPermission enum variants.
+/// Convert a database row to an ApiToken, strictly validating the UUID and secret hash length.
+fn row_to_api_token(row: &rusqlite::Row<'_>) -> rusqlite::Result<ApiToken> {
+    let id_str: String = row.get(0)?;
+    let id = id_str.parse().map_err(|e| {
+        rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
+    })?;
+    let name: String = row.get(1)?;
+    let permissions_csv: String = row.get(2)?;
+    let created_at_unix: i64 = row.get(3)?;
+    let expires_at_unix: Option<i64> = row.get(4)?;
+    let hash_bytes: Vec<u8> = row.get(5)?;
+    let secret_hash: [u8; 32] = hash_bytes.try_into().map_err(|bytes: Vec<u8>| {
+        rusqlite::Error::FromSqlConversionFailure(
+            5,
+            rusqlite::types::Type::Blob,
+            format!("expected 32-byte secret hash, got {} bytes", bytes.len()).into(),
+        )
+    })?;
+
+    Ok(ApiToken {
+        id,
+        name,
+        permissions: parse_permissions(permissions_csv),
+        created_at_unix,
+        expires_at_unix,
+        secret_hash,
+    })
+}
+
 fn parse_permissions(permissions_csv: String) -> Vec<TokenPermission> {
     if permissions_csv.is_empty() {
         return vec![];
@@ -159,11 +167,6 @@ fn parse_permissions(permissions_csv: String) -> Vec<TokenPermission> {
 
     permissions_csv
         .split(',')
-        .filter_map(|perm| match perm.trim() {
-            "read_fleet" => Some(TokenPermission::ReadFleet),
-            "read_readiness" => Some(TokenPermission::ReadReadiness),
-            "admin_all" => Some(TokenPermission::AdminAll),
-            _ => None, // Ignore unknown permissions
-        })
+        .filter_map(|perm| perm.trim().parse::<TokenPermission>().ok())
         .collect()
 }

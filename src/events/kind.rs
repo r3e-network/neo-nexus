@@ -99,6 +99,37 @@ define_event_kinds! {
     ReleasePackaged => "release-packaged",
     ReleasePackageVerified => "release-package-verified",
     EventsPruned => "events-pruned",
+    ApiTokenCreated => "api-token-created",
+    ApiTokenDeleted => "api-token-deleted",
+    // Node-Type-Specific Lifecycle Events
+    NeoCliPluginLoaded => "neo-cli-plugin-loaded",
+    NeoCliPluginUnloaded => "neo-cli-plugin-unloaded",
+    NeoGoModuleEnabled => "neo-go-module-enabled",
+    NeoRsConsensusStarted => "neo-rs-consensus-started",
+    NeoXGethChainInitialized => "neox-geth-chain-initialized",
+    NeoXRethSnapshotCreated => "neox-reth-snapshot-created",
+    // Metrics Integration Events
+    MetricsExporterStarted => "metrics-exporter-started",
+    MetricsExporterFailed => "metrics-exporter-failed",
+    NeoCliMetricsExported => "neo-cli-metrics-exported",
+    NeoGoMetricsCollected => "neo-go-metrics-collected",
+    NeoRsMetricsNormalized => "neo-rs-metrics-normalized",
+    NeoXGethMetricsExposed => "neox-geth-metrics-exposed",
+    NeoXRethMetricsExposed => "neox-reth-metrics-exposed",
+    PrometheusScrapeCompleted => "prometheus-scrape-completed",
+    PrometheusScrapeFailed => "prometheus-scrape-failed",
+    // Logging Events
+    LogParserInitialized => "log-parser-initialized",
+    LogFatalErrorDetected => "log-fatal-error-detected",
+    SyncProgressRecorded => "sync-progress-recorded",
+    LogRotationTriggered => "log-rotation-triggered",
+    LogArchiveCreated => "log-archive-created",
+    // Plugin/Module Management Events
+    PluginVersionMismatch => "plugin-version-mismatch",
+    ModuleEnabled => "module-enabled",
+    ModuleLoadFailed => "module-load-failed",
+    PluginDependenciesResolved => "plugin-dependencies-resolved",
+    PluginConfigurationValidated => "plugin-configuration-validated",
 }
 
 impl fmt::Display for EventKind {

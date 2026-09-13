@@ -4,11 +4,12 @@ use anyhow::{Context, Result};
 
 use crate::{
     snapshots::{normalize_sha256, sha256_file},
-    types::{NodeConfig, NodeType},
+    types::NodeConfig,
 };
 
 use super::{
     archive::unpack_plugin_zip,
+    ensure_plugin_installable,
     fs_utils::{
         backup_dir, ensure_real_directory_exists, replace_plugin_directory, reset_directory,
         staging_dir,
@@ -32,10 +33,8 @@ impl PluginPackageManager {
         node: &NodeConfig,
         node_work_dir: impl AsRef<Path>,
     ) -> Result<PluginInstallation> {
+        ensure_plugin_installable(node)?;
         validate_plugin_package_manifest(manifest)?;
-        if node.node_type != NodeType::NeoCli {
-            anyhow::bail!("plugin packages are supported for neo-cli nodes only");
-        }
 
         let source_path = verified_plugin_source(&manifest.source_path)?;
         let metadata = fs::metadata(&source_path).with_context(|| {

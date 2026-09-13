@@ -10,5 +10,5 @@ pub(super) use profiles::{
     restored_neo_wallet_profile, restored_remote_server_profile, restored_runtime_catalog_profile,
     restored_runtime_signer_profile,
 };
-pub(super) use settings::restored_workspace_setting;
+pub use settings::restored_workspace_setting;
 pub(super) use snapshots::restored_fast_sync_snapshot;

@@ -13,12 +13,16 @@
 
 mod designation;
 mod governance;
+mod mempool;
 mod model;
+mod peers;
 mod render;
 mod rpc;
 
 pub use designation::designation_status;
 pub use governance::governance_snapshot;
+pub use mempool::{mempool_telemetry, MempoolCongestion, MempoolTelemetry};
 pub use model::{
     CandidateStanding, ChainQueryError, DesignationStatus, GovernanceSnapshot, RoleDesignation,
 };
+pub use peers::{peer_telemetry, PeerConnectivity, PeerEndpoint, PeerTelemetry};

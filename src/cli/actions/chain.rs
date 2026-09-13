@@ -1,7 +1,10 @@
 use super::*;
 
+use crate::core::node::ChainFamily;
 use crate::core::node_chain::{
-    designation_status, governance_snapshot, ChainRole, GovernanceSnapshot, RoleDesignation,
+    designation_status, governance_snapshot, mempool_telemetry, peer_telemetry, ChainRole,
+    GovernanceSnapshot, MempoolCongestion, MempoolTelemetry, PeerConnectivity, PeerTelemetry,
+    RoleDesignation,
 };
 
 /// Chain reads take the same three seconds as the RPC health probe: an operator
@@ -75,6 +78,69 @@ fn governance_report(args: &[String]) -> Result<GovernanceSnapshot> {
     require_arg_count(args, 3, option)?;
     governance_snapshot(&args[2], CHAIN_TIMEOUT)
         .map_err(|error| anyhow::anyhow!("{}", error.message()))
+}
+
+pub(in crate::cli::actions) fn peer_health_text(args: &[String]) -> Result<String> {
+    Ok(peer_telemetry_report(args)?.to_cli_text())
+}
+
+pub(in crate::cli::actions) fn peer_health_json_action(args: &[String]) -> Result<CliAction> {
+    let report = peer_telemetry_report(args)?;
+    let exit_code = if report.connectivity == PeerConnectivity::Healthy {
+        0
+    } else {
+        1
+    };
+    Ok(CliAction::PrintWithExitCode {
+        exit_code,
+        text: serde_json::to_string_pretty(&report)?,
+    })
+}
+
+fn peer_telemetry_report(args: &[String]) -> Result<PeerTelemetry> {
+    if args.len() < 3 || args.len() > 4 {
+        anyhow::bail!("usage: neo-nexus --peer-health <rpc-endpoint> [neo-n3|neo-x]");
+    }
+    let family = parse_chain_family(args.get(3).map(String::as_str))?;
+    peer_telemetry(&args[2], family, CHAIN_TIMEOUT)
+        .map_err(|error| anyhow::anyhow!("{}", error.message()))
+}
+
+pub(in crate::cli::actions) fn mempool_status_text(args: &[String]) -> Result<String> {
+    Ok(mempool_telemetry_report(args)?.to_cli_text())
+}
+
+pub(in crate::cli::actions) fn mempool_status_json_action(args: &[String]) -> Result<CliAction> {
+    let report = mempool_telemetry_report(args)?;
+    let exit_code = if report.congestion == MempoolCongestion::Normal {
+        0
+    } else {
+        1
+    };
+    Ok(CliAction::PrintWithExitCode {
+        exit_code,
+        text: serde_json::to_string_pretty(&report)?,
+    })
+}
+
+fn mempool_telemetry_report(args: &[String]) -> Result<MempoolTelemetry> {
+    if args.len() < 3 || args.len() > 4 {
+        anyhow::bail!("usage: neo-nexus --mempool-status <rpc-endpoint> [neo-n3|neo-x]");
+    }
+    let family = parse_chain_family(args.get(3).map(String::as_str))?;
+    mempool_telemetry(&args[2], family, CHAIN_TIMEOUT)
+        .map_err(|error| anyhow::anyhow!("{}", error.message()))
+}
+
+fn parse_chain_family(value: Option<&str>) -> Result<ChainFamily> {
+    let Some(raw) = value else {
+        return Ok(ChainFamily::NeoN3);
+    };
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "neo-n3" | "neon3" | "n3" => Ok(ChainFamily::NeoN3),
+        "neo-x" | "neox" | "x" => Ok(ChainFamily::NeoX),
+        other => anyhow::bail!("unsupported chain family: {other}; expected neo-n3 or neo-x"),
+    }
 }
 
 #[cfg(test)]

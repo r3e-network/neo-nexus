@@ -80,3 +80,120 @@ fn signer_binding_rejects_unsafe_profile_ids_and_unknown_nodes() {
         )
         .is_err());
 }
+
+#[test]
+fn signer_key_cannot_be_claimed_by_multiple_nodes_iam_isolation() {
+    let directory = tempfile::tempdir().unwrap();
+    let repository = Repository::open(directory.path().join("workspace.db")).unwrap();
+    let node1 = repository
+        .create_node(NewNode {
+            name: "node-1".to_string(),
+            node_type: NodeType::NeoCli,
+            network: Network::Mainnet,
+            binary_path: PathBuf::from("/opt/neo/neo-cli"),
+            args: Vec::new(),
+            runtime_version: "latest".to_string(),
+            storage_engine: StorageEngine::RocksDb,
+            rpc_port: 10332,
+            p2p_port: 20333,
+            ws_port: None,
+        })
+        .unwrap();
+    let node2 = repository
+        .create_node(NewNode {
+            name: "node-2".to_string(),
+            node_type: NodeType::NeoCli,
+            network: Network::Mainnet,
+            binary_path: PathBuf::from("/opt/neo/neo-cli"),
+            args: Vec::new(),
+            runtime_version: "latest".to_string(),
+            storage_engine: StorageEngine::RocksDb,
+            rpc_port: 10334,
+            p2p_port: 20335,
+            ws_port: None,
+        })
+        .unwrap();
+
+    let key = SignerKeyRef::new("wallet-profile", "consensus-key-01").unwrap();
+    repository.set_node_signer_key(&node1.id, Some(&key)).unwrap();
+
+    let err = repository
+        .set_node_signer_key(&node2.id, Some(&key))
+        .expect_err("cross-node signer key lease must be forbidden");
+    assert!(
+        err.to_string().contains("IAM Isolation Violation"),
+        "error message should cite IAM isolation: {err}"
+    );
+
+    // After node1 releases the lease, node2 can acquire it cleanly
+    repository.set_node_signer_key(&node1.id, None).unwrap();
+    assert_eq!(repository.load_node_signer_key(&node1.id).unwrap(), None);
+
+    repository.set_node_signer_key(&node2.id, Some(&key)).unwrap();
+    assert_eq!(
+        repository.load_node_signer_key(&node2.id).unwrap(),
+        Some(key)
+    );
+}
+
+#[test]
+fn find_node_by_signer_key_and_list_all_bindings() {
+    let directory = tempfile::tempdir().unwrap();
+    let repository = Repository::open(directory.path().join("workspace.db")).unwrap();
+    let node1 = repository
+        .create_node(NewNode {
+            name: "validator-alpha".to_string(),
+            node_type: NodeType::NeoGo,
+            network: Network::Mainnet,
+            binary_path: PathBuf::from("/opt/neo-go"),
+            args: Vec::new(),
+            runtime_version: "test".to_string(),
+            storage_engine: StorageEngine::LevelDb,
+            rpc_port: 10332,
+            p2p_port: 10333,
+            ws_port: None,
+        })
+        .unwrap();
+
+    let node2 = repository
+        .create_node(NewNode {
+            name: "validator-beta".to_string(),
+            node_type: NodeType::NeoGo,
+            network: Network::Mainnet,
+            binary_path: PathBuf::from("/opt/neo-go"),
+            args: Vec::new(),
+            runtime_version: "test".to_string(),
+            storage_engine: StorageEngine::LevelDb,
+            rpc_port: 10334,
+            p2p_port: 10335,
+            ws_port: None,
+        })
+        .unwrap();
+
+    let key1 = SignerKeyRef::new("vault-primary", "key-alpha").unwrap();
+    let key2 = SignerKeyRef::new("vault-primary", "key-beta").unwrap();
+
+    repository.set_node_signer_key(&node1.id, Some(&key1)).unwrap();
+    repository.set_node_signer_key(&node2.id, Some(&key2)).unwrap();
+
+    // Verify reverse lookup
+    assert_eq!(
+        repository.find_node_by_signer_key("vault-primary", "key-alpha").unwrap(),
+        Some(node1.id.clone())
+    );
+    assert_eq!(
+        repository.find_node_by_signer_key("vault-primary", "key-beta").unwrap(),
+        Some(node2.id.clone())
+    );
+    assert_eq!(
+        repository.find_node_by_signer_key("vault-primary", "key-unbound").unwrap(),
+        None
+    );
+
+    // Verify listing
+    let all = repository.list_all_signer_bindings().unwrap();
+    assert_eq!(all.len(), 2);
+    assert!(all.iter().any(|(nid, k)| nid == &node1.id && k == &key1));
+    assert!(all.iter().any(|(nid, k)| nid == &node2.id && k == &key2));
+}
+
