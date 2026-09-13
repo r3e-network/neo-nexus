@@ -82,6 +82,33 @@ impl DiagnosticResolution {
         }
     }
 
+    /// Where an operator goes to resolve a finding on this node.
+    ///
+    /// The resolution has always known which surface fixes each finding, and
+    /// the OpsCenter has always labelled its button from it — "Open Plugins",
+    /// "Open Runtimes" — while sending every one of them to the instance page.
+    /// A button that names a destination has to go there.
+    ///
+    /// `encode` percent-encodes a query value; callers pass their own so this
+    /// stays free of the web layer.
+    pub fn href(self, node_id: &str, encode: impl Fn(&str) -> String) -> String {
+        let node = encode(node_id);
+        match self {
+            // Pages that select an instance from a query parameter.
+            Self::PluginManager => format!("/plugins?node={node}"),
+            Self::RolePlanner => format!("/roles?node={node}"),
+            Self::Logs => format!("/logs?node={node}"),
+            // The instance's own editor.
+            Self::NodeStudio => format!("/nodes/{node}/edit"),
+            // Fleet-wide surfaces with nothing per-instance to select.
+            Self::ConfigWorkspace => "/config".to_string(),
+            Self::Monitor => "/monitor".to_string(),
+            Self::Operations => "/operations".to_string(),
+            Self::RuntimeManager => "/runtimes".to_string(),
+            Self::WalletProfiles => "/wallets".to_string(),
+        }
+    }
+
     pub fn matches_query(self, query: &str) -> bool {
         let query = query.trim().to_lowercase();
         [self.key(), self.label(), self.action_label(), self.hint()]

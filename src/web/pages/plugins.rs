@@ -92,7 +92,11 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], wanted: &str) -> String {
 {jobs}"#,
         picker = node_picker(nodes, node),
         compatibility = html::notice(
-            if node.node_type.supports_plugins() { "ok" } else { "warn" },
+            if node.node_type.supports_plugins() {
+                "ok"
+            } else {
+                "warn"
+            },
             plugin_support_guidance(node.node_type),
         ),
         tiles = html::cards(&[
@@ -112,14 +116,30 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], wanted: &str) -> String {
                     .to_string(),
             ),
         ]),
-        configuration_note = html::note(
-            "These controls save launch configuration, not live runtime state. Stop and settle the node before changing them; start it again to apply changes. Enabled does not confirm that a package is installed or loaded.",
-        ),
+        configuration_note = if node.status.is_active() || node.pid.is_some() {
+            // One stop control above the table rather than a dead-end tooltip on
+            // every disabled row.
+            super::nodes::stop_first(
+                node,
+                "These controls save launch configuration, not live runtime state. The node has already read its configuration, so the controls stay disabled until it is stopped; start it again to apply the change.",
+            )
+        } else {
+            html::note(
+                "These controls save launch configuration, not live runtime state. Start the node again to apply a change. Enabled does not confirm that a package is installed or loaded.",
+            )
+        },
         table = if rows.is_empty() {
             html::note("No plugin configuration controls are available for this runtime in the managed catalog.")
         } else {
             html::table(
-                &["Capability", "Category", "Purpose", "Applies", "Configuration", "Control"],
+                &[
+                    "Capability",
+                    "Category",
+                    "Purpose",
+                    "Applies",
+                    "Configuration",
+                    "Control",
+                ],
                 &rows,
             )
         },
@@ -231,8 +251,11 @@ fn state_badge(enabled: bool) -> String {
 fn toggle_form(node: &NodeConfig, plugin_id: PluginId, enabled: bool) -> String {
     let label = if enabled { "Disable" } else { "Enable" };
     if node.status.is_active() || node.pid.is_some() {
+        // The reason, and the control that resolves it, are stated once above
+        // the table rather than repeated into every row's tooltip.
         return format!(
-            r#"<button type="button" disabled title="Stop and settle the node before changing its launch configuration">{}</button>"#,
+            r#"<button type="button" disabled title="{} is running">{}</button>"#,
+            html::escape(&node.name),
             html::escape(label),
         );
     }

@@ -22,3 +22,26 @@ pub use iac_spec::{
     generate_fleet_terraform, generate_node_iac, iac_spec_card, IacFormat,
 };
 pub use list::{node_list, resolve_density, NodeListQuery};
+
+use crate::types::NodeConfig;
+
+/// Explain why a control needs the instance stopped, and offer the stop.
+///
+/// Some settings can only change while the process is down — a running node has
+/// already read its config and holds its ports. That is a real constraint and
+/// stays. What did not need to stay was the dead end: three surfaces told the
+/// operator "stop and settle the node first" and left them to find the control
+/// themselves, on another page, and then navigate back.
+pub(crate) fn stop_first(node: &NodeConfig, reason: &str) -> String {
+    format!(
+        r#"<div class="notice">
+            <div>{reason}</div>
+            <form method="post" action="/nodes/{id}/stop" style="margin-top: 8px;">
+                <button type="submit">Stop {name}</button>
+            </form>
+        </div>"#,
+        reason = crate::web::html::escape(reason),
+        id = crate::web::html::urlencoding_lite(&node.id),
+        name = crate::web::html::escape(&node.name),
+    )
+}

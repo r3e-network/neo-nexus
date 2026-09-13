@@ -125,8 +125,9 @@ fn render_opsitems_table(diagnostics: &crate::diagnostics::FleetDiagnostics) -> 
                     _ => r#"<span class="badge">INFO</span>"#,
                 };
                 let action_cell = format!(
-                    r#"<a class="btn small" href="/nodes/{}">{}</a>"#,
-                    html::urlencoding_lite(&node.node_id),
+                    r#"<a class="btn small" href="{}" title="{}">{}</a>"#,
+                    check.resolution.href(&node.node_id, html::urlencoding_lite),
+                    html::escape(check.resolution.hint()),
                     check.resolution.action_label()
                 );
                 rows.push(html::row(&[

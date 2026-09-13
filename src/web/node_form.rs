@@ -525,10 +525,33 @@ impl NodeDraft {
                     } else {
                         "rpc_port"
                     };
+                    // Name a block that is actually free rather than telling the
+                    // operator to go and ask for one. The planner that "Suggest
+                    // free ports" would call is right here, and answering the
+                    // question in the same breath as raising it turns a round
+                    // trip into a glance.
+                    let available = plan_available_node_ports(
+                        existing,
+                        current_id,
+                        rpc_port,
+                        ws_value.is_some(),
+                    )
+                    .ok()
+                    .map(|assignment| match assignment.ws_port {
+                        Some(ws) => format!(
+                            " {} (RPC), {} (P2P) and {ws} (WebSocket) are free.",
+                            assignment.rpc_port, assignment.p2p_port
+                        ),
+                        None => format!(
+                            " {} (RPC) and {} (P2P) are free.",
+                            assignment.rpc_port, assignment.p2p_port
+                        ),
+                    })
+                    .unwrap_or_default();
                     errors.insert(
                         conflict_key,
                         format!(
-                            "Port {port} is already used by \"{}\". Choose free ports, or use Suggest free ports.",
+                            "Port {port} is already used by \"{}\".{available}",
                             owner.name
                         ),
                     );

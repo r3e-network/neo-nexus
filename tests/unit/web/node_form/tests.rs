@@ -64,21 +64,21 @@ fn accepted(outcome: DraftOutcome) -> NewNodeCase {
 /// check several fields at once.
 struct NewNodeCase {
     accepted: Option<crate::core::node::NewNode>,
-    fields: Vec<&'static str>,
+    errors: crate::web::node_form::FieldErrors,
 }
 
 impl NewNodeCase {
     fn ok(input: crate::core::node::NewNode) -> Self {
         Self {
             accepted: Some(input),
-            fields: Vec::new(),
+            errors: crate::web::node_form::FieldErrors::new(),
         }
     }
 
     fn rejected(errors: crate::web::node_form::FieldErrors) -> Self {
         Self {
             accepted: None,
-            fields: errors.keys().copied().collect(),
+            errors,
         }
     }
 
@@ -93,14 +93,28 @@ impl NewNodeCase {
     }
 
     fn flagged(&self, field: &str) -> bool {
-        self.fields.contains(&field)
+        self.errors.contains_key(field)
+    }
+
+    /// Which fields were flagged, for a failure message that says what happened
+    /// rather than only that something did.
+    fn fields(&self) -> Vec<&'static str> {
+        self.errors.keys().copied().collect()
+    }
+
+    /// What the operator is told about this field.
+    fn message(&self, field: &str) -> &str {
+        self.errors
+            .get(field)
+            .map(String::as_str)
+            .unwrap_or_default()
     }
 }
 
 #[test]
 fn a_complete_draft_is_accepted() {
     let case = accepted(draft("seed-1", "neo-go").validate(&[], None));
-    assert!(case.was_accepted(), "fields: {:?}", case.fields);
+    assert!(case.was_accepted(), "fields: {:?}", case.fields());
     assert_eq!(case.node().name, "seed-1");
     assert_eq!(case.node().rpc_port, 30332);
     assert_eq!(
@@ -121,7 +135,7 @@ fn surrounding_whitespace_is_trimmed_but_inner_spaces_survive() {
 fn a_blank_name_is_reported_against_the_name_field() {
     let case = accepted(draft("   ", "neo-go").validate(&[], None));
     assert!(!case.was_accepted());
-    assert!(case.flagged("name"), "fields: {:?}", case.fields);
+    assert!(case.flagged("name"), "fields: {:?}", case.fields());
 }
 
 #[test]
@@ -136,7 +150,7 @@ fn a_duplicate_name_is_refused_case_insensitively() {
     )];
     let case = accepted(draft("seed-one", "neo-rs").validate(&fleet, None));
     assert!(!case.was_accepted());
-    assert!(case.flagged("name"), "fields: {:?}", case.fields);
+    assert!(case.flagged("name"), "fields: {:?}", case.fields());
 }
 
 #[test]
@@ -147,7 +161,7 @@ fn editing_a_node_does_not_collide_with_its_own_name() {
     form.rpc_port = "30340".to_string();
     form.p2p_port = "30341".to_string();
     let case = accepted(form.validate(&fleet, Some(id)));
-    assert!(case.was_accepted(), "fields: {:?}", case.fields);
+    assert!(case.was_accepted(), "fields: {:?}", case.fields());
 }
 
 #[test]
@@ -169,7 +183,7 @@ fn each_client_only_offers_the_storage_it_can_run() {
             case.was_accepted(),
             should_pass,
             "{client} with {storage}: fields {:?}",
-            case.fields
+            case.fields()
         );
         if !should_pass {
             assert!(case.flagged("storage_engine"));
@@ -200,7 +214,7 @@ fn storage_is_only_a_choice_where_the_client_offers_one() {
 fn an_unknown_client_is_refused_rather_than_defaulted() {
     let case = accepted(draft("probe", "neo-somewhat").validate(&[], None));
     assert!(!case.was_accepted());
-    assert!(case.flagged("node_type"), "fields: {:?}", case.fields);
+    assert!(case.flagged("node_type"), "fields: {:?}", case.fields());
 }
 
 #[test]
@@ -208,17 +222,17 @@ fn ports_must_be_numbers_above_zero() {
     let mut form = draft("probe", "neo-go");
     form.rpc_port = "http".to_string();
     let case = accepted(form.validate(&[], None));
-    assert!(case.flagged("rpc_port"), "fields: {:?}", case.fields);
+    assert!(case.flagged("rpc_port"), "fields: {:?}", case.fields());
 
     let mut form = draft("probe", "neo-go");
     form.p2p_port = "0".to_string();
     let case = accepted(form.validate(&[], None));
-    assert!(case.flagged("p2p_port"), "fields: {:?}", case.fields);
+    assert!(case.flagged("p2p_port"), "fields: {:?}", case.fields());
 
     let mut form = draft("probe", "neo-go");
     form.ws_port = "99999999".to_string();
     let case = accepted(form.validate(&[], None));
-    assert!(case.flagged("ws_port"), "fields: {:?}", case.fields);
+    assert!(case.flagged("ws_port"), "fields: {:?}", case.fields());
 }
 
 #[test]
@@ -239,7 +253,7 @@ fn one_node_cannot_bind_the_same_port_twice() {
         assert!(
             case.flagged(field),
             "expected {field}, got {:?}",
-            case.fields
+            case.fields()
         );
     }
 }
@@ -256,7 +270,26 @@ fn a_port_already_held_by_another_node_is_refused_and_named() {
     )];
     let case = accepted(draft("probe", "neo-rs").validate(&fleet, None));
     assert!(!case.was_accepted());
-    assert!(case.flagged("rpc_port"), "fields: {:?}", case.fields);
+    assert!(case.flagged("rpc_port"), "fields: {:?}", case.fields());
+
+    // The planner that "Suggest free ports" would call is available right here,
+    // so the refusal names a block that is free instead of naming a button the
+    // operator now has to go and press.
+    let message = case.message("rpc_port");
+    assert!(
+        message.contains("rpc-front"),
+        "the refusal should name the instance holding the port: {message}"
+    );
+    assert!(
+        message.contains("are free"),
+        "the refusal should offer ports that are actually free: {message}"
+    );
+    for taken in ["30332 (", "40333 ("] {
+        assert!(
+            !message.contains(taken),
+            "a port the fleet already holds was offered as free: {message}"
+        );
+    }
 }
 
 #[test]
@@ -284,7 +317,7 @@ fn an_unterminated_quote_in_arguments_is_reported_not_stored() {
     form.args = "--data-dir \"/var/lib/neo".to_string();
     let case = accepted(form.validate(&[], None));
     assert!(!case.was_accepted());
-    assert!(case.flagged("args"), "fields: {:?}", case.fields);
+    assert!(case.flagged("args"), "fields: {:?}", case.fields());
 }
 
 #[test]
@@ -292,7 +325,7 @@ fn quoted_arguments_keep_their_spaces() {
     let mut form = draft("probe", "neo-go");
     form.args = r#"--data-dir "/var/lib/neo node""#.to_string();
     let case = accepted(form.validate(&[], None));
-    assert!(case.was_accepted(), "fields: {:?}", case.fields);
+    assert!(case.was_accepted(), "fields: {:?}", case.fields());
     assert_eq!(
         case.node().args,
         vec!["--data-dir".to_string(), "/var/lib/neo node".to_string()]
@@ -438,7 +471,7 @@ fn binary_path_infers_client_type_and_storage() {
     let mut blank_client = draft("auto-inferred", "");
     blank_client.binary_path = "/usr/local/bin/neo-go".to_string();
     let case = accepted(blank_client.validate(&[], None));
-    assert!(case.was_accepted(), "fields: {:?}", case.fields);
+    assert!(case.was_accepted(), "fields: {:?}", case.fields());
     assert_eq!(case.node().node_type, NodeType::NeoGo);
 }
 
@@ -479,7 +512,7 @@ fn disabled_rpc_is_accepted_with_zero_port_and_no_collision() {
         None,
     )];
     let case = accepted(form.validate(&existing, None));
-    assert!(case.was_accepted(), "fields: {:?}", case.fields);
+    assert!(case.was_accepted(), "fields: {:?}", case.fields());
     assert_eq!(case.node().rpc_port, 0);
     assert_eq!(case.node().p2p_port, 20333);
     assert_eq!(case.node().ws_port, None);

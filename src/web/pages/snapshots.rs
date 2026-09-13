@@ -208,13 +208,15 @@ fn snapshot_table(snapshots: &[FastSyncSnapshot], nodes: &[NodeConfig]) -> Strin
                     .iter()
                     .map(|node| {
                         format!(
-                        "<form method='POST' action='/snapshots/{}/apply/{}' style='display:inline'>
+                            "<form method='POST' action='/snapshots/{}/apply/{}' style='display:inline'>
                             <button type='submit' class='btn btn-sm'>Apply to {}</button>
                         </form>",
-                        html::urlencoding_lite(&snapshot.id),
-                        html::urlencoding_lite(&node.id),
-                        html::urlencoding_lite(&node.name)
-                    )
+                            html::urlencoding_lite(&snapshot.id),
+                            html::urlencoding_lite(&node.id),
+                            // Visible text, not a URL: percent-encoding it
+                            // rendered a node named "node 01" as "node%2001".
+                            html::escape(&node.name)
+                        )
                     })
                     .collect();
                 format!("<div class='actions'>{}</div>", buttons.join(" "))

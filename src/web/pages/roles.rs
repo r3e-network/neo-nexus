@@ -129,7 +129,10 @@ fn role_planner(nodes: &[NodeConfig], params: &RoleQuery) -> String {
         .collect::<String>();
     let apply = if availability.is_supported() {
         if node.status.is_active() || node.pid.is_some() {
-            html::note("Stop and settle this node before applying a different duty.")
+            super::nodes::stop_first(
+                node,
+                "A duty changes the config the node reads at startup, so it can only be applied while the node is stopped.",
+            )
         } else {
             format!(
                 r#"<form method="post" action="/nodes/{}/role"><input type="hidden" name="role" value="{}"><button class="primary" type="submit">Apply {} duty</button></form>"#,

@@ -138,7 +138,10 @@ pub fn signer_binding(
         return format!(
             "<h2>Node signer</h2>{}{}",
             html::note(&current),
-            html::note("Stop and settle the node before changing its signer identity.")
+            super::stop_first(
+                node,
+                "A running node has already read its signer identity, so this can only change while it is stopped.",
+            )
         );
     }
     let all_leases = state
