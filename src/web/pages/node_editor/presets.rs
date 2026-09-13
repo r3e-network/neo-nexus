@@ -11,6 +11,10 @@ pub struct PresetCard {
     pub plugins: &'static str,
     pub storage: Option<&'static str>,
     pub badge: &'static str,
+    /// What a host running this duty typically needs. Guidance for the
+    /// operator sizing their own machine — NeoNexus allocates nothing and
+    /// `NewNode` has no resource field, so this must never be phrased as
+    /// something the product provisions.
     pub sizing: &'static str,
 }
 
@@ -119,7 +123,7 @@ pub fn role_presets_picker(draft: &NodeDraft) -> String {
                     <div class="role-card-title">{title}</div>
                     <div class="role-card-desc">{desc}</div>
                     <div class="role-card-sizing" style="margin-top: 6px; font-size: 11px; opacity: 0.8; display: flex; align-items: center; gap: 4px;">
-                        <span>⚡ Flavor:</span> <span class="mono">{sizing}</span>
+                        <span>Typical host:</span> <span class="mono">{sizing}</span>
                     </div>
                 </button>"#,
                 key = p.key,

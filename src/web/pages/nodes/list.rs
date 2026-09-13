@@ -279,13 +279,11 @@ fn manager_table(state: &WebState, fleet: &Fleet, visible: &[NodeConfig]) -> Str
             let signer = all_signers.iter().find(|(nid, _)| nid == &row.node.id).map(|(_, k)| k);
             let hermes = all_hermes.iter().find(|a| a.node_id == row.node.id);
 
-            let status_check = if row.node.status.is_running() {
-                r#"<span class="badge running" title="System reachability passed, process supervised">● 2/2 passed</span>"#
-            } else if row.node.status == crate::types::NodeStatus::Stopped {
-                r#"<span class="badge stopped" title="Instance stopped cleanly">⚪ 0/2 quiesced</span>"#
-            } else {
-                r#"<span class="badge danger" title="Process health check impaired">▲ 1/2 impaired</span>"#
-            };
+            // This read "2/2 passed" from `is_running()` alone. There are no
+            // two checks: the process state and the RPC health verdict are
+            // separate facts, the second of which may never have been taken.
+            // The RPC column beside this one carries that verdict already.
+            let status_check = html::status_badge(row.node.status.label());
 
             let role_badge = match role {
                 Some(crate::roles::NodeRole::Consensus) => "<span class=\"badge\">⚡ Validator</span>".to_string(),
@@ -345,7 +343,7 @@ fn manager_table(state: &WebState, fleet: &Fleet, visible: &[NodeConfig]) -> Str
                 html::raw_cell(&select_cell),
                 html::raw_cell(&instance_cell),
                 html::raw_cell(&html::status_badge(row.node.status.label())),
-                html::raw_cell(status_check),
+                html::raw_cell(&status_check),
                 html::cell("nexus-az-1a"),
                 html::raw_cell(&role_badge),
                 html::raw_cell(&format!(r#"<span class="badge">{}</span> <span class="badge">{}</span>"#, html::escape(&row.node.node_type.to_string()), html::escape(&row.node.network.to_string()))),

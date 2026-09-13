@@ -139,10 +139,16 @@ fn config_row(row: &ConfigRow) -> String {
         .map(|plugin| format!(r#"<span class="badge">{}</span>"#, plugin.plugin_id))
         .collect::<Vec<_>>()
         .join(" ");
+    // `is_file()` answers "has a config been written", not "does it match what
+    // this workspace would generate". This badge used to read "● In Sync" from
+    // that check, under a page header promising drift verification — so a node
+    // whose config had been edited by hand since its last launch read as in
+    // sync. The real comparator is `ConfigDriftDetector::check`, which hashes
+    // and compares semantically; until it runs here, say only what was checked.
     let sync_badge = if row.managed_path.is_file() {
-        r#"<span class="badge running">● In Sync</span>"#
+        r#"<span class="badge">Written</span>"#
     } else {
-        r#"<span class="badge stopped">○ Pending Write</span>"#
+        r#"<span class="badge stopped">Not written yet</span>"#
     };
     let param_key = format!(
         r#"<div><span class="mono" style="font-weight: 600; color: var(--jade);">/neo/fleet/{name}/config.json</span></div><div class="muted mono" style="font-size: 11px;">{path}</div>"#,

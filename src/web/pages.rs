@@ -21,3 +21,7 @@ pub mod settings;
 pub mod signer;
 pub mod snapshots;
 pub mod wallets;
+
+#[cfg(test)]
+#[path = "../../tests/unit/web/honesty/tests.rs"]
+mod honesty_tests;

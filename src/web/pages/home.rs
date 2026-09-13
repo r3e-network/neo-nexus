@@ -38,30 +38,28 @@ pub fn fleet_table(fleet: &Fleet, snapshot: &MetricsSnapshot) -> String {
                 .find(|process| process.node_id == row.node.id)
                 .map(|process| uptime_label(process.run_time_seconds))
                 .unwrap_or_else(|| "—".to_string());
-            let status_badge = if row.node.status.is_running() {
-                r#"<span class="badge running">● 2/2 passed</span>"#
-            } else if row.node.status == crate::types::NodeStatus::Stopped {
-                r#"<span class="badge stopped">⚪ 0/2 stopped</span>"#
-            } else {
-                r#"<span class="badge danger">▲ 1/2 impaired</span>"#
-            };
+            // "2/2 passed" was mapped straight from `is_running()`, so a node
+            // whose RPC had never answered — or had never been probed — read
+            // as two passing checks. There are no two checks here; there is a
+            // process state. Report that — once. The row carried the same
+            // state twice, as "State" and as a "Status check" reading
+            // "2/2 passed", beside an "Availability Zone" column that read
+            // `nexus-az-1a` for every node on a product that runs every node
+            // as a local child process.
             format!(
                 r#"<tr data-node-id="{raw_id}">
-<td data-label="Instance"><div><a class="node-name" href="/nodes/{id}" style="font-weight: 600;">{name}</a></div><div class="muted mono" style="font-size: 11px;">{raw_id}</div></td>
-<td data-label="Type"><span class="badge">{client}</span> <span class="badge">{network}</span></td>
-<td data-label="Status">{status}</td>
-<td data-label="Status check">{status_badge}</td>
-<td data-label="Availability Zone"><span class="mono" style="font-size: 12px;">nexus-az-1a</span></td>
-<td data-label="Telemetry"><span data-node-rpc>{rpc_health}</span></td>
+<td data-label="Node"><div><a class="node-name" href="/nodes/{id}" style="font-weight: 600;">{name}</a></div><div class="muted mono" style="font-size: 11px;">{raw_id}</div></td>
+<td data-label="Client"><span class="badge">{client}</span> <span class="badge">{network}</span></td>
+<td data-label="State">{status}</td>
+<td data-label="RPC health"><span data-node-rpc>{rpc_health}</span></td>
 <td data-label="Uptime" class="mono">{uptime}</td>
-<td data-label="Actions"><div class="row-actions"><a class="btn small primary" href="/nodes/{id}">Studio</a><a class="btn small" href="/logs?node={id}">Logs</a></div></td>
+<td data-label="Actions"><div class="row-actions"><a class="btn small primary" href="/nodes/{id}">Open</a><a class="btn small" href="/logs?node={id}">Logs</a></div></td>
 </tr>"#,
                 raw_id = html::escape(&row.node.id),
                 name = html::escape(&row.node.name),
                 client = html::escape(&row.node.node_type.to_string()),
                 network = html::escape(&row.node.network.to_string()),
                 status = html::status_badge(row.node.status.label()),
-                status_badge = status_badge,
                 rpc_health = html::escape(&row.rpc_health),
                 uptime = html::escape(&uptime),
             )
@@ -69,7 +67,7 @@ pub fn fleet_table(fleet: &Fleet, snapshot: &MetricsSnapshot) -> String {
         .collect::<String>();
     format!(
         r#"<table class="dashboard-table">
-<thead><tr><th scope="col">Instance</th><th scope="col">Engine &amp; Network</th><th scope="col">State</th><th scope="col">Status check</th><th scope="col">Availability Zone</th><th scope="col">Telemetry</th><th scope="col">Uptime</th><th scope="col">Actions</th></tr></thead>
+<thead><tr><th scope="col">Node</th><th scope="col">Client &amp; network</th><th scope="col">State</th><th scope="col">RPC health</th><th scope="col">Uptime</th><th scope="col">Actions</th></tr></thead>
 <tbody>{rows}</tbody>
 </table>"#
     )
@@ -143,15 +141,10 @@ fn render(state: &WebState) -> anyhow::Result<String> {
             </div>
             <div class="panel" style="padding: 14px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <strong style="font-size: 13px;">CloudWatch Alarms Status</strong>
-                    <a href="/alerts" class="muted" style="font-size: 11px;">Manage alarms ›</a>
+                    <strong style="font-size: 13px;">Alert routing</strong>
+                    <a href="/alerts" class="muted" style="font-size: 11px;">Routing and delivery ›</a>
                 </div>
-                <div class="muted" style="font-size: 12px; margin-bottom: 8px;">Automated fleet metric threshold monitors and SNS pager routing rules.</div>
-                <div style="display: flex; gap: 16px; font-size: 12px;">
-                    <div><span class="muted">In ALARM:</span> <strong style="color: var(--jade);">0</strong></div>
-                    <div><span class="muted">OK:</span> <strong style="color: var(--jade);">4</strong></div>
-                    <div><span class="muted">Insufficient data:</span> <strong>0</strong></div>
-                </div>
+                <div class="muted" style="font-size: 12px;">Journal events above the configured severity are forwarded to one webhook. No alarm conditions are evaluated: block height, peer count and signer state are not watched, so a node that stops producing blocks raises nothing here.</div>
             </div>
         </div>"#.to_string();
 

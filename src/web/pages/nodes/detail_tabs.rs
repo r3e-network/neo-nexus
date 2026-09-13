@@ -13,6 +13,13 @@ use crate::{
 
 use super::{binding::signer_binding, iac_spec::iac_spec_card};
 
+/// What a figure reads when the workspace has not taken that measurement.
+///
+/// A node manager is read during an incident, so every number on it has to be
+/// either a measurement or visibly absent. There is no third option where a
+/// plausible constant stands in — that is what ends an investigation early.
+pub(crate) const NOT_MEASURED: &str = "not measured";
+
 /// AWS EC2-styled top instance summary ribbon.
 pub fn summary_banner(
     node: &NodeConfig,
@@ -413,22 +420,30 @@ pub fn render_tab_monitoring(
     let latest_block = history
         .first()
         .and_then(|h| h.block_count)
-        .map_or("—".to_string(), |b| b.to_string());
-    let cpu_load = if node.status.is_running() {
-        "1.2% (Active)"
-    } else {
-        "0.0% (Idle)"
-    };
-    let mem_usage = if node.status.is_running() {
-        "64.5 MB"
-    } else {
-        "0 MB"
-    };
-    let latency = if node.status.is_running() && node.rpc_port > 0 {
-        "3.2 ms"
-    } else {
-        "—"
-    };
+        .map_or_else(|| NOT_MEASURED.to_string(), |b| b.to_string());
+
+    // Read this node's actual process sample. These numbers used to be the
+    // literals "1.2% (Active)", "64.5 MB" and "3.2 ms", selected only by
+    // `node.status.is_running()` — so every running node in the fleet reported
+    // the same three values, and an operator looking at a node that was
+    // thrashing saw a healthy one. The real per-process figures were already
+    // being collected and rendered honestly on the Health page.
+    let sample = crate::web::pages::metrics_page::collect_snapshot(&state.workspace).ok();
+    let process = sample
+        .as_ref()
+        .and_then(|snapshot| snapshot.node_process(&node.id));
+    let cpu_load = process.map_or_else(
+        || NOT_MEASURED.to_string(),
+        |metrics| format!("{:.1}%", metrics.cpu_usage_percent),
+    );
+    let mem_usage = process.map_or_else(
+        || NOT_MEASURED.to_string(),
+        |metrics| crate::core::operations::format_bytes(metrics.memory_bytes),
+    );
+    // Nothing in the workspace times an RPC request: `RpcHealthRecord` has no
+    // latency field and the probe does not measure one. Say so rather than
+    // print a number that was never taken.
+    let latency = NOT_MEASURED.to_string();
 
     let log_path = log_path_for(state.workspace_child_dir("logs"), node);
     let log_terminal = match LogReader::snapshot(&log_path, 32 * 1024) {
@@ -449,95 +464,85 @@ pub fn render_tab_monitoring(
         _ => r#"<div class="muted" style="padding: 12px; font-size: 12px;">No active console logs captured yet. Instance log buffer is clean.</div>"#.to_string(),
     };
 
-    let instance_chart = format!(
-        r##"<div class="aws-chart-box" style="margin-bottom: 18px;">
-            <div class="aws-chart-header">
-                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                    <strong style="color: #fff; font-size: 12px;">Instance CPU &amp; Latency Metrics</strong>
-                    <span style="font-size: 11px; color: var(--jade); font-weight: 600;">● CPU: {}</span>
-                    <span style="font-size: 11px; color: var(--amber); font-weight: 600;">● Latency: {}</span>
-                    <span style="font-size: 11px; color: var(--cyan); font-weight: 600;">● Height: #{}</span>
-                </div>
-                <div class="mono muted" style="font-size: 11px;">1m Interval · AWS/EC2</div>
-            </div>
-            <svg class="aws-sparkline" viewBox="0 0 800 60" preserveAspectRatio="none" style="height: 50px;">
-                <defs>
-                    <linearGradient id="instCpuGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="#3bd184" stop-opacity="0.3"/>
-                        <stop offset="100%" stop-color="#3bd184" stop-opacity="0.0"/>
-                    </linearGradient>
-                </defs>
-                <line x1="0" y1="10" x2="800" y2="10" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
-                <line x1="0" y1="35" x2="800" y2="35" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
-                <path d="M0,50 Q160,42 320,48 T540,25 T720,38 L800,32 L800,60 L0,60 Z" fill="url(#instCpuGrad)"/>
-                <path d="M0,50 Q160,42 320,48 T540,25 T720,38 L800,32" fill="none" stroke="#3bd184" stroke-width="2"/>
-            </svg>
-        </div>"##,
-        cpu_load, latency, latest_block
+    // The chart that stood here drew a fixed SVG path — the same curve for
+    // every node, at every moment — under the caption "1m Interval". Nothing
+    // in the workspace stores a metrics history to plot, so there is no series
+    // to draw. The recorded block heights are the one real series this node
+    // has, and they are already tabulated below.
+    let instance_chart = html::note(
+        "No metrics history is retained, so there is no series to plot here. Recorded RPC health checks, including block height, are listed below.",
     );
+
+    // Read the operator's actual restart policy. The badge here used to read a
+    // constant "Watchdog Armed (5 retries/60m)", which disagreed with the
+    // policy the Settings page saves and ignored the enabled flag entirely —
+    // so it stayed green with automatic restart switched off. The four alarm
+    // cards beside it were likewise unconditional: one of them reported
+    // "● OK (Lease Valid)" from a function that is handed no signer at all.
+    let watchdog_panel = match state.workspace.load_watchdog_policy() {
+        Ok(policy) if policy.enabled => format!(
+            r#"<div class="panel" style="padding: 14px; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 18px;">
+                <strong style="font-size: 14px;">Automatic restart</strong>
+                <div class="muted" style="font-size: 12px; margin-top: 4px;">On an unclean exit this node is restarted up to {attempts} times, backing off from {base}s to at most {max}s{jitter}. This is the workspace-wide policy; it is not set per node.</div>
+                <div class="muted" style="font-size: 12px; margin-top: 6px;">The watchdog acts on process exit only. A node that keeps running but stops syncing is not restarted, and is not currently detected.</div>
+                <div style="margin-top: 8px;"><a class="btn small" href="/settings">Change restart policy</a></div>
+            </div>"#,
+            attempts = policy.max_restart_attempts,
+            base = policy.base_delay.as_secs(),
+            max = policy.max_delay.as_secs(),
+            jitter = if policy.jitter_enabled {
+                ", with jitter"
+            } else {
+                ""
+            },
+        ),
+        Ok(_) => format!(
+            r#"<div class="panel" style="padding: 14px; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 18px;">
+                <strong style="font-size: 14px;">Automatic restart is off</strong>
+                <div class="muted" style="font-size: 12px; margin-top: 4px;">{name} will not be restarted automatically if its process exits.</div>
+                <div style="margin-top: 8px;"><a class="btn small" href="/settings">Change restart policy</a></div>
+            </div>"#,
+            name = html::escape(&node.name),
+        ),
+        Err(error) => html::note(&format!("Restart policy could not be read: {error}")),
+    };
 
     format!(
         r#"<div style="margin-top: 12px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
                 <div>
-                    <h3 style="margin: 0 0 2px 0;">CloudWatch Instance Telemetry</h3>
-                    <div class="muted" style="font-size: 12px;">Near real-time instance metrics, consensus block synchronization, and resource consumption.</div>
+                    <h3 style="margin: 0 0 2px 0;">Telemetry</h3>
+                    <div class="muted" style="font-size: 12px;">What this workspace has measured about {name}. Figures marked <em>not measured</em> are not collected — they are not zero.</div>
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <a href="/api/nodes/{enc_id}/metrics" class="btn small" target="_blank" style="text-decoration: none;">📊 Prometheus Scrape Endpoint</a>
-                    <a href="/metrics" class="btn small" style="text-decoration: none;">📈 Fleet Metrics Studio</a>
+                    <a href="/api/nodes/{enc_id}/metrics" class="btn small" target="_blank" style="text-decoration: none;">Node metrics (JSON)</a>
+                    <a href="/monitor" class="btn small" style="text-decoration: none;">Fleet health</a>
                 </div>
             </div>
             <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 18px;">
                 <div class="panel" style="padding: 14px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--line);">
-                    <div class="muted" style="font-size: 11px; text-transform: uppercase;">CPU Utilization</div>
-                    <div style="font-size: 20px; font-weight: 700; color: var(--jade); margin-top: 4px;">{cpu_load}</div>
-                    <div class="muted" style="font-size: 11px; margin-top: 2px;">Host CPU core allocation</div>
+                    <div class="muted" style="font-size: 11px; text-transform: uppercase;">Process CPU</div>
+                    <div style="font-size: 20px; font-weight: 700; margin-top: 4px;">{cpu_load}</div>
+                    <div class="muted" style="font-size: 11px; margin-top: 2px;">Share of one core, this process</div>
                 </div>
                 <div class="panel" style="padding: 14px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--line);">
-                    <div class="muted" style="font-size: 11px; text-transform: uppercase;">Memory Working Set</div>
-                    <div style="font-size: 20px; font-weight: 700; color: var(--cyan); margin-top: 4px;">{mem_usage}</div>
-                    <div class="muted" style="font-size: 11px; margin-top: 2px;">Process private bytes</div>
+                    <div class="muted" style="font-size: 11px; text-transform: uppercase;">Process memory</div>
+                    <div style="font-size: 20px; font-weight: 700; margin-top: 4px;">{mem_usage}</div>
+                    <div class="muted" style="font-size: 11px; margin-top: 2px;">Resident set</div>
                 </div>
                 <div class="panel" style="padding: 14px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--line);">
-                    <div class="muted" style="font-size: 11px; text-transform: uppercase;">Block Sync Height</div>
-                    <div class="mono" style="font-size: 20px; font-weight: 700; color: #fff; margin-top: 4px;">#{latest_block}</div>
-                    <div class="muted" style="font-size: 11px; margin-top: 2px;">Blockchain validated height</div>
+                    <div class="muted" style="font-size: 11px; text-transform: uppercase;">Block height</div>
+                    <div class="mono" style="font-size: 20px; font-weight: 700; margin-top: 4px;">{latest_block}</div>
+                    <div class="muted" style="font-size: 11px; margin-top: 2px;">Last value the RPC probe read. Not compared against the network head.</div>
                 </div>
                 <div class="panel" style="padding: 14px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--line);">
-                    <div class="muted" style="font-size: 11px; text-transform: uppercase;">RPC Roundtrip Latency</div>
-                    <div style="font-size: 20px; font-weight: 700; color: var(--amber); margin-top: 4px;">{latency}</div>
-                    <div class="muted" style="font-size: 11px; margin-top: 2px;">Loopback probe latency</div>
+                    <div class="muted" style="font-size: 11px; text-transform: uppercase;">RPC latency</div>
+                    <div style="font-size: 20px; font-weight: 700; margin-top: 4px;">{latency}</div>
+                    <div class="muted" style="font-size: 11px; margin-top: 2px;">The probe does not time its requests.</div>
                 </div>
             </div>
             {instance_chart}
-            <div class="panel" style="padding: 16px; background: rgba(0,0,0,0.2); border: 1px solid var(--line); border-radius: 6px; margin-bottom: 18px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-                    <div>
-                        <strong style="font-size: 14px;">CloudWatch Alarms &amp; Watchdog Supervision</strong>
-                        <div class="muted" style="font-size: 12px; margin-top: 2px;">Automated circuit breaker and autonomous crash recovery policies.</div>
-                    </div>
-                    <span class="badge running">Watchdog Armed (5 retries/60m)</span>
-                </div>
-                <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
-                    <div style="padding: 8px 12px; background: var(--panel-2); border-radius: 4px; border: 1px solid var(--line);">
-                        <div class="muted" style="font-size: 11px;">ALARM: High CPU (>80%)</div>
-                        <div style="font-size: 12px; font-weight: 600; color: var(--jade); margin-top: 2px;">● OK (Current: {cpu_load})</div>
-                    </div>
-                    <div style="padding: 8px 12px; background: var(--panel-2); border-radius: 4px; border: 1px solid var(--line);">
-                        <div class="muted" style="font-size: 11px;">ALARM: RPC Degradation</div>
-                        <div style="font-size: 12px; font-weight: 600; color: var(--jade); margin-top: 2px;">● OK (Healthy response)</div>
-                    </div>
-                    <div style="padding: 8px 12px; background: var(--panel-2); border-radius: 4px; border: 1px solid var(--line);">
-                        <div class="muted" style="font-size: 11px;">ALARM: Process Heartbeat</div>
-                        <div style="font-size: 12px; font-weight: 600; color: var(--jade); margin-top: 2px;">● OK (PID Supervised)</div>
-                    </div>
-                    <div style="padding: 8px 12px; background: var(--panel-2); border-radius: 4px; border: 1px solid var(--line);">
-                        <div class="muted" style="font-size: 11px;">ALARM: Signer Key Lease</div>
-                        <div style="font-size: 12px; font-weight: 600; color: var(--jade); margin-top: 2px;">● OK (Lease Valid)</div>
-                    </div>
-                </div>
-            </div>
+            {watchdog_panel}
             <div class="panel" style="padding: 16px; background: #0f141c; border: 1px solid var(--line); border-radius: 6px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                     <div>
@@ -556,11 +561,13 @@ pub fn render_tab_monitoring(
             </div>
         </div>"#,
         enc_id = enc_id,
+        name = html::escape(&node.name),
         cpu_load = cpu_load,
         mem_usage = mem_usage,
         latest_block = latest_block,
         latency = latency,
         instance_chart = instance_chart,
+        watchdog_panel = watchdog_panel,
         log_terminal = log_terminal,
     )
 }
@@ -663,48 +670,39 @@ pub fn render_tab_security(
 
 /// Tab 6: Storage & EBS Block Devices View
 pub fn render_tab_storage(node: &NodeConfig) -> String {
-    let vol_id = format!("vol-{}", node.id.chars().take(8).collect::<String>());
+    // This table described a block device that does not exist: a synthetic
+    // `vol-xxxxxxxx` id, `/dev/xvda (Root)`, a `/var/lib/neonexus/data` mount
+    // point that is not where the data goes, and a flat `3000 IOPS (gp3)`
+    // provisioned-throughput figure for a node running as a local process on
+    // whatever disk the workspace sits on. Only the storage engine was real.
     let rows = vec![html::row(&[
-        html::cell("/dev/xvda (Root)"),
-        html::raw_cell(&format!(
-            r#"<span class="mono">{}</span>"#,
-            html::escape(&vol_id)
-        )),
+        html::cell("Chain data"),
         html::cell(&node.storage_engine.to_string()),
-        html::cell("/var/lib/neonexus/data"),
-        html::cell("3000 IOPS (gp3)"),
-        html::raw_cell(r#"<span class="badge running">Attached</span>"#),
+        html::cell(NOT_MEASURED),
     ])];
-    let vol_table = html::table(
-        &[
-            "Block Device",
-            "Volume ID",
-            "Driver / Engine",
-            "Mount Point",
-            "IOPS / Type",
-            "State",
-        ],
-        &rows,
-    );
+    let vol_table = html::table(&["Contents", "Storage engine", "Size on disk"], &rows);
 
     format!(
         r#"<div style="margin-top: 12px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                 <div>
-                    <h3 style="margin: 0 0 2px 0;">Attached Block Devices (EBS Storage Volumes)</h3>
-                    <div class="muted" style="font-size: 12px;">Persistent storage volumes mounted to this virtual instance container.</div>
+                    <h3 style="margin: 0 0 2px 0;">Storage</h3>
+                    <div class="muted" style="font-size: 12px;">Where {name} keeps its chain data.</div>
                 </div>
                 <div>
-                    <a href="/snapshots" class="btn small" style="text-decoration: none;">📸 Create Snapshot Backup</a>
+                    <a href="/snapshots?node={enc_id}" class="btn small" style="text-decoration: none;">Fast-sync snapshots</a>
                 </div>
             </div>
             {vol_table}
             <div class="panel" style="margin-top: 14px; padding: 12px 14px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--line);">
                 <div class="muted" style="font-size: 12px;">
-                    Data integrity is guaranteed via write-ahead logging (WAL) and atomic state flushing. Snapshots capture the complete blockchain ledger and state tree.
+                    Data directory: <span class="mono">{data_dir}</span>. NeoNexus does not measure its size, and the durability of the chain data is a property of the client's own storage engine, not of this manager.
                 </div>
             </div>
         </div>"#,
+        name = html::escape(&node.name),
+        enc_id = html::urlencoding_lite(&node.id),
+        data_dir = html::escape(&format!("<workspace>/nodes/{}/", node.id)),
         vol_table = vol_table,
     )
 }
@@ -713,7 +711,10 @@ pub fn render_tab_storage(node: &NodeConfig) -> String {
 pub fn render_tab_tags(node: &NodeConfig, role: Option<NodeRole>) -> String {
     let rows = vec![
         html::row(&[html::cell("Name"), html::cell(&node.name)]),
-        html::row(&[html::cell("Environment"), html::cell("Production")]),
+        // "Environment: Production" was hardcoded for every node, testnet
+        // included, under a claim that these drive cost allocation and access
+        // control. There is no environment concept in the workspace and no way
+        // to set one, so the row asserted something false about every node.
         html::row(&[html::cell("Network"), html::cell(&node.network.to_string())]),
         html::row(&[
             html::cell("Role"),
