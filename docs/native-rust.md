@@ -135,27 +135,46 @@ in this repository.
 
 ```text
 src/
-  main.rs                 thin binary entrypoint
-  manager/                web-vs-headless startup classification
-  web/                    axum workbench: router, auth, pages, API, assets
-  core/                   UI-free facade shared by the web workbench and CLI
-  cli/                    headless parser and text/JSON renderers
-  repository.rs           SQLite workspace persistence
-  runtime/                runtime catalogs, packages, signatures, upgrades
-  snapshots/              Fast Sync manifests, catalogs, cache, import
-  config/                 neo-cli JSON, neo-go YAML, neo-rs TOML
-  launch.rs               runtime-specific launch plans
-  supervisor.rs           native managed-process lifecycle
-  wallet/                 encrypted Neo wallet validation and metadata import
-  private_network/        role materialization and launch pack export
-  source_purity.rs        executable Rust-only repository boundary
-  source_quality.rs       production-source quality gate
-  ci_policy.rs            cross-platform CI policy audit
+  core/                   UI-free application services and query facade
+    lifecycle/            shared node start/stop/restart pipeline
+    operations/           readiness, diagnostics, events, policy decisions
+    workspace_queries.rs  read-only workspace service for Web/CLI adapters
+    workspace_commands.rs write-side workspace service for Web/CLI adapters
+    runtime/              runtime/catalog domain services
+    security/             source and secret boundary checks
+  cli/                    headless parser and text/JSON adapters
+  web/                    axum adapter: router, auth, pages, API, assets
+  repository/             SQLite persistence and row mapping
+  supervision/            background orchestration loop
+    state.rs              what the loop is given and what it remembers
+    engine.rs             the thread and its shutdown contract
+    launch.rs             start/stop through the shared pipeline
+    startup.rs            settling rows a previous process left behind
+    restarts.rs           crash classification and restart scheduling
+    probes.rs             RPC health and remote federation probes
+    upgrade.rs            scheduled runtime upgrade batches
+    alerts.rs             handing new journal entries to a route
+    external.rs           watching processes this server does not own
+  supervisor/             process handles and the managed-process model
+    model/
+      metrics.rs          per-node-type metrics exporter adapters
+      log_parsers.rs      per-node-type log parsers and their helpers
+      process.rs          process records plus plugin/lifecycle traits
+      adapters.rs         binds implementations to a node type
 ```
 
-The web workbench consumes shared behavior through `src/core/`. CLI actions
-and output renderers consume the same domain facade, which keeps browser and
-headless behavior consistent.
+The web workbench and CLI are adapters. Their handlers parse input, call
+`core` services, and render output; they should not embed SQLite queries or
+reimplement lifecycle decisions.
+
+The workspace is read and written through two deliberately separate services:
+`WorkspaceQueries` answers every page-level read, and `WorkspaceCommands`
+performs every mutation. A handler that renders therefore cannot change the
+workspace by accident, and the write paths are enumerable in one file.
+`WebState` exposes them as `workspace` and `commands`; the `repository()`
+escape hatch exists only for the few free functions that need a `&Repository`
+by signature.
+
 
 ## Data And Evidence
 

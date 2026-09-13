@@ -11,20 +11,32 @@ inside the binary — no Node toolchain, no external services, one executable.
 
 ## What Operators Can Do
 
-- Manage neo-cli, neo-go, neo-rs, and Neo X node definitions from the browser
-  or the CLI.
-- Launch, stop, restart, and inspect supervised node processes through the
-  shared core pipeline (readiness → managed config → supervise → persist).
-- Run runtime smoke checks, RPC health checks, readiness checks, workspace
-  integrity checks, metrics exports, backup validation, wallet validation, and
-  release package verification without opening a browser.
-- Import runtime catalogs, validate NEP-6 wallet profiles (metadata only), and
-  validate private-network launch packs.
+- **Multi-Engine Node Fleet Management**: First-class support for Neo N3 (`neo-cli`,
+  `neo-go`, `neo-rs` `neo-node`) and Neo X EVM (`neox-geth`, `neox-rs`) from the web
+  workbench or headless CLI.
+- **One-Click & Rolling Fleet Upgrades**: Canary progression, rolling update plans,
+  automated pre/post-upgrade health verification, and zero-downtime rollback.
+- **Configuration Conflict & Drift Reconciliation**: Port conflict planner across P2P,
+  RPC, Prometheus, and sidecar endpoints; real-time configuration drift detection with
+  automated timestamped backup and zero-loss reconciliation.
+- **State Checkpoints & Fast-Sync Snapshots**: Snapshot catalog integration, validated
+  backup archives (AES-GCM encrypted, tar.gz), and zero-trust quarantined imports.
+- **Neo-CLI Plugin Lifecycle & Sidecars**: Plugin catalog dependency management,
+  conflict prevention, and automated sidecar configuration injection (`ApplicationLogs`,
+  `StateService`, `RpcServer`, `TokensTracker`).
+- **P2P Topology, Mempool & Dual-Family RPC Probes**: Deep health probes for Neo N3 and Neo X
+  including peer connectivity/isolation warnings, transaction pool congestion monitoring,
+  on-chain role designations, and Prometheus metrics export.
+- **Headless API Token Administration**: Role-based access control (`admin_all`,
+  `read_fleet`, `read_readiness`) for automated CI/CD pipelines and headless operations.
+- **Unified Process Supervision**: Launch, stop, restart, and inspect supervised node
+  processes through the shared core pipeline (readiness → managed config → supervise → persist).
 
 neo-rs is a first-class runtime target. NeoNexus recognizes the `neo-node`
 binary, validates RocksDB-oriented TOML configs, supports Fast Sync snapshot
 catalog entries, and routes neo-rs readiness findings into the same Operations
-workflow used for neo-cli and neo-go.
+workflow used for neo-cli and neo-go. Neo X (`neox-geth` and `neox-rs`) provides
+EVM-compatible execution, dual-family RPC probes, and multi-node orchestration.
 
 **Signing and key custody.** NeoNexus can load named profiles for all three
 backend families in one process: process-local encrypted NEP-6 wallets,
@@ -112,60 +124,165 @@ node identities and host/process detail remain authenticated.
 All responses are `no-store` and carry a strict hash-pinned CSP plus standard
 frame, MIME, referrer, permissions, and cross-origin hardening headers.
 
-## Headless CLI
+## Headless CLI & Feature Verification
 
-All operational commands run without the workbench and share its core
-pipeline:
+All operational commands run without the workbench and share its core pipeline. Every feature can be verified directly via the CLI with consistent exit codes and dual text/JSON formatting for automation:
+
+### 1. Node Lifecycle & Process Supervision
+Control and inspect supervised node processes across all 5 runtimes (`neo-cli`, `neo-go`, `neo-rs`, `neox-geth`, `neox-rs`):
 
 ```bash
-cargo run -- --self-check
-cargo run -- --runtime-smoke neo-rs /path/to/neo-node
-cargo run -- --runtime-smoke-json neo-rs /path/to/neo-node
-cargo run -- --rpc-health 127.0.0.1:10332
-cargo run -- --workspace-readiness /path/to/neonexus.db
-cargo run -- --workspace-metrics-json /path/to/neonexus.db
-cargo run -- --workspace-metrics-prometheus /path/to/neonexus.db
-cargo run -- --workspace-integrity-json /path/to/neonexus.db
-cargo run -- --generate-node-config neo-rs testnet rocksdb 10332 10333 /path/to/config.toml
-cargo run -- --validate-node-config neo-rs testnet rocksdb 10332 10333 /path/to/config.toml
-cargo run -- --export-support-bundle /path/to/neonexus.db /path/to/support
-cargo run -- --validate-wallet /path/to/validator.wallet.json
-cargo run -- --validate-launch-pack /path/to/private-network/manifest.json
+# List all registered nodes in workspace (tabular or structured JSON)
+cargo run -- --node-list /path/to/neonexus.db
+cargo run -- --node-list-json /path/to/neonexus.db
+
+# Supervise node status, launch, stop, and restart
+cargo run -- --node-status /path/to/neonexus.db "node-01"
+cargo run -- --node-status-json /path/to/neonexus.db "node-01"
+cargo run -- --node-start /path/to/neonexus.db "node-01"
+cargo run -- --node-stop /path/to/neonexus.db "node-01"
+cargo run -- --node-restart /path/to/neonexus.db "node-01"
+
+# Rebind node runtime binary (used after migration or quarantined backup restore)
+cargo run -- --node-rebind-runtime /path/to/neonexus.db "node-01" /local/path/to/neo-node
 ```
 
-Node control uses the same readiness + launch path the web workbench uses, so
-a scripted node and a browser-operated node behave identically:
+### 2. Runtime Smoke & One-Click Upgrade Verification
+Smoke check node engine candidates before executing one-click or rolling fleet upgrades:
 
 ```bash
-cargo run -- --node-list    /path/to/neonexus.db
-cargo run -- --node-status  /path/to/neonexus.db "node name"
-cargo run -- --node-start   /path/to/neonexus.db "node name"
-cargo run -- --node-stop    /path/to/neonexus.db "node name"
-cargo run -- --node-restart /path/to/neonexus.db "node name"
-cargo run -- --node-rebind-runtime /path/to/neonexus.db "imported node" /local/path/to/neo-node [runtime-args...]
+# Smoke test candidate runtime binary for any engine (3-second execution probe)
+cargo run -- --runtime-smoke neo-rs /path/to/neo-node
+cargo run -- --runtime-smoke-json neo-rs /path/to/neo-node
+cargo run -- --runtime-smoke neox-geth /path/to/geth
+cargo run -- --runtime-smoke neo-cli /usr/bin/dotnet /path/to/neo-cli.dll
+
+# Package and authenticate release distributions (integrity + Ed25519 signature)
+cargo run -- --package-release dist
+cargo run -- --verify-release-package-integrity dist
+cargo run -- --verify-release-package-integrity-json dist
+cargo run -- --verify-release-package dist "$NEONEXUS_RELEASE_PUBLIC_KEY_B64" dist/manifest.sig
+```
+
+### 3. Configuration Generation, Conflict & Drift Reconciliation
+Generate golden node configs, detect port collisions (P2P/RPC/metrics), audit drift, and safely reconcile:
+
+```bash
+# Generate deterministic configuration (supports neo-cli, neo-go, neo-rs, neox-geth, neox-rs)
+cargo run -- --generate-node-config neo-rs testnet rocksdb 10332 10333 /path/to/config.toml
+cargo run -- --generate-node-config-json neo-rs testnet rocksdb 10332 10333 /path/to/config.toml
+
+# Validate existing configuration file against network rules and storage engine schemas
+cargo run -- --validate-node-config neo-rs testnet rocksdb 10332 10333 /path/to/config.toml
+cargo run -- --validate-node-config-json neo-rs testnet rocksdb 10332 10333 /path/to/config.toml
+
+# Detect configuration drift between disk file and workspace golden spec
+cargo run -- --check-config-drift /path/to/neonexus.db "node-01" /path/to/config.toml
+cargo run -- --check-config-drift-json /path/to/neonexus.db "node-01" /path/to/config.toml
+
+# Reconcile drifted configuration (automatically creates timestamped backup before applying)
+cargo run -- --reconcile-node-config /path/to/neonexus.db "node-01" /path/to/config.toml
+cargo run -- --reconcile-node-config-json /path/to/neonexus.db "node-01" /path/to/config.toml
+
+# Bulk export configs for all workspace nodes
+cargo run -- --export-node-configs /path/to/neonexus.db /path/to/configs_dir
+
+# Validate private network launch pack & sidecar configurations
+cargo run -- --validate-launch-pack /path/to/private-network/manifest.json
+cargo run -- --launch-pack-sidecars /path/to/private-network/manifest.json
+```
+
+### 4. State Checkpoints, Snapshots & Disaster Recovery
+Manage state snapshots, export encrypted workspace backups, and restore with zero-trust execution quarantine:
+
+```bash
+# Export encrypted workspace backup archive (AES-GCM / tar.gz)
+cargo run -- --export-backup /path/to/neonexus.db /path/to/backups
+cargo run -- --export-backup-json /path/to/neonexus.db /path/to/backups
+
+# Validate backup archive integrity, manifest, and database schema without applying
+cargo run -- --validate-backup /path/to/backups/backup.tar.gz
+cargo run -- --validate-backup-json /path/to/backups/backup.tar.gz
+
+# Restore workspace backup into database (quarantines node runtimes until explicitly rebound)
+cargo run -- --import-backup /path/to/target.db /path/to/backups/backup.tar.gz
+cargo run -- --import-backup-json /path/to/target.db /path/to/backups/backup.tar.gz
+
+# Export comprehensive support diagnostic bundle (logs, metrics, events, readiness)
+cargo run -- --export-support-bundle /path/to/neonexus.db /path/to/support_dir
+cargo run -- --export-support-bundle-json /path/to/neonexus.db /path/to/support_dir
 ```
 
 Backup imports retain the supplied command for backup fidelity but quarantine
 it from execution. The imported node has no active binary or arguments until
-an operator explicitly selects a trusted local runtime with the rebind command
-above (or saves a local runtime through the node editor).
+an operator explicitly selects a trusted local runtime with `--node-rebind-runtime`
+(or saves a local runtime through the node editor).
 
-After a release build:
+### 5. Dual-Family RPC Probes, P2P Topology & Mempool Telemetry
+Probe endpoint health, P2P connectivity, transaction congestion, and query on-chain roles across Neo N3 and Neo X:
 
 ```bash
-cargo build --release
-target/release/neo-nexus --package-release dist
-target/release/neo-nexus --verify-release-package-integrity dist
-target/release/neo-nexus --verify-release-package-integrity-json dist
+# RPC health probe with latency, block height, and protocol checks (N3 & Neo X auto-detect)
+cargo run -- --rpc-health 127.0.0.1:10332
+cargo run -- --rpc-health-json 127.0.0.1:10332
+
+# P2P peer connectivity probe (isolated / sparse / healthy detection)
+cargo run -- --peer-health 127.0.0.1:10332 [neo-n3|neo-x]
+cargo run -- --peer-health-json 127.0.0.1:10332 [neo-n3|neo-x]
+
+# Mempool backlog and congestion status (normal / elevated / congested)
+cargo run -- --mempool-status 127.0.0.1:10332 [neo-n3|neo-x]
+cargo run -- --mempool-status-json 127.0.0.1:10332 [neo-n3|neo-x]
+
+# On-chain role designation probe (state-validator, oracle, neofs-alphabet, p2p-notary)
+cargo run -- --designation 127.0.0.1:10332 state-validator [public-key]
+cargo run -- --designation-json 127.0.0.1:10332 state-validator [public-key]
+
+# Governance committee snapshot query
+cargo run -- --governance 127.0.0.1:10332
+cargo run -- --governance-json 127.0.0.1:10332
 ```
 
-Those two commands prove integrity only. A production handoff must also sign
-the exact canonical `*.manifest.json` bytes with an externally held Ed25519
-private key, publish the detached signature as base64 text, and authenticate it
-with an independently distributed/pinned public key:
+### 6. Headless API Token Administration (RBAC)
+Manage scoped API tokens for automated CI/CD pipelines, Prometheus scrapers, and external orchestrators:
 
 ```bash
-target/release/neo-nexus --verify-release-package dist "$NEONEXUS_RELEASE_PUBLIC_KEY_B64" dist/neo-nexus-<version>-<platform>.manifest.sig
+# Create scoped API token (permissions: read_fleet, read_readiness, admin_all)
+cargo run -- --create-api-token /path/to/neonexus.db "ci-deployer" admin_all
+cargo run -- --create-api-token /path/to/neonexus.db "metrics-scraper" read_fleet
+
+# List active API tokens
+cargo run -- --list-api-tokens /path/to/neonexus.db
+cargo run -- --list-api-tokens-json /path/to/neonexus.db
+
+# Revoke token by UUID
+cargo run -- --revoke-api-token /path/to/neonexus.db <TOKEN_UUID>
+```
+
+### 7. Diagnostics, Readiness & Event Journal
+Evaluate fleet posture, search audit trails, and export telemetry:
+
+```bash
+# Evaluate overall workspace readiness (identifies port conflicts, missing runtimes, config flaws)
+cargo run -- --workspace-readiness /path/to/neonexus.db
+cargo run -- --workspace-readiness-json /path/to/neonexus.db
+cargo run -- --export-readiness-report /path/to/neonexus.db /path/to/readiness-report.json
+
+# Workspace database integrity check
+cargo run -- --workspace-integrity /path/to/neonexus.db
+cargo run -- --workspace-integrity-json /path/to/neonexus.db
+
+# Export Prometheus metrics
+cargo run -- --workspace-metrics-prometheus /path/to/neonexus.db
+cargo run -- --workspace-metrics-json /path/to/neonexus.db
+
+# Query and export event journal audit logs
+cargo run -- --export-event-journal /path/to/neonexus.db /path/to/journal_export 100 all
+cargo run -- --alert-preview /path/to/neonexus.db [provider] [webhook_url]
+
+# Validate NEP-6 wallet metadata (strictly without accepting private keys)
+cargo run -- --validate-wallet /path/to/wallet.json
+cargo run -- --import-wallet-profile /path/to/neonexus.db /path/to/wallet.json
 ```
 
 NeoNexus intentionally ships no production trust anchor or signing key.
@@ -241,20 +358,18 @@ Tests are kept out of `src/` so the source tree reads as production only:
 
 ## Documentation
 
-- [Web workbench](docs/web.md) explains the server, the auth model, cloud
-  deployment, and the API surface.
-- [Native Rust App Validation](docs/native-validation.md) records the gates
-  and release evidence expected before handoff.
-- [Operator Benchmarks](docs/operator-benchmarks.md) summarizes the node
-  manager product patterns used to shape the workbench.
-- [Runtime catalog example](docs/runtime-catalog.example.json) and
-  [snapshot catalog example](docs/snapshot-catalog.example.json) are importable
-  schema samples for Runtime Manager and Fast Sync workflows.
-- [Signer service design](docs/signer-service-design.md) maps all three current
-  signer backends, the v1 service client/control-plane contract, and the original
-  custody-engine design retained as historical policy background.
-- [neo-os signer audit](docs/signer-service-audit.md) records the workspace-wide
-  findings those constraints answer to, each with file and line evidence.
+- [Web workbench](docs/web.md) explains the server, the auth model, cloud deployment, and the API surface.
+- [Agent Protocol & Automation API](docs/AGENT_API.md) covers REST API endpoints, API token RBAC, and headless CLI JSON automation commands.
+- [Troubleshooting & Operations Runbook](docs/TROUBLESHOOTING.md) provides operator runbooks for config drift reconciliation, P2P isolation, mempool congestion, port collisions, and disaster recovery.
+- [Node Support & Lifecycle Verification](docs/NODE_SUPPORT_VERIFICATION_REPORT.md) records the comprehensive audit and verification for all 5 node engines, rolling upgrades, configuration conflict detection, checkpoint snapshots, and plugin management.
+- [Plugin Support Matrix](docs/PLUGIN_SUPPORT_MATRIX.md) details plugin and extension capabilities across Neo N3 and Neo X runtimes (C# DLL ZIP installer, sidecar injection, and build-time features).
+- [System Architecture & Security Audit](docs/SYSTEM_AUDIT_2026.md) records the full system evaluation, security posture, domain boundaries, and quality ratings.
+- [Native Rust App Validation](docs/native-validation.md) records the gates and release evidence expected before handoff.
+- [Operator Benchmarks](docs/operator-benchmarks.md) summarizes the node manager product patterns used to shape the workbench.
+- [OpenAPI 3.0 Specification](docs/openapi.yaml) provides the machine-readable API specification for automated client generation.
+- [Runtime catalog example](docs/runtime-catalog.example.json) and [snapshot catalog example](docs/snapshot-catalog.example.json) are importable schema samples for Runtime Manager and Fast Sync workflows.
+- [Signer service design](docs/signer-service-design.md) maps all three current signer backends, the v1 service client/control-plane contract, and the original custody-engine design retained as historical policy background.
+- [neo-os signer audit](docs/signer-service-audit.md) records the workspace-wide findings those constraints answer to, each with file and line evidence.
 
 ## Current Gaps
 
