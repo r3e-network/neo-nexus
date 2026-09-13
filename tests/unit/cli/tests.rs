@@ -157,6 +157,7 @@ fn valid_nep6_wallet_json() -> String {
 }
 
 mod alerts;
+mod api_tokens;
 mod backup_wallet_launch;
 mod basics;
 mod config;

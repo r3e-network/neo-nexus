@@ -10,13 +10,23 @@ impl Repository {
         crate::types::validate_node_id(node_id)?;
         let mut connection = self.connection()?;
         let transaction = connection.transaction()?;
-        let (status_raw, pid) = transaction
+        let (status_raw, pid, node_type_raw) = transaction
             .query_row(
-                "SELECT status, pid FROM nodes WHERE id = ?1",
+                "SELECT status, pid, node_type FROM nodes WHERE id = ?1",
                 params![node_id],
-                |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<u32>>(1)?)),
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<u32>>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                },
             )
             .with_context(|| format!("node {node_id} was not found"))?;
+        crate::plugins::ensure_plugin_configuration_supported(
+            NodeType::from_str(&node_type_raw)?,
+            plugin_id,
+        )?;
         let status = NodeStatus::from_str(&status_raw)?;
         if status.is_active() || pid.is_some() {
             anyhow::bail!("stop node {node_id} before changing its plugin configuration");

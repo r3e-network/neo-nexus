@@ -9,6 +9,7 @@ pub mod quality;
 pub mod runtime;
 pub mod security;
 pub mod workspace;
+pub mod workspace_commands;
 pub mod workspace_queries;
 
 #[cfg(test)]

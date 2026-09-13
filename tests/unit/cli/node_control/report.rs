@@ -113,3 +113,74 @@ fn node_status_cli_prints_detailed_report() -> Result<()> {
     }
     Ok(())
 }
+
+#[test]
+fn node_list_json_cli_prints_json_array() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let db_path = temp_dir.path().join("neonexus.db");
+    let repository = Repository::open(&db_path)?;
+    repository.create_node(NewNode {
+        name: "json-alpha".to_string(),
+        node_type: NodeType::NeoRs,
+        network: Network::Mainnet,
+        binary_path: "/opt/neo-node".into(),
+        args: Vec::new(),
+        runtime_version: "v0.8.0".to_string(),
+        storage_engine: StorageEngine::RocksDb,
+        rpc_port: 40332,
+        p2p_port: 40333,
+        ws_port: None,
+    })?;
+    drop(repository);
+
+    let db_arg = db_path.display().to_string();
+    let action = action_from_args(["neo-nexus", "--node-list-json", &db_arg])?;
+
+    match action {
+        CliAction::PrintWithExitCode { text, exit_code } => {
+            assert_eq!(exit_code, 0);
+            let val: serde_json::Value = serde_json::from_str(&text)?;
+            let arr = val.as_array().expect("array");
+            assert_eq!(arr.len(), 1);
+            assert_eq!(arr[0]["name"], "json-alpha");
+            assert_eq!(arr[0]["rpc_port"], 40332);
+        }
+        other => anyhow::bail!("expected PrintWithExitCode, got {other:?}"),
+    }
+    Ok(())
+}
+
+#[test]
+fn node_status_json_cli_prints_json_object() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let db_path = temp_dir.path().join("neonexus.db");
+    let repository = Repository::open(&db_path)?;
+    repository.create_node(NewNode {
+        name: "json-beta".to_string(),
+        node_type: NodeType::NeoRs,
+        network: Network::Mainnet,
+        binary_path: "/opt/neo-node".into(),
+        args: Vec::new(),
+        runtime_version: "v0.8.0".to_string(),
+        storage_engine: StorageEngine::RocksDb,
+        rpc_port: 50332,
+        p2p_port: 50333,
+        ws_port: Some(50334),
+    })?;
+    drop(repository);
+
+    let db_arg = db_path.display().to_string();
+    let action = action_from_args(["neo-nexus", "--node-status-json", &db_arg, "json-beta"])?;
+
+    match action {
+        CliAction::PrintWithExitCode { text, exit_code } => {
+            assert_eq!(exit_code, 0);
+            let val: serde_json::Value = serde_json::from_str(&text)?;
+            assert_eq!(val["name"], "json-beta");
+            assert_eq!(val["rpc_port"], 50332);
+            assert_eq!(val["ws_port"], 50334);
+        }
+        other => anyhow::bail!("expected PrintWithExitCode, got {other:?}"),
+    }
+    Ok(())
+}

@@ -4,6 +4,16 @@ use neo_nexus::backup::WorkspaceBackup;
 
 use super::*;
 
+pub(super) const EXPECTED_WORKSPACE_SETTINGS: &[(&str, &str)] = &[
+    ("rpc_health_monitor.enabled", "false"),
+    ("rpc_health_monitor.interval_seconds", "300"),
+    ("watchdog.base_delay_seconds", "7"),
+    ("watchdog.enabled", "false"),
+    ("watchdog.jitter_enabled", "false"),
+    ("watchdog.max_delay_seconds", "70"),
+    ("watchdog.max_restart_attempts", "9"),
+];
+
 pub(super) fn backup_with_full_workspace(workspace_root: &Path) -> (WorkspaceBackup, String) {
     let source = Repository::open(workspace_root.join("source.db")).unwrap();
     source
@@ -162,5 +172,12 @@ pub(super) fn backup_with_full_workspace(workspace_root: &Path) -> (WorkspaceBac
         )
         .unwrap();
     let backup = WorkspaceBackupExporter::snapshot(&source, "2.5.3-test", 1_800_000_011).unwrap();
+    let mut settings = backup
+        .workspace_settings
+        .iter()
+        .map(|setting| (setting.key.as_str(), setting.value.as_str()))
+        .collect::<Vec<_>>();
+    settings.sort_unstable();
+    assert_eq!(settings.as_slice(), EXPECTED_WORKSPACE_SETTINGS);
     (backup, node_id)
 }

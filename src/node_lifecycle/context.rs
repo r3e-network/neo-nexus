@@ -40,6 +40,7 @@ pub fn generation_context_for_node(
         role: repository.load_node_role(&node.id).unwrap_or_default(),
         wallet: service_wallet_for_node(repository, node),
         consensus_signer: None,
+        node_dir: None,
     }
 }
 

@@ -13,14 +13,14 @@ static TEMPORARY_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 ///
 /// The temporary file always lives beside the destination, so the final rename
 /// cannot cross filesystems. Dropping an uncommitted stage removes it.
-pub(super) struct StagedWrite {
+pub(crate) struct StagedWrite {
     target: PathBuf,
     temporary: PathBuf,
     committed: bool,
 }
 
 impl StagedWrite {
-    pub(super) fn new(target: impl AsRef<Path>, contents: &[u8], owner_only: bool) -> Result<Self> {
+    pub(crate) fn new(target: impl AsRef<Path>, contents: &[u8], owner_only: bool) -> Result<Self> {
         let target = target.as_ref().to_path_buf();
         let parent = target
             .parent()
@@ -50,7 +50,7 @@ impl StagedWrite {
         Ok(staged)
     }
 
-    pub(super) fn commit(mut self) -> Result<()> {
+    pub(crate) fn commit(mut self) -> Result<()> {
         replace_file(&self.temporary, &self.target).with_context(|| {
             format!(
                 "failed to atomically replace config file {}",

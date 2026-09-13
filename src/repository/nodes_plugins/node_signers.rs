@@ -31,6 +31,22 @@ impl Repository {
                 // Reconstructing validates both components even when a caller
                 // created the value in a future version with looser rules.
                 let key = SignerKeyRef::new(&key.backend_id, &key.key_id)?;
+                let existing_owner: Option<String> = transaction
+                    .query_row(
+                        "SELECT node_id FROM node_signer_bindings WHERE backend_id = ?1 AND key_id = ?2",
+                        params![key.backend_id, key.key_id],
+                        |row| row.get(0),
+                    )
+                    .optional()?;
+                if let Some(owner) = existing_owner {
+                    if owner != node_id {
+                        bail!(
+                            "IAM Isolation Violation: Signer key '{}/{}' is already exclusively allocated to instance '{owner}'. Cross-node key usage is strictly forbidden.",
+                            key.backend_id,
+                            key.key_id
+                        );
+                    }
+                }
                 transaction.execute(
                     "INSERT INTO node_signer_bindings (node_id, backend_id, key_id)
                  VALUES (?1, ?2, ?3)
@@ -47,6 +63,40 @@ impl Repository {
         };
         transaction.commit()?;
         Ok(())
+    }
+
+    pub fn list_all_signer_bindings(&self) -> Result<Vec<(String, SignerKeyRef)>> {
+        let connection = self.connection()?;
+        let mut stmt = connection.prepare(
+            "SELECT node_id, backend_id, key_id FROM node_signer_bindings",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })?;
+        let mut results = Vec::new();
+        for row in rows {
+            let (node_id, backend_id, key_id) = row?;
+            if let Ok(k) = SignerKeyRef::new(backend_id, key_id) {
+                results.push((node_id, k));
+            }
+        }
+        Ok(results)
+    }
+
+    pub fn find_node_by_signer_key(&self, backend_id: &str, key_id: &str) -> Result<Option<String>> {
+        let connection = self.connection()?;
+        connection
+            .query_row(
+                "SELECT node_id FROM node_signer_bindings WHERE backend_id = ?1 AND key_id = ?2",
+                params![backend_id, key_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .with_context(|| format!("failed to find owner for signer key {backend_id}/{key_id}"))
     }
 
     pub fn load_node_signer_key(&self, node_id: &str) -> Result<Option<SignerKeyRef>> {

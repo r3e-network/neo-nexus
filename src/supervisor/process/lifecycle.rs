@@ -22,6 +22,18 @@ impl ProcessSupervisor {
         self.start_process(&spec, log_path)
     }
 
+    pub fn start_with_type(
+        &mut self,
+        node: &NodeConfig,
+        plan: &LaunchPlan,
+        log_path: impl AsRef<Path>,
+        _node_type: crate::types::NodeType,
+    ) -> Result<ProcessStart> {
+        // TODO: Future adapter-based logic will use node_type here
+        // For now, delegate to existing implementation for backward compatibility
+        self.start(node, plan, log_path)
+    }
+
     pub fn start_process(
         &mut self,
         spec: &ManagedProcessSpec,
@@ -34,6 +46,11 @@ impl ProcessSupervisor {
         let log_path = log_path.as_ref().to_path_buf();
         let (managed, start) = spawn_managed_child(spec, log_path)?;
         self.children.insert(spec.id.clone(), managed);
+        // A managed (re)launch invalidates any observation carried over from a
+        // previous generation of this node, including PID reuse: the collector
+        // keeps its byte offset but must not republish a stale sync sample from
+        // before this launch. The epoch bump gates that.
+        self.observations().invalidate(&spec.id);
         Ok(start)
     }
 
@@ -88,6 +105,18 @@ impl ProcessSupervisor {
         ensure_node_runtime_bound(node)?;
         let spec = ManagedProcessSpec::for_node(node, plan);
         self.restart_process(&spec, log_path)
+    }
+
+    pub fn restart_with_type(
+        &mut self,
+        node: &NodeConfig,
+        plan: &LaunchPlan,
+        log_path: impl AsRef<Path>,
+        _node_type: crate::types::NodeType,
+    ) -> Result<ProcessStart> {
+        // TODO: Future adapter-based logic will use node_type here
+        // For now, delegate to existing implementation for backward compatibility
+        self.restart(node, plan, log_path)
     }
 
     pub fn restart_process(

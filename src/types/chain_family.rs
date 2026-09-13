@@ -1,5 +1,7 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 /// Which Neo chain a node belongs to.
 ///
 /// Neo N3 and Neo X are separate chains with separate clients, and almost
@@ -10,7 +12,8 @@ use std::fmt;
 ///
 /// The family is derived from the client rather than stored, because a client
 /// only ever speaks one of them — there is no neo-cli that joins Neo X.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ChainFamily {
     /// Neo N3: dBFT, native contracts, plugin assemblies, Neo JSON-RPC.
     NeoN3,

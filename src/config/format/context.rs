@@ -7,6 +7,8 @@
 //! secret supplied per export. They travel together here so a generator
 //! signature does not grow a parameter every time a duty needs one more fact.
 
+use std::path::PathBuf;
+
 use crate::roles::NodeRole;
 
 /// How a neo-cli consensus process obtains signatures. This is runtime
@@ -83,6 +85,13 @@ pub struct GenerationContext {
     pub role: Option<NodeRole>,
     pub wallet: Option<ServiceWallet>,
     pub consensus_signer: Option<ConsensusSigner>,
+    /// Absolute path to the node's workspace directory, when the caller has it.
+    ///
+    /// Adapters that write files beside the node — a metrics exporter's config,
+    /// a plugin manifest — need a directory to write into, and `NodeConfig`
+    /// deliberately carries no path of its own: the workspace root is chosen by
+    /// whoever opened it. A caller that only renders text can leave this unset.
+    pub node_dir: Option<PathBuf>,
 }
 
 impl GenerationContext {
@@ -91,7 +100,14 @@ impl GenerationContext {
             role: Some(role),
             wallet: None,
             consensus_signer: None,
+            node_dir: None,
         }
+    }
+
+    /// Attach the node's workspace directory so file-writing adapters can use it.
+    pub fn with_node_dir(mut self, node_dir: impl Into<PathBuf>) -> Self {
+        self.node_dir = Some(node_dir.into());
+        self
     }
 
     pub fn with_wallet(mut self, wallet: ServiceWallet) -> Self {

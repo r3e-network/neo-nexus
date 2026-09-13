@@ -54,4 +54,10 @@ impl DashboardSummary {
             health_percent,
         })
     }
+
+    pub fn from_workspace(
+        workspace: &crate::core::workspace_queries::WorkspaceQueries,
+    ) -> Result<Self> {
+        workspace.dashboard_summary()
+    }
 }

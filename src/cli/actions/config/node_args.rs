@@ -1,4 +1,5 @@
 use super::*;
+use crate::core::node::validate_node_port;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::cli::actions::config) struct NodeConfigCliSpec {
@@ -19,6 +20,7 @@ impl NodeConfigCliSpec {
         }
         let rpc_port = parse_u16_arg(&args[5], "rpc-port")?;
         let p2p_port = parse_u16_arg(&args[6], "p2p-port")?;
+        validate_node_port(rpc_port, "RPC")?;
         validate_node_ports(rpc_port, p2p_port, None)?;
 
         Ok(Self {

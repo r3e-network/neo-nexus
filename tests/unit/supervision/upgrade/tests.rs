@@ -2,8 +2,9 @@
 //! These tests verify the scheduled upgrade probe respects policies without requiring network access.
 
 use std::{
+    collections::BTreeMap,
     path::PathBuf,
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -11,8 +12,12 @@ use uuid::Uuid;
 
 use super::*;
 use crate::{
+    repository::Repository,
     runtime::RuntimeUpgradePolicy,
+    signing::SignerRegistry,
+    supervisor::ProcessSupervisor,
     types::{Network, NewNode, NodeType, StorageEngine},
+    watchdog::{default_restart_policy, Watchdog},
 };
 
 #[test]

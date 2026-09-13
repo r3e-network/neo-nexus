@@ -55,3 +55,27 @@ fn an_unknown_role_lists_the_ones_that_exist() {
         );
     }
 }
+
+#[test]
+fn chain_family_parsing_supports_n3_and_neox() {
+    use super::parse_chain_family;
+    use crate::core::node::ChainFamily;
+
+    assert_eq!(parse_chain_family(None).unwrap(), ChainFamily::NeoN3);
+    assert_eq!(
+        parse_chain_family(Some("neo-n3")).unwrap(),
+        ChainFamily::NeoN3
+    );
+    assert_eq!(
+        parse_chain_family(Some("neon3")).unwrap(),
+        ChainFamily::NeoN3
+    );
+    assert_eq!(parse_chain_family(Some("n3")).unwrap(), ChainFamily::NeoN3);
+    assert_eq!(
+        parse_chain_family(Some("neo-x")).unwrap(),
+        ChainFamily::NeoX
+    );
+    assert_eq!(parse_chain_family(Some("neox")).unwrap(), ChainFamily::NeoX);
+    assert_eq!(parse_chain_family(Some("x")).unwrap(), ChainFamily::NeoX);
+    assert!(parse_chain_family(Some("invalid")).is_err());
+}

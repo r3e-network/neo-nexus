@@ -156,6 +156,26 @@ pub fn prepare_node_signer_launch(
         return Ok(NodeSignerLaunch::inert(role));
     };
     let key = key.context("the signing duty has no signer backend and key binding")?;
+
+    // Slashing & Double-Signing Prevention: Ensure no other running node holds this same signer lease.
+    if let Ok(nodes) = repository.list_nodes() {
+        for other in nodes {
+            if other.id != node.id && (other.status.is_running() || other.pid.is_some()) {
+                if let Ok(Some(other_key)) = repository.load_node_signer_key(&other.id) {
+                    if other_key == key {
+                        anyhow::bail!(
+                            "double-signing hazard: signer {}/{} is currently leased to active running node {} ({})",
+                            key.backend_id,
+                            key.key_id,
+                            other.name,
+                            other.id
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     let registry = registry.context(
         "this signing node requires its configured signer registry; no fallback is available",
     )?;
@@ -477,54 +497,31 @@ impl<'a> NodeSignerRoute<'a> {
         self.registry.backend(&self.key.backend_id)
     }
 
-    pub fn sign_transaction(&self, request: &SignRequest) -> Result<Outcome<Signature>> {
-        let result = self.registry.sign_transaction(&self.key, request)?;
-
-        // Record wallet usage after successful signing
+    fn record_signing_usage(&self, operation: &str) {
         let _ = self.repository.record_event(NewRuntimeEvent {
             node_id: None,
             node_name: None,
             kind: crate::events::EventKind::NeoWalletProfileUsed,
             severity: crate::events::EventSeverity::Info,
-            message: format!(
-                "wallet profile '{}' used for transaction signing",
-                self.key.key_id
-            ),
+            message: format!("wallet profile '{}' used for {operation}", self.key.key_id),
         });
+    }
 
+    pub fn sign_transaction(&self, request: &SignRequest) -> Result<Outcome<Signature>> {
+        let result = self.registry.sign_transaction(&self.key, request)?;
+        self.record_signing_usage("transaction signing");
         Ok(result)
     }
 
     pub fn sign_consensus(&self, request: &SignRequest) -> Result<Outcome<Signature>> {
         let result = self.registry.sign_consensus(&self.key, request)?;
-
-        // Record wallet usage after successful consensus signing
-        let _ = self.repository.record_event(NewRuntimeEvent {
-            node_id: None,
-            node_name: None,
-            kind: crate::events::EventKind::NeoWalletProfileUsed,
-            severity: crate::events::EventSeverity::Info,
-            message: format!(
-                "wallet profile '{}' used for consensus signing",
-                self.key.key_id
-            ),
-        });
-
+        self.record_signing_usage("consensus signing");
         Ok(result)
     }
 
     pub fn sign_raw(&self, request: &RawSignRequest) -> Result<Outcome<RawSignature>> {
         let result = self.registry.sign_raw(&self.key, request)?;
-
-        // Record wallet usage after successful raw signing
-        let _ = self.repository.record_event(NewRuntimeEvent {
-            node_id: None,
-            node_name: None,
-            kind: crate::events::EventKind::NeoWalletProfileUsed,
-            severity: crate::events::EventSeverity::Info,
-            message: format!("wallet profile '{}' used for raw signing", self.key.key_id),
-        });
-
+        self.record_signing_usage("raw signing");
         Ok(result)
     }
 
@@ -533,19 +530,7 @@ impl<'a> NodeSignerRoute<'a> {
         request: &Eip191FulfillmentRequest,
     ) -> Result<Outcome<Eip191FulfillmentSignature>> {
         let result = self.registry.sign_eip191_fulfillment(&self.key, request)?;
-
-        // Record wallet usage after successful EIP-191 fulfillment
-        let _ = self.repository.record_event(NewRuntimeEvent {
-            node_id: None,
-            node_name: None,
-            kind: crate::events::EventKind::NeoWalletProfileUsed,
-            severity: crate::events::EventSeverity::Info,
-            message: format!(
-                "wallet profile '{}' used for EIP-191 fulfillment",
-                self.key.key_id
-            ),
-        });
-
+        self.record_signing_usage("EIP-191 fulfillment");
         Ok(result)
     }
 

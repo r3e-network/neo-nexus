@@ -120,7 +120,9 @@ pub fn create_magic_override_request(
         .context("system time before Unix epoch")?
         .as_secs();
 
-    *LAST_GENERATED_AT.write().expect("poisoned lock") = generated_at;
+    *LAST_GENERATED_AT
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = generated_at;
 
     Ok(MagicOverrideRequest {
         token: MagicOverrideToken::new(),
@@ -350,7 +352,7 @@ static CONSUMED_TOKENS: std::sync::LazyLock<std::sync::RwLock<ConsumedTokensStor
 fn mark_override_as_consumed(token: &MagicOverrideToken, node_id: &str, generation: u64) {
     let mut storage = CONSUMED_TOKENS
         .write()
-        .expect("poisoned lock in mark_override_as_consumed");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     storage
         .consumed
         .insert((token.id, node_id.to_string(), generation));
@@ -358,7 +360,9 @@ fn mark_override_as_consumed(token: &MagicOverrideToken, node_id: &str, generati
 
 /// Check if a token has already been consumed for a node
 fn check_duplicate_consumption(token: &MagicOverrideToken, node_id: &str, generation: u64) -> bool {
-    let storage = CONSUMED_TOKENS.read().expect("poisoned lock");
+    let storage = CONSUMED_TOKENS
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     storage
         .consumed
         .contains(&(token.id, node_id.to_string(), generation))
@@ -410,7 +414,9 @@ pub fn list_pending_overrides_for_node(_node_id: &str) -> Vec<&'static str> {
 
 /// Audit API: Get all recently consumed overrides (for debugging/forensics)
 pub fn audit_recent_overrides(limit: usize) -> Vec<ConsumedMagicOverrideSummary> {
-    let storage = CONSUMED_TOKENS.read().expect("poisoned lock");
+    let storage = CONSUMED_TOKENS
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     // Convert to vector and take limit entries
     storage
         .consumed

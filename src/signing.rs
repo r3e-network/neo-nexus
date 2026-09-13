@@ -9,10 +9,13 @@
 
 mod capability;
 mod environment;
+mod isolation;
 mod local_signer;
 mod local_wallet;
 mod profile;
 mod registry;
+
+pub use isolation::{check_signer_binding_allowed, SignerIsolationViolation};
 
 pub use capability::SignerCapabilities;
 pub use local_signer::{

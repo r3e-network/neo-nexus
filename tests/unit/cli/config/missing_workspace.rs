@@ -63,3 +63,41 @@ fn workspace_integrity_cli_rejects_missing_workspace_database() -> Result<()> {
     assert!(error.to_string().contains("does not exist"));
     Ok(())
 }
+
+#[test]
+fn check_config_drift_cli_rejects_missing_workspace_database() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let db_arg = temp_dir.path().join("missing.db").display().to_string();
+    let config_arg = temp_dir.path().join("config.toml").display().to_string();
+
+    let error = action_from_args([
+        "neo-nexus",
+        "--check-config-drift",
+        &db_arg,
+        "node-01",
+        &config_arg,
+    ])
+    .expect_err("missing drift database should not be silently created");
+
+    assert!(error.to_string().contains("does not exist"));
+    Ok(())
+}
+
+#[test]
+fn reconcile_node_config_cli_rejects_missing_workspace_database() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let db_arg = temp_dir.path().join("missing.db").display().to_string();
+    let config_arg = temp_dir.path().join("config.toml").display().to_string();
+
+    let error = action_from_args([
+        "neo-nexus",
+        "--reconcile-node-config",
+        &db_arg,
+        "node-01",
+        &config_arg,
+    ])
+    .expect_err("missing reconcile database should not be silently created");
+
+    assert!(error.to_string().contains("does not exist"));
+    Ok(())
+}

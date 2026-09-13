@@ -48,6 +48,41 @@ pub(in crate::cli::actions) fn node_list_action(args: &[String]) -> Result<CliAc
     })
 }
 
+/// `--node-list-json <db>`: print every node in the workspace as a JSON array,
+/// enabling scripts, orchestrators, and CI to inspect fleet status programmatically.
+pub(in crate::cli::actions) fn node_list_json_action(args: &[String]) -> Result<CliAction> {
+    require_arg_count(args, 3, "--node-list-json")?;
+    let repository = open_workspace(&args[2])?;
+    let nodes = repository
+        .list_nodes()
+        .context("failed to read nodes from the workspace")?;
+
+    let json_nodes: Vec<serde_json::Value> = nodes
+        .iter()
+        .map(|node| {
+            serde_json::json!({
+                "id": node.id,
+                "name": node.name,
+                "node_type": node.node_type.to_string(),
+                "network": node.network.to_string(),
+                "status": node.status.label(),
+                "pid": node.pid,
+                "rpc_port": node.rpc_port,
+                "p2p_port": node.p2p_port,
+                "ws_port": node.ws_port,
+                "runtime_version": node.runtime_version,
+                "storage_engine": node.storage_engine.to_string(),
+                "binary_path": node.binary_path.display().to_string(),
+            })
+        })
+        .collect();
+
+    Ok(CliAction::PrintWithExitCode {
+        exit_code: 0,
+        text: serde_json::to_string_pretty(&json_nodes)?,
+    })
+}
+
 /// `--node-status <db> <node-name>`: print a detailed single-node report
 /// (identity, status/pid, ports, version, storage, latest RPC health) so an
 /// operator or script can inspect one node headlessly. All reads go through the
@@ -93,6 +128,45 @@ pub(in crate::cli::actions) fn node_status_action(args: &[String]) -> Result<Cli
     Ok(CliAction::PrintWithExitCode {
         exit_code: 0,
         text: lines.join("\n"),
+    })
+}
+
+/// `--node-status-json <db> <node-name>`: print a detailed single-node report as JSON.
+pub(in crate::cli::actions) fn node_status_json_action(args: &[String]) -> Result<CliAction> {
+    require_arg_count(args, 4, "--node-status-json")?;
+    let repository = open_workspace(&args[2])?;
+    let node = node_by_name(&repository, &args[3])?;
+
+    let rpc_health_val = match latest_node_rpc_health(&repository, &node.id) {
+        Ok(Some(health)) => serde_json::json!({
+            "status": health.status.to_string(),
+            "height": health.block_count,
+            "endpoint": health.endpoint,
+            "message": health.message,
+        }),
+        Ok(None) => serde_json::json!({ "status": "unchecked" }),
+        Err(e) => serde_json::json!({ "status": "error", "error": e.to_string() }),
+    };
+
+    let payload = serde_json::json!({
+        "id": node.id,
+        "name": node.name,
+        "node_type": node.node_type.to_string(),
+        "network": node.network.to_string(),
+        "runtime_version": node.runtime_version,
+        "storage_engine": node.storage_engine.to_string(),
+        "status": node.status.label(),
+        "pid": node.pid,
+        "rpc_port": node.rpc_port,
+        "p2p_port": node.p2p_port,
+        "ws_port": node.ws_port,
+        "binary_path": node.binary_path.display().to_string(),
+        "rpc_health": rpc_health_val,
+    });
+
+    Ok(CliAction::PrintWithExitCode {
+        exit_code: 0,
+        text: serde_json::to_string_pretty(&payload)?,
     })
 }
 
