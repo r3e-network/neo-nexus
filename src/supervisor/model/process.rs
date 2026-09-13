@@ -34,31 +34,6 @@ pub trait PluginSystemAdapter: std::fmt::Debug + Send + Sync {
     fn toggle_plugin(&self, plugin_id: &str, enabled: bool, ctx: &GenerationContext) -> Result<()>;
 }
 
-/// Backward-compatibility stub used when no concrete plugin system is registered
-/// for a node type. Part of the public adapter surface from the phased rollout.
-#[allow(dead_code)]
-#[derive(Debug, Default, Clone)]
-pub struct NoOpPluginSystemAdapter;
-
-impl PluginSystemAdapter for NoOpPluginSystemAdapter {
-    fn discover_plugins(&self, _node_dir: &Path) -> Result<Vec<PluginMetadata>> {
-        Err(crate::plugins::plugin_adapter_unavailable(None))
-    }
-
-    fn install_plugin(&self, _plugin_id: &str, _target_dir: &Path) -> Result<()> {
-        Err(crate::plugins::plugin_adapter_unavailable(None))
-    }
-
-    fn toggle_plugin(
-        &self,
-        _plugin_id: &str,
-        _enabled: bool,
-        _ctx: &GenerationContext,
-    ) -> Result<()> {
-        Err(crate::plugins::plugin_adapter_unavailable(None))
-    }
-}
-
 /// Trait for type-specific lifecycle operations (start/stop/restart).
 pub trait LifecycleAdapter: std::fmt::Debug + Send + Sync {
     /// Build command-line arguments specific to this node type.

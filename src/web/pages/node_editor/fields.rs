@@ -105,7 +105,9 @@ pub fn binary_field(
         name: "binary_path",
         value: &draft.binary_path,
         error: error_for(errors, "binary_path"),
-        help: Some("Auto-infers client type from path/filename, or select from installed runtimes below."),
+        help: Some(
+            "Auto-infers client type from path/filename, or select from installed runtimes below.",
+        ),
         monospace: true,
         full_width: true,
         placeholder: Some("/opt/neo/neo-go or C:\\runtimes\\neo-node.exe"),
@@ -344,7 +346,11 @@ pub fn plugins_section(draft: &NodeDraft) -> String {
 }
 
 pub fn hermes_section(draft: &NodeDraft) -> String {
-    let checked = if draft.is_hermes_enabled() { "checked" } else { "" };
+    let checked = if draft.is_hermes_enabled() {
+        "checked"
+    } else {
+        ""
+    };
     format!(
         r#"<div class="field span-all hermes-provision-box" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);">
             <div class="section-lead-label">
@@ -376,7 +382,8 @@ pub fn signer_section(
         .map(|message| html::notice("danger", message))
         .unwrap_or_default();
 
-    let mut options = vec![r#"<option value="">No signer (read-only duty / unleased)</option>"#.to_string()];
+    let mut options =
+        vec![r#"<option value="">No signer (read-only duty / unleased)</option>"#.to_string()];
     for profile in profiles {
         let is_selected = draft.signer_backend == profile.id;
         let other_owner = existing_bindings

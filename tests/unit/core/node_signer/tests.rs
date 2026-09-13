@@ -179,8 +179,9 @@ fn double_signing_hazard_fails_when_another_node_is_running_with_same_signer_key
         .unwrap();
 
     // Launching node2 with the same key must fail with double-signing hazard
-    let err = prepare_node_signer_launch(&repository, Some(&registry), &node2, &[], directory.path())
-        .unwrap_err();
+    let err =
+        prepare_node_signer_launch(&repository, Some(&registry), &node2, &[], directory.path())
+            .unwrap_err();
     assert!(
         err.to_string().contains("double-signing hazard"),
         "expected double-signing hazard, got: {err}"
@@ -190,7 +191,8 @@ fn double_signing_hazard_fails_when_another_node_is_running_with_same_signer_key
     repository
         .update_node_status(&node1.id, crate::types::NodeStatus::Stopped, None)
         .unwrap();
-    let res = prepare_node_signer_launch(&repository, Some(&registry), &node2, &[], directory.path());
+    let res =
+        prepare_node_signer_launch(&repository, Some(&registry), &node2, &[], directory.path());
     if let Err(e) = res {
         assert!(
             !e.to_string().contains("double-signing hazard"),

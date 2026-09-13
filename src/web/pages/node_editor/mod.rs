@@ -76,10 +76,16 @@ impl EditorMode {
 }
 
 pub async fn new_form(State(state): State<WebState>) -> Response {
-    let installations = state.workspace.list_runtime_installations().unwrap_or_default();
+    let installations = state
+        .workspace
+        .list_runtime_installations()
+        .unwrap_or_default();
     let nodes = load_nodes(&state);
     let profiles = state.custody().profiles().cloned().collect::<Vec<_>>();
-    let bindings = state.workspace.list_all_signer_bindings().unwrap_or_default();
+    let bindings = state
+        .workspace
+        .list_all_signer_bindings()
+        .unwrap_or_default();
     render(
         &NodeDraft::blank_with_installations_and_fleet(&installations, &nodes),
         &EditorMode::Create,
@@ -91,14 +97,27 @@ pub async fn new_form(State(state): State<WebState>) -> Response {
 }
 
 pub async fn edit_form(State(state): State<WebState>, Path(id): Path<String>) -> Response {
-    let installations = state.workspace.list_runtime_installations().unwrap_or_default();
+    let installations = state
+        .workspace
+        .list_runtime_installations()
+        .unwrap_or_default();
     let profiles = state.custody().profiles().cloned().collect::<Vec<_>>();
-    let bindings = state.workspace.list_all_signer_bindings().unwrap_or_default();
+    let bindings = state
+        .workspace
+        .list_all_signer_bindings()
+        .unwrap_or_default();
     match find_node(&state, &id) {
         Some(node) => {
             let role = state.workspace.load_node_role(&node.id).ok().flatten();
-            let plugins = state.workspace.list_plugin_states(&node.id).unwrap_or_default();
-            let signer = state.workspace.load_node_signer_key(&node.id).ok().flatten();
+            let plugins = state
+                .workspace
+                .list_plugin_states(&node.id)
+                .unwrap_or_default();
+            let signer = state
+                .workspace
+                .load_node_signer_key(&node.id)
+                .ok()
+                .flatten();
             render(
                 &NodeDraft::from_node_with_role_plugins_and_signer(
                     &node,
@@ -136,9 +155,15 @@ pub async fn update(
 /// judged, because a half-filled form is not a mistake while the operator is
 /// still choosing a client.
 fn submit(state: &WebState, form: NodeDraft, mode: &EditorMode) -> Response {
-    let installations = state.workspace.list_runtime_installations().unwrap_or_default();
+    let installations = state
+        .workspace
+        .list_runtime_installations()
+        .unwrap_or_default();
     let profiles = state.custody().profiles().cloned().collect::<Vec<_>>();
-    let bindings = state.workspace.list_all_signer_bindings().unwrap_or_default();
+    let bindings = state
+        .workspace
+        .list_all_signer_bindings()
+        .unwrap_or_default();
 
     // Read the intent before the draft is normalised, which consumes it.
     let wants_client_defaults = form.wants_client_defaults();
@@ -146,20 +171,34 @@ fn submit(state: &WebState, form: NodeDraft, mode: &EditorMode) -> Response {
     let draft = form.with_client_defaults();
 
     if wants_client_defaults {
-        return render(&draft, mode, &FieldErrors::new(), &installations, &profiles, &bindings);
+        return render(
+            &draft,
+            mode,
+            &FieldErrors::new(),
+            &installations,
+            &profiles,
+            &bindings,
+        );
     }
     if wants_suggested_ports {
         let suggested = draft
             .suggest_ports(&load_nodes(state), mode.current_id())
             .unwrap_or_else(|| draft.clone());
-        return render(&suggested, mode, &FieldErrors::new(), &installations, &profiles, &bindings);
+        return render(
+            &suggested,
+            mode,
+            &FieldErrors::new(),
+            &installations,
+            &profiles,
+            &bindings,
+        );
     }
 
     // Check IAM isolation for signer key binding
     if let Some(key) = draft.resolved_signer_key() {
-        let conflict = bindings.iter().find(|(nid, b)| {
-            b == &key && Some(nid.as_str()) != mode.current_id()
-        });
+        let conflict = bindings
+            .iter()
+            .find(|(nid, b)| b == &key && Some(nid.as_str()) != mode.current_id());
         if let Some((owner, _)) = conflict {
             let mut errors = FieldErrors::new();
             errors.insert(
@@ -180,8 +219,18 @@ fn submit(state: &WebState, form: NodeDraft, mode: &EditorMode) -> Response {
             render(&draft, mode, &errors, &installations, &profiles, &bindings)
         }
         DraftOutcome::Valid(input) => match mode {
-            EditorMode::Create => save_new(state, draft, input, &installations, &profiles, &bindings),
-            EditorMode::Edit { id } => save_edit(state, draft, id, input, &installations, &profiles, &bindings),
+            EditorMode::Create => {
+                save_new(state, draft, input, &installations, &profiles, &bindings)
+            }
+            EditorMode::Edit { id } => save_edit(
+                state,
+                draft,
+                id,
+                input,
+                &installations,
+                &profiles,
+                &bindings,
+            ),
         },
     }
 }
@@ -215,7 +264,9 @@ fn save_new(
                     if !matches!(def.id, PluginId::LevelDbStore | PluginId::RocksDbStore) {
                         let should_enable = selected.contains(&def.id)
                             && (def.id != PluginId::RpcServer || node.rpc_port > 0);
-                        let _ = state.commands.set_plugin_enabled(&node.id, def.id, should_enable);
+                        let _ = state
+                            .commands
+                            .set_plugin_enabled(&node.id, def.id, should_enable);
                     }
                 }
             }
@@ -238,7 +289,14 @@ fn save_new(
         Err(error) => {
             let mut errors = FieldErrors::new();
             errors.insert("general", error.to_string());
-            render(&draft, &EditorMode::Create, &errors, installations, profiles, bindings)
+            render(
+                &draft,
+                &EditorMode::Create,
+                &errors,
+                installations,
+                profiles,
+                bindings,
+            )
         }
     }
 }
@@ -271,7 +329,9 @@ fn save_edit(
                     if !matches!(def.id, PluginId::LevelDbStore | PluginId::RocksDbStore) {
                         let should_enable = selected.contains(&def.id)
                             && (def.id != PluginId::RpcServer || node.rpc_port > 0);
-                        let _ = state.commands.set_plugin_enabled(&node.id, def.id, should_enable);
+                        let _ = state
+                            .commands
+                            .set_plugin_enabled(&node.id, def.id, should_enable);
                     }
                 }
             }
@@ -288,7 +348,14 @@ fn save_edit(
         Err(error) => {
             let mut errors = FieldErrors::new();
             errors.insert("general", error.to_string());
-            render(&draft, &EditorMode::Edit { id: id.to_string() }, &errors, installations, profiles, bindings)
+            render(
+                &draft,
+                &EditorMode::Edit { id: id.to_string() },
+                &errors,
+                installations,
+                profiles,
+                bindings,
+            )
         }
     }
 }

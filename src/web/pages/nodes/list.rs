@@ -52,7 +52,12 @@ pub fn resolve_density(state: &WebState) -> DensityMode {
         .map_or(DensityMode::DEFAULT, DensityMode::from_str)
 }
 
-fn list_body(state: &WebState, fleet: &Fleet, params: &NodeListQuery, density: DensityMode) -> String {
+fn list_body(
+    state: &WebState,
+    fleet: &Fleet,
+    params: &NodeListQuery,
+    density: DensityMode,
+) -> String {
     let breadcrumb = html::breadcrumb(&[("EC2", "/nodes"), ("Instances", "")]);
     let head = html::page_head(
         "Instances",
@@ -165,8 +170,15 @@ fn ec2_instance_drawer(state: &WebState, visible: &[NodeConfig]) -> String {
         .workspace
         .list_all_signer_bindings()
         .ok()
-        .and_then(|all| all.into_iter().find(|(nid, _)| nid == &first.id).map(|(_, k)| k));
-    let signer_arn = signer.map_or_else(|| "Unbound".to_string(), |k| format!("arn:neo:kms:mesh-1a:key/{}", k.key_id));
+        .and_then(|all| {
+            all.into_iter()
+                .find(|(nid, _)| nid == &first.id)
+                .map(|(_, k)| k)
+        });
+    let signer_arn = signer.map_or_else(
+        || "Unbound".to_string(),
+        |k| format!("arn:neo:kms:mesh-1a:key/{}", k.key_id),
+    );
 
     format!(
         r#"<div class="aws-detail-drawer" id="ec2-instance-drawer">
@@ -220,11 +232,7 @@ fn status_tiles(state: &WebState, fleet: &Fleet) -> String {
         .rows
         .iter()
         .filter(|r| {
-            state
-                .workspace
-                .load_node_role(&r.node.id)
-                .ok()
-                .flatten()
+            state.workspace.load_node_role(&r.node.id).ok().flatten()
                 == Some(crate::roles::NodeRole::Consensus)
         })
         .count();
@@ -256,7 +264,10 @@ fn manager_table(state: &WebState, fleet: &Fleet, visible: &[NodeConfig]) -> Str
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs() as i64;
-    let all_signers = state.workspace.list_all_signer_bindings().unwrap_or_default();
+    let all_signers = state
+        .workspace
+        .list_all_signer_bindings()
+        .unwrap_or_default();
     let all_hermes = state.workspace.list_hermes_agents().unwrap_or_default();
 
     let rows = visible
@@ -379,12 +390,24 @@ fn manager_table(state: &WebState, fleet: &Fleet, visible: &[NodeConfig]) -> Str
 
     let table = html::table(
         &[
-            "Select", "Instance", "State", "Status Check", "Availability Zone", "Role", "Client / Net", "Ports (P2P/RPC)", "IAM Signer", "Hermes AI", "Actions",
+            "Select",
+            "Instance",
+            "State",
+            "Status Check",
+            "Availability Zone",
+            "Role",
+            "Client / Net",
+            "Ports (P2P/RPC)",
+            "IAM Signer",
+            "Hermes AI",
+            "Actions",
         ],
         &rows,
     );
 
-    format!(r#"<form method="post" action="/nodes/batch-action" id="fleet-batch-form">{batch_bar}{table}</form>"#)
+    format!(
+        r#"<form method="post" action="/nodes/batch-action" id="fleet-batch-form">{batch_bar}{table}</form>"#
+    )
 }
 
 fn manager_table_compact(state: &WebState, fleet: &Fleet, visible: &[NodeConfig]) -> String {

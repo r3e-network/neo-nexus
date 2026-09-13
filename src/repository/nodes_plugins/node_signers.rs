@@ -67,9 +67,8 @@ impl Repository {
 
     pub fn list_all_signer_bindings(&self) -> Result<Vec<(String, SignerKeyRef)>> {
         let connection = self.connection()?;
-        let mut stmt = connection.prepare(
-            "SELECT node_id, backend_id, key_id FROM node_signer_bindings",
-        )?;
+        let mut stmt =
+            connection.prepare("SELECT node_id, backend_id, key_id FROM node_signer_bindings")?;
         let rows = stmt.query_map([], |row| {
             Ok((
                 row.get::<_, String>(0)?,
@@ -87,7 +86,11 @@ impl Repository {
         Ok(results)
     }
 
-    pub fn find_node_by_signer_key(&self, backend_id: &str, key_id: &str) -> Result<Option<String>> {
+    pub fn find_node_by_signer_key(
+        &self,
+        backend_id: &str,
+        key_id: &str,
+    ) -> Result<Option<String>> {
         let connection = self.connection()?;
         connection
             .query_row(

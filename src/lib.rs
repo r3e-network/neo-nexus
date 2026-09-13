@@ -13,8 +13,8 @@
 //! - **Governance & Quality**: Continuous source quality, pure-rust purity, and CI policy enforcement.
 
 // ── 1. Node Engine & Process Supervision ────────────────────────────────────
-mod child_environment;
 pub mod agents;
+mod child_environment;
 pub mod config;
 pub mod launch;
 pub mod node_lifecycle;

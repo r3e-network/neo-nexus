@@ -36,7 +36,7 @@ impl HermesAgentAssociation {
 /// Generates a ready-to-use Nous Research Hermes config.yaml snippet with scoped MCP transport.
 pub fn generate_hermes_config_snippet(node_id: &str, node_name: &str, mcp_url: &str) -> String {
     format!(
-r#"# Hermes Agent MCP Configuration for Node: {node_name}
+        r#"# Hermes Agent MCP Configuration for Node: {node_name}
 # Add this to your Hermes profile config.yaml:
 mcp_servers:
   neonexus_{safe_id}:

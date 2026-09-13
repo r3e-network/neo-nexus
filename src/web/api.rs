@@ -50,7 +50,10 @@ pub struct FleetPayload {
 }
 
 pub async fn fleet(State(state): State<WebState>) -> Response {
-    let all_signers = state.workspace.list_all_signer_bindings().unwrap_or_default();
+    let all_signers = state
+        .workspace
+        .list_all_signer_bindings()
+        .unwrap_or_default();
     let all_hermes = state.workspace.list_hermes_agents().unwrap_or_default();
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

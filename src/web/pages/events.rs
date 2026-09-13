@@ -44,10 +44,7 @@ fn render(state: &WebState, params: &EventsQuery) -> anyhow::Result<String> {
     let total = state.workspace.count_events(&filter)?;
     let events = state.workspace.list_events(filter)?;
 
-    let breadcrumb = html::breadcrumb(&[
-        ("CloudTrail", "/events"),
-        ("Event history", ""),
-    ]);
+    let breadcrumb = html::breadcrumb(&[("CloudTrail", "/events"), ("Event history", "")]);
 
     Ok(format!(
         r#"{breadcrumb}
@@ -64,7 +61,10 @@ fn render(state: &WebState, params: &EventsQuery) -> anyhow::Result<String> {
                 "Severity Filter",
                 severity.map_or_else(|| "All".to_string(), |value| value.label().to_string()),
             ),
-            ("Audit IAM Identity", "arn:neo:iam::nexus:operator".to_string()),
+            (
+                "Audit IAM Identity",
+                "arn:neo:iam::nexus:operator".to_string()
+            ),
         ]),
         filters = filter_form(params, limit),
         journal = journal(&events),
@@ -135,15 +135,32 @@ fn journal(events: &[RuntimeEvent]) -> String {
             html::row(&[
                 html::raw_cell(&time::time_cell(Some(event.occurred_at_unix))),
                 html::raw_cell(&severity_badge(event.severity)),
-                html::raw_cell(&format!(r#"<span class="badge">{}</span>"#, html::escape(event_source))),
+                html::raw_cell(&format!(
+                    r#"<span class="badge">{}</span>"#,
+                    html::escape(event_source)
+                )),
                 html::cell(event.kind.label()),
                 html::cell(node),
-                html::raw_cell(&format!(r#"<span class="mono muted" style="font-size: 11px;">{}</span>"#, html::escape(identity))),
+                html::raw_cell(&format!(
+                    r#"<span class="mono muted" style="font-size: 11px;">{}</span>"#,
+                    html::escape(identity)
+                )),
                 html::cell(&event.message),
             ])
         })
         .collect::<Vec<_>>();
-    html::table(&["Event Time", "Severity", "Event Source", "Event Name", "Resource Scope", "User Identity", "Details / Request"], &rows)
+    html::table(
+        &[
+            "Event Time",
+            "Severity",
+            "Event Source",
+            "Event Name",
+            "Resource Scope",
+            "User Identity",
+            "Details / Request",
+        ],
+        &rows,
+    )
 }
 
 fn aws_event_source(kind: &str) -> &'static str {

@@ -65,18 +65,6 @@ pub fn ensure_plugin_configuration_supported(
     Ok(())
 }
 
-pub(crate) fn plugin_adapter_unavailable(node_type: Option<NodeType>) -> anyhow::Error {
-    match node_type {
-        Some(node_type) => anyhow::anyhow!(
-            "No plugin adapter is registered for {node_type}; no plugin operation was performed. {} See docs/PLUGIN_SUPPORT_MATRIX.md.",
-            plugin_support_guidance(node_type)
-        ),
-        None => anyhow::anyhow!(
-            "No concrete plugin adapter or target node type is available; no plugin operation was performed. Only neo-cli supports C# DLL plugin packages through the verified package installer. NeoGo uses built-in services/Go modules, NeoRs uses Cargo features, NeoX-Geth uses built-in extensions and NeoX-Reth uses Reth extensions. Use the Plugins page for supported package or launch-configuration controls. See docs/PLUGIN_SUPPORT_MATRIX.md."
-        ),
-    }
-}
-
 pub(super) const PLUGIN_PACKAGE_MAX_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 pub(super) const PLUGIN_PACKAGE_MAX_EXPANDED_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 pub(super) const PLUGIN_PACKAGE_MAX_FILES: usize = 20_000;

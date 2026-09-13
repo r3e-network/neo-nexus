@@ -482,9 +482,10 @@ impl NodeDraft {
         let is_rpc_enabled = self.is_rpc_enabled();
         let rpc_port = if is_rpc_enabled {
             if self.rpc_port.trim().is_empty() {
-                let assigned = plan_available_node_ports(existing, current_id, DEFAULT_RPC_PORT, false)
-                    .map(|a| a.rpc_port)
-                    .unwrap_or(10332);
+                let assigned =
+                    plan_available_node_ports(existing, current_id, DEFAULT_RPC_PORT, false)
+                        .map(|a| a.rpc_port)
+                        .unwrap_or(10332);
                 Some(assigned)
             } else {
                 parse_port(self.rpc_port.trim(), "RPC", "rpc_port", &mut errors)
@@ -541,7 +542,8 @@ impl NodeDraft {
             if backend.is_empty() || key.is_empty() {
                 errors.insert(
                     "signer_backend",
-                    "Signer backend and key identifier must both be specified or both left blank.".to_string(),
+                    "Signer backend and key identifier must both be specified or both left blank."
+                        .to_string(),
                 );
             } else if let Err(err) = crate::signing::SignerKeyRef::new(backend, key) {
                 errors.insert("signer_backend", format!("Invalid signer key: {err}"));

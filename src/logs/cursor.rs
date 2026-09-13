@@ -311,27 +311,6 @@ pub(crate) fn file_identity_from_path(path: &Path) -> Option<FileIdentity> {
     Some(FileIdentity::new(epoch / 3600, path_hash as u64, file_size))
 }
 
-/// Compute file identity using platform-specific methods when available
-#[cfg(all(unix, not(target_os = "android")))]
-fn file_identity_unix(path: &Path) -> Option<FileIdentity> {
-    use std::os::unix::fs::MetadataExt;
-
-    let metadata = std::fs::metadata(path).ok()?;
-    let file_size = metadata.len();
-    let device_id = metadata.dev();
-    let inode = metadata.ino();
-
-    // Use mtime seconds as generation indicator
-    let mtime = metadata.mtime();
-    let generation = if mtime > 0 {
-        (mtime / 1_000_000_000) as u64
-    } else {
-        0
-    };
-
-    Some(FileIdentity::new(generation, device_id, file_size))
-}
-
 /// CRC32 checksum for simple hashing (Windows compatible)
 mod crc32fast {
     pub fn hash(data: &str) -> u32 {

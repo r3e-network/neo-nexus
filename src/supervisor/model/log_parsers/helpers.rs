@@ -35,7 +35,7 @@ pub(super) fn ts_parse_timestamp(ts_str: &str) -> Option<u64> {
         .collect::<String>()
         .parse::<u64>()
         .ok()
-        .and_then(|t| if t > 1_000_000_000 { Some(t) } else { None })
+        .filter(|&seconds| seconds > 1_000_000_000)
 }
 
 pub(super) fn unix_epoch_approximation(iso_like: &str) -> Option<u64> {

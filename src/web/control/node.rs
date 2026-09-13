@@ -128,10 +128,7 @@ pub(crate) fn load_node(
         .ok_or_else(|| anyhow::anyhow!("node {id} was not found"))
 }
 
-pub async fn batch_node_action(
-    State(state): State<WebState>,
-    RawForm(body): RawForm,
-) -> Response {
+pub async fn batch_node_action(State(state): State<WebState>, RawForm(body): RawForm) -> Response {
     let mut action_slug = String::new();
     let mut node_ids = Vec::new();
     for (name, value) in url::form_urlencoded::parse(&body) {
@@ -147,33 +144,28 @@ pub async fn batch_node_action(
         }
     }
     if node_ids.is_empty() {
-        return Redirect::to("/nodes?flash=No%20instances%20selected%20for%20batch%20action").into_response();
+        return Redirect::to("/nodes?flash=No%20instances%20selected%20for%20batch%20action")
+            .into_response();
     }
     let mut successes = 0;
     let mut failures = 0;
     for id in &node_ids {
         let outcome = match action_slug.as_str() {
-            "start" => {
-                load_node(&state.workspace, id)
-                    .and_then(|node| supervision::launch_node(&state.engine_state(), &node, LaunchAction::Start))
-            }
-            "restart" => {
-                load_node(&state.workspace, id)
-                    .and_then(|node| supervision::launch_node(&state.engine_state(), &node, LaunchAction::Restart))
-            }
-            "stop" => {
-                load_node(&state.workspace, id)
-                    .and_then(|node| supervision::stop_node(&state.engine_state(), &node))
-            }
+            "start" => load_node(&state.workspace, id).and_then(|node| {
+                supervision::launch_node(&state.engine_state(), &node, LaunchAction::Start)
+            }),
+            "restart" => load_node(&state.workspace, id).and_then(|node| {
+                supervision::launch_node(&state.engine_state(), &node, LaunchAction::Restart)
+            }),
+            "stop" => load_node(&state.workspace, id)
+                .and_then(|node| supervision::stop_node(&state.engine_state(), &node)),
             "smoke" => {
                 let report_res = match load_node(&state.workspace, id) {
-                    Ok(node) => {
-                        tokio::task::spawn_blocking(move || {
-                            runtime_smoke::smoke_node_binary(&node, Duration::from_secs(3))
-                        })
-                        .await
-                        .map_err(|e| anyhow::anyhow!("smoke test task failed: {e}"))
-                    }
+                    Ok(node) => tokio::task::spawn_blocking(move || {
+                        runtime_smoke::smoke_node_binary(&node, Duration::from_secs(3))
+                    })
+                    .await
+                    .map_err(|e| anyhow::anyhow!("smoke test task failed: {e}")),
                     Err(e) => Err(e),
                 };
                 match report_res {
@@ -202,7 +194,8 @@ pub async fn batch_node_action(
                 return Redirect::to(&format!(
                     "/nodes?flash={}",
                     html::urlencoding_lite(&format!("Unknown batch action '{other}'"))
-                )).into_response();
+                ))
+                .into_response();
             }
         };
         match outcome {

@@ -11,10 +11,7 @@ use crate::{
     web::{html, time, WebState},
 };
 
-use super::{
-    binding::signer_binding,
-    iac_spec::iac_spec_card,
-};
+use super::{binding::signer_binding, iac_spec::iac_spec_card};
 
 /// AWS EC2-styled top instance summary ribbon.
 pub fn summary_banner(
@@ -29,7 +26,11 @@ pub fn summary_banner(
     };
     let p2p_text = format!("127.0.0.1:{}", node.p2p_port);
     let role_label = role.map(|r| r.label()).unwrap_or("Observer");
-    let instance_type = format!("{}-{}", node.node_type, role.map(|r| r.slug()).unwrap_or("node"));
+    let instance_type = format!(
+        "{}-{}",
+        node.node_type,
+        role.map(|r| r.slug()).unwrap_or("node")
+    );
     let signer_text = match signer {
         Some(s) => format!("{}/{}", s.backend_id, s.key_id),
         None => "Unassigned".to_string(),
@@ -118,16 +119,30 @@ pub fn render_tab_details(node: &NodeConfig) -> String {
         ("Network Topology", node.network.to_string()),
         ("Storage Engine Driver", node.storage_engine.to_string()),
         ("Binary Image Path", node.binary_path.display().to_string()),
-        ("Client Release Version", if node.runtime_version.is_empty() { "native-latest".to_string() } else { node.runtime_version.clone() }),
+        (
+            "Client Release Version",
+            if node.runtime_version.is_empty() {
+                "native-latest".to_string()
+            } else {
+                node.runtime_version.clone()
+            },
+        ),
         ("JSON-RPC 2.0 Port", rpc_value),
         ("P2P Mesh Port", node.p2p_port.to_string()),
         ("WebSocket Port", ws_value),
         (
             "Host Process ID (PID)",
-            node.pid.map_or_else(|| "Not running / Supervised".to_string(), |p| p.to_string()),
+            node.pid
+                .map_or_else(|| "Not running / Supervised".to_string(), |p| p.to_string()),
         ),
-        ("Virtualization Architecture", "x86_64 Native Sandbox".to_string()),
-        ("Hypervisor / Orchestrator", "NeoNexus Workbench Daemon".to_string()),
+        (
+            "Virtualization Architecture",
+            "x86_64 Native Sandbox".to_string(),
+        ),
+        (
+            "Hypervisor / Orchestrator",
+            "NeoNexus Workbench Daemon".to_string(),
+        ),
     ];
     let rows = facts
         .iter()
@@ -159,7 +174,11 @@ pub fn render_tab_status_checks(
     let (proc_badge, proc_desc) = if node.status.is_running() {
         (
             r#"<span class="badge running">Passed</span>"#,
-            format!("Running (PID: {})", node.pid.map_or_else(|| "supervised".to_string(), |p| p.to_string())),
+            format!(
+                "Running (PID: {})",
+                node.pid
+                    .map_or_else(|| "supervised".to_string(), |p| p.to_string())
+            ),
         )
     } else if node.status == crate::types::NodeStatus::Stopped {
         (
@@ -205,11 +224,18 @@ pub fn render_tab_status_checks(
     let (signer_badge, signer_desc) = match signer {
         Some(key) => (
             r#"<span class="badge running">Leased</span>"#,
-            format!("{}/{}", html::escape(&key.backend_id), html::escape(&key.key_id)),
+            format!(
+                "{}/{}",
+                html::escape(&key.backend_id),
+                html::escape(&key.key_id)
+            ),
         ),
         None if requires_signer => (
             r#"<span class="badge danger">Required</span>"#,
-            format!("{} requires Signer Lease", role.map_or("Role", |r| r.label())),
+            format!(
+                "{} requires Signer Lease",
+                role.map_or("Role", |r| r.label())
+            ),
         ),
         None => (
             r#"<span class="badge stopped">Unbound</span>"#,
@@ -267,7 +293,15 @@ pub fn render_tab_status_checks(
     let trend_table = if trend.is_empty() {
         html::note("No RPC health probes recorded yet.")
     } else {
-        html::table(&["Timestamp", "Probe Status", "Block Height", "Diagnostic Message"], &trend)
+        html::table(
+            &[
+                "Timestamp",
+                "Probe Status",
+                "Block Height",
+                "Diagnostic Message",
+            ],
+            &trend,
+        )
     };
 
     let enc_id = html::urlencoding_lite(&node.id);
@@ -364,12 +398,31 @@ pub fn render_tab_status_checks(
 }
 
 /// Tab 3: Monitoring & CloudWatch Telemetry
-pub fn render_tab_monitoring(state: &WebState, node: &NodeConfig, history: &[RpcHealthRecord]) -> String {
+pub fn render_tab_monitoring(
+    state: &WebState,
+    node: &NodeConfig,
+    history: &[RpcHealthRecord],
+) -> String {
     let enc_id = html::urlencoding_lite(&node.id);
-    let latest_block = history.first().and_then(|h| h.block_count).map_or("—".to_string(), |b| b.to_string());
-    let cpu_load = if node.status.is_running() { "1.2% (Active)" } else { "0.0% (Idle)" };
-    let mem_usage = if node.status.is_running() { "64.5 MB" } else { "0 MB" };
-    let latency = if node.status.is_running() && node.rpc_port > 0 { "3.2 ms" } else { "—" };
+    let latest_block = history
+        .first()
+        .and_then(|h| h.block_count)
+        .map_or("—".to_string(), |b| b.to_string());
+    let cpu_load = if node.status.is_running() {
+        "1.2% (Active)"
+    } else {
+        "0.0% (Idle)"
+    };
+    let mem_usage = if node.status.is_running() {
+        "64.5 MB"
+    } else {
+        "0 MB"
+    };
+    let latency = if node.status.is_running() && node.rpc_port > 0 {
+        "3.2 ms"
+    } else {
+        "—"
+    };
 
     let log_path = log_path_for(state.workspace_child_dir("logs"), node);
     let log_terminal = match LogReader::snapshot(&log_path, 32 * 1024) {
@@ -553,7 +606,13 @@ pub fn render_tab_networking(state: &WebState, node: &NodeConfig) -> String {
     };
 
     let sec_table = html::table(
-        &["Traffic Type", "Protocol", "Port Range", "Source / CIDR", "Rule Status"],
+        &[
+            "Traffic Type",
+            "Protocol",
+            "Port Range",
+            "Source / CIDR",
+            "Rule Status",
+        ],
         &[rpc_row, p2p_row, ws_row],
     );
 
@@ -598,19 +657,27 @@ pub fn render_tab_security(
 
 /// Tab 6: Storage & EBS Block Devices View
 pub fn render_tab_storage(node: &NodeConfig) -> String {
-    let vol_id = format!("vol-{}", &node.id.chars().take(8).collect::<String>());
-    let rows = vec![
-        html::row(&[
-            html::cell("/dev/xvda (Root)"),
-            html::raw_cell(&format!(r#"<span class="mono">{}</span>"#, html::escape(&vol_id))),
-            html::cell(&node.storage_engine.to_string()),
-            html::cell("/var/lib/neonexus/data"),
-            html::cell("3000 IOPS (gp3)"),
-            html::raw_cell(r#"<span class="badge running">Attached</span>"#),
-        ]),
-    ];
+    let vol_id = format!("vol-{}", node.id.chars().take(8).collect::<String>());
+    let rows = vec![html::row(&[
+        html::cell("/dev/xvda (Root)"),
+        html::raw_cell(&format!(
+            r#"<span class="mono">{}</span>"#,
+            html::escape(&vol_id)
+        )),
+        html::cell(&node.storage_engine.to_string()),
+        html::cell("/var/lib/neonexus/data"),
+        html::cell("3000 IOPS (gp3)"),
+        html::raw_cell(r#"<span class="badge running">Attached</span>"#),
+    ])];
     let vol_table = html::table(
-        &["Block Device", "Volume ID", "Driver / Engine", "Mount Point", "IOPS / Type", "State"],
+        &[
+            "Block Device",
+            "Volume ID",
+            "Driver / Engine",
+            "Mount Point",
+            "IOPS / Type",
+            "State",
+        ],
         &rows,
     );
 
@@ -642,12 +709,24 @@ pub fn render_tab_tags(node: &NodeConfig, role: Option<NodeRole>) -> String {
         html::row(&[html::cell("Name"), html::cell(&node.name)]),
         html::row(&[html::cell("Environment"), html::cell("Production")]),
         html::row(&[html::cell("Network"), html::cell(&node.network.to_string())]),
-        html::row(&[html::cell("Role"), html::cell(role.map(|r| r.label()).unwrap_or("Observer"))]),
-        html::row(&[html::cell("ClientEngine"), html::cell(&node.node_type.to_string())]),
-        html::row(&[html::cell("ManagedBy"), html::cell("NeoNexus-CloudControlPlane")]),
+        html::row(&[
+            html::cell("Role"),
+            html::cell(role.map(|r| r.label()).unwrap_or("Observer")),
+        ]),
+        html::row(&[
+            html::cell("ClientEngine"),
+            html::cell(&node.node_type.to_string()),
+        ]),
+        html::row(&[
+            html::cell("ManagedBy"),
+            html::cell("NeoNexus-CloudControlPlane"),
+        ]),
         html::row(&[
             html::cell("InstanceId"),
-            html::raw_cell(&format!(r#"<span class="mono">{}</span>"#, html::escape(&node.id))),
+            html::raw_cell(&format!(
+                r#"<span class="mono">{}</span>"#,
+                html::escape(&node.id)
+            )),
         ]),
     ];
     let tag_table = html::table(&["Key", "Value"], &rows);

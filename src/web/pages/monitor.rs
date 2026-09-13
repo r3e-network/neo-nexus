@@ -98,8 +98,20 @@ fn render_body(
 
     let cpu_pct = system.cpu_usage_percent.clamp(0.0, 100.0);
     let mem_pct = system.memory_usage_percent.clamp(0.0, 100.0);
-    let cpu_bar_color = if cpu_pct > 85.0 { "var(--red)" } else if cpu_pct > 70.0 { "var(--amber)" } else { "var(--jade)" };
-    let mem_bar_color = if mem_pct > 85.0 { "var(--red)" } else if mem_pct > 70.0 { "var(--amber)" } else { "var(--cyan)" };
+    let cpu_bar_color = if cpu_pct > 85.0 {
+        "var(--red)"
+    } else if cpu_pct > 70.0 {
+        "var(--amber)"
+    } else {
+        "var(--jade)"
+    };
+    let mem_bar_color = if mem_pct > 85.0 {
+        "var(--red)"
+    } else if mem_pct > 70.0 {
+        "var(--amber)"
+    } else {
+        "var(--cyan)"
+    };
 
     let cpu_card = format!(
         r#"<div class="card"><div class="stat-label">Host CPU Utilization</div><div class="stat-value">{:.1}%</div><div class="aws-metric-gauge"><div class="aws-metric-progress" style="width: {:.1}%; background: {};"></div></div><div class="stat-detail">Alarm threshold: 85%</div></div>"#,
@@ -107,7 +119,11 @@ fn render_body(
     );
     let mem_card = format!(
         r#"<div class="card"><div class="stat-label">Host Memory (RAM)</div><div class="stat-value">{:.1}%</div><div class="aws-metric-gauge"><div class="aws-metric-progress" style="width: {:.1}%; background: {};"></div></div><div class="stat-detail">{} / {}</div></div>"#,
-        mem_pct, mem_pct, mem_bar_color, format_bytes(system.used_memory_bytes), format_bytes(system.total_memory_bytes)
+        mem_pct,
+        mem_pct,
+        mem_bar_color,
+        format_bytes(system.used_memory_bytes),
+        format_bytes(system.total_memory_bytes)
     );
     let proc_card = format!(
         r#"<div class="card"><div class="stat-label">Managed Processes</div><div class="stat-value">{}</div><div class="stat-detail">Active supervised workloads</div></div>"#,
@@ -117,7 +133,8 @@ fn render_body(
         r#"<div class="card"><div class="stat-label">CloudWatch Watchdog</div><div class="stat-value" style="color: var(--jade);">● Healthy</div><div class="stat-detail">Captured {}s ago</div></div>"#,
         captured_age(snapshot.captured_at_unix)
     );
-    let metrics_strip = format!(r#"<div class="cards">{cpu_card}{mem_card}{proc_card}{watchdog_card}</div>"#);
+    let metrics_strip =
+        format!(r#"<div class="cards">{cpu_card}{mem_card}{proc_card}{watchdog_card}</div>"#);
     let chart_box = cloudwatch_svg_chart(cpu_pct, mem_pct);
 
     format!(
@@ -272,6 +289,9 @@ fn cloudwatch_svg_chart(cpu_pct: f32, mem_pct: f32) -> String {
                 <span>-60m</span><span>-45m</span><span>-30m</span><span>-15m</span><span>Now</span>
             </div>
         </div>"##,
-        cpu_pct, mem_pct, mem_y = mem_y, cpu_y = cpu_y
+        cpu_pct,
+        mem_pct,
+        mem_y = mem_y,
+        cpu_y = cpu_y
     )
 }

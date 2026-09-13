@@ -50,7 +50,11 @@ pub async fn node_iac(
     };
 
     let role = state.workspace.load_node_role(&node.id).ok().flatten();
-    let signer = state.workspace.load_node_signer_key(&node.id).ok().flatten();
+    let signer = state
+        .workspace
+        .load_node_signer_key(&node.id)
+        .ok()
+        .flatten();
     let assoc = state.workspace.load_hermes_agent(&node.id).ok().flatten();
 
     let format_str = query.format.as_deref().unwrap_or("json");
@@ -116,7 +120,9 @@ pub async fn fleet_iac(
             if let Ok(val) = HeaderValue::from_str("application/x-yaml") {
                 headers.insert(header::CONTENT_TYPE, val);
             }
-            if let Ok(val) = HeaderValue::from_str("attachment; filename=\"fleet-cloudformation.yaml\"") {
+            if let Ok(val) =
+                HeaderValue::from_str("attachment; filename=\"fleet-cloudformation.yaml\"")
+            {
                 headers.insert(header::CONTENT_DISPOSITION, val);
             }
             response

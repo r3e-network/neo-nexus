@@ -142,12 +142,15 @@ fn chain_family_matches_binary_name_origin() {
     // Verify binary naming convention aligns with chain family origins
     for node_type in NodeType::ALL {
         let family = node_type.family();
-        
+
         match family {
             ChainFamily::NeoN3 => {
                 // N3 clients have traditional names
                 let name = node_type.default_binary_name();
-                assert!(name.starts_with("neo-"), "{node_type}: {name} should start with 'neo-'");
+                assert!(
+                    name.starts_with("neo-"),
+                    "{node_type}: {name} should start with 'neo-'"
+                );
             }
             ChainFamily::NeoX => {
                 // Neo X clients reflect their implementation origin
@@ -167,7 +170,7 @@ fn config_format_determines_parser_requirements() {
     for node_type in NodeType::ALL {
         let format = node_type.config_format();
         let path = node_type.config_path();
-        
+
         // Verify path matches expected format handling
         match format {
             ConfigFormat::Json => {
@@ -193,12 +196,10 @@ fn all_node_types_produce_valid_workspace_paths() {
     for node_type in NodeType::ALL {
         let config_path = node_type.config_path();
         let plugin_dir = node_type.plugin_directory();
-        
+
         // Config path must be joinable
-        let _full_config = std::env::current_dir()
-            .unwrap()
-            .join(&config_path);
-        
+        let _full_config = std::env::current_dir().unwrap().join(&config_path);
+
         // Plugin directory (if present) must also be joinable
         if let Some(ref plugin) = plugin_dir {
             let full_plugin = std::env::current_dir().unwrap().join(plugin);
@@ -213,13 +214,22 @@ fn plugin_enabled_nodes_require_plugins_directory() {
     for node_type in NodeType::ALL {
         if node_type.supports_plugins() {
             let plugin_dir = node_type.plugin_directory();
-            assert!(plugin_dir.is_some(), "{node_type}: missing plugin directory");
-            
+            assert!(
+                plugin_dir.is_some(),
+                "{node_type}: missing plugin directory"
+            );
+
             let dir = plugin_dir.unwrap();
-            assert!(!dir.is_absolute(), "{node_type}: plugin dir should be relative");
-            
+            assert!(
+                !dir.is_absolute(),
+                "{node_type}: plugin dir should be relative"
+            );
+
             // Should resolve to something like "Plugins"
-            assert!(dir.components().count() <= 1, "{node_type}: plugin dir too complex");
+            assert!(
+                dir.components().count() <= 1,
+                "{node_type}: plugin dir too complex"
+            );
         }
     }
 }
@@ -244,7 +254,10 @@ fn node_type_infers_cleanly_from_strings_and_paths() {
         (r"C:\Program Files\Neo\neo-cli.exe", Some(NodeType::NeoCli)),
         ("/usr/local/bin/neo-go", Some(NodeType::NeoGo)),
         ("/opt/runtimes/neo-node", Some(NodeType::NeoRs)),
-        (r"D:\runtimes\neox-geth\neox-geth.exe", Some(NodeType::NeoXGeth)),
+        (
+            r"D:\runtimes\neox-geth\neox-geth.exe",
+            Some(NodeType::NeoXGeth),
+        ),
         ("/var/lib/neox/neox-rs", Some(NodeType::NeoXReth)),
         ("/usr/bin/reth", Some(NodeType::NeoXReth)),
         ("/usr/bin/geth", Some(NodeType::NeoXGeth)),
@@ -268,4 +281,3 @@ fn node_type_infers_cleanly_from_strings_and_paths() {
         );
     }
 }
-

@@ -194,6 +194,7 @@ impl WorkspaceCommands {
         node_id: &str,
         agent_version: Option<&str>,
     ) -> Result<()> {
-        self.repository.record_hermes_heartbeat(node_id, agent_version)
+        self.repository
+            .record_hermes_heartbeat(node_id, agent_version)
     }
 }

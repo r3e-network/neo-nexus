@@ -286,18 +286,12 @@ pub fn build_router(state: WebState) -> Router {
                 require_permission(req, next, RequiredPermission::ReadFleet)
             })),
         )
-        .route(
-            "/api/nodes/{id}/mcp",
-            post(api::hermes_mcp::mcp_endpoint),
-        )
+        .route("/api/nodes/{id}/mcp", post(api::hermes_mcp::mcp_endpoint))
         .route(
             "/api/nodes/{id}/agent/heartbeat",
             post(api::hermes_mcp::agent_heartbeat),
         )
-        .route(
-            "/api/nodes/{id}/agent",
-            get(api::hermes_mcp::agent_status),
-        )
+        .route("/api/nodes/{id}/agent", get(api::hermes_mcp::agent_status))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             require_session,

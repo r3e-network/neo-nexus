@@ -122,35 +122,60 @@ fn render_body(workspace: &WorkspaceQueries, params: &AlertQuery) -> anyhow::Res
 fn active_alarms_table() -> String {
     let rows = vec![
         html::row(&[
-            html::raw_cell(r#"<div><strong>NeoNode-CPUUtilization-High</strong></div><div class="muted mono" style="font-size: 11px;">AWS/EC2</div>"#),
+            html::raw_cell(
+                r#"<div><strong>NeoNode-CPUUtilization-High</strong></div><div class="muted mono" style="font-size: 11px;">AWS/EC2</div>"#,
+            ),
             html::raw_cell(r#"<span class="badge running">● OK</span>"#),
             html::cell("CPUUtilization >= 85% for 3 data points within 5 minutes"),
             html::raw_cell(r#"<span class="badge">CPUUtilization</span>"#),
-            html::raw_cell(r#"<span class="mono" style="font-size: 11px;">arn:neo:sns:mesh-1a:ops-pager</span>"#),
+            html::raw_cell(
+                r#"<span class="mono" style="font-size: 11px;">arn:neo:sns:mesh-1a:ops-pager</span>"#,
+            ),
         ]),
         html::row(&[
-            html::raw_cell(r#"<div><strong>NeoNode-BlockHeight-Stall</strong></div><div class="muted mono" style="font-size: 11px;">NeoNexus/Consensus</div>"#),
+            html::raw_cell(
+                r#"<div><strong>NeoNode-BlockHeight-Stall</strong></div><div class="muted mono" style="font-size: 11px;">NeoNexus/Consensus</div>"#,
+            ),
             html::raw_cell(r#"<span class="badge running">● OK</span>"#),
             html::cell("ChainHeadDelta >= 5 blocks (30s) without progress"),
             html::raw_cell(r#"<span class="badge">BlockHeight</span>"#),
-            html::raw_cell(r#"<span class="mono" style="font-size: 11px;">SSM: AWS-RunDiagnosticsSweep</span>"#),
+            html::raw_cell(
+                r#"<span class="mono" style="font-size: 11px;">SSM: AWS-RunDiagnosticsSweep</span>"#,
+            ),
         ]),
         html::row(&[
-            html::raw_cell(r#"<div><strong>NeoNode-PeerCount-Low</strong></div><div class="muted mono" style="font-size: 11px;">NeoNexus/P2P</div>"#),
+            html::raw_cell(
+                r#"<div><strong>NeoNode-PeerCount-Low</strong></div><div class="muted mono" style="font-size: 11px;">NeoNexus/P2P</div>"#,
+            ),
             html::raw_cell(r#"<span class="badge running">● OK</span>"#),
             html::cell("ConnectedPeers < 3 for 2 consecutive evaluations"),
             html::raw_cell(r#"<span class="badge">ConnectedPeers</span>"#),
-            html::raw_cell(r#"<span class="mono" style="font-size: 11px;">arn:neo:sns:mesh-1a:ops-pager</span>"#),
+            html::raw_cell(
+                r#"<span class="mono" style="font-size: 11px;">arn:neo:sns:mesh-1a:ops-pager</span>"#,
+            ),
         ]),
         html::row(&[
-            html::raw_cell(r#"<div><strong>NeoNode-SignerLease-Expiring</strong></div><div class="muted mono" style="font-size: 11px;">AWS/KMS</div>"#),
+            html::raw_cell(
+                r#"<div><strong>NeoNode-SignerLease-Expiring</strong></div><div class="muted mono" style="font-size: 11px;">AWS/KMS</div>"#,
+            ),
             html::raw_cell(r#"<span class="badge running">● OK</span>"#),
             html::cell("SignerLeaseTTL < 300s threshold remaining"),
             html::raw_cell(r#"<span class="badge">SignerLeaseTTL</span>"#),
-            html::raw_cell(r#"<span class="mono" style="font-size: 11px;">KMS: AutoRenewSignerLease</span>"#),
+            html::raw_cell(
+                r#"<span class="mono" style="font-size: 11px;">KMS: AutoRenewSignerLease</span>"#,
+            ),
         ]),
     ];
-    html::table(&["Alarm Name & Namespace", "State", "Condition", "Metric", "Actions"], &rows)
+    html::table(
+        &[
+            "Alarm Name & Namespace",
+            "State",
+            "Condition",
+            "Metric",
+            "Actions",
+        ],
+        &rows,
+    )
 }
 
 fn policy_form(policy: &AlertRoutingPolicy) -> String {

@@ -571,9 +571,11 @@ fn node_and_fleet_iac_api_serves_cloud_manifests() {
 
     // Test single node CloudFormation IaC
     let cfn = into_response(
-        http.get(&format!("{base}/api/nodes/{node_id}/iac?format=cloudformation"))
-            .set("cookie", &session)
-            .call(),
+        http.get(&format!(
+            "{base}/api/nodes/{node_id}/iac?format=cloudformation"
+        ))
+        .set("cookie", &session)
+        .call(),
     );
     assert_eq!(cfn.status(), 200);
     assert_eq!(cfn.header("content-type"), Some("application/x-yaml"));
@@ -653,7 +655,10 @@ fn node_and_fleet_iac_api_serves_cloud_manifests() {
             .call(),
     );
     assert_eq!(smoke_res.status(), 303);
-    assert!(smoke_res.header("location").unwrap().contains(&format!("/nodes/{node_id}")));
+    assert!(smoke_res
+        .header("location")
+        .unwrap()
+        .contains(&format!("/nodes/{node_id}")));
 
     // Test Launch Instance Wizard steps
     let wizard_page = into_response(
@@ -682,7 +687,6 @@ fn node_and_fleet_iac_api_serves_cloud_manifests() {
     assert!(list_html.contains("Status Check"));
     assert!(list_html.contains("Availability Zone"));
 }
-
 
 /// Bearer-token API auth end to end: a valid `AdminAll` token authenticates and
 /// its permission authorizes a protected `/api/*` endpoint, a permission-scoped

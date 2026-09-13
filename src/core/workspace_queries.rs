@@ -132,7 +132,11 @@ impl WorkspaceQueries {
         self.repository.list_all_signer_bindings()
     }
 
-    pub fn find_node_by_signer_key(&self, backend_id: &str, key_id: &str) -> Result<Option<String>> {
+    pub fn find_node_by_signer_key(
+        &self,
+        backend_id: &str,
+        key_id: &str,
+    ) -> Result<Option<String>> {
         self.repository.find_node_by_signer_key(backend_id, key_id)
     }
 

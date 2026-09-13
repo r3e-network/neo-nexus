@@ -228,10 +228,8 @@ pub fn execute_node_launch(
     }
 
     let start = match action {
-        LaunchAction::Start => supervisor.start_with_type(node, plan, &log_path, node.node_type),
-        LaunchAction::Restart => {
-            supervisor.restart_with_type(node, plan, &log_path, node.node_type)
-        }
+        LaunchAction::Start => supervisor.start(node, plan, &log_path),
+        LaunchAction::Restart => supervisor.restart(node, plan, &log_path),
     };
 
     match start {

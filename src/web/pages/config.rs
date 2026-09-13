@@ -78,7 +78,9 @@ fn render_body(state: &WebState, nodes: &[NodeConfig]) -> String {
     if nodes.is_empty() {
         return format!(
             "{breadcrumb}\n{head}\n{}",
-            html::note("No instances are registered yet, so there is no runtime configuration to manage.")
+            html::note(
+                "No instances are registered yet, so there is no runtime configuration to manage."
+            )
         );
     }
     let rows = match collect_rows(state, nodes) {
@@ -149,11 +151,27 @@ fn config_row(row: &ConfigRow) -> String {
     );
     html::row(&[
         html::raw_cell(&param_key),
-        html::raw_cell(&format!(r#"<span class="badge">{}</span>"#, html::escape(&row.node.node_type.to_string()))),
-        html::raw_cell(&format!(r#"<span class="badge">{}</span> <span class="muted" style="font-size: 11px;">nexus-az-1a</span>"#, html::escape(&row.node.network.to_string()))),
-        html::raw_cell(&format!(r#"<span class="badge">{}</span>"#, html::escape(&row.node.storage_engine.to_string()))),
-        html::raw_cell(&format!(r#"<span class="mono">:{}</span> <span class="muted">/</span> <span class="mono">:{}</span>"#, row.node.p2p_port, row.node.rpc_port)),
-        html::raw_cell(if enabled.is_empty() { r#"<span class="muted" style="font-size: 12px;">none</span>"# } else { &enabled }),
+        html::raw_cell(&format!(
+            r#"<span class="badge">{}</span>"#,
+            html::escape(&row.node.node_type.to_string())
+        )),
+        html::raw_cell(&format!(
+            r#"<span class="badge">{}</span> <span class="muted" style="font-size: 11px;">nexus-az-1a</span>"#,
+            html::escape(&row.node.network.to_string())
+        )),
+        html::raw_cell(&format!(
+            r#"<span class="badge">{}</span>"#,
+            html::escape(&row.node.storage_engine.to_string())
+        )),
+        html::raw_cell(&format!(
+            r#"<span class="mono">:{}</span> <span class="muted">/</span> <span class="mono">:{}</span>"#,
+            row.node.p2p_port, row.node.rpc_port
+        )),
+        html::raw_cell(if enabled.is_empty() {
+            r#"<span class="muted" style="font-size: 12px;">none</span>"#
+        } else {
+            &enabled
+        }),
         html::raw_cell(sync_badge),
     ])
 }

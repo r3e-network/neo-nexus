@@ -108,10 +108,7 @@ fn render(state: &WebState) -> anyhow::Result<String> {
     let snapshot = collector.refresh(&nodes, Instant::now());
     let table = fleet_table(&fleet, &snapshot);
 
-    let breadcrumb = html::breadcrumb(&[
-        ("AWS Console", "/"),
-        ("Console Home", "/"),
-    ]);
+    let breadcrumb = html::breadcrumb(&[("AWS Console", "/"), ("Console Home", "/")]);
 
     let quick_services = r#"<div class="panel" style="margin-bottom: 16px; padding: 14px 18px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">

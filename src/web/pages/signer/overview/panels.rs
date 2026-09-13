@@ -11,10 +11,7 @@ use super::{
 };
 
 pub fn page_head() -> String {
-    let breadcrumb = html::breadcrumb(&[
-        ("KMS", "/signer"),
-        ("Customer managed keys", ""),
-    ]);
+    let breadcrumb = html::breadcrumb(&[("KMS", "/signer"), ("Customer managed keys", "")]);
     let head = html::page_head(
         "KMS & Custody Signer",
         "Hardware-isolated cryptographic keys, least-privilege IAM caller policies, and immutable signing audit logs.",

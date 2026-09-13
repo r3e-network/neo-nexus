@@ -106,15 +106,22 @@ fn render_opsitems_table(diagnostics: &crate::diagnostics::FleetDiagnostics) -> 
                 || check.severity == crate::diagnostics::CheckSeverity::Warning
             {
                 count += 1;
-                let id_cell = format!(r#"<span class="mono" style="font-size: 11px;">ops-{:03}</span>"#, count);
+                let id_cell = format!(
+                    r#"<span class="mono" style="font-size: 11px;">ops-{:03}</span>"#,
+                    count
+                );
                 let node_cell = format!(
                     r#"<a href="/nodes/{}" style="font-weight: 600;">{}</a>"#,
                     html::urlencoding_lite(&node.node_id),
                     html::escape(&node.node_name)
                 );
                 let sev_badge = match check.severity {
-                    crate::diagnostics::CheckSeverity::Critical => r#"<span class="badge error">▲ CRITICAL</span>"#,
-                    crate::diagnostics::CheckSeverity::Warning => r#"<span class="badge stopped">▲ WARNING</span>"#,
+                    crate::diagnostics::CheckSeverity::Critical => {
+                        r#"<span class="badge error">▲ CRITICAL</span>"#
+                    }
+                    crate::diagnostics::CheckSeverity::Warning => {
+                        r#"<span class="badge stopped">▲ WARNING</span>"#
+                    }
                     _ => r#"<span class="badge">INFO</span>"#,
                 };
                 let action_cell = format!(
@@ -140,7 +147,13 @@ fn render_opsitems_table(diagnostics: &crate::diagnostics::FleetDiagnostics) -> 
     } else {
         html::table(
             &[
-                "OpsItem ID", "Resource", "Severity", "Title", "Finding Detail", "Status", "Remediation Action",
+                "OpsItem ID",
+                "Resource",
+                "Severity",
+                "Title",
+                "Finding Detail",
+                "Status",
+                "Remediation Action",
             ],
             &rows,
         )

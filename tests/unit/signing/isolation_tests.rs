@@ -27,27 +27,24 @@ fn signer_isolation_violation_displays_clear_messages() {
 #[test]
 fn check_signer_binding_allows_unbound_key() {
     let key = SignerKeyRef::new("wallet-profile", "key-01").unwrap();
-    let existing = vec![
-        ("node-1".to_string(), SignerKeyRef::new("wallet-profile", "key-02").unwrap()),
-    ];
+    let existing = vec![(
+        "node-1".to_string(),
+        SignerKeyRef::new("wallet-profile", "key-02").unwrap(),
+    )];
     assert!(check_signer_binding_allowed("node-2", &key, &existing).is_ok());
 }
 
 #[test]
 fn check_signer_binding_allows_rebinding_to_same_node() {
     let key = SignerKeyRef::new("wallet-profile", "key-01").unwrap();
-    let existing = vec![
-        ("node-1".to_string(), key.clone()),
-    ];
+    let existing = vec![("node-1".to_string(), key.clone())];
     assert!(check_signer_binding_allowed("node-1", &key, &existing).is_ok());
 }
 
 #[test]
 fn check_signer_binding_rejects_key_bound_to_different_node() {
     let key = SignerKeyRef::new("wallet-profile", "key-01").unwrap();
-    let existing = vec![
-        ("node-1".to_string(), key.clone()),
-    ];
+    let existing = vec![("node-1".to_string(), key.clone())];
     let err = check_signer_binding_allowed("node-2", &key, &existing).unwrap_err();
     assert_eq!(
         err,

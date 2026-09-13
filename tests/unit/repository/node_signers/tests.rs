@@ -115,7 +115,9 @@ fn signer_key_cannot_be_claimed_by_multiple_nodes_iam_isolation() {
         .unwrap();
 
     let key = SignerKeyRef::new("wallet-profile", "consensus-key-01").unwrap();
-    repository.set_node_signer_key(&node1.id, Some(&key)).unwrap();
+    repository
+        .set_node_signer_key(&node1.id, Some(&key))
+        .unwrap();
 
     let err = repository
         .set_node_signer_key(&node2.id, Some(&key))
@@ -129,7 +131,9 @@ fn signer_key_cannot_be_claimed_by_multiple_nodes_iam_isolation() {
     repository.set_node_signer_key(&node1.id, None).unwrap();
     assert_eq!(repository.load_node_signer_key(&node1.id).unwrap(), None);
 
-    repository.set_node_signer_key(&node2.id, Some(&key)).unwrap();
+    repository
+        .set_node_signer_key(&node2.id, Some(&key))
+        .unwrap();
     assert_eq!(
         repository.load_node_signer_key(&node2.id).unwrap(),
         Some(key)
@@ -173,20 +177,30 @@ fn find_node_by_signer_key_and_list_all_bindings() {
     let key1 = SignerKeyRef::new("vault-primary", "key-alpha").unwrap();
     let key2 = SignerKeyRef::new("vault-primary", "key-beta").unwrap();
 
-    repository.set_node_signer_key(&node1.id, Some(&key1)).unwrap();
-    repository.set_node_signer_key(&node2.id, Some(&key2)).unwrap();
+    repository
+        .set_node_signer_key(&node1.id, Some(&key1))
+        .unwrap();
+    repository
+        .set_node_signer_key(&node2.id, Some(&key2))
+        .unwrap();
 
     // Verify reverse lookup
     assert_eq!(
-        repository.find_node_by_signer_key("vault-primary", "key-alpha").unwrap(),
+        repository
+            .find_node_by_signer_key("vault-primary", "key-alpha")
+            .unwrap(),
         Some(node1.id.clone())
     );
     assert_eq!(
-        repository.find_node_by_signer_key("vault-primary", "key-beta").unwrap(),
+        repository
+            .find_node_by_signer_key("vault-primary", "key-beta")
+            .unwrap(),
         Some(node2.id.clone())
     );
     assert_eq!(
-        repository.find_node_by_signer_key("vault-primary", "key-unbound").unwrap(),
+        repository
+            .find_node_by_signer_key("vault-primary", "key-unbound")
+            .unwrap(),
         None
     );
 
@@ -196,4 +210,3 @@ fn find_node_by_signer_key_and_list_all_bindings() {
     assert!(all.iter().any(|(nid, k)| nid == &node1.id && k == &key1));
     assert!(all.iter().any(|(nid, k)| nid == &node2.id && k == &key2));
 }
-

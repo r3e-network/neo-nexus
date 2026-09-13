@@ -400,11 +400,11 @@ fn an_empty_binary_path_defaults_to_client_binary() {
     let mut form = draft("auto-bin", "neo-go");
     form.binary_path = "   ".to_string();
     let case = accepted(form.validate(&[], None));
-    assert!(case.was_accepted(), "empty binary should default to client binary");
-    assert_eq!(
-        case.node().binary_path,
-        std::path::PathBuf::from("neo-go")
+    assert!(
+        case.was_accepted(),
+        "empty binary should default to client binary"
     );
+    assert_eq!(case.node().binary_path, std::path::PathBuf::from("neo-go"));
 }
 
 #[test]
@@ -470,7 +470,14 @@ fn disabled_rpc_is_accepted_with_zero_port_and_no_collision() {
     form.rpc_port = String::new(); // User did not input RPC port
     form.p2p_port = "20333".to_string();
 
-    let existing = vec![node("existing-1", "other", NodeType::NeoCli, 0, 10333, None)];
+    let existing = vec![node(
+        "existing-1",
+        "other",
+        NodeType::NeoCli,
+        0,
+        10333,
+        None,
+    )];
     let case = accepted(form.validate(&existing, None));
     assert!(case.was_accepted(), "fields: {:?}", case.fields);
     assert_eq!(case.node().rpc_port, 0);
@@ -482,7 +489,10 @@ fn disabled_rpc_is_accepted_with_zero_port_and_no_collision() {
 fn role_presets_resolve_correctly() {
     let mut form = draft("val-node", "neo-cli");
     form.role = "validator".to_string();
-    assert_eq!(form.resolved_role(), Some(crate::roles::NodeRole::Consensus));
+    assert_eq!(
+        form.resolved_role(),
+        Some(crate::roles::NodeRole::Consensus)
+    );
 
     form.role = "relay".to_string();
     assert_eq!(form.resolved_role(), None);
@@ -508,13 +518,16 @@ fn signer_key_in_draft_validates_and_resolves() {
     partial.signer_backend = "wallet-local".to_string();
     partial.signer_key = String::new();
     let outcome = partial.validate(&[], None);
-    assert!(matches!(outcome, DraftOutcome::Invalid(errors) if errors.contains_key("signer_backend")));
+    assert!(
+        matches!(outcome, DraftOutcome::Invalid(errors) if errors.contains_key("signer_backend"))
+    );
 
     // Unsafe signer key format is refused
     let mut unsafe_key = draft("val-node-3", "neo-cli");
     unsafe_key.signer_backend = "../invalid/path".to_string();
     unsafe_key.signer_key = "key".to_string();
     let outcome = unsafe_key.validate(&[], None);
-    assert!(matches!(outcome, DraftOutcome::Invalid(errors) if errors.contains_key("signer_backend")));
+    assert!(
+        matches!(outcome, DraftOutcome::Invalid(errors) if errors.contains_key("signer_backend"))
+    );
 }
-

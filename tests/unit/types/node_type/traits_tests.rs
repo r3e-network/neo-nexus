@@ -31,7 +31,12 @@ fn only_neo_go_uses_yaml_all_others_use_json() {
         "neo-go must use YAML",
     );
 
-    for node in &[NodeType::NeoCli, NodeType::NeoRs, NodeType::NeoXGeth, NodeType::NeoXReth] {
+    for node in &[
+        NodeType::NeoCli,
+        NodeType::NeoRs,
+        NodeType::NeoXGeth,
+        NodeType::NeoXReth,
+    ] {
         assert_eq!(
             node.config_format(),
             ConfigFormat::Json,
@@ -70,10 +75,7 @@ fn config_path_matches_node_type_pattern() {
     // Neo-cli: root-level config.json
     // Neo-go: nested config/config.yml
     // Neo-X and neo-rs: nested config/config.json
-    assert_eq!(
-        NodeType::NeoCli.config_path(),
-        PathBuf::from("config.json"),
-    );
+    assert_eq!(NodeType::NeoCli.config_path(), PathBuf::from("config.json"),);
 
     assert_eq!(
         NodeType::NeoGo.config_path(),
@@ -81,10 +83,7 @@ fn config_path_matches_node_type_pattern() {
     );
 
     for node in &[NodeType::NeoRs, NodeType::NeoXGeth, NodeType::NeoXReth] {
-        assert_eq!(
-            node.config_path(),
-            PathBuf::from("config/config.json"),
-        );
+        assert_eq!(node.config_path(), PathBuf::from("config/config.json"),);
     }
 }
 
@@ -101,8 +100,7 @@ fn config_file_name_matches_config_format_extension() {
         };
 
         assert!(
-            path.extension()
-                .is_some_and(|ext| ext == expected_ext),
+            path.extension().is_some_and(|ext| ext == expected_ext),
             "{node}: {path:?} should end with .{expected_ext} for {format:?}",
         );
     }
@@ -120,9 +118,15 @@ fn plugin_directory_matches_supports_plugins_boolean() {
         let plugin_dir = node.plugin_directory();
 
         if has_plugins {
-            assert!(plugin_dir.is_some(), "{node}: supports plugins but no directory specified");
+            assert!(
+                plugin_dir.is_some(),
+                "{node}: supports plugins but no directory specified"
+            );
         } else {
-            assert!(plugin_dir.is_none(), "{node}: does not support plugins but has directory");
+            assert!(
+                plugin_dir.is_none(),
+                "{node}: does not support plugins but has directory"
+            );
         }
     }
 }
@@ -135,16 +139,27 @@ fn only_neo_cli_has_plugin_system() {
         "neo-cli should support plugins",
     );
     assert!(
-        NodeType::NeoCli.plugin_directory().unwrap().ends_with("Plugins"),
+        NodeType::NeoCli
+            .plugin_directory()
+            .unwrap()
+            .ends_with("Plugins"),
         "neo-cli plugin dir must end with 'Plugins'",
     );
 
-    for node in &[NodeType::NeoGo, NodeType::NeoRs, NodeType::NeoXGeth, NodeType::NeoXReth] {
+    for node in &[
+        NodeType::NeoGo,
+        NodeType::NeoRs,
+        NodeType::NeoXGeth,
+        NodeType::NeoXReth,
+    ] {
         assert!(
             !node.supports_plugins(),
             "{node} should not support plugins",
         );
-        assert!(node.plugin_directory().is_none(), "{node} should not have plugin dir");
+        assert!(
+            node.plugin_directory().is_none(),
+            "{node} should not have plugin dir"
+        );
     }
 }
 
@@ -186,10 +201,16 @@ fn windows_executables_include_exe_extension() {
     // Only Windows binaries should have .exe extension
     assert_eq!(NodeType::NeoCli.default_binary_name(), "neo-cli.exe");
 
-    for node in &[NodeType::NeoGo, NodeType::NeoRs, NodeType::NeoXGeth, NodeType::NeoXReth] {
+    for node in &[
+        NodeType::NeoGo,
+        NodeType::NeoRs,
+        NodeType::NeoXGeth,
+        NodeType::NeoXReth,
+    ] {
         assert!(
             !node.default_binary_name().ends_with(".exe"),
-            "{node}: {} should not have .exe extension", node.default_binary_name()
+            "{node}: {} should not have .exe extension",
+            node.default_binary_name()
         );
     }
 }
@@ -197,12 +218,19 @@ fn windows_executables_include_exe_extension() {
 #[test]
 fn binary_names_are_unique_per_node_type() {
     // No two node types should share the same binary name
-    let names: Vec<_> = NodeType::ALL.iter().map(|n| n.default_binary_name()).collect();
+    let names: Vec<_> = NodeType::ALL
+        .iter()
+        .map(|n| n.default_binary_name())
+        .collect();
     let mut unique_names = names.clone();
     unique_names.sort();
     unique_names.dedup();
 
-    assert_eq!(names.len(), unique_names.len(), "Duplicate binary names detected");
+    assert_eq!(
+        names.len(),
+        unique_names.len(),
+        "Duplicate binary names detected"
+    );
 }
 
 // ============================================================================
@@ -232,7 +260,12 @@ fn plugin_types_have_full_workspace_layout() {
 #[test]
 fn non_plugin_types_have_simpler_workspace() {
     // Types without plugins only need config, no directory structure
-    for node in &[NodeType::NeoGo, NodeType::NeoRs, NodeType::NeoXGeth, NodeType::NeoXReth] {
+    for node in &[
+        NodeType::NeoGo,
+        NodeType::NeoRs,
+        NodeType::NeoXGeth,
+        NodeType::NeoXReth,
+    ] {
         assert!(!node.supports_plugins());
         assert!(node.plugin_directory().is_none());
 
@@ -266,7 +299,7 @@ fn workspace_root_detection_by_binary_name() {
     for node in NodeType::ALL {
         let bin_name = node.default_binary_name();
         let work_dir = std::env::current_dir().unwrap();
-        
+
         // The binary would exist somewhere in PATH or workspace
         // This verifies the naming convention supports OS detection
         let _check_bin_exists = work_dir.join(bin_name);
@@ -282,13 +315,13 @@ fn empty_strings_and_special_values_rejected_in_from_str() {
     // While these are tested elsewhere, ensure trait implementations handle
     // edge cases gracefully when constructed via FromStr
     let invalid_inputs = [
-        "neo",           // Ambiguous prefix
-        "neox",          // Neo X family prefix
-        "neo-node",      // Generic term
-        "neo-x-geth",    // Wrong Neo X format (should be neox-geth)
-        "neo-rs-node",   // Redundant suffix
-        "NEO-CLI",       // Wrong case
-        "Neo-Go",        // Mixed case
+        "neo",         // Ambiguous prefix
+        "neox",        // Neo X family prefix
+        "neo-node",    // Generic term
+        "neo-x-geth",  // Wrong Neo X format (should be neox-geth)
+        "neo-rs-node", // Redundant suffix
+        "NEO-CLI",     // Wrong case
+        "Neo-Go",      // Mixed case
     ];
 
     for input in &invalid_inputs {
@@ -323,5 +356,6 @@ fn display_trait_matches_deserialization_token() {
 // ============================================================================
 
 fn is_file_name_like(path: &Path) -> bool {
-    path.components().all(|c| matches!(c, std::path::Component::Normal(_)))
+    path.components()
+        .all(|c| matches!(c, std::path::Component::Normal(_)))
 }

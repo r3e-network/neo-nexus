@@ -3,10 +3,7 @@
 use std::str::FromStr;
 
 use crate::{
-    agents::HermesAgentAssociation,
-    core::node::NodeConfig,
-    roles::NodeRole,
-    signing::SignerKeyRef,
+    agents::HermesAgentAssociation, core::node::NodeConfig, roles::NodeRole, signing::SignerKeyRef,
     web::html,
 };
 
@@ -42,7 +39,9 @@ pub fn generate_cli_spec(
     signer: Option<&SignerKeyRef>,
     assoc: Option<&HermesAgentAssociation>,
 ) -> String {
-    let role_slug = role.map(|r| r.slug().to_string()).unwrap_or_else(|| "observer".to_string());
+    let role_slug = role
+        .map(|r| r.slug().to_string())
+        .unwrap_or_else(|| "observer".to_string());
     let mut cmd = format!(
         "neo-nexus node add --name {} --type {} --network {} --p2p-port {} --rpc-port {} --storage {} --role {}",
         node.name,
@@ -57,7 +56,10 @@ pub fn generate_cli_spec(
         cmd.push_str(&format!(" --ws-port {ws}"));
     }
     if let Some(s) = signer {
-        cmd.push_str(&format!(" --signer-backend {} --signer-key {}", s.backend_id, s.key_id));
+        cmd.push_str(&format!(
+            " --signer-backend {} --signer-key {}",
+            s.backend_id, s.key_id
+        ));
     }
     if assoc.is_some_and(|a| a.enabled) {
         cmd.push_str(" --hermes-enabled");
@@ -71,19 +73,27 @@ pub fn generate_json_spec(
     signer: Option<&SignerKeyRef>,
     assoc: Option<&HermesAgentAssociation>,
 ) -> String {
-    let role_slug = role.map(|r| r.slug().to_string()).unwrap_or_else(|| "observer".to_string());
-    let role_label = role.map(|r| r.label().to_string()).unwrap_or_else(|| "Node".to_string());
+    let role_slug = role
+        .map(|r| r.slug().to_string())
+        .unwrap_or_else(|| "observer".to_string());
+    let role_label = role
+        .map(|r| r.label().to_string())
+        .unwrap_or_else(|| "Node".to_string());
 
-    let signer_val = signer.map(|k| serde_json::json!({
-        "backend_id": k.backend_id,
-        "key_id": k.key_id,
-    }));
+    let signer_val = signer.map(|k| {
+        serde_json::json!({
+            "backend_id": k.backend_id,
+            "key_id": k.key_id,
+        })
+    });
 
-    let hermes_val = assoc.map(|a| serde_json::json!({
-        "enabled": a.enabled,
-        "autonomous_healing": a.autonomous_healing,
-        "agent_version": a.agent_version,
-    }));
+    let hermes_val = assoc.map(|a| {
+        serde_json::json!({
+            "enabled": a.enabled,
+            "autonomous_healing": a.autonomous_healing,
+            "agent_version": a.agent_version,
+        })
+    });
 
     let json_val = serde_json::json!({
         "schema": "neonexus.io/v1alpha1",
@@ -115,8 +125,16 @@ pub fn generate_json_spec(
 
 pub fn generate_docker_spec(node: &NodeConfig) -> String {
     let client = node.node_type.to_string();
-    let version = if node.runtime_version.is_empty() { "latest" } else { &node.runtime_version };
-    let rpc = if node.rpc_port == 0 { 10332 } else { node.rpc_port };
+    let version = if node.runtime_version.is_empty() {
+        "latest"
+    } else {
+        &node.runtime_version
+    };
+    let rpc = if node.rpc_port == 0 {
+        10332
+    } else {
+        node.rpc_port
+    };
     let safe_name = node.name.to_lowercase().replace(' ', "-");
     format!(
         "docker run -d \\\n  --name {safe_name} \\\n  --restart unless-stopped \\\n  -p {p2p}:{p2p} \\\n  -p {rpc}:{rpc} \\\n  -v /var/lib/neonexus/{safe_name}:/data \\\n  neonexus/{client}:{version}",
@@ -129,13 +147,23 @@ pub fn generate_docker_spec(node: &NodeConfig) -> String {
 }
 
 pub fn generate_k8s_spec(node: &NodeConfig, role: Option<NodeRole>) -> String {
-    let role_slug = role.map(|r| r.slug().to_string()).unwrap_or_else(|| "observer".to_string());
+    let role_slug = role
+        .map(|r| r.slug().to_string())
+        .unwrap_or_else(|| "observer".to_string());
     let client = node.node_type.to_string();
-    let version = if node.runtime_version.is_empty() { "latest" } else { &node.runtime_version };
-    let rpc = if node.rpc_port == 0 { 10332 } else { node.rpc_port };
+    let version = if node.runtime_version.is_empty() {
+        "latest"
+    } else {
+        &node.runtime_version
+    };
+    let rpc = if node.rpc_port == 0 {
+        10332
+    } else {
+        node.rpc_port
+    };
     let safe_name = node.name.to_lowercase().replace(' ', "-");
     format!(
-r#"apiVersion: v1
+        r#"apiVersion: v1
 kind: Pod
 metadata:
   name: {name}
@@ -175,13 +203,23 @@ spec:
 }
 
 pub fn generate_cloudformation_spec(node: &NodeConfig, role: Option<NodeRole>) -> String {
-    let role_slug = role.map(|r| r.slug().to_string()).unwrap_or_else(|| "observer".to_string());
+    let role_slug = role
+        .map(|r| r.slug().to_string())
+        .unwrap_or_else(|| "observer".to_string());
     let client = node.node_type.to_string();
-    let version = if node.runtime_version.is_empty() { "latest" } else { &node.runtime_version };
-    let rpc = if node.rpc_port == 0 { 10332 } else { node.rpc_port };
+    let version = if node.runtime_version.is_empty() {
+        "latest"
+    } else {
+        &node.runtime_version
+    };
+    let rpc = if node.rpc_port == 0 {
+        10332
+    } else {
+        node.rpc_port
+    };
     let safe_name = node.name.to_lowercase().replace(' ', "-");
     format!(
-r#"AWSTemplateFormatVersion: '2010-09-09'
+        r#"AWSTemplateFormatVersion: '2010-09-09'
 Description: AWS CloudFormation Template for NeoNexus Instance - {name}
 Parameters:
   Environment:
@@ -239,13 +277,23 @@ Outputs:
 }
 
 pub fn generate_terraform_spec(node: &NodeConfig, role: Option<NodeRole>) -> String {
-    let role_slug = role.map(|r| r.slug().to_string()).unwrap_or_else(|| "observer".to_string());
+    let role_slug = role
+        .map(|r| r.slug().to_string())
+        .unwrap_or_else(|| "observer".to_string());
     let client = node.node_type.to_string();
-    let version = if node.runtime_version.is_empty() { "latest" } else { &node.runtime_version };
-    let rpc = if node.rpc_port == 0 { 10332 } else { node.rpc_port };
+    let version = if node.runtime_version.is_empty() {
+        "latest"
+    } else {
+        &node.runtime_version
+    };
+    let rpc = if node.rpc_port == 0 {
+        10332
+    } else {
+        node.rpc_port
+    };
     let safe_name = node.name.to_lowercase().replace([' ', '-'], "_");
     format!(
-r#"# Terraform HCL Definition for NeoNexus Instance: {name}
+        r#"# Terraform HCL Definition for NeoNexus Instance: {name}
 terraform {{
   required_version = ">= 1.5.0"
   required_providers {{
@@ -316,16 +364,8 @@ pub fn generate_node_iac(
             "application/json",
             "json",
         ),
-        IacFormat::K8s => (
-            generate_k8s_spec(node, role),
-            "application/x-yaml",
-            "yaml",
-        ),
-        IacFormat::Docker => (
-            generate_docker_spec(node),
-            "text/x-shellscript",
-            "sh",
-        ),
+        IacFormat::K8s => (generate_k8s_spec(node, role), "application/x-yaml", "yaml"),
+        IacFormat::Docker => (generate_docker_spec(node), "text/x-shellscript", "sh"),
         IacFormat::Cli => (
             generate_cli_spec(node, role, signer, assoc),
             "text/plain",
@@ -348,8 +388,16 @@ pub fn generate_fleet_compose(nodes: &[NodeConfig]) -> String {
     let mut out = String::from("version: '3.8'\nservices:\n");
     for node in nodes {
         let client = node.node_type.to_string();
-        let version = if node.runtime_version.is_empty() { "latest" } else { &node.runtime_version };
-        let rpc = if node.rpc_port == 0 { 10332 } else { node.rpc_port };
+        let version = if node.runtime_version.is_empty() {
+            "latest"
+        } else {
+            &node.runtime_version
+        };
+        let rpc = if node.rpc_port == 0 {
+            10332
+        } else {
+            node.rpc_port
+        };
         let safe_name = node.name.to_lowercase().replace(' ', "-");
         out.push_str(&format!(
             "  {name}:\n    image: neonexus/{client}:{version}\n    container_name: {name}\n    restart: unless-stopped\n    ports:\n      - \"{p2p}:{p2p}\"\n      - \"{rpc}:{rpc}\"\n    volumes:\n      - {name}-data:/data\n",
@@ -380,8 +428,16 @@ pub fn generate_fleet_cloudformation(nodes: &[NodeConfig]) -> String {
     let mut out = String::from("AWSTemplateFormatVersion: '2010-09-09'\nDescription: AWS CloudFormation Cluster Manifest for NeoNexus Fleet\nResources:\n");
     for node in nodes {
         let client = node.node_type.to_string();
-        let version = if node.runtime_version.is_empty() { "latest" } else { &node.runtime_version };
-        let rpc = if node.rpc_port == 0 { 10332 } else { node.rpc_port };
+        let version = if node.runtime_version.is_empty() {
+            "latest"
+        } else {
+            &node.runtime_version
+        };
+        let rpc = if node.rpc_port == 0 {
+            10332
+        } else {
+            node.rpc_port
+        };
         let safe_title = node.name.replace([' ', '-', '_'], "");
         let safe_name = node.name.to_lowercase().replace(' ', "-");
         out.push_str(&format!(
@@ -402,8 +458,16 @@ pub fn generate_fleet_terraform(nodes: &[NodeConfig]) -> String {
     let mut out = String::from("# Terraform Fleet Cluster Manifest for NeoNexus\nterraform {\n  required_version = \">= 1.5.0\"\n  required_providers {\n    docker = {\n      source  = \"kreuzwerker/docker\"\n      version = \"~> 3.0\"\n    }\n  }\n}\n");
     for node in nodes {
         let client = node.node_type.to_string();
-        let version = if node.runtime_version.is_empty() { "latest" } else { &node.runtime_version };
-        let rpc = if node.rpc_port == 0 { 10332 } else { node.rpc_port };
+        let version = if node.runtime_version.is_empty() {
+            "latest"
+        } else {
+            &node.runtime_version
+        };
+        let rpc = if node.rpc_port == 0 {
+            10332
+        } else {
+            node.rpc_port
+        };
         let safe_name = node.name.to_lowercase().replace([' ', '-'], "_");
         out.push_str(&format!(
             "\nresource \"docker_volume\" \"{name}_data\" {{\n  name = \"neonexus_{name}_data\"\n}}\n\nresource \"docker_container\" \"{name}\" {{\n  name  = \"neonexus_{name}\"\n  image = \"neonexus/{client}:{version}\"\n  restart = \"unless-stopped\"\n  ports {{\n    internal = {p2p}\n    external = {p2p}\n  }}\n  ports {{\n    internal = {rpc}\n    external = {rpc}\n  }}\n  volumes {{\n    volume_name    = docker_volume.{name}_data.name\n    container_path = \"/data\"\n  }}\n  env = [\n    \"NEONEXUS_NODE_ID={id}\",\n    \"NEONEXUS_NETWORK={network}\",\n  ]\n}}\n",
@@ -514,8 +578,8 @@ pub fn iac_spec_card(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
     use crate::types::{Network, NodeType, StorageEngine};
+    use std::path::PathBuf;
 
     fn test_node() -> NodeConfig {
         NodeConfig {
@@ -588,17 +652,20 @@ mod tests {
         assert_eq!(ext, "yaml");
         assert!(spec.contains("kind: Pod"));
 
-        let (spec_json, mime_json, ext_json) = generate_node_iac(&node, None, None, None, IacFormat::Json);
+        let (spec_json, mime_json, ext_json) =
+            generate_node_iac(&node, None, None, None, IacFormat::Json);
         assert_eq!(mime_json, "application/json");
         assert_eq!(ext_json, "json");
         assert!(spec_json.contains("neonexus.io/v1alpha1"));
 
-        let (spec_cfn, mime_cfn, ext_cfn) = generate_node_iac(&node, None, None, None, IacFormat::CloudFormation);
+        let (spec_cfn, mime_cfn, ext_cfn) =
+            generate_node_iac(&node, None, None, None, IacFormat::CloudFormation);
         assert_eq!(mime_cfn, "application/x-yaml");
         assert_eq!(ext_cfn, "cfn.yaml");
         assert!(spec_cfn.contains("AWSTemplateFormatVersion"));
 
-        let (spec_tf, mime_tf, ext_tf) = generate_node_iac(&node, None, None, None, IacFormat::Terraform);
+        let (spec_tf, mime_tf, ext_tf) =
+            generate_node_iac(&node, None, None, None, IacFormat::Terraform);
         assert_eq!(mime_tf, "application/x-tf");
         assert_eq!(ext_tf, "tf");
         assert!(spec_tf.contains("terraform {"));

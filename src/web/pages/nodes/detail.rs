@@ -56,16 +56,22 @@ pub async fn toggle_hermes_healing(
         .flatten()
         .unwrap_or_else(|| crate::agents::HermesAgentAssociation::new(&id));
     assoc.autonomous_healing = !assoc.autonomous_healing;
-    let label = if assoc.autonomous_healing { "enabled" } else { "disabled" };
+    let label = if assoc.autonomous_healing {
+        "enabled"
+    } else {
+        "disabled"
+    };
     match state.commands.save_hermes_agent(&assoc) {
         Ok(()) => {
-            let _ = state.commands.record_event(crate::core::operations::NewRuntimeEvent {
-                node_id: Some(id.clone()),
-                node_name: None,
-                kind: crate::core::operations::EventKind::NodeUpdated,
-                severity: crate::core::operations::EventSeverity::Info,
-                message: format!("Hermes autonomous healing {label} for node {id}"),
-            });
+            let _ = state
+                .commands
+                .record_event(crate::core::operations::NewRuntimeEvent {
+                    node_id: Some(id.clone()),
+                    node_name: None,
+                    kind: crate::core::operations::EventKind::NodeUpdated,
+                    severity: crate::core::operations::EventSeverity::Info,
+                    message: format!("Hermes autonomous healing {label} for node {id}"),
+                });
             Redirect::to(&format!(
                 "/nodes/{}?flash=Autonomous%20self-healing%20{}",
                 html::urlencoding_lite(&id),
@@ -82,11 +88,11 @@ pub async fn toggle_hermes_healing(
     }
 }
 
-pub async fn test_hermes_ping(
-    State(state): State<WebState>,
-    Path(id): Path<String>,
-) -> Response {
-    match state.commands.record_hermes_heartbeat(&id, Some("0.5.0-copilot")) {
+pub async fn test_hermes_ping(State(state): State<WebState>, Path(id): Path<String>) -> Response {
+    match state
+        .commands
+        .record_hermes_heartbeat(&id, Some("0.5.0-copilot"))
+    {
         Ok(()) => Redirect::to(&format!(
             "/nodes/{}?flash=Hermes%20guest%20heartbeat%20ping%20recorded",
             html::urlencoding_lite(&id),
@@ -116,15 +122,20 @@ pub async fn provision_hermes_token(
     };
     let token_name = format!("hermes-agent-{}", node.name);
     let permissions = vec![crate::wallet::TokenPermission::HermesAgent(node.id.clone())];
-    match state.commands.create_api_token(&token_name, permissions, None) {
+    match state
+        .commands
+        .create_api_token(&token_name, permissions, None)
+    {
         Ok((_token, secret)) => {
-            let _ = state.commands.record_event(crate::core::operations::NewRuntimeEvent {
-                node_id: Some(node.id.clone()),
-                node_name: Some(node.name.clone()),
-                kind: crate::core::operations::EventKind::ApiTokenCreated,
-                severity: crate::core::operations::EventSeverity::Info,
-                message: format!("Provisioned scoped Hermes Agent token for {}", node.name),
-            });
+            let _ = state
+                .commands
+                .record_event(crate::core::operations::NewRuntimeEvent {
+                    node_id: Some(node.id.clone()),
+                    node_name: Some(node.name.clone()),
+                    kind: crate::core::operations::EventKind::ApiTokenCreated,
+                    severity: crate::core::operations::EventSeverity::Info,
+                    message: format!("Provisioned scoped Hermes Agent token for {}", node.name),
+                });
             Redirect::to(&format!(
                 "/nodes/{}?hermes_token={}&flash=Hermes%20Agent%20scoped%20token%20provisioned",
                 html::urlencoding_lite(&id),
@@ -171,7 +182,14 @@ fn render_detail(state: &WebState, id: &str, new_token: Option<&str>) -> anyhow:
 
     let summary = super::detail_tabs::summary_banner(node, role, signer.as_ref());
     let tab1 = super::detail_tabs::render_tab_details(node);
-    let tab2 = super::detail_tabs::render_tab_status_checks(node, role, signer.as_ref(), &history, &assoc, now);
+    let tab2 = super::detail_tabs::render_tab_status_checks(
+        node,
+        role,
+        signer.as_ref(),
+        &history,
+        &assoc,
+        now,
+    );
     let tab3 = super::detail_tabs::render_tab_monitoring(state, node, &history);
     let tab4 = super::detail_tabs::render_tab_networking(state, node);
     let tab5 = super::detail_tabs::render_tab_security(state, node, signer.as_ref(), new_token);
@@ -218,7 +236,8 @@ fn render_detail(state: &WebState, id: &str, new_token: Option<&str>) -> anyhow:
 {summary}
 {tab_container}
 {activity}"#,
-        breadcrumb = html::breadcrumb(&[("EC2", "/nodes"), ("Instances", "/nodes"), (&node.name, "")]),
+        breadcrumb =
+            html::breadcrumb(&[("EC2", "/nodes"), ("Instances", "/nodes"), (&node.name, "")]),
         head = html::page_head(
             &node.name,
             &format!(
@@ -284,7 +303,11 @@ fn control_bar(node: &NodeConfig) -> String {
     )
 }
 
-pub(crate) fn hermes_agent_card(state: &WebState, node: &NodeConfig, new_token: Option<&str>) -> String {
+pub(crate) fn hermes_agent_card(
+    state: &WebState,
+    node: &NodeConfig,
+    new_token: Option<&str>,
+) -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -334,7 +357,8 @@ pub(crate) fn hermes_agent_card(state: &WebState, node: &NodeConfig, new_token: 
 
     let mcp_url = format!("http://127.0.0.1:8080/api/nodes/{}/mcp", node.id);
     let token_placeholder = new_token.unwrap_or("${NEONEXUS_AGENT_TOKEN}");
-    let mut config_snippet = crate::agents::generate_hermes_config_snippet(&node.id, &node.name, &mcp_url);
+    let mut config_snippet =
+        crate::agents::generate_hermes_config_snippet(&node.id, &node.name, &mcp_url);
     if let Some(secret) = new_token {
         config_snippet = config_snippet.replace("${NEONEXUS_AGENT_TOKEN}", secret);
     }
@@ -458,9 +482,10 @@ pub(crate) fn endpoints_card(state: &WebState, node: &NodeConfig) -> String {
     } else {
         format!("http://127.0.0.1:{}", node.rpc_port)
     };
-    let ws_text = node
-        .ws_port
-        .map_or_else(|| "Not configured".to_string(), |p| format!("ws://127.0.0.1:{}", p));
+    let ws_text = node.ws_port.map_or_else(
+        || "Not configured".to_string(),
+        |p| format!("ws://127.0.0.1:{}", p),
+    );
     let p2p_text = format!("127.0.0.1:{}", node.p2p_port);
     let metrics_text = format!("http://127.0.0.1:8080/api/nodes/{}/metrics", node.id);
     let p2p_multiaddr = format!("/ip4/127.0.0.1/tcp/{}", node.p2p_port);

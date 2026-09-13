@@ -227,4 +227,3 @@ mod tests;
 #[cfg(test)]
 #[path = "../../tests/unit/types/node_type/traits_tests.rs"]
 mod traits_tests;
-

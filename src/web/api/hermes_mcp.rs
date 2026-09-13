@@ -67,9 +67,12 @@ pub async fn mcp_endpoint(
             .into_response();
     }
 
-    let node = match state.workspace.list_nodes().ok().and_then(|nodes| {
-        nodes.into_iter().find(|n| n.id == id)
-    }) {
+    let node = match state
+        .workspace
+        .list_nodes()
+        .ok()
+        .and_then(|nodes| nodes.into_iter().find(|n| n.id == id))
+    {
         Some(n) => n,
         None => {
             return (
@@ -188,7 +191,11 @@ pub async fn mcp_endpoint(
                     };
                     let assoc = state.workspace.load_hermes_agent(&node.id).ok().flatten();
                     let healing_status = assoc.is_none_or(|a| a.autonomous_healing);
-                    let signer_binding = state.workspace.load_node_signer_key(&node.id).ok().flatten();
+                    let signer_binding = state
+                        .workspace
+                        .load_node_signer_key(&node.id)
+                        .ok()
+                        .flatten();
                     let signer_desc = signer_binding.map_or_else(
                         || "unbound".to_string(),
                         |k| format!("{}/{}", k.backend_id, k.key_id),
@@ -217,7 +224,11 @@ pub async fn mcp_endpoint(
                 }
                 "get_node_config" => {
                     let role = state.workspace.load_node_role(&node.id).ok().flatten();
-                    let signer = state.workspace.load_node_signer_key(&node.id).ok().flatten();
+                    let signer = state
+                        .workspace
+                        .load_node_signer_key(&node.id)
+                        .ok()
+                        .flatten();
                     let assoc = state.workspace.load_hermes_agent(&node.id).ok().flatten();
                     let config_json = serde_json::json!({
                         "id": node.id,
@@ -245,7 +256,8 @@ pub async fn mcp_endpoint(
                         "binary_path": node.binary_path.display().to_string(),
                         "args": node.args,
                     });
-                    let text = serde_json::to_string_pretty(&config_json).unwrap_or_else(|_| "{}".to_string());
+                    let text = serde_json::to_string_pretty(&config_json)
+                        .unwrap_or_else(|_| "{}".to_string());
                     Json(json!({
                         "jsonrpc": "2.0",
                         "id": req.id,
@@ -304,11 +316,17 @@ pub async fn mcp_endpoint(
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap_or_default()
                         .as_secs();
-                    let recent_restarts = state.workspace
-                        .list_events(crate::core::operations::RuntimeEventFilter::new(None, &node.id, 20))
+                    let recent_restarts = state
+                        .workspace
+                        .list_events(crate::core::operations::RuntimeEventFilter::new(
+                            None, &node.id, 20,
+                        ))
                         .unwrap_or_default()
                         .into_iter()
-                        .filter(|e| e.kind == EventKind::NodeRestarted && now.saturating_sub(e.occurred_at_unix) < 3600)
+                        .filter(|e| {
+                            e.kind == EventKind::NodeRestarted
+                                && now.saturating_sub(e.occurred_at_unix) < 3600
+                        })
                         .count();
 
                     if recent_restarts >= 5 {
@@ -330,7 +348,9 @@ pub async fn mcp_endpoint(
                         .into_response();
                     }
 
-                    let reason = req.params.get("arguments")
+                    let reason = req
+                        .params
+                        .get("arguments")
                         .and_then(|a| a.get("reason"))
                         .and_then(Value::as_str)
                         .unwrap_or("Hermes autonomous self-healing restart");
@@ -346,8 +366,16 @@ pub async fn mcp_endpoint(
                     let _ = state.commands.record_event(NewRuntimeEvent {
                         node_id: Some(node.id.clone()),
                         node_name: Some(node.name.clone()),
-                        kind: if is_ok { EventKind::NodeRestarted } else { EventKind::NodeStartFailed },
-                        severity: if is_ok { EventSeverity::Warning } else { EventSeverity::Critical },
+                        kind: if is_ok {
+                            EventKind::NodeRestarted
+                        } else {
+                            EventKind::NodeStartFailed
+                        },
+                        severity: if is_ok {
+                            EventSeverity::Warning
+                        } else {
+                            EventSeverity::Critical
+                        },
                         message: format!("Hermes Agent executed restart: {reason} — {msg}"),
                     });
                     Json(json!({
@@ -360,7 +388,9 @@ pub async fn mcp_endpoint(
                     .into_response()
                 }
                 "stop_node" => {
-                    let reason = req.params.get("arguments")
+                    let reason = req
+                        .params
+                        .get("arguments")
                         .and_then(|a| a.get("reason"))
                         .and_then(Value::as_str)
                         .unwrap_or("Hermes autonomous stop");
@@ -398,8 +428,16 @@ pub async fn mcp_endpoint(
                     let _ = state.commands.record_event(NewRuntimeEvent {
                         node_id: Some(node.id.clone()),
                         node_name: Some(node.name.clone()),
-                        kind: if is_ok { EventKind::NodeStarted } else { EventKind::NodeStartFailed },
-                        severity: if is_ok { EventSeverity::Info } else { EventSeverity::Critical },
+                        kind: if is_ok {
+                            EventKind::NodeStarted
+                        } else {
+                            EventKind::NodeStartFailed
+                        },
+                        severity: if is_ok {
+                            EventSeverity::Info
+                        } else {
+                            EventSeverity::Critical
+                        },
                         message: format!("Hermes Agent executed start — {msg}"),
                     });
                     Json(json!({
@@ -495,7 +533,11 @@ pub async fn mcp_endpoint(
                 }
                 "get_node_iac" => {
                     let role = state.workspace.load_node_role(&node.id).ok().flatten();
-                    let signer = state.workspace.load_node_signer_key(&node.id).ok().flatten();
+                    let signer = state
+                        .workspace
+                        .load_node_signer_key(&node.id)
+                        .ok()
+                        .flatten();
                     let assoc = state.workspace.load_hermes_agent(&node.id).ok().flatten();
                     let format_arg = req
                         .params
@@ -522,24 +564,20 @@ pub async fn mcp_endpoint(
                     }))
                     .into_response()
                 }
-                other => {
-                    Json(json!({
-                        "jsonrpc": "2.0",
-                        "id": req.id,
-                        "error": { "code": -32601, "message": format!("Unknown tool '{other}'") }
-                    }))
-                    .into_response()
-                }
+                other => Json(json!({
+                    "jsonrpc": "2.0",
+                    "id": req.id,
+                    "error": { "code": -32601, "message": format!("Unknown tool '{other}'") }
+                }))
+                .into_response(),
             }
         }
-        other => {
-            Json(json!({
-                "jsonrpc": "2.0",
-                "id": req.id,
-                "error": { "code": -32601, "message": format!("Method '{other}' not supported") }
-            }))
-            .into_response()
-        }
+        other => Json(json!({
+            "jsonrpc": "2.0",
+            "id": req.id,
+            "error": { "code": -32601, "message": format!("Method '{other}' not supported") }
+        }))
+        .into_response(),
     }
 }
 
@@ -554,7 +592,10 @@ pub async fn agent_heartbeat(
     if !check_node_authorization(auth, &id) {
         return (StatusCode::FORBIDDEN, "Forbidden").into_response();
     }
-    match state.commands.record_hermes_heartbeat(&id, payload.agent_version.as_deref()) {
+    match state
+        .commands
+        .record_hermes_heartbeat(&id, payload.agent_version.as_deref())
+    {
         Ok(()) => {
             let assoc = state.workspace.load_hermes_agent(&id).ok().flatten();
             Json(json!({

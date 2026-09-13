@@ -137,13 +137,18 @@ pub fn signer_binding(
             html::note("Stop and settle the node before changing its signer identity.")
         );
     }
-    let all_bindings = state.workspace.list_all_signer_bindings().unwrap_or_default();
+    let all_bindings = state
+        .workspace
+        .list_all_signer_bindings()
+        .unwrap_or_default();
     let options = std::iter::once(
         r#"<option value="">No signer (signing duties disabled)</option>"#.to_string(),
     )
     .chain(profiles.iter().map(|profile| {
         let is_selected = profile.id == selected_backend;
-        let other_owner = all_bindings.iter().find(|(nid, b)| b.backend_id == profile.id && nid != &node.id);
+        let other_owner = all_bindings
+            .iter()
+            .find(|(nid, b)| b.backend_id == profile.id && nid != &node.id);
         if let Some((owner_id, _)) = other_owner {
             format!(
                 r#"<option value="{}" disabled>🔒 {} · {} (Locked by {})</option>"#,
