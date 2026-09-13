@@ -4497,6 +4497,238 @@ fn plugins_api_endpoint_lists_inventory_and_filters_by_node_type() {
     );
 }
 
+/// Register two instances and return `(server, node_a, node_b, agent_secret)`
+/// where the secret is a guest agent credential issued to instance A only.
+fn two_instances_and_an_agent_token_for_the_first() -> (Server, String, String, String) {
+    let server = spawn_server();
+    let repository = Repository::open(&server.db_path).expect("workspace");
+    let mut ids = Vec::new();
+    for (index, name) in ["tenant-a", "tenant-b"].into_iter().enumerate() {
+        let node = repository
+            .create_node(NewNode {
+                name: name.to_string(),
+                node_type: NodeType::NeoCli,
+                network: Network::Testnet,
+                binary_path: PathBuf::from("neo-cli.dll"),
+                args: Vec::new(),
+                runtime_version: "3.6.0".to_string(),
+                storage_engine: StorageEngine::LevelDb,
+                rpc_port: 49332 + (index as u16 * 2),
+                p2p_port: 49333 + (index as u16 * 2),
+                ws_port: None,
+            })
+            .expect("create node");
+        ids.push(node.id);
+    }
+    let secret = repository
+        .create_api_token(
+            "agent-tenant-a",
+            vec![TokenPermission::HermesAgent(ids[0].clone())],
+            None,
+        )
+        .expect("agent token")
+        .1;
+    (server, ids[0].clone(), ids[1].clone(), secret)
+}
+
+/// A credential issued to one instance is that instance's identity, not a
+/// workbench login. It must not reach another instance's routes, and it must
+/// not reach the fleet-wide ones at all — the same boundary a cloud instance
+/// profile draws.
+#[test]
+fn an_instance_scoped_credential_cannot_leave_its_own_instance() {
+    let (server, node_a, node_b, secret) = two_instances_and_an_agent_token_for_the_first();
+    let http = agent();
+    let base = &server.base_url;
+
+    for path in [
+        // Fleet-wide surfaces.
+        "/api/fleet".to_string(),
+        "/api/readiness".to_string(),
+        "/api/plugins".to_string(),
+        "/api/metrics-prometheus".to_string(),
+        "/api/fleet/iac".to_string(),
+        // Raw stdout/stderr of any instance the caller names. This route
+        // carried no permission layer at all and was reachable by any
+        // authenticated credential.
+        format!("/api/logs?node={node_b}"),
+        format!("/api/logs?node={node_a}"),
+        // Another instance's own namespace.
+        format!("/api/nodes/{node_b}/metrics"),
+        format!("/api/nodes/{node_b}/iac"),
+        format!("/api/nodes/{node_b}/agent"),
+    ] {
+        let response = into_response(
+            http.get(&format!("{base}{path}"))
+                .set("authorization", &format!("Bearer {secret}"))
+                .call(),
+        );
+        assert_eq!(
+            response.status(),
+            403,
+            "an instance-scoped credential reached {path}"
+        );
+    }
+
+    // Its own instance still answers, or the confinement would be useless.
+    let own = into_response(
+        http.get(&format!("{base}/api/nodes/{node_a}/agent"))
+            .set("authorization", &format!("Bearer {secret}"))
+            .call(),
+    );
+    assert_eq!(
+        own.status(),
+        200,
+        "the credential could not reach the instance it was issued for"
+    );
+}
+
+/// Post one MCP JSON-RPC call as the given bearer and return `(status, body)`.
+fn mcp_call(
+    http: &ureq::Agent,
+    base: &str,
+    node_id: &str,
+    secret: &str,
+    body: &str,
+) -> (u16, String) {
+    let response = into_response(
+        http.post(&format!("{base}/api/nodes/{node_id}/mcp"))
+            .set("authorization", &format!("Bearer {secret}"))
+            .set("content-type", "application/json")
+            .send_string(body),
+    );
+    let status = response.status();
+    (status, response.into_string().unwrap_or_default())
+}
+
+/// Holding a credential is not the same as the operator having switched the
+/// copilot on. An instance with no agent association exposes no tool surface.
+#[test]
+fn the_agent_tool_surface_is_closed_until_the_operator_enables_it() {
+    let (server, node_a, _node_b, secret) = two_instances_and_an_agent_token_for_the_first();
+    let http = agent();
+    let base = &server.base_url;
+
+    let (status, body) = mcp_call(
+        &http,
+        base,
+        &node_a,
+        &secret,
+        r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"stop_node"}}"#,
+    );
+    assert_eq!(status, 403, "an unenrolled instance answered a tool call");
+    assert!(
+        body.contains("guest agent is not enabled"),
+        "the refusal did not say why: {body}"
+    );
+
+    // A heartbeat must not be able to enrol the instance it speaks for.
+    let heartbeat = into_response(
+        http.post(&format!("{base}/api/nodes/{node_a}/agent/heartbeat"))
+            .set("authorization", &format!("Bearer {secret}"))
+            .set("content-type", "application/json")
+            .send_string(r#"{"agent_version":"9.9.9"}"#),
+    );
+    assert_eq!(
+        heartbeat.status(),
+        403,
+        "a heartbeat enrolled an instance the operator never enabled"
+    );
+    assert!(
+        Repository::open(&server.db_path)
+            .expect("workspace")
+            .load_hermes_agent(&node_a)
+            .expect("load association")
+            .is_none(),
+        "a heartbeat created an agent association"
+    );
+}
+
+/// Restarting a node on its own is a grant the operator makes. An enrolled
+/// agent without it is refused, and a missing association is not consent.
+#[test]
+fn autonomous_restart_needs_the_grant_rather_than_the_absence_of_a_refusal() {
+    let (server, node_a, _node_b, secret) = two_instances_and_an_agent_token_for_the_first();
+    let http = agent();
+    let base = &server.base_url;
+    let repository = Repository::open(&server.db_path).expect("workspace");
+
+    let mut association = neo_nexus::agents::HermesAgentAssociation::new(&node_a);
+    association.autonomous_healing = false;
+    repository
+        .save_hermes_agent(&association)
+        .expect("save association");
+
+    let (status, body) = mcp_call(
+        &http,
+        base,
+        &node_a,
+        &secret,
+        r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"restart_node"}}"#,
+    );
+    assert_eq!(
+        status, 403,
+        "a restart ran without the healing grant: {body}"
+    );
+
+    // With the grant, the call is dispatched rather than refused. It still fails
+    // — the node is not running — but on lifecycle grounds, not authorization.
+    association.autonomous_healing = true;
+    repository
+        .save_hermes_agent(&association)
+        .expect("save association");
+    let (status, _body) = mcp_call(
+        &http,
+        base,
+        &node_a,
+        &secret,
+        r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"restart_node"}}"#,
+    );
+    assert_eq!(status, 200, "the granted restart was still refused");
+}
+
+/// `take_snapshot` writes a backup of the whole workspace. An instance's own
+/// copilot is neither offered it nor allowed to ask for it.
+#[test]
+fn an_instance_copilot_cannot_export_the_whole_workspace() {
+    let (server, node_a, _node_b, secret) = two_instances_and_an_agent_token_for_the_first();
+    let http = agent();
+    let base = &server.base_url;
+    Repository::open(&server.db_path)
+        .expect("workspace")
+        .save_hermes_agent(&neo_nexus::agents::HermesAgentAssociation::new(&node_a))
+        .expect("enrol the agent");
+
+    let (status, listed) = mcp_call(
+        &http,
+        base,
+        &node_a,
+        &secret,
+        r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#,
+    );
+    assert_eq!(status, 200);
+    assert!(
+        listed.contains("get_node_status"),
+        "the instance's own tools were withheld: {listed}"
+    );
+    assert!(
+        !listed.contains("take_snapshot"),
+        "a whole-workspace export was advertised to an instance copilot: {listed}"
+    );
+
+    let (status, body) = mcp_call(
+        &http,
+        base,
+        &node_a,
+        &secret,
+        r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"take_snapshot"}}"#,
+    );
+    assert_eq!(
+        status, 403,
+        "an instance copilot exported the whole workspace: {body}"
+    );
+}
+
 #[test]
 fn api_token_creation_and_deletion_record_journal_events_and_flash_redirect() {
     let server = spawn_server();

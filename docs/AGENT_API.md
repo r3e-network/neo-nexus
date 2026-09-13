@@ -82,9 +82,23 @@ Authorization: Bearer <HEX_ENCODED_32_BYTE_SECRET>
 
 | Scope | Allowed Operations | Typical Use Case |
 |---|---|---|
-| `read_fleet` | `/api/fleet`, `/api/metrics-prometheus`, `/public-metrics` | Prometheus scrapers, Grafana dashboards |
+| `read_fleet` | `/api/fleet`, `/api/logs`, `/api/plugins`, `/api/metrics-prometheus`, `/public-metrics`, `/api/nodes/{id}/{metrics,iac}`, `/api/fleet/iac` | Prometheus scrapers, Grafana dashboards |
 | `read_readiness` | `/api/readiness` | Deployment gates, pre-flight sanity checks |
 | `admin_all` | All API endpoints and headless token operations | Orchestration systems, automated operators |
+| `hermes_agent:<node-id>` | **Only** `/api/nodes/<node-id>/*` | One instance's guest copilot |
+
+#### Instance Confinement
+
+A token whose *only* grants are `hermes_agent:<node-id>` is **confined** to that
+instance, the way a cloud instance profile is. The authentication boundary
+rejects it with `403` on any path outside `/api/nodes/<node-id>/`, including
+every fleet-wide endpoint and any other instance's routes. This is decided from
+the request path at the single authentication choke point, so an endpoint added
+later is confined by default rather than reachable until it is explicitly gated.
+
+Adding any fleet-wide grant (`read_fleet`, `read_readiness`, `admin_all`) to the
+same token removes the confinement — the operator asked for something broader
+and gets it.
 
 > 🔒 **Security Guarantee**: NeoNexus never persists plaintext tokens. Only the SHA-256 cryptographic digest is stored in the workspace database. The plaintext secret is displayed **exactly once** upon creation.
 
@@ -301,16 +315,25 @@ Nous Hermes AI Copilot Model Context Protocol (MCP) JSON-RPC 2.0 endpoint for au
 
 - **Auth**: Bearer token with `hermes_agent:<node-id>` or active session
 - **Protocol**: MCP JSON-RPC 2.0 (`tools/list`, `tools/call`)
+- **Precondition**: the instance must have an **enabled** agent association.
+  Holding a credential is not enrolment — an instance whose operator has not
+  switched the copilot on exposes no tool surface and answers `403` with
+  JSON-RPC error `-32002`. Provisioning a scoped token from the instance page
+  enrols the agent (with autonomous healing left off).
 - **Available Autonomous Tools**:
   - `get_node_status`: Inspect real-time health, height, peers, and sync progress
   - `get_node_config`: Inspect declarative role, network, and signer lease
   - `get_node_logs`: Stream recent log observation tail
-  - `restart_node`: Autonomous recovery restart (circuit breaker bounded: max 5/hour)
+  - `restart_node`: Self-healing restart. Requires the **autonomous healing**
+    grant on the association — a missing association is not consent — and is
+    bounded by a circuit breaker at 5 restarts/hour. `403` / `-32001` otherwise.
   - `stop_node`: Gracefully quiesce process and release ports
   - `start_node`: Supervised instance launch
-  - `take_snapshot`: Point-in-time safety snapshot
   - `smoke_test_node`: SRE binary smoke sweep and health diagnostics
   - `get_node_iac`: Export cloud launch template, Kubernetes Pod YAML, or Docker run script
+- **Operator-only tool**: `take_snapshot` writes a whole-workspace backup
+  covering every instance, so it is neither listed for nor callable by a
+  confined credential (`403` / `-32003`). A session or `admin_all` token gets it.
 
 ---
 

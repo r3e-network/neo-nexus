@@ -24,6 +24,61 @@ pub enum AuthIdentity {
     Token(Box<ApiToken>),
 }
 
+impl AuthIdentity {
+    /// The single node this identity is confined to, if it is confined at all.
+    ///
+    /// A guest agent token is issued to one instance and speaks only for that
+    /// instance, the way a cloud instance profile does. A token that also holds
+    /// a fleet-wide grant is not confined — the operator asked for something
+    /// broader and got it — so confinement is the absence of any other grant,
+    /// not merely the presence of this one.
+    pub fn confined_to_node(&self) -> Option<&str> {
+        let Self::Token(token) = self else {
+            return None;
+        };
+        let mut confined: Option<&str> = None;
+        for permission in &token.permissions {
+            match permission {
+                TokenPermission::HermesAgent(node_id) => {
+                    // Two different instances on one token is not a confinement
+                    // this model can express, so it is not treated as one.
+                    if confined.is_some_and(|seen| seen != node_id.as_str()) {
+                        return None;
+                    }
+                    confined = Some(node_id.as_str());
+                }
+                TokenPermission::ReadFleet
+                | TokenPermission::ReadReadiness
+                | TokenPermission::AdminAll => return None,
+            }
+        }
+        confined
+    }
+
+    /// Whether this identity may address `node_id` at all.
+    pub fn may_access_node(&self, node_id: &str) -> bool {
+        self.confined_to_node()
+            .is_none_or(|confined| confined == node_id)
+    }
+}
+
+/// Whether a request path lies inside one instance's own namespace.
+///
+/// This is the whole point of the confinement: a token issued to one instance
+/// must not reach a route that addresses another, and must not reach the
+/// fleet-wide routes at all. Deciding from the path rather than from a list of
+/// endpoints means a route added later is confined by default, instead of being
+/// open to every guest agent until someone remembers to gate it.
+pub(crate) fn path_is_within_node_namespace(path: &str, node_id: &str) -> bool {
+    let mut segments = path.split('/').filter(|segment| !segment.is_empty());
+    if segments.next() != Some("api") || segments.next() != Some("nodes") {
+        return false;
+    }
+    segments
+        .next()
+        .is_some_and(|addressed| crate::web::html::percent_decode(addressed) == node_id)
+}
+
 /// Authorization middleware that enforces the permission a specific `/api/*`
 /// route requires.
 ///

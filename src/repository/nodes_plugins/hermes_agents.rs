@@ -51,11 +51,18 @@ impl Repository {
         Ok(row)
     }
 
+    /// Record a liveness report from an already-enrolled guest agent.
+    ///
+    /// Returns whether there was an enabled association to record against. A
+    /// heartbeat is a report, not an enrolment: this used to `INSERT` a fully
+    /// enabled association — autonomous healing included — for any instance
+    /// that sent one, so possession of a credential silently granted a machine
+    /// the right to restart a node the operator had never switched on.
     pub fn record_hermes_heartbeat(
         &self,
         node_id: &str,
         agent_version: Option<&str>,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         crate::types::validate_node_id(node_id)?;
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -63,15 +70,13 @@ impl Repository {
             .as_secs() as i64;
         let connection = self.connection()?;
         let version = agent_version.unwrap_or("0.5.0");
-        connection.execute(
-            "INSERT INTO node_hermes_agents (node_id, enabled, autonomous_healing, last_heartbeat, agent_version)
-             VALUES (?1, 1, 1, ?2, ?3)
-             ON CONFLICT(node_id) DO UPDATE SET
-                last_heartbeat = excluded.last_heartbeat,
-                agent_version = excluded.agent_version",
+        let updated = connection.execute(
+            "UPDATE node_hermes_agents
+                SET last_heartbeat = ?2, agent_version = ?3
+              WHERE node_id = ?1 AND enabled = 1",
             params![node_id, now, version],
         )?;
-        Ok(())
+        Ok(updated > 0)
     }
 
     pub fn list_hermes_agents(&self) -> Result<Vec<HermesAgentAssociation>> {

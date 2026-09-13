@@ -13,7 +13,6 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::{
-    agents::HermesAgentAssociation,
     core::operations::{EventKind, EventSeverity, NewRuntimeEvent},
     wallet::TokenPermission,
     web::{api_tokens::AuthIdentity, WebState},
@@ -87,6 +86,34 @@ pub async fn mcp_endpoint(
         }
     };
 
+    // The guest agent is a per-instance feature the operator switches on, so an
+    // instance that has never had one — or has had it turned off — exposes no
+    // tool surface at all. Holding a credential is not the same as the operator
+    // having enabled the agent, and absence must read as off rather than as
+    // "not configured, so allow".
+    let association = state.workspace.load_hermes_agent(&node.id).ok().flatten();
+    if !association.as_ref().is_some_and(|a| a.enabled) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "jsonrpc": "2.0",
+                "id": req.id,
+                "error": {
+                    "code": -32002,
+                    "message": format!(
+                        "The guest agent is not enabled for instance {}. Enable it on the instance before its copilot can act.",
+                        node.name
+                    )
+                }
+            })),
+        )
+            .into_response();
+    }
+
+    // Everything a credential confined to this instance must not reach, even
+    // through a tool call it is otherwise entitled to make.
+    let confined = auth.is_some_and(|identity| identity.confined_to_node().is_some());
+
     match req.method.as_str() {
         "tools/list" => {
             let tools = json!([
@@ -139,14 +166,6 @@ pub async fn mcp_endpoint(
                     }
                 },
                 {
-                    "name": "take_snapshot",
-                    "description": "Create an automated point-in-time safety snapshot/backup before upgrades or dangerous operations",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {}
-                    }
-                },
-                {
                     "name": "smoke_test_node",
                     "description": "Execute SRE binary smoke sweep and health diagnostic checks against this node instance",
                     "inputSchema": {
@@ -169,10 +188,26 @@ pub async fn mcp_endpoint(
                     }
                 }
             ]);
+            let mut tools = match tools {
+                Value::Array(tools) => tools,
+                other => vec![other],
+            };
+            // `take_snapshot` writes a whole-workspace export — every instance's
+            // configuration, roles, wallet profiles and signer leases in one
+            // file. That is an operator action, not something one instance's
+            // copilot may trigger, so a confined credential is not offered it
+            // and is refused if it asks anyway.
+            if !confined {
+                tools.push(json!({
+                    "name": "take_snapshot",
+                    "description": "Create a point-in-time safety backup of the whole workspace before upgrades or dangerous operations",
+                    "inputSchema": { "type": "object", "properties": {} }
+                }));
+            }
             Json(json!({
                 "jsonrpc": "2.0",
                 "id": req.id,
-                "result": { "tools": tools }
+                "result": { "tools": Value::Array(tools) }
             }))
             .into_response()
         }
@@ -298,8 +333,12 @@ pub async fn mcp_endpoint(
                     .into_response()
                 }
                 "restart_node" => {
-                    let agent_assoc = state.workspace.load_hermes_agent(&node.id).ok().flatten();
-                    let can_heal = agent_assoc.is_none_or(|a| a.autonomous_healing);
+                    // Letting a machine restart a validator is a grant the
+                    // operator makes, so it has to be present to count. The
+                    // previous reading treated a missing association as consent.
+                    let can_heal = association
+                        .as_ref()
+                        .is_some_and(|assoc| assoc.autonomous_healing);
                     if !can_heal {
                         return (
                             StatusCode::FORBIDDEN,
@@ -450,6 +489,20 @@ pub async fn mcp_endpoint(
                     .into_response()
                 }
                 "take_snapshot" => {
+                    if confined {
+                        return (
+                            StatusCode::FORBIDDEN,
+                            Json(json!({
+                                "jsonrpc": "2.0",
+                                "id": req.id,
+                                "error": {
+                                    "code": -32003,
+                                    "message": "take_snapshot exports the whole workspace, including every other instance. A credential scoped to one instance cannot request it."
+                                }
+                            })),
+                        )
+                            .into_response();
+                    }
                     let backup_dir = state.workspace_child_dir("export").join("backup");
                     let outcome = state
                         .workspace
@@ -596,15 +649,26 @@ pub async fn agent_heartbeat(
         .commands
         .record_hermes_heartbeat(&id, payload.agent_version.as_deref())
     {
-        Ok(()) => {
+        Ok(true) => {
             let assoc = state.workspace.load_hermes_agent(&id).ok().flatten();
             Json(json!({
                 "status": "ok",
                 "node_id": id,
-                "autonomous_healing": assoc.is_none_or(|a| a.autonomous_healing),
+                // Reported, never assumed: an agent reads this to decide whether
+                // it is allowed to act on its own, so an absent grant has to
+                // come back as false.
+                "autonomous_healing": assoc.is_some_and(|a| a.autonomous_healing),
             }))
             .into_response()
         }
+        // A heartbeat is a report from an agent the operator enrolled. It is not
+        // itself an enrolment: accepting one for an instance with no association
+        // used to create that association with self-healing already switched on.
+        Ok(false) => (
+            StatusCode::FORBIDDEN,
+            format!("the guest agent is not enabled for instance {id}"),
+        )
+            .into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }
@@ -623,16 +687,28 @@ pub async fn agent_status(
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs() as i64;
-    let assoc = state
-        .workspace
-        .load_hermes_agent(&id)
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| HermesAgentAssociation::new(&id));
+    // An instance with no association is not enrolled. Standing in a default
+    // `HermesAgentAssociation` here answered `enabled: true` and
+    // `autonomous_healing: true` for exactly that case — an agent reads this to
+    // decide what it may do, so the unenrolled state has to be reported as
+    // itself rather than as a permissive default.
+    let Some(assoc) = state.workspace.load_hermes_agent(&id).ok().flatten() else {
+        return Json(json!({
+            "node_id": id,
+            "enrolled": false,
+            "enabled": false,
+            "autonomous_healing": false,
+            "agent_version": Value::Null,
+            "last_heartbeat_unix": Value::Null,
+            "is_alive": false,
+        }))
+        .into_response();
+    };
     let is_alive = assoc.is_alive(now);
 
     Json(json!({
         "node_id": assoc.node_id,
+        "enrolled": true,
         "enabled": assoc.enabled,
         "autonomous_healing": assoc.autonomous_healing,
         "agent_version": assoc.agent_version,
@@ -694,8 +770,11 @@ mod tests {
         );
         assert!(snippet.contains("neonexus_node_abc_123:"));
         assert!(snippet.contains("get_node_config"));
-        assert!(snippet.contains("take_snapshot"));
         assert!(snippet.contains("smoke_test_node"));
         assert!(snippet.contains("get_node_iac"));
+        // The snippet documents what this credential can do, and the endpoint
+        // refuses a whole-workspace export to it. Listing the tool as granted
+        // would send an operator looking for a capability that is not there.
+        assert!(snippet.contains("Deliberately NOT granted: take_snapshot"));
     }
 }

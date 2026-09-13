@@ -15,8 +15,8 @@ use tower_http::timeout::TimeoutLayer;
 
 use super::api_tokens::{api_permissions::RequiredPermission, require_permission, AuthIdentity};
 use super::{
-    api, control, health, pages, plugin_ops, public_api, signer_api, signer_control, snapshot_ops,
-    wallet_ops, WebState,
+    api, api_tokens, control, health, pages, plugin_ops, public_api, signer_api, signer_control,
+    snapshot_ops, wallet_ops, WebState,
 };
 use crate::signer_client::MAX_REQUEST_BODY_BYTES;
 
@@ -271,8 +271,13 @@ pub fn build_router(state: WebState) -> Router {
             })),
         )
         .route(
-            "/api/logs", // Alias for /logs GET
-            get(pages::logs::logs),
+            // Alias for /logs GET. It serves one instance's raw stdout/stderr
+            // selected by `?node=`, so it carries at least as much as
+            // /api/fleet and is gated the same way.
+            "/api/logs",
+            get(pages::logs::logs).route_layer(middleware::from_fn(|req: Request, next: Next| {
+                require_permission(req, next, RequiredPermission::ReadFleet)
+            })),
         )
         .route(
             "/api/nodes/{id}/iac",
@@ -342,9 +347,25 @@ async fn require_session(
             // The token authenticates the caller; per-route `require_permission`
             // layers then authorize the specific endpoint against its grants.
             if is_api {
-                request
-                    .extensions_mut()
-                    .insert(AuthIdentity::Token(Box::new(token)));
+                let identity = AuthIdentity::Token(Box::new(token));
+                // A token confined to one instance never leaves that instance's
+                // own namespace. Without this, "authenticated" was enough to
+                // reach any route that happened to carry no permission layer,
+                // so a guest agent issued to one node could read another node's
+                // logs. Deciding here rather than per route means the default
+                // for anything added later is denial.
+                if let Some(node_id) = identity.confined_to_node() {
+                    if !api_tokens::path_is_within_node_namespace(request.uri().path(), node_id) {
+                        return (
+                            StatusCode::FORBIDDEN,
+                            format!(
+                                "this credential is scoped to instance {node_id} and may only address /api/nodes/{node_id}/*"
+                            ),
+                        )
+                            .into_response();
+                    }
+                }
+                request.extensions_mut().insert(identity);
                 return next.run(request).await;
             }
             // Browser routes stay session-only so their CSRF-origin proof holds.

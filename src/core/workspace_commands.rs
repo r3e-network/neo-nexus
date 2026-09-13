@@ -189,11 +189,13 @@ impl WorkspaceCommands {
         self.repository.save_hermes_agent(assoc)
     }
 
+    /// Record a liveness report from an enrolled guest agent. `false` means the
+    /// instance has no enabled association, so nothing was recorded.
     pub fn record_hermes_heartbeat(
         &self,
         node_id: &str,
         agent_version: Option<&str>,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         self.repository
             .record_hermes_heartbeat(node_id, agent_version)
     }

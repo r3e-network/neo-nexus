@@ -49,12 +49,18 @@ pub async fn toggle_hermes_healing(
     State(state): State<WebState>,
     Path(id): Path<String>,
 ) -> Response {
-    let mut assoc = state
-        .workspace
-        .load_hermes_agent(&id)
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| crate::agents::HermesAgentAssociation::new(&id));
+    // Toggling this on an instance with no agent used to enrol it as a side
+    // effect, which is not what the control says it does.
+    let Some(mut assoc) = state.workspace.load_hermes_agent(&id).ok().flatten() else {
+        return Redirect::to(&format!(
+            "/nodes/{}?flash={}",
+            html::urlencoding_lite(&id),
+            html::urlencoding_lite(
+                "Enable the guest agent for this instance before granting it autonomous healing."
+            ),
+        ))
+        .into_response();
+    };
     assoc.autonomous_healing = !assoc.autonomous_healing;
     let label = if assoc.autonomous_healing {
         "enabled"
@@ -93,9 +99,20 @@ pub async fn test_hermes_ping(State(state): State<WebState>, Path(id): Path<Stri
         .commands
         .record_hermes_heartbeat(&id, Some("0.5.0-copilot"))
     {
-        Ok(()) => Redirect::to(&format!(
+        Ok(true) => Redirect::to(&format!(
             "/nodes/{}?flash=Hermes%20guest%20heartbeat%20ping%20recorded",
             html::urlencoding_lite(&id),
+        ))
+        .into_response(),
+        // The button is only shown for an enrolled instance, so reaching here
+        // means the association was removed or disabled since the page loaded.
+        // Say that rather than reporting a ping that was not recorded.
+        Ok(false) => Redirect::to(&format!(
+            "/nodes/{}?flash={}",
+            html::urlencoding_lite(&id),
+            html::urlencoding_lite(
+                "No heartbeat recorded: the guest agent is not enabled for this instance."
+            ),
         ))
         .into_response(),
         Err(e) => Redirect::to(&format!(
@@ -127,6 +144,22 @@ pub async fn provision_hermes_token(
         .create_api_token(&token_name, permissions, None)
     {
         Ok((_token, secret)) => {
+            // Issuing an instance's credential is the act of enrolling its
+            // agent, so enrol it here rather than minting a credential that
+            // every tool call would then refuse. Autonomous healing stays off:
+            // letting a machine restart a node on its own is a separate, louder
+            // decision, and the instance page has its own control for it.
+            if state
+                .workspace
+                .load_hermes_agent(&node.id)
+                .ok()
+                .flatten()
+                .is_none()
+            {
+                let mut association = crate::agents::HermesAgentAssociation::new(&node.id);
+                association.autonomous_healing = false;
+                let _ = state.commands.save_hermes_agent(&association);
+            }
             let _ = state
                 .commands
                 .record_event(crate::core::operations::NewRuntimeEvent {
@@ -177,7 +210,7 @@ fn render_detail(state: &WebState, id: &str, new_token: Option<&str>) -> anyhow:
         .load_hermes_agent(&node.id)
         .ok()
         .flatten()
-        .unwrap_or_else(|| crate::agents::HermesAgentAssociation::new(&node.id));
+        .unwrap_or_else(|| crate::agents::HermesAgentAssociation::unenrolled(&node.id));
     let role = state.workspace.load_node_role(&node.id).ok().flatten();
 
     let summary = super::detail_tabs::summary_banner(node, role, signer.as_ref());
@@ -317,17 +350,24 @@ pub(crate) fn hermes_agent_card(
         .load_hermes_agent(&node.id)
         .ok()
         .flatten()
-        .unwrap_or_else(|| crate::agents::HermesAgentAssociation::new(&node.id));
+        .unwrap_or_else(|| crate::agents::HermesAgentAssociation::unenrolled(&node.id));
 
     let is_alive = assoc.is_alive(now);
     let status_badge = if is_alive {
         r#"<span class="badge running">🟢 Hermes Guest Agent Active</span>"#
+    } else if !assoc.is_enrolled() {
+        r#"<span class="badge stopped">⚪ No Guest Agent — provision a scoped token to enrol this instance</span>"#
+    } else if !assoc.enabled {
+        r#"<span class="badge stopped">⚪ Guest Agent Disabled</span>"#
     } else if assoc.last_heartbeat_unix.is_some() {
         r#"<span class="badge stopped">🟡 Hermes Stale (Last ping > 2m ago)</span>"#
     } else {
         r#"<span class="badge stopped">⚪ Hermes Ready to Connect</span>"#
     };
 
+    // Never green for an instance the workspace holds no grant for: the MCP
+    // endpoint refuses an autonomous restart in exactly that case, and the badge
+    // has to agree with it.
     let healing_badge = if assoc.autonomous_healing {
         r#"<span class="badge running">Autonomous Self-Healing: Active</span>"#
     } else {
