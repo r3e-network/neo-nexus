@@ -17,7 +17,6 @@ use crate::{
         runtime::{RuntimeCatalogProfile, RuntimePackageManager, RuntimePlatform, RuntimeRelease},
     },
     events::{EventKind, EventSeverity, NewRuntimeEvent},
-    repository::Repository,
 };
 
 use super::WebState;
@@ -44,7 +43,7 @@ impl Staged {
 /// the profile's own source.
 pub fn stage(state: &WebState, profile_id: &str, release_id: &str) -> anyhow::Result<Staged> {
     let profile = state
-        .repository
+        .workspace
         .list_runtime_catalog_profiles()?
         .into_iter()
         .find(|profile| profile.id == profile_id)
@@ -62,7 +61,7 @@ pub fn stage(state: &WebState, profile_id: &str, release_id: &str) -> anyhow::Re
         .cloned()
         .ok_or_else(|| anyhow::anyhow!("release {release_id} is not in that catalogue"))?;
     let _ = state
-        .repository
+        .commands
         .mark_runtime_catalog_profile_loaded(&profile.id, &load);
     Ok(Staged { profile, release })
 }
@@ -79,7 +78,7 @@ fn apply(state: &WebState, staged: &Staged) -> anyhow::Result<String> {
             host = RuntimePlatform::current(),
         );
     }
-    if already_installed(&state.repository, release)? {
+    if already_installed(&state.workspace, release)? {
         anyhow::bail!(
             "{} {} for {} is already installed",
             release.node_type,
@@ -110,9 +109,7 @@ fn apply(state: &WebState, staged: &Staged) -> anyhow::Result<String> {
     let installation =
         RuntimePackageManager::install(&manifest, state.workspace_child_dir("runtimes"))
             .map_err(|error| anyhow::anyhow!("install failed: {error}"))?;
-    state
-        .repository
-        .upsert_runtime_installation(&installation)?;
+    state.commands.upsert_runtime_installation(&installation)?;
     record(
         state,
         EventKind::RuntimeInstalled,
@@ -138,8 +135,11 @@ fn apply(state: &WebState, staged: &Staged) -> anyhow::Result<String> {
     ))
 }
 
-fn already_installed(repository: &Repository, release: &RuntimeRelease) -> anyhow::Result<bool> {
-    Ok(repository
+fn already_installed(
+    workspace: &crate::core::workspace_queries::WorkspaceQueries,
+    release: &RuntimeRelease,
+) -> anyhow::Result<bool> {
+    Ok(workspace
         .list_runtime_installations()?
         .into_iter()
         .any(|existing| {
@@ -197,7 +197,7 @@ pub fn review_lines(staged: &Staged) -> Vec<(&'static str, String)> {
 fn record(state: &WebState, kind: EventKind, severity: EventSeverity, message: String) {
     // The install already happened; failing to journal it must not be reported
     // as if the install itself had failed.
-    let _ = state.repository.record_event(NewRuntimeEvent {
+    let _ = state.commands.record_event(NewRuntimeEvent {
         node_id: None,
         node_name: None,
         kind,

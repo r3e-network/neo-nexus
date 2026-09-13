@@ -25,8 +25,8 @@ use axum::{
 use crate::{
     catalog::PluginId,
     events::{EventKind, EventSeverity, NewRuntimeEvent},
-    plugins::{PluginPackageManager, PluginPackageManifest},
-    types::{node_workspace_path, NodeConfig, NodeType},
+    plugins::{ensure_plugin_installable, PluginPackageManager, PluginPackageManifest},
+    types::{node_workspace_path, NodeConfig},
 };
 
 use super::{html, WebState};
@@ -55,9 +55,6 @@ const MAX_PACKAGE_BYTES: u64 = crate::plugins::PLUGIN_PACKAGE_MAX_BYTES;
 /// `PluginPackageManager::install` inside the job.
 pub async fn install_plugin(State(state): State<WebState>, mut multipart: Multipart) -> Response {
     let upload_dir = state.workspace_child_dir(UPLOAD_DIR);
-    if let Err(error) = fs::create_dir_all(&upload_dir) {
-        return redirect_back("", &format!("failed: could not prepare uploads: {error}"));
-    }
     let temp_path = upload_dir.join(format!("plugin-{}.zip", uuid::Uuid::new_v4().simple()));
 
     let mut node_id = String::new();
@@ -77,12 +74,19 @@ pub async fn install_plugin(State(state): State<WebState>, mut multipart: Multip
         };
         match field.name() {
             Some("node_id") => {
+                if !node_id.is_empty() {
+                    let _ = fs::remove_file(&temp_path);
+                    return redirect_back(&node_id, "failed: submit exactly one target node");
+                }
                 node_id = match field.text().await {
                     Ok(value) => value.trim().to_string(),
                     Err(error) => {
                         let _ = fs::remove_file(&temp_path);
                         return redirect_back(&node_id, &format!("failed: {error}"));
                     }
+                };
+                if let Err(error) = load_install_node(&state, &node_id) {
+                    return redirect_back(&node_id, &format!("failed: {error}"));
                 }
             }
             Some("plugin_id") => {
@@ -113,6 +117,19 @@ pub async fn install_plugin(State(state): State<WebState>, mut multipart: Multip
                 }
             }
             Some("package") => {
+                if received_package {
+                    let _ = fs::remove_file(&temp_path);
+                    return redirect_back(&node_id, "failed: submit exactly one plugin package");
+                }
+                if let Err(error) = load_install_node(&state, &node_id) {
+                    return redirect_back(&node_id, &format!("failed: {error}"));
+                }
+                if let Err(error) = fs::create_dir_all(&upload_dir) {
+                    return redirect_back(
+                        &node_id,
+                        &format!("failed: could not prepare uploads: {error}"),
+                    );
+                }
                 received_package = true;
                 if let Err(error) = stream_to_file(field, &temp_path).await {
                     let _ = fs::remove_file(&temp_path);
@@ -211,28 +228,13 @@ fn prepare_install(
     received_package: bool,
     temp_path: &Path,
 ) -> anyhow::Result<(NodeConfig, PluginPackageManifest)> {
-    if node_id.is_empty() {
-        anyhow::bail!("a node is required");
-    }
+    let node = load_install_node(state, node_id)?;
     if !received_package {
         anyhow::bail!("a .zip plugin package is required");
     }
     let plugin_id: PluginId = plugin_id_raw
         .parse()
         .map_err(|_| anyhow::anyhow!("{plugin_id_raw} is not a plugin"))?;
-
-    let node = state
-        .repository
-        .list_nodes()?
-        .into_iter()
-        .find(|node| node.id == node_id)
-        .ok_or_else(|| anyhow::anyhow!("node {node_id} was not found"))?;
-    if node.node_type != NodeType::NeoCli {
-        anyhow::bail!("plugin packages are supported for neo-cli nodes only");
-    }
-    if node.status.is_active() || node.pid.is_some() {
-        anyhow::bail!("stop and settle {} before installing a plugin", node.name);
-    }
 
     let manifest = PluginPackageManifest {
         plugin_id,
@@ -241,6 +243,22 @@ fn prepare_install(
         expected_sha256,
     };
     Ok((node, manifest))
+}
+
+fn load_install_node(state: &WebState, node_id: &str) -> anyhow::Result<NodeConfig> {
+    if node_id.is_empty() {
+        anyhow::bail!(
+            "a node is required before the package field; select a target node before uploading"
+        );
+    }
+    let node = state
+        .workspace
+        .list_nodes()?
+        .into_iter()
+        .find(|node| node.id == node_id)
+        .ok_or_else(|| anyhow::anyhow!("node {node_id} was not found"))?;
+    ensure_plugin_installable(&node)?;
+    Ok(node)
 }
 
 /// The job body: verify and install the package, persist the installation, then
@@ -254,16 +272,17 @@ fn install_plugin_job(
     temp_path: &Path,
 ) -> Result<String, String> {
     let outcome = (|| -> anyhow::Result<String> {
-        let installation = PluginPackageManager::install(manifest, node, node_work_dir)
+        let node = load_install_node(state, &node.id)?;
+        let installation = PluginPackageManager::install(manifest, &node, node_work_dir)
             .map_err(|error| anyhow::anyhow!("install failed: {error}"))?;
-        state.repository.upsert_plugin_installation(&installation)?;
+        state.commands.upsert_plugin_installation(&installation)?;
         let message = format!(
-            "installed {} ({}) on {} — {} files",
+            "installed {} ({}) on {} — {} files; package written, not confirmed loaded. Save the required launch configuration and start the node to apply it.",
             installation.plugin_id, manifest.label, node.name, installation.installed_files
         );
         // The install already happened; a journal failure must not be reported
         // as if the install itself had failed.
-        let _ = state.repository.record_event(NewRuntimeEvent {
+        let _ = state.commands.record_event(NewRuntimeEvent {
             node_id: Some(node.id.clone()),
             node_name: Some(node.name.clone()),
             kind: EventKind::PluginInstalled,

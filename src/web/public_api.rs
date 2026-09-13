@@ -3,6 +3,7 @@
 //! Only aggregate node state is public. Node identities, runtime versions,
 //! host/process metrics and per-node health stay behind the operator session.
 
+use log::error;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::{
@@ -37,7 +38,7 @@ struct PublicStatus {
 
 pub async fn status(State(state): State<WebState>) -> Response {
     let payload = (|| -> anyhow::Result<PublicStatusEnvelope> {
-        let nodes = state.repository.list_nodes()?;
+        let nodes = state.workspace.list_nodes()?;
         Ok(PublicStatusEnvelope {
             status: PublicStatus {
                 total_nodes: nodes.len(),
@@ -53,7 +54,7 @@ pub async fn status(State(state): State<WebState>) -> Response {
     match payload {
         Ok(payload) => Json(payload).into_response(),
         Err(error) => {
-            eprintln!("NeoNexus public status failed: {error:#}");
+            error!("NeoNexus public status failed: {error:#}");
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(serde_json::json!({ "error": "Internal server error" })),

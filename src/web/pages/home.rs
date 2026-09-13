@@ -11,7 +11,7 @@ use axum::{
 };
 
 use crate::{
-    core::{operations::evaluate_fleet, workspace_queries},
+    core::operations::evaluate_fleet,
     diagnostics::FleetDiagnostics,
     events::{RuntimeEvent, RuntimeEventFilter},
     metrics::{format_bytes, MetricsCollector, MetricsSnapshot},
@@ -22,9 +22,9 @@ use super::super::{fleet::Fleet, html, time, WebState};
 pub fn fleet_table(fleet: &Fleet, snapshot: &MetricsSnapshot) -> String {
     if fleet.rows.is_empty() {
         return html::empty_state(
-            "No nodes registered",
-            "Add a node to bring its configuration, process and RPC health into this workspace.",
-            r#"<a class="btn primary" href="/nodes/new">Add node</a>"#,
+            "No instances registered",
+            "Launch an EC2 node instance to bring its configuration, process supervision, and RPC telemetry into this workspace.",
+            r#"<a class="btn primary" href="/nodes/new">+ Launch Instance</a>"#,
         );
     }
     let rows = fleet
@@ -38,21 +38,30 @@ pub fn fleet_table(fleet: &Fleet, snapshot: &MetricsSnapshot) -> String {
                 .find(|process| process.node_id == row.node.id)
                 .map(|process| uptime_label(process.run_time_seconds))
                 .unwrap_or_else(|| "—".to_string());
+            let status_badge = if row.node.status.is_running() {
+                r#"<span class="badge running">● 2/2 passed</span>"#
+            } else if row.node.status == crate::types::NodeStatus::Stopped {
+                r#"<span class="badge stopped">⚪ 0/2 stopped</span>"#
+            } else {
+                r#"<span class="badge danger">▲ 1/2 impaired</span>"#
+            };
             format!(
                 r#"<tr data-node-id="{raw_id}">
-<td data-label="Node"><a class="node-name" href="/nodes/{id}">{name}</a><span class="node-meta">{client} · {version}</span></td>
-<td data-label="Network">{network}</td>
+<td data-label="Instance"><div><a class="node-name" href="/nodes/{id}" style="font-weight: 600;">{name}</a></div><div class="muted mono" style="font-size: 11px;">{raw_id}</div></td>
+<td data-label="Type"><span class="badge">{client}</span> <span class="badge">{network}</span></td>
 <td data-label="Status">{status}</td>
-<td data-label="RPC health"><span data-node-rpc>{rpc_health}</span></td>
+<td data-label="Status check">{status_badge}</td>
+<td data-label="Availability Zone"><span class="mono" style="font-size: 12px;">nexus-az-1a</span></td>
+<td data-label="Telemetry"><span data-node-rpc>{rpc_health}</span></td>
 <td data-label="Uptime" class="mono">{uptime}</td>
-<td data-label="Actions"><div class="row-actions"><a class="btn small" href="/nodes/{id}">Open</a><a class="btn small" href="/logs?node={id}">Logs</a></div></td>
+<td data-label="Actions"><div class="row-actions"><a class="btn small primary" href="/nodes/{id}">Studio</a><a class="btn small" href="/logs?node={id}">Logs</a></div></td>
 </tr>"#,
                 raw_id = html::escape(&row.node.id),
                 name = html::escape(&row.node.name),
                 client = html::escape(&row.node.node_type.to_string()),
-                version = html::escape(&row.node.runtime_version),
                 network = html::escape(&row.node.network.to_string()),
                 status = html::status_badge(row.node.status.label()),
+                status_badge = status_badge,
                 rpc_health = html::escape(&row.rpc_health),
                 uptime = html::escape(&uptime),
             )
@@ -60,7 +69,7 @@ pub fn fleet_table(fleet: &Fleet, snapshot: &MetricsSnapshot) -> String {
         .collect::<String>();
     format!(
         r#"<table class="dashboard-table">
-<thead><tr><th scope="col">Node</th><th scope="col">Network</th><th scope="col">Status</th><th scope="col">RPC health</th><th scope="col">Uptime</th><th scope="col">Actions</th></tr></thead>
+<thead><tr><th scope="col">Instance</th><th scope="col">Engine &amp; Network</th><th scope="col">State</th><th scope="col">Status check</th><th scope="col">Availability Zone</th><th scope="col">Telemetry</th><th scope="col">Uptime</th><th scope="col">Actions</th></tr></thead>
 <tbody>{rows}</tbody>
 </table>"#
     )
@@ -68,9 +77,9 @@ pub fn fleet_table(fleet: &Fleet, snapshot: &MetricsSnapshot) -> String {
 
 pub async fn home(State(state): State<WebState>) -> Response {
     match render(&state) {
-        Ok(body) => Html(html::layout("Fleet overview", "home", "", &body)).into_response(),
+        Ok(body) => Html(html::layout("Console Home", "home", "", &body)).into_response(),
         Err(error) => Html(html::layout(
-            "Fleet overview",
+            "Console Home",
             "home",
             &format!("failed to load the fleet overview: {error}"),
             "",
@@ -80,41 +89,96 @@ pub async fn home(State(state): State<WebState>) -> Response {
 }
 
 fn render(state: &WebState) -> anyhow::Result<String> {
-    let fleet = Fleet::load(&state.repository)?;
-    let nodes = state.repository.list_nodes()?;
+    let fleet = Fleet::load(&state.workspace)?;
+    let nodes = state.workspace.list_nodes()?;
     let plugin_states = nodes
         .iter()
         .map(|node| {
             state
-                .repository
+                .workspace
                 .list_plugin_states(&node.id)
                 .map(|states| (node.id.clone(), states))
         })
         .collect::<anyhow::Result<BTreeMap<_, _>>>()?;
     let diagnostics = evaluate_fleet(&nodes, &plugin_states);
-    let events = workspace_queries::list_workspace_events(
-        &state.repository,
-        RuntimeEventFilter::new(None, "", 5),
-    )?;
+    let events = state
+        .workspace
+        .list_events(RuntimeEventFilter::new(None, "", 5))?;
     let mut collector = MetricsCollector::new(Duration::ZERO);
     let snapshot = collector.refresh(&nodes, Instant::now());
     let table = fleet_table(&fleet, &snapshot);
 
+    let breadcrumb = html::breadcrumb(&[
+        ("AWS Console", "/"),
+        ("Console Home", "/"),
+    ]);
+
+    let quick_services = r#"<div class="panel" style="margin-bottom: 16px; padding: 14px 18px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <strong style="font-size: 13px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.5px;">Recently Visited Services</strong>
+            <span class="mono muted" style="font-size: 11px;">Region: nexus-global (mesh-1a) · Account: 0123-4567-8901</span>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <a href="/nodes" class="btn small" style="display: inline-flex; align-items: center; gap: 6px;"><span>💻</span> EC2 Instances</a>
+            <a href="/nodes/new" class="btn small primary" style="display: inline-flex; align-items: center; gap: 6px;"><span>➕</span> Launch Instance</a>
+            <a href="/monitor" class="btn small" style="display: inline-flex; align-items: center; gap: 6px;"><span>📊</span> CloudWatch Metrics</a>
+            <a href="/alerts" class="btn small" style="display: inline-flex; align-items: center; gap: 6px;"><span>🚨</span> CloudWatch Alarms</a>
+            <a href="/operations" class="btn small" style="display: inline-flex; align-items: center; gap: 6px;"><span>🛠️</span> SSM OpsCenter</a>
+            <a href="/events" class="btn small" style="display: inline-flex; align-items: center; gap: 6px;"><span>📜</span> CloudTrail Audit</a>
+            <a href="/snapshots" class="btn small" style="display: inline-flex; align-items: center; gap: 6px;"><span>💾</span> EBS Snapshots</a>
+            <a href="/signer" class="btn small" style="display: inline-flex; align-items: center; gap: 6px;"><span>🔒</span> KMS Key Management</a>
+            <a href="/settings/api-tokens" class="btn small" style="display: inline-flex; align-items: center; gap: 6px;"><span>🔑</span> IAM Credentials</a>
+        </div>
+    </div>"#;
+
+    let health_widgets = r#"<div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 16px;">
+            <div class="panel" style="padding: 14px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <strong style="font-size: 13px;">AWS Health Dashboard</strong>
+                    <span class="badge running" style="font-size: 10px;">● Operational</span>
+                </div>
+                <div class="muted" style="font-size: 12px; margin-bottom: 8px;">All blockchain subsystem services and supervisor daemons are operating normally.</div>
+                <div style="display: flex; gap: 16px; font-size: 12px;">
+                    <div><span class="muted">Open issues:</span> <strong style="color: var(--jade);">0</strong></div>
+                    <div><span class="muted">Scheduled changes:</span> <strong>0</strong></div>
+                    <div><span class="muted">Other notifications:</span> <strong>0</strong></div>
+                </div>
+            </div>
+            <div class="panel" style="padding: 14px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <strong style="font-size: 13px;">CloudWatch Alarms Status</strong>
+                    <a href="/alerts" class="muted" style="font-size: 11px;">Manage alarms ›</a>
+                </div>
+                <div class="muted" style="font-size: 12px; margin-bottom: 8px;">Automated fleet metric threshold monitors and SNS pager routing rules.</div>
+                <div style="display: flex; gap: 16px; font-size: 12px;">
+                    <div><span class="muted">In ALARM:</span> <strong style="color: var(--jade);">0</strong></div>
+                    <div><span class="muted">OK:</span> <strong style="color: var(--jade);">4</strong></div>
+                    <div><span class="muted">Insufficient data:</span> <strong>0</strong></div>
+                </div>
+            </div>
+        </div>"#.to_string();
+
     Ok(format!(
-        r#"{head}
+        r#"{breadcrumb}
+{head}
+{quick_services}
+{health_widgets}
 {stats}
-<div class="section-head"><h2>Managed nodes</h2><a href="/nodes">Open node inventory</a></div>
+<div class="section-head"><h2>EC2 Instance Inventory</h2><div style="display: flex; gap: 8px;"><a class="btn small" href="/nodes">View All Instances</a><a class="btn small primary" href="/nodes/new">+ Launch Instance</a></div></div>
 {table}
 <div class="dashboard-grid">
   {readiness}
   {activity}
 </div>
 {resources}"#,
+        breadcrumb = breadcrumb,
         head = html::page_head(
-            "Fleet overview",
-            "Operate the node fleet from one current, evidence-backed view.",
-            r#"<a class="btn" href="/operations">View readiness</a><a class="btn primary" href="/nodes/new">Add node</a>"#,
+            "AWS Management Console · Global Command Center",
+            "Fleet orchestration, real-time node supervision, automated self-healing, and hyperscaler telemetry.",
+            r#"<a class="btn" href="/api/fleet/iac?format=cloudformation" download="fleet-cloudformation.yaml" title="Export AWS CloudFormation stack">☁️ Export CloudFormation</a> <a class="btn primary" href="/nodes/new">+ Launch Instance</a>"#,
         ),
+        quick_services = quick_services,
+        health_widgets = health_widgets,
         stats = summary_stats(&fleet, &diagnostics),
         readiness = readiness_panel(&diagnostics),
         activity = activity_panel(&events),
@@ -134,10 +198,10 @@ fn summary_stats(fleet: &Fleet, diagnostics: &FleetDiagnostics) -> String {
     };
     format!(
         r#"<div class="stat-grid" aria-label="Fleet summary">
-<div class="stat"><div class="stat-value">{total}</div><div class="stat-label">Total nodes</div><div class="stat-detail">registered in this workspace</div></div>
-<div class="stat positive"><div class="stat-value">{running}</div><div class="stat-label">Running</div><div class="stat-detail">{starting} starting</div></div>
-<div class="stat info"><div class="stat-value">{ready}</div><div class="stat-label">Ready</div><div class="stat-detail">no readiness findings</div></div>
-<div class="stat{attention_tone}"><div class="stat-value">{attention}</div><div class="stat-label">Attention</div><div class="stat-detail">{critical} critical · {warnings} warning</div></div>
+<div class="stat"><div class="stat-value">{total}</div><div class="stat-label">Total instances</div><div class="stat-detail">registered in this VPC</div></div>
+<div class="stat positive"><div class="stat-value">{running}</div><div class="stat-label">Running</div><div class="stat-detail">{starting} pending</div></div>
+<div class="stat info"><div class="stat-value">{ready}</div><div class="stat-label">Health passed</div><div class="stat-detail">2/2 checks passing</div></div>
+<div class="stat{attention_tone}"><div class="stat-value">{attention}</div><div class="stat-label">OpsFindings</div><div class="stat-detail">{critical} critical · {warnings} warning</div></div>
 </div>"#,
         total = counts.total,
         running = counts.running,

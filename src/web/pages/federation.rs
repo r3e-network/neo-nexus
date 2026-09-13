@@ -45,7 +45,7 @@ pub async fn federation(
 }
 
 fn render_body(state: &WebState, params: &FederationQuery) -> anyhow::Result<String> {
-    let profiles = state.repository.list_remote_servers()?;
+    let profiles = state.workspace.list_remote_servers()?;
     let filter = RemoteServerProfileFilter::new(tri_state(&params.enabled), params.q.trim());
     let visible = filter_remote_server_profiles(&profiles, &filter);
     Ok(format!(
@@ -101,7 +101,7 @@ fn count_status(
 ) -> anyhow::Result<String> {
     let mut matching = 0;
     for profile in profiles {
-        if let Some(probe) = state.repository.latest_remote_server_probe(&profile.id)? {
+        if let Some(probe) = state.workspace.latest_remote_server_probe(&profile.id)? {
             if probe.status == wanted {
                 matching += 1;
             }
@@ -118,7 +118,7 @@ fn profile_table(state: &WebState, profiles: &[RemoteServerProfile]) -> anyhow::
     }
     let mut rows = Vec::new();
     for profile in profiles {
-        let probe = state.repository.latest_remote_server_probe(&profile.id)?;
+        let probe = state.workspace.latest_remote_server_probe(&profile.id)?;
         rows.push(html::row(&[
             html::cell(&profile.name),
             html::cell(&profile.base_url),
@@ -184,13 +184,13 @@ fn toggle_form(profile: &RemoteServerProfile) -> String {
 pub async fn toggle(State(state): State<WebState>, Path(id): Path<String>) -> Response {
     let outcome = (|| -> anyhow::Result<String> {
         let profile = state
-            .repository
+            .workspace
             .list_remote_servers()?
             .into_iter()
             .find(|profile| profile.id == id)
             .ok_or_else(|| anyhow::anyhow!("federation server {id} was not found"))?;
         let updated = state
-            .repository
+            .commands
             .set_remote_server_enabled(&profile.id, !profile.enabled)?;
         Ok(format!(
             "{} {}",
@@ -217,7 +217,7 @@ pub async fn toggle(State(state): State<WebState>, Path(id): Path<String>) -> Re
 pub async fn probes(State(state): State<WebState>, Path(id): Path<String>) -> Response {
     let body = (|| -> anyhow::Result<String> {
         let profile = state
-            .repository
+            .workspace
             .list_remote_servers()?
             .into_iter()
             .find(|profile| profile.id == id);
@@ -227,7 +227,7 @@ pub async fn probes(State(state): State<WebState>, Path(id): Path<String>) -> Re
             )));
         };
         let history = state
-            .repository
+            .workspace
             .list_remote_server_probes(&profile.id, PROBE_WINDOW)?;
         let rows = history
             .iter()

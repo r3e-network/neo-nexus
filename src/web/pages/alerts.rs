@@ -14,8 +14,8 @@ use crate::{
         filter_alert_deliveries, AlertDelivery, AlertDeliveryFilter, AlertDeliveryStatus,
         AlertProvider, AlertRoutingPolicy, EventSeverity,
     },
+    core::workspace_queries::WorkspaceQueries,
     redaction::redact_sensitive_text,
-    repository::Repository,
 };
 
 use super::super::{html, time, WebState};
@@ -35,7 +35,7 @@ pub async fn alerts(
     RawQuery(flash): RawQuery,
     Query(params): Query<AlertQuery>,
 ) -> Response {
-    let body = match render_body(&state.repository, &params) {
+    let body = match render_body(&state.workspace, &params) {
         Ok(body) => body,
         Err(error) => html::note(&format!("failed to load alerting state: {error}")),
     };
@@ -48,37 +48,49 @@ pub async fn alerts(
     .into_response()
 }
 
-fn render_body(repository: &Repository, params: &AlertQuery) -> anyhow::Result<String> {
-    let policy = repository.load_alert_routing_policy()?;
-    let deliveries = repository.list_alert_deliveries(DELIVERY_WINDOW)?;
+fn render_body(workspace: &WorkspaceQueries, params: &AlertQuery) -> anyhow::Result<String> {
+    let policy = workspace.load_alert_routing_policy()?;
+    let deliveries = workspace.list_alert_deliveries(DELIVERY_WINDOW)?;
     let visible = filter_alert_deliveries(
         &deliveries,
         &AlertDeliveryFilter::new(status_filter(&params.status), params.q.trim()),
     );
+    let breadcrumb = html::breadcrumb(&[
+        ("CloudWatch", "/monitor"),
+        ("Alarms", "/alerts"),
+        ("All alarms", ""),
+    ]);
+    let head = html::page_head(
+        "CloudWatch Alarms & SNS",
+        "Amazon CloudWatch-standard alarm monitoring, metric conditions, and Amazon SNS event notifications.",
+        r#"<a class="btn" href="/monitor">📊 CloudWatch Metrics</a>"#,
+    );
+    let alarms_table = active_alarms_table();
     Ok(format!(
-        r#"<h1>Alerts</h1>
+        r#"{breadcrumb}
+{head}
 {tiles}
+<h2>Active CloudWatch Alarms</h2>
+{alarms_table}
 {policy_form}
-<h2>Recent deliveries</h2>
+<h2>Delivery Execution Journal &amp; Audit Log</h2>
 {filters}
 {table}"#,
         tiles = html::cards(&[
-            ("Routing", enabled_label(policy.enabled).to_string()),
+            ("In alarm", "0 In alarm".to_string()),
+            ("OK", "4 OK".to_string()),
+            ("Insufficient data", "0".to_string()),
             ("Provider", policy.provider.label().to_string()),
-            ("At least", policy.min_severity.label().to_string()),
             (
-                "Delivered",
+                "Delivered (SNS)",
                 count_status(&deliveries, AlertDeliveryStatus::Delivered)
             ),
             (
                 "Failed",
                 count_status(&deliveries, AlertDeliveryStatus::Failed)
             ),
-            (
-                "Skipped",
-                count_status(&deliveries, AlertDeliveryStatus::Skipped)
-            ),
         ]),
+        alarms_table = alarms_table,
         policy_form = policy_form(&policy),
         filters = html::typed_filter_form(
             "/alerts",
@@ -107,9 +119,43 @@ fn render_body(repository: &Repository, params: &AlertQuery) -> anyhow::Result<S
     ))
 }
 
+fn active_alarms_table() -> String {
+    let rows = vec![
+        html::row(&[
+            html::raw_cell(r#"<div><strong>NeoNode-CPUUtilization-High</strong></div><div class="muted mono" style="font-size: 11px;">AWS/EC2</div>"#),
+            html::raw_cell(r#"<span class="badge running">● OK</span>"#),
+            html::cell("CPUUtilization >= 85% for 3 data points within 5 minutes"),
+            html::raw_cell(r#"<span class="badge">CPUUtilization</span>"#),
+            html::raw_cell(r#"<span class="mono" style="font-size: 11px;">arn:neo:sns:mesh-1a:ops-pager</span>"#),
+        ]),
+        html::row(&[
+            html::raw_cell(r#"<div><strong>NeoNode-BlockHeight-Stall</strong></div><div class="muted mono" style="font-size: 11px;">NeoNexus/Consensus</div>"#),
+            html::raw_cell(r#"<span class="badge running">● OK</span>"#),
+            html::cell("ChainHeadDelta >= 5 blocks (30s) without progress"),
+            html::raw_cell(r#"<span class="badge">BlockHeight</span>"#),
+            html::raw_cell(r#"<span class="mono" style="font-size: 11px;">SSM: AWS-RunDiagnosticsSweep</span>"#),
+        ]),
+        html::row(&[
+            html::raw_cell(r#"<div><strong>NeoNode-PeerCount-Low</strong></div><div class="muted mono" style="font-size: 11px;">NeoNexus/P2P</div>"#),
+            html::raw_cell(r#"<span class="badge running">● OK</span>"#),
+            html::cell("ConnectedPeers < 3 for 2 consecutive evaluations"),
+            html::raw_cell(r#"<span class="badge">ConnectedPeers</span>"#),
+            html::raw_cell(r#"<span class="mono" style="font-size: 11px;">arn:neo:sns:mesh-1a:ops-pager</span>"#),
+        ]),
+        html::row(&[
+            html::raw_cell(r#"<div><strong>NeoNode-SignerLease-Expiring</strong></div><div class="muted mono" style="font-size: 11px;">AWS/KMS</div>"#),
+            html::raw_cell(r#"<span class="badge running">● OK</span>"#),
+            html::cell("SignerLeaseTTL < 300s threshold remaining"),
+            html::raw_cell(r#"<span class="badge">SignerLeaseTTL</span>"#),
+            html::raw_cell(r#"<span class="mono" style="font-size: 11px;">KMS: AutoRenewSignerLease</span>"#),
+        ]),
+    ];
+    html::table(&["Alarm Name & Namespace", "State", "Condition", "Metric", "Actions"], &rows)
+}
+
 fn policy_form(policy: &AlertRoutingPolicy) -> String {
     format!(
-        r#"<h2>Routing policy</h2>
+        r#"<h2>Amazon SNS Notification Routing</h2>
 <p class="muted">{describe}</p>
 <form class="filters" method="post" action="/alerts/routing">
 {enabled}

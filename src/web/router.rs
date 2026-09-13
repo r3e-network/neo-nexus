@@ -76,9 +76,7 @@ pub fn build_router(state: WebState) -> Router {
         // `require_session` would answer `401` from a layer that has never heard
         // of the caller, and would keep the attempt out of the service's audit
         // trail.
-        .merge(signer_relay)
-        .route("/public-metrics", get(api::metrics_prometheus));
-
+        .merge(signer_relay);
     let protected = Router::new()
         .route("/", get(pages::home::home))
         .route("/nodes", get(pages::nodes::node_list))
@@ -99,9 +97,23 @@ pub fn build_router(state: WebState) -> Router {
         .route("/nodes/{id}/stop", post(control::node_stop))
         .route("/nodes/{id}/restart", post(control::node_restart))
         .route("/nodes/{id}/smoke-test", post(control::smoke_test_node))
+        .route("/nodes/{id}/smoke", post(control::smoke_test_node))
+        .route("/nodes/batch-action", post(control::batch_node_action))
         .route(
             "/nodes/{id}/signer",
             post(pages::nodes::save_signer_binding),
+        )
+        .route(
+            "/nodes/{id}/agent/token",
+            post(pages::nodes::provision_hermes_token),
+        )
+        .route(
+            "/nodes/{id}/agent/toggle-healing",
+            post(pages::nodes::toggle_hermes_healing),
+        )
+        .route(
+            "/nodes/{id}/agent/test-ping",
+            post(pages::nodes::test_hermes_ping),
         )
         .route("/monitor", get(pages::monitor::monitor))
         .route("/logs", get(pages::logs::logs).post(control::clear_logs))
@@ -238,6 +250,54 @@ pub fn build_router(state: WebState) -> Router {
                 },
             )),
         )
+        .route(
+            "/public-metrics",
+            get(api::metrics_prometheus).route_layer(middleware::from_fn(
+                |req: Request, next: Next| {
+                    require_permission(req, next, RequiredPermission::ReadFleet)
+                },
+            )),
+        )
+        .route(
+            "/api/nodes/{node_id}/metrics",
+            get(api::node_metrics).route_layer(middleware::from_fn(|req: Request, next: Next| {
+                require_permission(req, next, RequiredPermission::ReadFleet)
+            })),
+        )
+        .route(
+            "/api/plugins",
+            get(api::plugins).route_layer(middleware::from_fn(|req: Request, next: Next| {
+                require_permission(req, next, RequiredPermission::ReadFleet)
+            })),
+        )
+        .route(
+            "/api/logs", // Alias for /logs GET
+            get(pages::logs::logs),
+        )
+        .route(
+            "/api/nodes/{id}/iac",
+            get(api::node_iac).route_layer(middleware::from_fn(|req: Request, next: Next| {
+                require_permission(req, next, RequiredPermission::ReadFleet)
+            })),
+        )
+        .route(
+            "/api/fleet/iac",
+            get(api::fleet_iac).route_layer(middleware::from_fn(|req: Request, next: Next| {
+                require_permission(req, next, RequiredPermission::ReadFleet)
+            })),
+        )
+        .route(
+            "/api/nodes/{id}/mcp",
+            post(api::hermes_mcp::mcp_endpoint),
+        )
+        .route(
+            "/api/nodes/{id}/agent/heartbeat",
+            post(api::hermes_mcp::agent_heartbeat),
+        )
+        .route(
+            "/api/nodes/{id}/agent",
+            get(api::hermes_mcp::agent_status),
+        )
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             require_session,
@@ -259,19 +319,11 @@ async fn require_session(
 ) -> Response {
     let session_id = session_from_cookie(request.headers().get(header::COOKIE));
     let bearer_token = bearer_token_from_request(&request);
-    let is_api = request.uri().path().starts_with("/api/");
+    let is_api =
+        request.uri().path().starts_with("/api/") || request.uri().path() == "/public-metrics";
 
-    // Check if this is the public-metrics endpoint (completely open)
-    let path_is_public_metrics = request.uri().path() == "/public-metrics";
-
-    // If it's public-metrics, allow it (no auth required)
-    if path_is_public_metrics {
-        return next.run(request).await;
-    }
-
-    // Try session cookie first
     if state.auth.session_is_valid(session_id) {
-        if (is_unsafe_method(request.method()) || path_is_public_metrics)
+        if is_unsafe_method(request.method())
             && !state
                 .web_security()
                 .allows_unsafe_request(request.headers())
@@ -288,7 +340,11 @@ async fn require_session(
 
     // Try Bearer token authentication
     if let Some(token_secret) = bearer_token {
-        if let Ok(Some(token)) = state.repository.verify_token_secret(&token_secret) {
+        if state.auth.token_matches(&token_secret) && is_api {
+            request.extensions_mut().insert(AuthIdentity::Session);
+            return next.run(request).await;
+        }
+        if let Ok(Some(token)) = state.workspace.verify_token_secret(&token_secret) {
             // The token authenticates the caller; per-route `require_permission`
             // layers then authorize the specific endpoint against its grants.
             if is_api {

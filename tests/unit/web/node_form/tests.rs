@@ -366,8 +366,6 @@ fn a_client_switch_carries_the_storage_it_can_actually_use() {
 
 #[test]
 fn a_fresh_form_arrives_filled_enough_to_save() {
-    // Everything inferable is prefilled, so the only blanks an operator meets are
-    // the two things only they can know: what to call it, and where the binary is.
     let blank = NodeDraft::blank();
     assert!(
         blank.name.trim().is_empty(),
@@ -392,7 +390,131 @@ fn a_fresh_form_arrives_filled_enough_to_save() {
         "the defaults must not collide with each other"
     );
     assert!(
-        blank.binary_path.trim().is_empty(),
-        "only the path is unknowable"
+        !blank.binary_path.trim().is_empty(),
+        "a default client binary is prefilled so operators don't need manual path entry"
     );
 }
+
+#[test]
+fn an_empty_binary_path_defaults_to_client_binary() {
+    let mut form = draft("auto-bin", "neo-go");
+    form.binary_path = "   ".to_string();
+    let case = accepted(form.validate(&[], None));
+    assert!(case.was_accepted(), "empty binary should default to client binary");
+    assert_eq!(
+        case.node().binary_path,
+        std::path::PathBuf::from("neo-go")
+    );
+}
+
+#[test]
+fn switching_client_updates_default_binary_path() {
+    let mut form = NodeDraft::blank();
+    assert_eq!(form.node_type, "neo-cli");
+    assert_eq!(form.binary_path, "neo-cli.exe");
+
+    form.node_type = "neo-go".to_string();
+    let switched = form.with_client_defaults();
+    assert_eq!(switched.binary_path, "neo-go");
+
+    let mut custom = switched.clone();
+    custom.binary_path = "/custom/path/to/my-client".to_string();
+    custom.node_type = "neo-rs".to_string();
+    let preserved = custom.with_client_defaults();
+    assert_eq!(
+        preserved.binary_path, "/custom/path/to/my-client",
+        "custom operator path must not be overwritten"
+    );
+}
+
+#[test]
+fn binary_path_infers_client_type_and_storage() {
+    let mut form = draft("inferred-node", "");
+    form.binary_path = r"C:\opt\neox-geth.exe".to_string();
+    let inferred = form.with_inferred_client();
+    assert_eq!(inferred.node_type, "neox-geth");
+
+    // Also auto-infers during validate when client was left blank
+    let mut blank_client = draft("auto-inferred", "");
+    blank_client.binary_path = "/usr/local/bin/neo-go".to_string();
+    let case = accepted(blank_client.validate(&[], None));
+    assert!(case.was_accepted(), "fields: {:?}", case.fields);
+    assert_eq!(case.node().node_type, NodeType::NeoGo);
+}
+
+#[test]
+fn blank_with_installations_prepopulates_installed_binary() {
+    let installation = crate::runtime::RuntimeInstallation {
+        package_id: "pkg-1".to_string(),
+        label: "Neo-CLI v3.7.0".to_string(),
+        node_type: NodeType::NeoCli,
+        version: "3.7.0".to_string(),
+        platform: crate::runtime::RuntimePlatform::current(),
+        binary_path: std::path::PathBuf::from("/runtimes/neo-cli/neo-cli.dll"),
+        sha256: "abc".to_string(),
+        signature_verified: true,
+        signer_public_key: None,
+        bytes: 1024,
+        installed_at_unix: 1700000000,
+    };
+    let blank = NodeDraft::blank_with_installations(&[installation]);
+    assert_eq!(blank.binary_path, "/runtimes/neo-cli/neo-cli.dll");
+    assert_eq!(blank.runtime_version, "3.7.0");
+}
+
+#[test]
+fn disabled_rpc_is_accepted_with_zero_port_and_no_collision() {
+    let mut form = draft("relay-peer", "neo-cli");
+    form.enable_rpc = "0".to_string();
+    form.rpc_configured = "1".to_string();
+    form.rpc_port = String::new(); // User did not input RPC port
+    form.p2p_port = "20333".to_string();
+
+    let existing = vec![node("existing-1", "other", NodeType::NeoCli, 0, 10333, None)];
+    let case = accepted(form.validate(&existing, None));
+    assert!(case.was_accepted(), "fields: {:?}", case.fields);
+    assert_eq!(case.node().rpc_port, 0);
+    assert_eq!(case.node().p2p_port, 20333);
+    assert_eq!(case.node().ws_port, None);
+}
+
+#[test]
+fn role_presets_resolve_correctly() {
+    let mut form = draft("val-node", "neo-cli");
+    form.role = "validator".to_string();
+    assert_eq!(form.resolved_role(), Some(crate::roles::NodeRole::Consensus));
+
+    form.role = "relay".to_string();
+    assert_eq!(form.resolved_role(), None);
+
+    form.role = "indexer".to_string();
+    assert_eq!(form.resolved_role(), Some(crate::roles::NodeRole::Indexer));
+}
+
+#[test]
+fn signer_key_in_draft_validates_and_resolves() {
+    let mut form = draft("val-node", "neo-cli");
+    form.signer_backend = "wallet-local".to_string();
+    form.signer_key = "consensus-01".to_string();
+
+    let case = accepted(form.validate(&[], None));
+    assert!(case.was_accepted());
+    let key = form.resolved_signer_key().unwrap();
+    assert_eq!(key.backend_id, "wallet-local");
+    assert_eq!(key.key_id, "consensus-01");
+
+    // Partial signer specification is refused
+    let mut partial = draft("val-node-2", "neo-cli");
+    partial.signer_backend = "wallet-local".to_string();
+    partial.signer_key = String::new();
+    let outcome = partial.validate(&[], None);
+    assert!(matches!(outcome, DraftOutcome::Invalid(errors) if errors.contains_key("signer_backend")));
+
+    // Unsafe signer key format is refused
+    let mut unsafe_key = draft("val-node-3", "neo-cli");
+    unsafe_key.signer_backend = "../invalid/path".to_string();
+    unsafe_key.signer_key = "key".to_string();
+    let outcome = unsafe_key.validate(&[], None);
+    assert!(matches!(outcome, DraftOutcome::Invalid(errors) if errors.contains_key("signer_backend")));
+}
+

@@ -63,23 +63,31 @@ pub mod api_permissions {
     use super::TokenPermission;
 
     /// Required permission level for an API endpoint.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum RequiredPermission {
         /// Access to fleet data (/api/fleet, GET operations)
         ReadFleet,
         /// Access to readiness status (/api/readiness, GET operations)
         ReadReadiness,
+        /// Access to node-specific metrics and logs (/api/nodes/{id}/metrics)
+        ReadNodeMetrics,
         /// Full admin access (all read + write operations)
         AdminAll,
+        /// Scoped Hermes Agent access to a specific node instance
+        HermesAgent(String),
     }
 
     impl RequiredPermission {
         /// The token permission a caller must hold to satisfy this requirement.
-        pub(crate) fn permission(self) -> TokenPermission {
+        pub(crate) fn permission(&self) -> TokenPermission {
             match self {
                 RequiredPermission::ReadFleet => TokenPermission::ReadFleet,
                 RequiredPermission::ReadReadiness => TokenPermission::ReadReadiness,
+                RequiredPermission::ReadNodeMetrics => TokenPermission::ReadFleet, // Reuse fleet read permission
                 RequiredPermission::AdminAll => TokenPermission::AdminAll,
+                RequiredPermission::HermesAgent(node_id) => {
+                    TokenPermission::HermesAgent(node_id.clone())
+                }
             }
         }
     }

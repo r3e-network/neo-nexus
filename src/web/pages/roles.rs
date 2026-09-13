@@ -31,7 +31,7 @@ pub async fn roles(
     RawQuery(raw): RawQuery,
     Query(params): Query<RoleQuery>,
 ) -> Response {
-    let body = match state.repository.list_nodes() {
+    let body = match state.workspace.list_nodes() {
         Ok(nodes) => render_body(&nodes, &params),
         Err(error) => html::note(&format!("failed to load nodes: {error}")),
     };
@@ -186,7 +186,7 @@ pub async fn apply_role(
 ) -> Response {
     let result = (|| -> anyhow::Result<String> {
         let node = state
-            .repository
+            .workspace
             .list_nodes()?
             .into_iter()
             .find(|node| node.id == id)
@@ -203,9 +203,9 @@ pub async fn apply_role(
             );
         }
         let plan = RolePlanner::plan(&node, role);
-        state.repository.apply_node_role_plan(&node.id, &plan)?;
+        state.commands.apply_node_role_plan(&node.id, &plan)?;
         let message = format!("{} duty set to {}", node.name, role.label());
-        let _ = state.repository.record_event(NewRuntimeEvent {
+        let _ = state.commands.record_event(NewRuntimeEvent {
             node_id: Some(node.id),
             node_name: Some(node.name),
             kind: EventKind::RoleApplied,

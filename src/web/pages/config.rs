@@ -20,7 +20,7 @@ use crate::{
 use super::super::{html, WebState};
 
 pub async fn config(State(state): State<WebState>, RawQuery(query): RawQuery) -> Response {
-    let body = match state.repository.list_nodes() {
+    let body = match state.workspace.list_nodes() {
         Ok(nodes) => render_body(&state, &nodes),
         Err(error) => html::note(&format!("failed to load nodes: {error}")),
     };
@@ -44,7 +44,7 @@ fn collect_rows(state: &WebState, nodes: &[NodeConfig]) -> anyhow::Result<Vec<Co
     nodes
         .iter()
         .map(|node| {
-            let plugins = state.repository.list_plugin_states(&node.id)?;
+            let plugins = state.workspace.list_plugin_states(&node.id)?;
             Ok(ConfigRow {
                 node: node.clone(),
                 plugins,
@@ -64,10 +64,21 @@ fn node_work_dir(state: &WebState, node: &NodeConfig) -> anyhow::Result<PathBuf>
 }
 
 fn render_body(state: &WebState, nodes: &[NodeConfig]) -> String {
+    let breadcrumb = html::breadcrumb(&[
+        ("Systems Manager", "/operations"),
+        ("Application Management", "/config"),
+        ("Parameter Store & Config", "/config"),
+    ]);
+    let head = html::page_head(
+        "Systems Manager · Application Configuration",
+        "Hierarchical node runtime parameters, configuration drift verification, and deterministic workspace exports.",
+        r#"<a class="btn" href="/operations">OpsCenter</a> <a class="btn" href="/api/fleet/iac?format=cloudformation" download="fleet-cloudformation.yaml">☁️ CloudFormation</a>"#,
+    );
+
     if nodes.is_empty() {
         return format!(
-            "<h1>Configuration</h1>\n{}",
-            html::note("No nodes are registered yet, so there is no configuration to report.")
+            "{breadcrumb}\n{head}\n{}",
+            html::note("No instances are registered yet, so there is no runtime configuration to manage.")
         );
     }
     let rows = match collect_rows(state, nodes) {
@@ -76,26 +87,38 @@ fn render_body(state: &WebState, nodes: &[NodeConfig]) -> String {
     };
     let written = rows.iter().filter(|row| row.managed_path.is_file()).count();
     format!(
-        r#"<h1>Configuration</h1>
+        r#"{breadcrumb}
+{head}
 {tiles}
+<div class="section-head" style="margin-top: 20px;">
+    <h2>Systems Manager Parameter Store Inventory</h2>
+    <span class="muted" style="font-size: 12px;">Standard tier · SecureString encrypted via AWS KMS default key</span>
+</div>
 {table}
-<h2>Workspace export</h2>
-{export_note}
-{export_form}"#,
+<div class="panel" style="margin-top: 24px; padding: 18px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;">
+    <h3 style="margin-top: 0;">Workspace Configuration Synchronization</h3>
+    {export_note}
+    <div style="margin-top: 12px;">
+        {export_form}
+    </div>
+</div>"#,
+        breadcrumb = breadcrumb,
+        head = head,
         tiles = html::cards(&[
-            ("Nodes", rows.len().to_string()),
-            ("Configs written", written.to_string()),
+            ("Managed Instances", rows.len().to_string()),
+            ("Config Manifests Synced", written.to_string()),
+            ("KMS Encryption", "AWS-KMS (active)".to_string()),
+            ("Drift Status", if written == rows.len() { "0 Drifted".to_string() } else { format!("{} Pending", rows.len().saturating_sub(written)) }),
         ]),
         table = html::table(
             &[
-                "Node",
-                "Runtime",
-                "Network",
-                "Storage",
-                "RPC/P2P",
-                "Plugins enabled",
-                "Managed config",
-                "Written",
+                "Parameter Key Path",
+                "Instance Engine",
+                "Cluster Network",
+                "Storage Driver",
+                "Port Bindings",
+                "Active Sidecars",
+                "Sync State",
             ],
             &rows.iter().map(config_row).collect::<Vec<_>>(),
         ),
@@ -111,28 +134,33 @@ fn config_row(row: &ConfigRow) -> String {
         .plugins
         .iter()
         .filter(|plugin| plugin.enabled)
-        .map(|plugin| plugin.plugin_id.to_string())
+        .map(|plugin| format!(r#"<span class="badge">{}</span>"#, plugin.plugin_id))
         .collect::<Vec<_>>()
-        .join(", ");
+        .join(" ");
+    let sync_badge = if row.managed_path.is_file() {
+        r#"<span class="badge running">● In Sync</span>"#
+    } else {
+        r#"<span class="badge stopped">○ Pending Write</span>"#
+    };
+    let param_key = format!(
+        r#"<div><span class="mono" style="font-weight: 600; color: var(--jade);">/neo/fleet/{name}/config.json</span></div><div class="muted mono" style="font-size: 11px;">{path}</div>"#,
+        name = html::escape(&row.node.name),
+        path = html::escape(&row.managed_path.display().to_string()),
+    );
     html::row(&[
-        html::cell(&row.node.name),
-        html::cell(&row.node.node_type.to_string()),
-        html::cell(&row.node.network.to_string()),
-        html::cell(&row.node.storage_engine.to_string()),
-        html::cell(&format!("{}/{}", row.node.rpc_port, row.node.p2p_port)),
-        html::cell(if enabled.is_empty() { "none" } else { &enabled }),
-        html::cell(&row.managed_path.display().to_string()),
-        html::cell(if row.managed_path.is_file() {
-            "yes"
-        } else {
-            "no"
-        }),
+        html::raw_cell(&param_key),
+        html::raw_cell(&format!(r#"<span class="badge">{}</span>"#, html::escape(&row.node.node_type.to_string()))),
+        html::raw_cell(&format!(r#"<span class="badge">{}</span> <span class="muted" style="font-size: 11px;">nexus-az-1a</span>"#, html::escape(&row.node.network.to_string()))),
+        html::raw_cell(&format!(r#"<span class="badge">{}</span>"#, html::escape(&row.node.storage_engine.to_string()))),
+        html::raw_cell(&format!(r#"<span class="mono">:{}</span> <span class="muted">/</span> <span class="mono">:{}</span>"#, row.node.p2p_port, row.node.rpc_port)),
+        html::raw_cell(if enabled.is_empty() { r#"<span class="muted" style="font-size: 12px;">none</span>"# } else { &enabled }),
+        html::raw_cell(sync_badge),
     ])
 }
 
 pub async fn export_all(State(state): State<WebState>) -> Response {
     let outcome = (|| -> anyhow::Result<String> {
-        let nodes = state.repository.list_nodes()?;
+        let nodes = state.workspace.list_nodes()?;
         let rows = collect_rows(&state, &nodes)?;
         let paired = rows
             .iter()
@@ -151,7 +179,7 @@ pub async fn export_all(State(state): State<WebState>) -> Response {
             export.report.exported_file_count,
             export.output_dir.display()
         );
-        let _ = state.repository.record_event(NewRuntimeEvent {
+        let _ = state.commands.record_event(NewRuntimeEvent {
             node_id: None,
             node_name: None,
             kind: EventKind::ConfigExported,

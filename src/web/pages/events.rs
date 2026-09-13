@@ -8,10 +8,7 @@ use axum::{
     response::{Html, IntoResponse, Response},
 };
 
-use crate::{
-    core::workspace_queries,
-    events::{EventSeverity, RuntimeEvent, RuntimeEventFilter},
-};
+use crate::events::{EventSeverity, RuntimeEvent, RuntimeEventFilter};
 
 use super::super::{html, time, WebState};
 
@@ -44,23 +41,30 @@ fn render(state: &WebState, params: &EventsQuery) -> anyhow::Result<String> {
     let severity = parse_severity(&params.severity)?;
     let limit = parse_limit(&params.limit);
     let filter = RuntimeEventFilter::new(severity, params.query.trim(), limit);
-    let total = workspace_queries::count_workspace_events(&state.repository, &filter)?;
-    let events = workspace_queries::list_workspace_events(&state.repository, filter)?;
+    let total = state.workspace.count_events(&filter)?;
+    let events = state.workspace.list_events(filter)?;
+
+    let breadcrumb = html::breadcrumb(&[
+        ("CloudTrail", "/events"),
+        ("Event history", ""),
+    ]);
 
     Ok(format!(
-        r#"{head}
+        r#"{breadcrumb}
+{head}
 {summary}
 {filters}
 {journal}"#,
+        breadcrumb = breadcrumb,
         head = page_header(),
         summary = html::cards(&[
-            ("Matching", total.to_string()),
-            ("Shown", events.len().to_string()),
+            ("Audit Events", total.to_string()),
+            ("Window Limit", limit.to_string()),
             (
-                "Severity",
+                "Severity Filter",
                 severity.map_or_else(|| "All".to_string(), |value| value.label().to_string()),
             ),
-            ("Window", limit.to_string()),
+            ("Audit IAM Identity", "arn:neo:iam::nexus:operator".to_string()),
         ]),
         filters = filter_form(params, limit),
         journal = journal(&events),
@@ -69,9 +73,9 @@ fn render(state: &WebState, params: &EventsQuery) -> anyhow::Result<String> {
 
 fn page_header() -> String {
     html::page_head(
-        "Events",
-        "Audit fleet lifecycle, health, policy, signer-adjacent and workspace activity.",
-        r#"<a class="btn" href="/operations">Readiness</a>"#,
+        "CloudTrail Event History",
+        "AWS CloudTrail-grade immutable audit journal recording fleet lifecycle actions, security decisions, and operator activity.",
+        r#"<a class="btn" href="/operations">⚙️ SSM OpsCenter</a> <a class="btn" href="/alerts">🚨 CloudWatch Alarms</a>"#,
     )
 }
 
@@ -122,22 +126,50 @@ fn journal(events: &[RuntimeEvent]) -> String {
         .iter()
         .map(|event| {
             let node = event.node_name.as_deref().unwrap_or("Workspace");
+            let event_source = aws_event_source(event.kind.label());
+            let identity = if event.message.contains("Hermes") || event.message.contains("probe") {
+                "arn:neo:agent::hermes-ai"
+            } else {
+                "arn:neo:iam::nexus:operator"
+            };
             html::row(&[
                 html::raw_cell(&time::time_cell(Some(event.occurred_at_unix))),
                 html::raw_cell(&severity_badge(event.severity)),
+                html::raw_cell(&format!(r#"<span class="badge">{}</span>"#, html::escape(event_source))),
                 html::cell(event.kind.label()),
                 html::cell(node),
+                html::raw_cell(&format!(r#"<span class="mono muted" style="font-size: 11px;">{}</span>"#, html::escape(identity))),
                 html::cell(&event.message),
             ])
         })
         .collect::<Vec<_>>();
-    html::table(&["Time", "Severity", "Kind", "Scope", "Message"], &rows)
+    html::table(&["Event Time", "Severity", "Event Source", "Event Name", "Resource Scope", "User Identity", "Details / Request"], &rows)
+}
+
+fn aws_event_source(kind: &str) -> &'static str {
+    if kind.starts_with("node-") {
+        "neo.ec2"
+    } else if kind.starts_with("signer-") || kind.contains("key") {
+        "neo.kms"
+    } else if kind.starts_with("snapshot-") {
+        "neo.ebs"
+    } else if kind.starts_with("plugin-") {
+        "neo.ssm"
+    } else if kind.starts_with("alert-") {
+        "neo.cloudwatch"
+    } else {
+        "neo.controlplane"
+    }
 }
 
 fn severity_badge(severity: EventSeverity) -> String {
+    let (class, prefix) = match severity {
+        EventSeverity::Critical => ("badge error", "▲ "),
+        EventSeverity::Warning => ("badge stopped", "▲ "),
+        EventSeverity::Info => ("badge running", "● "),
+    };
     format!(
-        r#"<span class="badge event-{}">{}</span>"#,
-        severity.label(),
+        r#"<span class="{class}">{prefix}{}</span>"#,
         severity.label(),
     )
 }

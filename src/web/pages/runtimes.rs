@@ -92,8 +92,8 @@ fn or_unknown(value: &str) -> &str {
 }
 
 fn render_body(state: &WebState, params: &RuntimeQuery) -> anyhow::Result<String> {
-    let installations = state.repository.list_runtime_installations()?;
-    let profiles = state.repository.list_runtime_catalog_profiles()?;
+    let installations = state.workspace.list_runtime_installations()?;
+    let profiles = state.workspace.list_runtime_catalog_profiles()?;
     let verified = installations
         .iter()
         .filter(|installation| installation.signature_verified)
@@ -107,22 +107,41 @@ fn render_body(state: &WebState, params: &RuntimeQuery) -> anyhow::Result<String
             job.description
         ))
     });
+    let breadcrumb = html::breadcrumb(&[
+        ("EC2", "/nodes"),
+        ("Images", "/runtimes"),
+        ("AMIs & Node Runtimes", "/runtimes"),
+    ]);
+    let head = html::page_head(
+        "AMIs & Node Runtime Catalogs",
+        "Verified blockchain client binary packages, cryptographic digest attestation, and staged release downloads.",
+        r#"<a class="btn" href="/nodes/new">+ Launch Instance</a>"#,
+    );
     Ok(format!(
-        r#"<h1>Runtimes</h1>
+        r#"{breadcrumb}
+{head}
 {tiles}
 {callout}
 {jobs}
-<h2>Installed binaries</h2>
+<div class="section-head" style="margin-top: 20px;">
+    <h2>Installed Binary AMIs</h2>
+    <span class="muted" style="font-size: 12px;">Local cached and verified executable runtimes</span>
+</div>
 {installations}
-<h2>Catalog profiles</h2>
+<div class="section-head" style="margin-top: 20px;">
+    <h2>Catalog Repositories</h2>
+    <span class="muted" style="font-size: 12px;">Remote verified publisher registries</span>
+</div>
 {profiles}
 {staged}"#,
+        breadcrumb = breadcrumb,
+        head = head,
         tiles = html::cards(&[
-            ("Installed", installations.len().to_string()),
-            ("Signature verified", verified.to_string()),
+            ("Installed AMIs", installations.len().to_string()),
+            ("Signature Verified", verified.to_string()),
             ("Catalogs", profiles.len().to_string()),
             (
-                "On disk",
+                "On Disk Storage",
                 format_bytes(
                     installations
                         .iter()
@@ -216,7 +235,7 @@ fn catalogue_section(
         return browse_prompt(state);
     }
     let Some(profile) = state
-        .repository
+        .workspace
         .list_runtime_catalog_profiles()?
         .into_iter()
         .find(|profile| profile.id == profile_id)
@@ -285,7 +304,7 @@ fn catalogue_section(
 /// click because it reaches out to the profile's source.
 fn browse_prompt(state: &WebState) -> anyhow::Result<String> {
     let links = state
-        .repository
+        .workspace
         .list_runtime_catalog_profiles()?
         .into_iter()
         .filter(|profile| profile.enabled)

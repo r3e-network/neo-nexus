@@ -25,8 +25,8 @@ pub async fn backup_page(State(state): State<WebState>, RawQuery(flash): RawQuer
 }
 
 fn render_body(state: &WebState) -> anyhow::Result<String> {
-    let nodes = state.repository.list_nodes()?;
-    let snapshots = state.repository.list_fast_sync_snapshots()?;
+    let nodes = state.workspace.list_nodes()?;
+    let snapshots = state.workspace.list_fast_sync_snapshots()?;
 
     // Count different profile types from custody profiles iterator
     let mut signer_backends = 0;
@@ -40,7 +40,7 @@ fn render_body(state: &WebState) -> anyhow::Result<String> {
     }
 
     // Events count from operation log (recent 100)
-    let event_count = state.repository.list_recent_events(100)?.len();
+    let event_count = state.workspace.list_recent_events(100)?.len();
 
     // Recent export attempt directory
     let export_dir = state.workspace_child_dir("export").join("backup");

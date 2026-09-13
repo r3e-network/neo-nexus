@@ -12,8 +12,8 @@ use crate::{
     core::{
         operations::{RemoteFederationMonitorPolicy, RpcHealthMonitorPolicy},
         runtime::{RestartPolicy, RuntimeUpgradePolicy},
+        workspace_queries::WorkspaceQueries,
     },
-    repository::Repository,
     web::assets::DensityMode,
 };
 
@@ -23,7 +23,7 @@ const ENABLED_CHOICES: &[&str] = &["Enabled", "Disabled"];
 const DENSITY_CHOICES: &[&str] = &["Comfortable", "Compact"];
 
 pub async fn settings(State(state): State<WebState>, RawQuery(query): RawQuery) -> Response {
-    let body = match render_body(&state.repository) {
+    let body = match render_body(&state.workspace) {
         Ok(body) => body,
         Err(error) => html::note(&format!("failed to load settings: {error}")),
     };
@@ -36,12 +36,12 @@ pub async fn settings(State(state): State<WebState>, RawQuery(query): RawQuery) 
     .into_response()
 }
 
-fn render_body(repository: &Repository) -> anyhow::Result<String> {
-    let watchdog = repository.load_watchdog_policy()?;
-    let rpc_health = repository.load_rpc_health_monitor_policy()?;
-    let federation = repository.load_remote_federation_monitor_policy()?;
-    let upgrade = repository.load_runtime_upgrade_policy()?;
-    let density = repository
+fn render_body(workspace: &WorkspaceQueries) -> anyhow::Result<String> {
+    let watchdog = workspace.load_watchdog_policy()?;
+    let rpc_health = workspace.load_rpc_health_monitor_policy()?;
+    let federation = workspace.load_remote_federation_monitor_policy()?;
+    let upgrade = workspace.load_runtime_upgrade_policy()?;
+    let density = workspace
         .load_app_ui_density()?
         .as_deref()
         .map_or(DensityMode::DEFAULT, DensityMode::from_str);
@@ -113,6 +113,7 @@ fn watchdog_form(policy: &RestartPolicy) -> String {
 {attempts}
 {base}
 {cap}
+{jitter}
 <button type="submit">Save</button>
 </form>"#,
         describe = html::escape(&policy.describe()),
@@ -139,6 +140,12 @@ fn watchdog_form(policy: &RestartPolicy) -> String {
             "Max delay (s)",
             "max_delay_seconds",
             &policy.max_delay.as_secs().to_string()
+        ),
+        jitter = watchdog_checkbox(
+            "watchdog-jitter",
+            "Enable randomized jitter during restart delays",
+            "jitter_enabled",
+            policy.jitter_enabled,
         ),
     )
 }
@@ -298,7 +305,18 @@ fn upgrade_number(id: &str, label: &str, name: &str, value: &str, min: u64, max:
 fn upgrade_checkbox(id: &str, label: &str, name: &str, checked: bool) -> String {
     let checked_attr = if checked { " checked" } else { "" };
     format!(
-        r#"<label class="field" for="{id}"><span>{label}</span><input type="checkbox" id="{id}" name="{name}" value="true"{checked_attr}></label>"#,
+        r#"<label class="field" for="{id}"><span>{label}</span><input type="checkbox" id="{id}" name="{name}"{checked_attr} value="true"></label>"#,
+        id = html::escape(id),
+        label = html::escape(label),
+        name = html::escape(name),
+    )
+}
+
+/// A dedicated watchdog jitter checkbox with consistent styling.
+fn watchdog_checkbox(id: &str, label: &str, name: &str, checked: bool) -> String {
+    let checked_attr = if checked { " checked" } else { "" };
+    format!(
+        r#"<label class="field" for="{id}"><span>{label}</span><input type="checkbox" id="{id}" name="{name}"{checked_attr} value="true"></label>"#,
         id = html::escape(id),
         label = html::escape(label),
         name = html::escape(name),

@@ -34,7 +34,7 @@ pub struct LogQuery {
 }
 
 pub async fn logs(State(state): State<WebState>, Query(params): Query<LogQuery>) -> Response {
-    let body = match state.repository.list_nodes() {
+    let body = match state.workspace.list_nodes() {
         Ok(nodes) => render_body(&state, &nodes, &params),
         Err(error) => html::note(&format!("failed to load nodes: {error}")),
     };
@@ -42,20 +42,51 @@ pub async fn logs(State(state): State<WebState>, Query(params): Query<LogQuery>)
 }
 
 fn render_body(state: &WebState, nodes: &[NodeConfig], params: &LogQuery) -> String {
+    let breadcrumb = html::breadcrumb(&[
+        ("CloudWatch", "/monitor"),
+        ("Logs", "/logs"),
+        ("Log groups", "/logs"),
+    ]);
+    let head = html::page_head(
+        "Logs",
+        "Live CloudWatch stdout/stderr stream with pattern diagnosis, error clustering, and high-frequency search filtering.",
+        r#"<a class="btn" href="/monitor">CloudWatch Metrics</a> <a class="btn" href="/alerts">🚨 Alarms</a>"#,
+    );
+
     let Some(selected) = pick_node(nodes, &params.node) else {
         return format!(
-            "<h1>Logs</h1>\n{}",
-            html::note("No nodes are registered yet, so there are no logs to read.")
+            "{breadcrumb}\n{head}\n{}",
+            html::note("No instances are registered yet, so there are no log streams to read.")
         );
     };
+
+    let log_stream_name = format!("aws/ec2/nexus/{}", selected.name);
+    let log_stream_breadcrumb = html::breadcrumb(&[
+        ("CloudWatch", "/monitor"),
+        ("Logs", "/logs"),
+        ("Log groups", "/logs"),
+        (&log_stream_name, ""),
+    ]);
 
     let visible = visible_lines(&params.lines);
     let log_path = log_path_for(state.workspace_child_dir("logs"), selected);
     format!(
-        r#"<h1>Logs</h1>
-<div class="actions">{picker}{clear_button}</div>
+        r#"{breadcrumb}
+{head}
+<div class="panel" style="margin-bottom: 14px; padding: 12px 16px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+        <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted);">Instance Log Streams:</span>
+        <div class="mono muted" style="font-size: 11px;">Log Group: /aws/ec2/nexus · Region: nexus-global (mesh-1a)</div>
+    </div>
+    <div class="actions" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+        {picker}
+        {clear_button}
+    </div>
+</div>
 {filters}
 {content}"#,
+        breadcrumb = log_stream_breadcrumb,
+        head = head,
         picker = node_picker(nodes, selected),
         clear_button = clear_logs_button(&selected.id),
         filters = html::typed_filter_form(
@@ -63,13 +94,13 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], params: &LogQuery) -> Str
             &[("node", &selected.id)],
             &[
                 html::FilterControl::Search {
-                    label: "Search log",
+                    label: "Filter pattern",
                     name: "query",
                     value: &params.query,
-                    placeholder: "Message text",
+                    placeholder: "e.g. error, panic, timeout",
                 },
                 html::FilterControl::Number {
-                    label: "Rows",
+                    label: "Max lines",
                     name: "lines",
                     value: &visible.to_string(),
                     min: 1,
@@ -93,7 +124,7 @@ fn node_picker(nodes: &[NodeConfig], selected: &NodeConfig) -> String {
                 ""
             };
             format!(
-                r#"<a class="btn{current}" href="/logs?node={}">{}</a>"#,
+                r#"<a class="btn small{current}" href="/logs?node={}">{}</a>"#,
                 html::urlencoding_lite(&node.id),
                 html::escape(&node.name)
             )
@@ -132,12 +163,25 @@ fn render_log(
     let matched = LogReader::filtered_lines(&snapshot, &params.query);
     let shown: Vec<&LogLine> = matched.iter().rev().take(visible).rev().collect();
 
+    let stream_header = format!(
+        r#"<div class="aws-log-header" style="margin-top: 18px; margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="aws-log-live-dot"></span>
+                <strong style="color: #fff; font-size: 13px;">Log Stream: {}</strong>
+                <span class="badge running" style="font-size: 10px;">● Live Tail</span>
+            </div>
+            <span class="mono muted" style="font-size: 11px;">Path: {}</span>
+        </div>"#,
+        html::escape(&node.name),
+        html::escape(&snapshot.path.display().to_string())
+    );
+
     format!(
-        r#"<h2>{path}</h2>
+        r#"{stream_header}
 {tiles}
 {diagnosis}
 {body}"#,
-        path = html::escape(&snapshot.path.display().to_string()),
+        stream_header = stream_header,
         tiles = html::cards(&[
             ("Size", format_bytes(snapshot.bytes)),
             ("Lines", snapshot.lines.len().to_string()),
