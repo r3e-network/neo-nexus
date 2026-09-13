@@ -52,6 +52,17 @@ records but nothing yet enforces, and the page says so. The engine shares the se
 restarts is a node the browser can stop, and a node recorded as running without a
 handle here is settled by pid rather than left claiming to run.
 
+### Watchdog restart budget
+
+The watchdog settings default to disabled, and explicit true/false take precedence
+over any missing key; older databases without the new keys remain disabled.
+Single-node clusters may still show per-iteration delays because each restart
+is computed independently on its own tick; the final delay caps at the configured
+maximum and jittered samples ±15% of the base (±30% max), so multiple nodes
+scheduled in the same window will not synchronize perfectly. Production evaluation
+of de-synchronization benefits remains unmeasured: no real multi-node cluster
+experiment justifies changing the default.
+
 ## Launch options
 
 | Option | Default | Meaning |

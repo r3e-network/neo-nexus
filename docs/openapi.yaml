@@ -1,0 +1,738 @@
+openapi: "3.0.3"
+info:
+  title: NeoNexus Agent Protocol API
+  description: |
+    # NeoNexus Agent Protocol API
+    
+    The NeoNexus Agent Protocol provides a JSON-based REST API for programmatic 
+    access to node fleet operations, including real-time metrics, readiness 
+    diagnostics, and fleet inventory queries.
+    
+    ## Authentication Overview
+    
+    NeoNexus supports two authentication mechanisms:
+    
+    - **Session Cookies**: For browser-based sessions (12-hour TTL)
+    - **Bearer Tokens**: For programmatic access (SHA256-hashed secrets)
+    
+    For comprehensive documentation including rate limiting, error handling, 
+    and complete code examples, see [AGENT_API.md](./AGENT_API.md).
+  
+  version: 4.3.1
+  contact:
+    name: NeoNexus Technical Team
+    email: ops@neonex.example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://127.0.0.1:8080
+    description: Local workbench server
+  - url: https://nexus.example.com
+    description: Production reverse-proxy origin
+
+tags:
+  - name: Fleet Management
+    description: Endpoints for querying fleet-wide node inventory and status
+  - name: Node Metrics
+    description: Endpoint-specific operational metrics and health data
+  - name: Readiness Monitoring
+    description: Workspace-level diagnostic and readiness checks
+  - name: Lifecycle Operations
+    description: Browser-form node control operations (session cookie required). Not REST API endpoints — use HTML form POST.
+
+paths:
+  /api/fleet:
+    get:
+      tags:
+        - Fleet Management
+      summary: List all nodes in the workspace
+      description: |
+        Returns a snapshot of all configured nodes with their current lifecycle state,
+        network assignments, and RPC health status.
+      
+      operationId: getFleetStatus
+      security:
+        - bearerAuth:
+            - read_fleet
+          sessionAuth: []
+      responses:
+        "200":
+          description: Successful fleet snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FleetPayload"
+              example:
+                nodes:
+                  - id: mainnet-validator-01
+                    name: Validator Alpha
+                    status: running
+                    network: mainnet
+                    rpc_port: 8545
+                    rpc_health: healthy
+                  - id: testnet-seeder-02
+                    name: Testnet Beta
+                    status: stopped
+                    network: testnet
+                    rpc_port: 8546
+                    rpc_health: unreachable
+        
+        "401":
+          description: Unauthorized - invalid or missing credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Authentication required"
+                  details: []
+                  suggestion: "Provide valid session cookie or bearer token"
+        
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/readiness:
+    get:
+      tags:
+        - Readiness Monitoring
+      summary: Check workspace readiness score
+      description: |
+        Returns aggregated diagnostics across all nodes and plugins, including 
+        overall readiness score, ready node count, and issue tallies.
+      
+      operationId: getReadinessDiagnostics
+      security:
+        - {}  # Anonymous access allowed
+        - bearerAuth:
+            - read_readiness
+          sessionAuth: []
+      responses:
+        "200":
+          description: Ready status information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessPayload"
+              example:
+                score: 85
+                ready_nodes: 3
+                warning_count: 2
+                critical_count: 0
+                events: 127
+        
+        "500":
+          description: Internal server error during diagnostics collection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/nodes/{node_id}/metrics:
+    get:
+      tags:
+        - Node Metrics
+      summary: Collect metrics for specific node
+      description: |
+        Retrieves detailed operational metrics for a single node, including 
+        sync progress, peer connections, PID, and metrics endpoint availability.
+      
+      operationId: getNodeMetrics
+      security:
+        - bearerAuth:
+            - read_fleet
+          sessionAuth: []
+      parameters:
+        - name: node_id
+          in: path
+          required: true
+          description: Unique identifier for the target node
+          schema:
+            type: string
+            example: mainnet-validator-01
+          x-example-values:
+            - mainnet-validator-01
+            - testnet-seeder-02
+            
+        - name: format
+          in: query
+          required: false
+          description: Output format preference
+          schema:
+            type: string
+            enum:
+              - prometheus
+              - json
+            default: prometheus
+            example: json
+      
+      responses:
+        "200":
+          description: Metrics data returned successfully
+          content:
+            text/plain; version=0.0.4:  # Prometheus text format
+              schema:
+                type: string
+                description: Prometheus-formatted metrics
+              example: |
+                # HELP neo_node_pid Process ID of runtime
+                # TYPE neo_node_pid gauge
+                neo_node_pid{node_id="mainnet-validator-01"} 12345
+                
+                # HELP neo_node_sync_current_height Current blockchain height
+                # TYPE neo_node_sync_current_height gauge
+                neo_node_sync_current_height{node_id="mainnet-validator-01"} 18456234
+                
+                # HELP neo_node_sync_target_height Target blockchain height
+                # TYPE neo_node_sync_target_height gauge
+                neo_node_sync_target_height{node_id="mainnet-validator-01"} 18456500
+                
+                # HELP neo_node_sync_peers Connected peer count
+                # TYPE neo_node_sync_peers gauge
+                neo_node_sync_peers{node_id="mainnet-validator-01"} 47
+            
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NodeMetricsResponse"
+              example:
+                node_id: mainnet-validator-01
+                node_name: Validator Alpha
+                pid: 12345
+                metrics_endpoint: http://localhost:9090/metrics
+                sync_progress:
+                  current_height: 18456234
+                  target_height: 18456500
+                  sync_percentage: 99.99
+                  peers_connected: 47
+        
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        
+        "403":
+          description: Forbidden - insufficient token permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        
+        "404":
+          description: Node not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: "NODE_NOT_FOUND"
+                  message: "Node 'test-node' not found in workspace"
+                  details: ["node_id must exist before lifecycle operations"]
+                  suggestion: "List available nodes first via GET /api/fleet"
+        
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /public-metrics:
+    get:
+      tags:
+        - Node Metrics
+      summary: Public endpoint for Prometheus scraping
+      description: |
+        Workspace-wide aggregate metrics endpoint. Requires either an active browser session
+        or a Bearer API token with read_fleet permission.
+      
+      operationId: getPublicMetrics
+      security:
+        - bearerAuth:
+            - read_fleet
+          sessionAuth: []
+      responses:
+        "200":
+          description: Prometheis-formatted metrics
+          content:
+            text/plain; version=0.0.4:
+              schema:
+                type: string
+              example: |
+                # HELP neo_fleet_total_nodes Total number of configured nodes
+                # TYPE neo_fleet_total_nodes gauge
+                neo_fleet_total_nodes 5
+                
+                # HELP neo_fleet_running_nodes Number of running nodes
+                # TYPE neo_fleet_running_nodes gauge
+                neo_fleet_running_nodes 3
+                
+                # HELP neo_workspace_ready_score Overall readiness score
+                # TYPE neo_workspace_ready_score gauge
+                neo_workspace_ready_score 85
+        
+        "401":
+          description: Unauthorized - invalid or missing credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/plugins:
+    get:
+      tags:
+        - Plugin Management
+      summary: List available plugins per node type
+      description: |
+        Returns plugin inventory filtered by node type, including version compatibility 
+        matrix and deployment status.
+      
+      operationId: listPlugins
+      security:
+        - bearerAuth:
+            - read_fleet
+          sessionAuth: []
+      parameters:
+        - name: node_type
+          in: query
+          required: false
+          description: Filter plugins by target node type
+          schema:
+            type: string
+            enum:
+              - neochain
+              - ethereum
+              - bitcoin
+              - cosmos
+            example: neochain
+      
+      responses:
+        "200":
+          description: Plugin inventory returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PluginListResponse"
+        
+        "500":
+          description: Server error listing plugins
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: SHA256
+      description: |
+        Bearer token authentication using SHA256-hashed secrets.
+        
+        Generate tokens via CLI:
+        ```bash
+        neo-nexus generate-api-token --name "My Token" --permission admin_all
+        ```
+        
+        Minimum token length: 32 bytes entropy recommended.
+    
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: neonexus_session
+      description: |
+        Session cookie authentication for browser-based clients.
+        Sessions expire after 12 hours of inactivity.
+
+  schemas:
+    FleetNode:
+      type: object
+      description: Individual node status record
+      required:
+        - id
+        - name
+        - status
+        - network
+        - rpc_port
+        - rpc_health
+      properties:
+        id:
+          type: string
+          description: Unique node identifier (URL-safe)
+          minLength: 1
+          maxLength: 64
+          example: mainnet-validator-01
+        
+        name:
+          type: string
+          description: Human-readable node label
+          minLength: 1
+          maxLength: 128
+          example: Validator Alpha
+        
+        status:
+          type: string
+          description: Current lifecycle state
+          enum:
+            - running
+            - stopped
+            - starting
+            - stopping
+            - error
+          example: running
+        
+        network:
+          type: string
+          description: Network assignment
+          enum:
+            - mainnet
+            - testnet
+            - devnet
+            - custom
+          example: mainnet
+        
+        rpc_port:
+          type: integer
+          description: RPC endpoint port number
+          minimum: 1024
+          maximum: 65535
+          example: 8545
+        
+        rpc_health:
+          type: string
+          description: Health check result from RPC endpoint
+          enum:
+            - healthy
+            - degraded
+            - unreachable
+            - unknown
+          example: healthy
+    
+    FleetPayload:
+      type: object
+      description: Fleet-wide node inventory
+      required:
+        - nodes
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/FleetNode"
+          description: List of all configured nodes
+          minItems: 0
+          example:
+            - id: mainnet-validator-01
+              name: Validator Alpha
+              status: running
+              network: mainnet
+              rpc_port: 8545
+              rpc_health: healthy
+    
+    NodeMetricsResponse:
+      type: object
+      description: Node-specific metrics payload
+      required:
+        - node_id
+        - node_name
+        - pid
+      properties:
+        node_id:
+          type: string
+          description: Unique node identifier
+          example: mainnet-validator-01
+        
+        node_name:
+          type: string
+          description: Human-readable node name
+          example: Validator Alpha
+        
+        pid:
+          type: integer
+          nullable: true
+          description: Operating system process ID (null if stopped)
+          example: 12345
+        
+        metrics_endpoint:
+          type: string
+          nullable: true
+          format: uri
+          description: Metrics exporter URL (if adapter installed)
+          example: http://localhost:9090/metrics
+        
+        sync_progress:
+          $ref: "#/components/schemas/SyncProgress"
+          description: Blockchain sync state (if available)
+    
+    SyncProgress:
+      type: object
+      description: Synchronization progress indicators
+      required:
+        - current_height
+        - target_height
+        - sync_percentage
+        - peers_connected
+      properties:
+        current_height:
+          type: integer
+          description: Current blockchain height
+          minimum: 0
+          example: 18456234
+        
+        target_height:
+          type: integer
+          description: Target blockchain height
+          minimum: 0
+          example: 18456500
+        
+        sync_percentage:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: Synchronization percentage
+          example: 99.99
+        
+        peers_connected:
+          type: integer
+          minimum: 0
+          description: Active peer connections
+          example: 47
+    
+    ReadinessPayload:
+      type: object
+      description: Workspace readiness diagnostics
+      required:
+        - score
+        - ready_nodes
+        - warning_count
+        - critical_count
+        - events
+      properties:
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Overall readiness score
+          example: 85
+        
+        ready_nodes:
+          type: integer
+          minimum: 0
+          description: Number of fully-ready nodes
+          example: 3
+        
+        warning_count:
+          type: integer
+          minimum: 0
+          description: Total warnings across fleet
+          example: 2
+        
+        critical_count:
+          type: integer
+          minimum: 0
+          description: Critical issues requiring attention
+          example: 0
+        
+        events:
+          type: integer
+          minimum: 0
+          description: Total event journal entries
+          example: 127
+    
+    PluginListResponse:
+      type: object
+      description: Plugin inventory with version compatibility
+      properties:
+        node_type:
+          type: string
+          description: Filtered node type
+          example: neochain
+        
+        plugins:
+          type: array
+          items:
+            $ref: "#/components/schemas/PluginInfo"
+        
+        version_matrix:
+          $ref: "#/components/schemas/VersionCompatibilityMatrix"
+    
+    PluginInfo:
+      type: object
+      description: Single plugin record
+      required:
+        - name
+        - version
+        - status
+        - compatible_node_types
+      properties:
+        name:
+          type: string
+          example: prometheus-exporter
+        
+        version:
+          type: string
+          format: semver
+          example: "1.2.3"
+        
+        status:
+          type: string
+          enum:
+            - deployed
+            - unavailable
+            - incompatible
+          example: deployed
+        
+        compatible_node_types:
+          type: array
+          items:
+            type: string
+          example:
+            - neochain
+            - ethereum
+    
+    VersionCompatibilityMatrix:
+      type: object
+      description: Node type to supported versions mapping
+      additionalProperties:
+        type: array
+        items:
+          type: string
+          format: semver
+        description: Supported plugin versions for each node type
+    
+    ErrorResponse:
+      type: object
+      description: Standardized error response structure
+      required:
+        - error
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorDetail"
+    
+    ErrorDetail:
+      type: object
+      description: Detailed error information
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code
+          pattern: "^[A-Z_]+$"
+          example: NODE_NOT_FOUND
+        
+        message:
+          type: string
+          description: Human-readable error explanation
+          example: "Node 'test-node' not found in workspace"
+        
+        details:
+          type: array
+          items:
+            type: string
+          description: Additional context array
+          example:
+            - "node_id must exist before lifecycle operations"
+        
+        suggestion:
+          type: string
+          description: Recommended remediation action
+          example: "List available nodes first via GET /api/fleet"
+
+security:
+  - bearerAuth: []
+  - sessionAuth: []
+
+x-rate-limiting:
+  global:
+    requests_per_minute: 100
+    concurrent_connections: 50
+    max_payload_size_bytes: 1048576
+  
+  per_endpoint:
+    # Note: Node lifecycle operations (/nodes/{id}/start|stop|restart) are browser-form
+    # controls requiring session cookies, not available as REST API endpoints.
+    # See AGENT_API.md "Lifecycle Operations" section for details.
+    # The following rate limits are documented for future reference only:
+    
+    # [FUTURE WORK] - Not implemented as REST endpoint
+    # "/api/nodes/{id}/start":
+    #   limit: "1/second/node"
+    #   idempotent: true
+    # 
+    # [FUTURE WORK] - Not implemented as REST endpoint  
+    # "/api/nodes/{id}/stop":
+    #   limit: "1/second/node"
+    #   graceful_shutdown: true
+    # 
+    # [FUTURE WORK] - Not implemented as REST endpoint
+    # "/api/nodes/{id}/restart":
+    #   limit: "1/second/node"
+    #   conflicts_with:
+    #     - start
+    #     - stop
+    
+    "/api/metrics-prometheus":
+      limit: "10/minute/IP"
+      recommendation: "Prometheus scrape interval: 15-30 seconds"
+
+x-authentication-notes:
+  token_requirements:
+    minimum_length_bytes: 32
+    maximum_length_bytes: 4096
+    hash_algorithm: SHA256
+    comparison_method: constant-time
+  
+  brute_force_protection:
+    failure_threshold: 5
+    initial_backoff_seconds: 5
+    backoff_multiplier: 2
+    maximum_backoff_seconds: 300
+  
+  session_management:
+    ttl_hours: 12
+    cookie_flags:
+      - HttpOnly
+      - SameSite=Strict
+      - Secure (HTTPS only)
+
+x-cors-policy:
+  enabled: true
+  configuration_variable: NEONEXUS_WEB_PUBLIC_ORIGIN
+  bypass_development: true
+  recommended_proxy_configuration: |
+    location /api/ {
+      proxy_pass http://localhost:3456;
+      add_header 'Access-Control-Allow-Origin' '$remote_addr' always;
+    }
+
+x-changelog:
+  v4_3_0:
+    additions:
+      - "Complete OpenAPI specification"
+      - "Enhanced error response structures"
+      - "Detailed rate limiting policies"
+      - "Python and JavaScript SDK support"
+  
+  v4_2_0:
+    additions:
+      - "Token scoping system"
+      - "Per-endpoint permission levels"
+      - "Improved metrics performance"
+  
+  v4_1_0:
+    additions:
+      - "Initial REST API support"
+      - "Basic authentication"
+      - "Prometheus integration"
