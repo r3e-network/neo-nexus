@@ -14,7 +14,14 @@ use super::*;
 
 /// `node_wallets` stores a profile id and has no foreign key to the profile
 /// table, so the binding can be asserted without building a real NEP-6 wallet.
-const WALLET_PROFILE_ID: &str = "wallet-profile-1";
+///
+/// One profile per node, because a wallet profile is leased exclusively: a
+/// profile names a NEP-6 wallet, and two nodes holding it are two nodes able to
+/// sign with one key. Distinct ids also make the round trip prove more — each
+/// node has to come back with *its own* binding, not merely with some binding.
+fn wallet_profile_for(index: usize) -> String {
+    format!("wallet-profile-{index}")
+}
 
 /// The shared `create_node` helper puts every node on 10332, and the backup
 /// exporter rejects a port collision, so this fleet needs its own ports.
@@ -52,10 +59,9 @@ fn duties_and_wallet_bindings_survive_a_backup_round_trip() {
     for (offset, (name, node_type, role)) in assignments.into_iter().enumerate() {
         let id = node_on(&source, name, node_type, offset as u16);
         source.set_node_role(&id, Some(role)).unwrap();
-        source
-            .set_node_wallet(&id, Some(WALLET_PROFILE_ID))
-            .unwrap();
-        ids.push((id, role));
+        let wallet = wallet_profile_for(offset);
+        source.set_node_wallet(&id, Some(&wallet)).unwrap();
+        ids.push((id, role, wallet));
     }
     // One node with no duty, so the restore cannot pass by assigning a duty to
     // everything it sees.
@@ -68,7 +74,7 @@ fn duties_and_wallet_bindings_survive_a_backup_round_trip() {
     assert_eq!(imported.role_count, 3, "three duties were exported");
     assert_eq!(imported.wallet_binding_count, 3);
 
-    for (id, role) in ids {
+    for (id, role, wallet) in ids {
         assert_eq!(
             target.load_node_role(&id).unwrap(),
             Some(role),
@@ -76,8 +82,8 @@ fn duties_and_wallet_bindings_survive_a_backup_round_trip() {
         );
         assert_eq!(
             target.load_node_wallet(&id).unwrap().as_deref(),
-            Some(WALLET_PROFILE_ID),
-            "node {id} lost its wallet binding",
+            Some(wallet.as_str()),
+            "node {id} came back with the wrong wallet binding",
         );
     }
     assert_eq!(

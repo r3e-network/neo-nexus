@@ -72,10 +72,14 @@ pub async fn save_signer_binding(
             _ => anyhow::bail!("signer backend and key id must be set or cleared together"),
         };
         if let Some(ref k) = key {
-            let all_bindings = state.workspace.list_all_signer_bindings()?;
-            if let Err(violation) =
-                crate::signing::check_signer_binding_allowed(&node.id, k, &all_bindings)
-            {
+            let all_leases = state.workspace.list_all_signer_bindings()?;
+            let fleet = state.workspace.list_nodes()?;
+            if let Err(violation) = crate::signing::check_signer_binding_allowed(
+                &node.id,
+                k,
+                &all_leases,
+                crate::web::fleet::instance_namer(&fleet),
+            ) {
                 anyhow::bail!("{violation}");
             }
         }
@@ -137,25 +141,27 @@ pub fn signer_binding(
             html::note("Stop and settle the node before changing its signer identity.")
         );
     }
-    let all_bindings = state
+    let all_leases = state
         .workspace
         .list_all_signer_bindings()
         .unwrap_or_default();
+    let fleet = state.workspace.list_nodes().unwrap_or_default();
+    let name_of = crate::web::fleet::instance_namer(&fleet);
     let options = std::iter::once(
         r#"<option value="">No signer (signing duties disabled)</option>"#.to_string(),
     )
     .chain(profiles.iter().map(|profile| {
         let is_selected = profile.id == selected_backend;
-        let other_owner = all_bindings
+        let other_owner = all_leases
             .iter()
             .find(|(nid, b)| b.backend_id == profile.id && nid != &node.id);
         if let Some((owner_id, _)) = other_owner {
             format!(
-                r#"<option value="{}" disabled>🔒 {} · {} (Locked by {})</option>"#,
+                r#"<option value="{}" disabled>🔒 {} · {} (leased to {})</option>"#,
                 html::escape(&profile.id),
                 html::escape(&profile.label),
                 html::escape(profile.kind.label()),
-                html::escape(owner_id),
+                html::escape(&name_of(owner_id)),
             )
         } else {
             let chosen = if is_selected { " selected" } else { "" };

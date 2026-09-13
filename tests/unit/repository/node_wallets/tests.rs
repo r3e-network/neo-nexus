@@ -66,10 +66,8 @@ fn the_table_holds_a_reference_and_nothing_else() {
     assert_eq!(columns, ["node_id", "wallet_profile_id"]);
 }
 
-#[test]
-fn assignments_are_scoped_to_their_node() {
-    let (_dir, repository, first) = repo_with_node();
-    let second = repository
+fn second_node(repository: &Repository) -> String {
+    repository
         .create_node(NewNode {
             name: "rpc-1".to_string(),
             node_type: NodeType::NeoGo,
@@ -83,9 +81,51 @@ fn assignments_are_scoped_to_their_node() {
             ws_port: None,
         })
         .unwrap()
-        .id;
+        .id
+}
+
+#[test]
+fn assignments_are_scoped_to_their_node() {
+    let (_dir, repository, first) = repo_with_node();
+    let second = second_node(&repository);
     repository
         .set_node_wallet(&first, Some("wallet-a"))
         .unwrap();
     assert_eq!(repository.load_node_wallet(&second).unwrap(), None);
+}
+
+/// A wallet profile names a NEP-6 wallet. Two nodes rendering the same profile
+/// into their configs are two nodes able to sign with one key — the state the
+/// signer-key lane refuses, and which this lane used to allow silently.
+#[test]
+fn a_wallet_profile_signs_for_one_node_only() {
+    let (_dir, repository, first) = repo_with_node();
+    let second = second_node(&repository);
+    repository
+        .set_node_wallet(&first, Some("wallet-a"))
+        .unwrap();
+
+    let err = repository
+        .set_node_wallet(&second, Some("wallet-a"))
+        .expect_err("one wallet profile must not sign for two nodes");
+    assert!(
+        err.to_string().contains("already leased"),
+        "the refusal should state the exclusivity rule: {err}"
+    );
+    assert_eq!(repository.load_node_wallet(&second).unwrap(), None);
+
+    // Re-asserting the same lease on the node that holds it is not a conflict.
+    repository
+        .set_node_wallet(&first, Some("wallet-a"))
+        .unwrap();
+
+    // Releasing it makes it available again.
+    repository.set_node_wallet(&first, None).unwrap();
+    repository
+        .set_node_wallet(&second, Some("wallet-a"))
+        .unwrap();
+    assert_eq!(
+        repository.load_node_wallet(&second).unwrap().as_deref(),
+        Some("wallet-a")
+    );
 }

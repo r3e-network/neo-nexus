@@ -97,7 +97,14 @@ pub use state::EngineState;
 | `src/metrics/prometheus/neox_geth_adapter.rs` | 420 | 同上 |
 | `src/metrics/prometheus/neox_reth_adapter.rs` | 358 | 同上 |
 | `src/utils/backoff_tests.rs` | 430 | 以 `#[cfg(test)] mod backoff_tests;` 接入 |
-| `src/node_lifecycle/context.rs` | 55 | 以 `mod context;` 接入并导出 `generation_context_for_node` |
+| `src/node_lifecycle/context.rs` | 55 | ~~以 `mod context;` 接入并导出 `generation_context_for_node`~~ — 见下方更正，已删除 |
+
+> **更正（v4.3.1 审计）**：`context.rs` 当时只是被"接入"到模块树里以消除孤儿文件告警，
+> `generation_context_for_node` 从未被任何调用点使用。它读取 `node_wallets` 表并把钱包
+> 路径写进节点配置——而真正的启动路径走的是 `prepare_node_signer_launch` 的
+> `signer_launch.generation_context()`，与之无关。一段看起来是活跃安全通道、实际上不可达的
+> 代码比没有更危险：它让 `node_wallets` 看上去仍在影响节点配置。该文件已删除。
+> `node_wallets` 表保留（备份仍会往返该字段），并补上了与签名密钥同样的独占约束。
 
 接入前这些文件是针对旧 API 写的（`GenerationContext.node`、`NodeConfig.working_dir`、`node.rpc_port: Option`、`serde_yaml::json!`、缺失 `metrics_url()`），产生了 33 个编译错误。修复属于机械性 API 漂移对齐：
 

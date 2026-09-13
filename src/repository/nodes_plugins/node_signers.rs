@@ -40,10 +40,24 @@ impl Repository {
                     .optional()?;
                 if let Some(owner) = existing_owner {
                     if owner != node_id {
+                        // Named by id rather than by node name: this is the
+                        // last line of defence and must not depend on a second
+                        // query succeeding. The surfaces above resolve the name
+                        // before they get here, so an operator normally sees it.
+                        let owner_name: String = transaction
+                            .query_row(
+                                "SELECT name FROM nodes WHERE id = ?1",
+                                params![owner],
+                                |row| row.get(0),
+                            )
+                            .optional()?
+                            .unwrap_or(owner);
                         bail!(
-                            "IAM Isolation Violation: Signer key '{}/{}' is already exclusively allocated to instance '{owner}'. Cross-node key usage is strictly forbidden.",
-                            key.backend_id,
-                            key.key_id
+                            "{}",
+                            crate::signing::SignerIsolationViolation::KeyAlreadyAssignedToOtherNode {
+                                key: key.clone(),
+                                owner: owner_name,
+                            }
                         );
                     }
                 }

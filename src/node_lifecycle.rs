@@ -18,10 +18,6 @@
 
 use std::path::{Path, PathBuf};
 
-mod context;
-
-pub use context::generation_context_for_node;
-
 use anyhow::{Context, Result};
 
 use crate::{

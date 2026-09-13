@@ -12,6 +12,22 @@ pub struct FleetRow {
     pub rpc_health: String,
 }
 
+/// Name an instance the way an operator does.
+///
+/// A node id is a uuid. Messages that identify an instance by one — "leased to
+/// node-9b404bd1-17f2-442b…" — name the offender in the only spelling the
+/// operator has never seen, and leave them to go looking for which node that is.
+/// Falls back to the id when the fleet does not contain it, which is better than
+/// claiming there is no such instance.
+pub fn instance_namer(nodes: &[NodeConfig]) -> impl Fn(&str) -> String + '_ {
+    move |node_id: &str| {
+        nodes
+            .iter()
+            .find(|node| node.id == node_id)
+            .map_or_else(|| node_id.to_string(), |node| node.name.clone())
+    }
+}
+
 pub struct Fleet {
     pub rows: Vec<FleetRow>,
 }

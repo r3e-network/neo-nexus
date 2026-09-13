@@ -4,7 +4,6 @@ use crate::{
     catalog::{PluginCatalog, PluginId},
     core::node::{Network, NodeType, StorageEngine},
     runtime::RuntimeInstallation,
-    signing::SignerBackendProfile,
     web::{
         html,
         node_form::{FieldErrors, NodeDraft},
@@ -373,8 +372,7 @@ pub fn hermes_section(draft: &NodeDraft) -> String {
 pub fn signer_section(
     draft: &NodeDraft,
     errors: &FieldErrors,
-    profiles: &[SignerBackendProfile],
-    existing_bindings: &[(String, crate::signing::SignerKeyRef)],
+    context: &super::EditorContext,
     current_node_id: Option<&str>,
 ) -> String {
     let error = error_for(errors, "signer_backend").or_else(|| error_for(errors, "signer_key"));
@@ -382,20 +380,35 @@ pub fn signer_section(
         .map(|message| html::notice("danger", message))
         .unwrap_or_default();
 
+    // A lease is per key, not per backend: a custody service holds many keys and
+    // only the leased one is spoken for. Locking the whole profile hid every
+    // other key in that service behind one node's lease.
+    let leased_keys: Vec<&crate::signing::SignerKeyRef> = context
+        .leases
+        .iter()
+        .filter(|(node_id, _)| Some(node_id.as_str()) != current_node_id)
+        .map(|(_, key)| key)
+        .collect();
+
     let mut options =
         vec![r#"<option value="">No signer (read-only duty / unleased)</option>"#.to_string()];
-    for profile in profiles {
+    for profile in &context.profiles {
         let is_selected = draft.signer_backend == profile.id;
-        let other_owner = existing_bindings
-            .iter()
-            .find(|(nid, b)| b.backend_id == profile.id && Some(nid.as_str()) != current_node_id);
-        if let Some((owner_id, _)) = other_owner {
+        // Only a single-key backend can be fully spoken for by one lease.
+        let leased_elsewhere = context.sole_keys.get(&profile.id).and_then(|sole| {
+            context.leases.iter().find(|(node_id, key)| {
+                Some(node_id.as_str()) != current_node_id
+                    && key.backend_id == profile.id
+                    && &key.key_id == sole
+            })
+        });
+        if let Some((owner_id, _)) = leased_elsewhere {
             options.push(format!(
-                r#"<option value="{id}" disabled>🔒 {label} ({kind}) — Leased to {owner_id}</option>"#,
+                r#"<option value="{id}" disabled>🔒 {label} ({kind}) — leased to {owner}</option>"#,
                 id = html::escape(&profile.id),
                 label = html::escape(&profile.label),
                 kind = html::escape(profile.kind.label()),
-                owner_id = html::escape(owner_id),
+                owner = html::escape(&context.name_of(owner_id)),
             ));
         } else {
             let chosen = if is_selected { " selected" } else { "" };
@@ -409,18 +422,43 @@ pub fn signer_section(
     }
     let options_html = options.join("\n");
 
+    // Where the workspace knows the backend's only key, say which one it is and
+    // let the operator leave the box alone. Typing it changes nothing except the
+    // chance of a rejected save.
+    let known_key = context.sole_keys.get(draft.signer_backend.trim());
+    let key_help = match known_key {
+        Some(key_id) => format!(
+            "Leave blank: {} owns exactly one key, {key_id}, and it will be used.",
+            draft.signer_backend.trim()
+        ),
+        None => "The key this custody service manages for this instance.".to_string(),
+    };
     let signer_key_input = html::TextField {
         id: Some("node-signer-key"),
         label: "Key identifier / Public key",
         name: "signer_key",
         value: &draft.signer_key,
         error: error_for(errors, "signer_key"),
-        help: Some("The key ID or public key managed by this signer backend."),
+        help: Some(&key_help),
         monospace: true,
-        placeholder: Some("e.g. validator-key or 02..."),
+        placeholder: known_key.map(String::as_str).or(Some("e.g. 02...")),
         ..html::TextField::default()
     }
     .render();
+
+    let unleased_keys_note = if leased_keys.is_empty() {
+        String::new()
+    } else {
+        format!(
+            r#"<div class="help" style="margin-top: 6px;">{} signer {} already leased to another instance and cannot be selected here.</div>"#,
+            leased_keys.len(),
+            if leased_keys.len() == 1 {
+                "key is"
+            } else {
+                "keys are"
+            },
+        )
+    };
 
     format!(
         r#"<div class="field span-all signer-capability-box" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);">
@@ -441,13 +479,15 @@ pub fn signer_section(
                     <select id="node-signer-backend" name="signer_backend">
                         {options_html}
                     </select>
-                    <span class="help">Available signer profiles from custody registry. Locked profiles are leased to other instances.</span>
+                    <span class="help">Signer profiles from the custody registry. A profile already leased to another instance cannot be selected.</span>
                 </label>
                 {signer_key_input}
             </div>
+            {unleased_keys_note}
         </div>"#,
         marked = marked,
         options_html = options_html,
         signer_key_input = signer_key_input,
+        unleased_keys_note = unleased_keys_note,
     )
 }

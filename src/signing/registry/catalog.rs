@@ -100,6 +100,18 @@ impl SignerRegistry {
             .with_context(|| format!("signer backend {id:?} is not configured"))
     }
 
+    /// Backend id → the one key it owns, for every backend whose key is known
+    /// without asking a remote custody service.
+    ///
+    /// Lets a form fill in a key the workspace already knows instead of asking
+    /// an operator to retype it and then rejecting the typo.
+    pub fn sole_key_ids(&self) -> std::collections::BTreeMap<String, String> {
+        self.backends
+            .iter()
+            .filter_map(|(id, backend)| Some((id.clone(), backend.sole_key_id()?)))
+            .collect()
+    }
+
     pub fn console_backend(&self) -> Result<&ConfiguredSignerBackend> {
         self.routed_backend(self.console_backend.as_deref(), "console")
     }

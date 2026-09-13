@@ -122,9 +122,23 @@ fn signer_key_cannot_be_claimed_by_multiple_nodes_iam_isolation() {
     let err = repository
         .set_node_signer_key(&node2.id, Some(&key))
         .expect_err("cross-node signer key lease must be forbidden");
+    let message = err.to_string();
     assert!(
-        err.to_string().contains("IAM Isolation Violation"),
-        "error message should cite IAM isolation: {err}"
+        message.contains("leased exclusively"),
+        "the refusal should state the exclusivity rule: {message}"
+    );
+    assert!(
+        message.contains("wallet-profile/consensus-key-01"),
+        "the refusal should name the contested key: {message}"
+    );
+    // Named the way an operator sees the instance, not by its uuid.
+    assert!(
+        message.contains(&node1.name),
+        "the refusal should name the instance holding the lease: {message}"
+    );
+    assert!(
+        !message.contains(&node1.id),
+        "the refusal should not identify the instance by uuid: {message}"
     );
 
     // After node1 releases the lease, node2 can acquire it cleanly

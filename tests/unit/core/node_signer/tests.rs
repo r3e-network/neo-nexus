@@ -165,8 +165,24 @@ fn double_signing_hazard_fails_when_another_node_is_running_with_same_signer_key
     repository
         .set_node_role(&node2.id, Some(NodeRole::Consensus))
         .unwrap();
-    // Simulate legacy/imported database state where node2 also holds this binding
+
+    // The database itself now refuses a second claim on one key, so even a
+    // caller writing raw SQL cannot reach the state this test needs.
     let conn = rusqlite::Connection::open(directory.path().join("workspace.db")).unwrap();
+    let refused = conn.execute(
+        "INSERT INTO node_signer_bindings (node_id, backend_id, key_id) VALUES (?1, ?2, ?3)",
+        rusqlite::params![node2.id, key.backend_id, key.key_id],
+    );
+    assert!(
+        refused.is_err(),
+        "the exclusive-lease index let a second instance claim one key"
+    );
+
+    // The runtime guard is the layer beneath that index, and it still has to
+    // hold for a workspace that reached the forbidden state before the index
+    // existed. Drop the index to be that workspace.
+    conn.execute("DROP INDEX idx_node_signer_bindings_exclusive_lease", [])
+        .unwrap();
     conn.execute(
         "INSERT INTO node_signer_bindings (node_id, backend_id, key_id) VALUES (?1, ?2, ?3)",
         rusqlite::params![node2.id, key.backend_id, key.key_id],

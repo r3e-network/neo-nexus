@@ -1,4 +1,5 @@
 use anyhow::Result;
+use rusqlite::OptionalExtension;
 
 use super::*;
 
@@ -10,15 +11,37 @@ impl Repository {
     /// this application fails validation on any wallet that carries a plaintext
     /// secret — keeping one in the workspace database would contradict the
     /// boundary it enforces on everyone else.
+    /// A wallet profile is leased to at most one node, for the same reason a
+    /// signer key is: the profile names a NEP-6 wallet, and two nodes rendering
+    /// the same wallet into their configs are two nodes able to sign with one
+    /// key. This lane had no exclusivity check at all while the signer-key lane
+    /// beside it refused exactly that, so a restored backup could reintroduce
+    /// the state the other lane exists to prevent.
     pub fn set_node_wallet(&self, node_id: &str, profile_id: Option<&str>) -> Result<()> {
         let mut connection = self.connection()?;
         let transaction = connection.transaction()?;
         match profile_id {
-            Some(profile_id) => transaction.execute(
-                "INSERT INTO node_wallets (node_id, wallet_profile_id) VALUES (?1, ?2)
+            Some(profile_id) => {
+                let existing_owner: Option<String> = transaction
+                    .query_row(
+                        "SELECT node_id FROM node_wallets WHERE wallet_profile_id = ?1",
+                        rusqlite::params![profile_id],
+                        |row| row.get(0),
+                    )
+                    .optional()?;
+                if let Some(owner) = existing_owner {
+                    if owner != node_id {
+                        anyhow::bail!(
+                            "wallet profile '{profile_id}' is already leased to instance '{owner}'. One wallet signs for one node; release it there first."
+                        );
+                    }
+                }
+                transaction.execute(
+                    "INSERT INTO node_wallets (node_id, wallet_profile_id) VALUES (?1, ?2)
                  ON CONFLICT(node_id) DO UPDATE SET wallet_profile_id = excluded.wallet_profile_id",
-                rusqlite::params![node_id, profile_id],
-            )?,
+                    rusqlite::params![node_id, profile_id],
+                )?
+            }
             None => transaction.execute(
                 "DELETE FROM node_wallets WHERE node_id = ?1",
                 rusqlite::params![node_id],

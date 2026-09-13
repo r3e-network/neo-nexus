@@ -161,6 +161,22 @@ impl ConfiguredSignerBackend {
         }
     }
 
+    /// The one key this backend owns, when that is knowable here.
+    ///
+    /// A process-local wallet holds exactly one key, and a local signer is
+    /// configured with exactly one public key — in both cases the workbench
+    /// already knows the only value a node could legally be bound to, so asking
+    /// an operator to type it is asking them to guess at something we could
+    /// have filled in. A custody service holds many keys and is authoritative
+    /// about them, so it answers `None` and the operator names the key.
+    pub fn sole_key_id(&self) -> Option<String> {
+        match self {
+            Self::LocalWallet { signer, .. } => Some(signer.key_info().key_id),
+            Self::LocalSigner { config, .. } => Some(config.public_key().to_string()),
+            Self::NeoOsService { .. } => None,
+        }
+    }
+
     /// The gRPC bridge a native node may use for this NeoOS custody profile.
     /// Absence is explicit: application HTTP signing may still work, but a
     /// consensus node launch must fail instead of inventing a transport.
