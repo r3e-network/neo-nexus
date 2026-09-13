@@ -26,7 +26,7 @@ pub async fn wallets(
     RawQuery(flash): RawQuery,
     Query(params): Query<WalletQuery>,
 ) -> Response {
-    let body = match state.repository.list_neo_wallet_profiles() {
+    let body = match state.workspace.list_neo_wallet_profiles() {
         Ok(profiles) => {
             let filter = NeoWalletProfileFilter::new(tri_state(&params.used), params.q.trim());
             render_body(

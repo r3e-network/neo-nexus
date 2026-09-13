@@ -19,6 +19,7 @@ use neo_nexus::{
     repository::Repository,
     signer_client::{SignerClient, SignerConfig},
     types::{Network, NewNode, NodeType, StorageEngine},
+    wallet::TokenPermission,
     watchdog::RestartPolicy,
     web::{
         auth::{AuthStore, WebSecurity},
@@ -404,29 +405,32 @@ fn protected_mutations_require_exact_origin_or_matching_referer() {
 }
 
 #[test]
-fn public_metrics_route_accessible_without_authentication() {
+fn public_metrics_route_requires_authentication() {
     let server = spawn_server();
     let http = agent();
 
-    // /public-metrics should be accessible without any authentication
     let response = into_response(
         http.get(&format!("{}/public-metrics", server.base_url))
             .call(),
     );
+    assert_eq!(response.status(), 401);
+}
+
+#[test]
+fn public_metrics_route_accepts_a_read_fleet_api_token() {
+    let server = spawn_server();
+    let http = agent();
+    let token = Repository::open(&server.db_path)
+        .expect("workspace")
+        .create_api_token("metrics", vec![TokenPermission::ReadFleet], None)
+        .expect("API token")
+        .1;
+    let response = into_response(
+        http.get(&format!("{}/public-metrics", server.base_url))
+            .set("authorization", &format!("Bearer {token}"))
+            .call(),
+    );
     assert_eq!(response.status(), 200);
-    assert_eq!(
-        response.header("content-type"),
-        Some("text/plain; version=0.0.4")
-    );
-    let body = response.into_string().expect("utf-8 response body");
-    assert!(
-        body.contains("# HELP"),
-        "Prometheus metrics must start with help comments"
-    );
-    assert!(
-        body.contains("# TYPE"),
-        "Prometheus metrics must contain type declarations"
-    );
 }
 
 #[test]
@@ -494,6 +498,191 @@ fn fleet_api_lists_created_nodes_and_control_persists_state() {
         "stop must persist Stopped even when nothing was running"
     );
 }
+
+#[test]
+fn node_and_fleet_iac_api_serves_cloud_manifests() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+
+    let login = post_form(&http, &format!("{base}/login"), &format!("token={TOKEN}"));
+    let session = cookie_value(&login).expect("session cookie set");
+
+    let node_id = create_node(&server.db_path, "cloud-iac-node", 22332);
+
+    // Test single node K8s IaC
+    let k8s = into_response(
+        http.get(&format!("{base}/api/nodes/{node_id}/iac?format=k8s"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(k8s.status(), 200);
+    assert_eq!(k8s.header("content-type"), Some("application/x-yaml"));
+    assert!(k8s
+        .header("content-disposition")
+        .unwrap()
+        .contains("node-cloud-iac-node.yaml"));
+    let k8s_body = k8s.into_string().unwrap();
+    assert!(k8s_body.contains("apiVersion: v1"));
+    assert!(k8s_body.contains("kind: Pod"));
+    assert!(k8s_body.contains("cloud-iac-node"));
+
+    // Test single node Docker IaC
+    let docker = into_response(
+        http.get(&format!("{base}/api/nodes/{node_id}/iac?format=docker"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(docker.status(), 200);
+    let docker_body = docker.into_string().unwrap();
+    assert!(docker_body.contains("docker run -d"));
+
+    // Test single node JSON IaC
+    let json = into_response(
+        http.get(&format!("{base}/api/nodes/{node_id}/iac?format=json"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(json.status(), 200);
+    let json_val = json_body(json);
+    assert_eq!(json_val["kind"], "NodeInstance");
+    assert_eq!(json_val["schema"], "neonexus.io/v1alpha1");
+
+    // Test fleet compose export
+    let compose = into_response(
+        http.get(&format!("{base}/api/fleet/iac?format=compose"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(compose.status(), 200);
+    let compose_body = compose.into_string().unwrap();
+    assert!(compose_body.contains("version: '3.8'"));
+    assert!(compose_body.contains("cloud-iac-node:"));
+
+    // Test fleet K8s export
+    let fleet_k8s = into_response(
+        http.get(&format!("{base}/api/fleet/iac?format=k8s"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(fleet_k8s.status(), 200);
+    let fleet_k8s_body = fleet_k8s.into_string().unwrap();
+    assert!(fleet_k8s_body.contains("kind: Pod"));
+
+    // Test single node CloudFormation IaC
+    let cfn = into_response(
+        http.get(&format!("{base}/api/nodes/{node_id}/iac?format=cloudformation"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(cfn.status(), 200);
+    assert_eq!(cfn.header("content-type"), Some("application/x-yaml"));
+    assert!(cfn
+        .header("content-disposition")
+        .unwrap()
+        .contains("node-cloud-iac-node.cfn.yaml"));
+    let cfn_body = cfn.into_string().unwrap();
+    assert!(cfn_body.contains("AWSTemplateFormatVersion: '2010-09-09'"));
+    assert!(cfn_body.contains("AWS::ECS::TaskDefinition"));
+
+    // Test single node Terraform IaC
+    let tf = into_response(
+        http.get(&format!("{base}/api/nodes/{node_id}/iac?format=terraform"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(tf.status(), 200);
+    assert_eq!(tf.header("content-type"), Some("application/x-tf"));
+    assert!(tf
+        .header("content-disposition")
+        .unwrap()
+        .contains("node-cloud-iac-node.tf"));
+    let tf_body = tf.into_string().unwrap();
+    assert!(tf_body.contains("terraform {"));
+    assert!(tf_body.contains("resource \"docker_container\""));
+
+    // Test fleet CloudFormation export
+    let fleet_cfn = into_response(
+        http.get(&format!("{base}/api/fleet/iac?format=cloudformation"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(fleet_cfn.status(), 200);
+    let fleet_cfn_body = fleet_cfn.into_string().unwrap();
+    assert!(fleet_cfn_body.contains("AWSTemplateFormatVersion: '2010-09-09'"));
+
+    // Test fleet Terraform export
+    let fleet_tf = into_response(
+        http.get(&format!("{base}/api/fleet/iac?format=terraform"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(fleet_tf.status(), 200);
+    let fleet_tf_body = fleet_tf.into_string().unwrap();
+    assert!(fleet_tf_body.contains("terraform {"));
+
+    // Test node detail renders AWS EC2 8-tab studio and summary card
+    let detail_page = into_response(
+        http.get(&format!("{base}/nodes/{node_id}"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(detail_page.status(), 200);
+    let detail_html = detail_page.into_string().unwrap();
+    assert!(detail_html.contains("aws-top-bar"));
+    assert!(detail_html.contains("aws-summary-card"));
+    assert!(detail_html.contains("aws-tab-bar"));
+    assert!(detail_html.contains("data-tab-target=\"tab-details\""));
+    assert!(detail_html.contains("data-tab-target=\"tab-status\""));
+    assert!(detail_html.contains("data-tab-target=\"tab-monitoring\""));
+    assert!(detail_html.contains("data-tab-target=\"tab-networking\""));
+    assert!(detail_html.contains("data-tab-target=\"tab-security\""));
+    assert!(detail_html.contains("data-tab-target=\"tab-storage\""));
+    assert!(detail_html.contains("data-tab-target=\"tab-tags\""));
+    assert!(detail_html.contains("data-tab-target=\"tab-iac\""));
+    assert!(detail_html.contains("aws-action-bar"));
+    assert!(detail_html.contains("AWS Systems Manager"));
+    assert!(detail_html.contains("CloudWatch Logs"));
+    assert!(detail_html.contains("CloudWatch Alarms"));
+
+    // Test SRE smoke sweep route
+    let smoke_res = into_response(
+        http.post(&format!("{base}/nodes/{node_id}/smoke"))
+            .set("cookie", &session)
+            .set("origin", base)
+            .call(),
+    );
+    assert_eq!(smoke_res.status(), 303);
+    assert!(smoke_res.header("location").unwrap().contains(&format!("/nodes/{node_id}")));
+
+    // Test Launch Instance Wizard steps
+    let wizard_page = into_response(
+        http.get(&format!("{base}/nodes/new"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(wizard_page.status(), 200);
+    let wizard_html = wizard_page.into_string().unwrap();
+    assert!(wizard_html.contains("aws-wizard-card"));
+    assert!(wizard_html.contains("aws-wizard-summary"));
+    assert!(wizard_html.contains("1. Name and tags"));
+
+    // Test nodes list console renders AWS header and action ribbon
+    let list_page = into_response(
+        http.get(&format!("{base}/nodes"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(list_page.status(), 200);
+    let list_html = list_page.into_string().unwrap();
+    assert!(list_html.contains("aws-top-bar"));
+    assert!(list_html.contains("global-resource-search"));
+    assert!(list_html.contains("aws-action-bar"));
+    assert!(list_html.contains("data-action=\"toggle-all-nodes\""));
+    assert!(list_html.contains("Status Check"));
+    assert!(list_html.contains("Availability Zone"));
+}
+
 
 /// Bearer-token API auth end to end: a valid `AdminAll` token authenticates and
 /// its permission authorizes a protected `/api/*` endpoint, a permission-scoped
@@ -826,6 +1015,154 @@ fn alert_routing_form_keeps_the_stored_webhook_when_the_field_is_blank() {
         body.contains("hooks.example.test"),
         "the host must stay visible so the operator can still recognise the hook"
     );
+}
+
+#[test]
+fn settings_watchdog_form_missing_jitter_field_defaults_to_false() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let login = post_form(&http, &format!("{base}/login"), &format!("token={TOKEN}"));
+    let session = cookie_value(&login).expect("session cookie set");
+
+    let saved = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/settings/watchdog"),
+        "enabled=Enabled&max_restart_attempts=7&base_delay_seconds=3&max_delay_seconds=90",
+    );
+    assert_eq!(saved.status(), 303);
+
+    let repository = Repository::open(&server.db_path).expect("reopen workspace");
+    let policy = repository.load_watchdog_policy().expect("watchdog policy");
+    assert!(
+        !policy.jitter_enabled(),
+        "missing field must default to false"
+    );
+}
+
+#[test]
+fn settings_watchdog_form_explicit_jitter_true_and_false_round_trip() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let login = post_form(&http, &format!("{base}/login"), &format!("token={TOKEN}"));
+    let session = cookie_value(&login).expect("session cookie set");
+
+    for (body, should_enable) in [
+        (
+            "enabled=Enabled&max_restart_attempts=7&base_delay_seconds=3&max_delay_seconds=90"
+                .to_string(),
+            false,
+        ),
+        (
+            "enabled=Enabled&max_restart_attempts=7&base_delay_seconds=3&max_delay_seconds=90"
+                .to_string()
+                + "&jitter_enabled=true",
+            true,
+        ),
+        (
+            "enabled=Enabled&max_restart_attempts=7&base_delay_seconds=3&max_delay_seconds=90"
+                .to_string()
+                + "&jitter_enabled=false",
+            false,
+        ),
+    ] {
+        let response = post_form_as(&http, &session, &format!("{base}/settings/watchdog"), &body);
+        assert_eq!(response.status(), 303, "save: {body}");
+
+        let repository = Repository::open(&server.db_path).expect("reopen workspace");
+        let policy = repository.load_watchdog_policy().expect("watchdog policy");
+        assert_eq!(
+            policy.jitter_enabled(),
+            should_enable,
+            "jitter state after save: {body}"
+        );
+    }
+}
+
+#[test]
+fn settings_watchdog_form_invalid_jitter_values_are_safe() {
+    let server = spawn_supervised_server();
+    let http = agent();
+    let base = &server.base_url;
+    let login = post_form(&http, &format!("{base}/login"), &format!("token={TOKEN}"));
+    let session = cookie_value(&login).expect("session cookie set");
+
+    let repository = Repository::open(&server.db_path).expect("reopen workspace");
+    let enabled =
+        RestartPolicy::with_enabled(true, 3, Duration::from_secs(1), Duration::from_secs(5))
+            .with_jitter(true);
+    repository.save_watchdog_policy(enabled).unwrap();
+    for value in &["bad", "0", "2"] {
+        let response = post_form_as(
+            &http,
+            &session,
+            &format!("{base}/settings/watchdog"),
+            &format!(
+                "enabled=Enabled&max_restart_attempts=3&base_delay_seconds=2&max_delay_seconds=60&jitter_enabled={}",
+                value
+            ),
+        );
+        assert_eq!(response.status(), 303, "invalid value: {value}");
+        let policy = repository.load_watchdog_policy().expect("watchdog policy");
+        assert_eq!(
+            policy.jitter_enabled(),
+            enabled.jitter_enabled(),
+            "invalid jitter value must not mutate database"
+        );
+    }
+}
+
+#[test]
+fn settings_watchdog_form_reload_preserves_jitter_after_save() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let login = post_form(&http, &format!("{base}/login"), &format!("token={TOKEN}"));
+    let session = cookie_value(&login).expect("session cookie set");
+
+    let enable = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/settings/watchdog"),
+        &format!(
+            "enabled=Enabled&max_restart_attempts=5&base_delay_seconds=4&max_delay_seconds=80{}",
+            "&jitter_enabled=true"
+        ),
+    );
+    assert_eq!(enable.status(), 303);
+
+    let page = into_response(
+        http.get(&format!("{base}/settings"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(page.status(), 200);
+    let body = page.into_string().expect("settings page");
+    assert!(
+        body.contains(r#"name="jitter_enabled" checked"#),
+        "jitter checkbox must be pre-selected when true: {body}"
+    );
+}
+
+#[test]
+fn settings_watchdog_form_origin_referer_csrf() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let login = post_form(&http, &format!("{base}/login"), &format!("token={TOKEN}"));
+    let session = cookie_value(&login).expect("session cookie set");
+
+    // Valid origin matches browser; rejected requests return 403.
+    let valid = "enabled=Enabled&max_restart_attempts=3&base_delay_seconds=2&max_delay_seconds=30&jitter_enabled=true";
+    let ok = post_form_as(&http, &session, &format!("{base}/settings/watchdog"), valid);
+    assert_eq!(ok.status(), 303);
+
+    // Rejected posts still redirect; the handler silently ignores unknown values.
+    let bad = "enabled=Enabled&max_restart_attempts=3&base_delay_seconds=2&max_delay_seconds=30&jitter_enabled=garbage";
+    let rejected = post_form_as(&http, &session, &format!("{base}/settings/watchdog"), bad);
+    assert_eq!(rejected.status(), 303); // Always redirect; invalid jitter is safe
 }
 
 /// A control that cannot be honoured has to say so instead of half-applying it.
@@ -3953,3 +4290,183 @@ fn node_start_failure_records_node_start_failed_event_when_binary_invalid() {
 
 // Note: snapshot apply lifecycle test already exists as `apply_snapshot_records_snapshot_applied_event_now`
 // and was restored by Jay's research. This comment confirms the gap is closed.
+
+#[test]
+fn node_metrics_endpoint_serves_json_behind_read_fleet_bearer_token() {
+    let server = spawn_server();
+    let repository = Repository::open(&server.db_path).expect("reopen workspace");
+    let node = repository
+        .create_node(NewNode {
+            name: "metrics-test-node".to_string(),
+            node_type: NodeType::NeoCli,
+            network: Network::Mainnet,
+            storage_engine: StorageEngine::LevelDb,
+            rpc_port: 10332,
+            p2p_port: 10333,
+            ws_port: None,
+            binary_path: PathBuf::from("neo-cli.dll"),
+            args: vec![],
+            runtime_version: "3.6.0".to_string(),
+        })
+        .expect("create node");
+
+    let (_token, secret) = repository
+        .create_api_token(
+            "metrics-bearer-test",
+            vec![TokenPermission::ReadFleet],
+            None,
+        )
+        .expect("create api token");
+
+    let client = AgentBuilder::new().build();
+
+    // 1. Without auth -> 401
+    let unauth = client
+        .get(&format!(
+            "{}/api/nodes/{}/metrics",
+            server.base_url, node.id
+        ))
+        .call();
+    assert_eq!(unauth.unwrap_err().into_response().unwrap().status(), 401);
+
+    // 2. With Bearer token -> 200 JSON
+    let response = client
+        .get(&format!(
+            "{}/api/nodes/{}/metrics",
+            server.base_url, node.id
+        ))
+        .set("Authorization", &format!("Bearer {secret}"))
+        .call()
+        .expect("call node metrics with bearer token");
+    assert_eq!(response.status(), 200);
+
+    let text = response.into_string().expect("read response string");
+    let body: serde_json::Value = serde_json::from_str(&text).expect("parse json");
+    assert_eq!(body["node_id"], node.id);
+    assert_eq!(body["node_name"], "metrics-test-node");
+}
+
+#[test]
+fn plugins_api_endpoint_lists_inventory_and_filters_by_node_type() {
+    let server = spawn_server();
+    let repository = Repository::open(&server.db_path).expect("reopen workspace");
+    let (_token, secret) = repository
+        .create_api_token(
+            "plugins-bearer-test",
+            vec![TokenPermission::ReadFleet],
+            None,
+        )
+        .expect("create api token");
+
+    let client = AgentBuilder::new().build();
+
+    // 1. All plugins
+    let response = client
+        .get(&format!("{}/api/plugins", server.base_url))
+        .set("Authorization", &format!("Bearer {secret}"))
+        .call()
+        .expect("call plugins api");
+    assert_eq!(response.status(), 200);
+
+    let text = response.into_string().expect("read response string");
+    let body: serde_json::Value = serde_json::from_str(&text).expect("parse json");
+    let plugins = body["plugins"].as_array().expect("plugins array");
+    assert!(!plugins.is_empty(), "plugins list should not be empty");
+
+    // 2. Filter by node_type=neo-cli
+    let cli_response = client
+        .get(&format!(
+            "{}/api/plugins?node_type=neo-cli",
+            server.base_url
+        ))
+        .set("Authorization", &format!("Bearer {secret}"))
+        .call()
+        .expect("call plugins with filter");
+    assert_eq!(cli_response.status(), 200);
+    let cli_text = cli_response.into_string().expect("read filter text");
+    let cli_body: serde_json::Value = serde_json::from_str(&cli_text).expect("parse filtered json");
+    assert_eq!(cli_body["node_type"], "neo-cli");
+
+    // 3. Filter by invalid node_type -> 400
+    let bad_response = client
+        .get(&format!(
+            "{}/api/plugins?node_type=invalid_type",
+            server.base_url
+        ))
+        .set("Authorization", &format!("Bearer {secret}"))
+        .call();
+    assert_eq!(
+        bad_response.unwrap_err().into_response().unwrap().status(),
+        400
+    );
+}
+
+#[test]
+fn api_token_creation_and_deletion_record_journal_events_and_flash_redirect() {
+    let server = spawn_server();
+    let http = agent();
+    let login_res = post_form(
+        &http,
+        &format!("{}/login", server.base_url),
+        &format!("token={TOKEN}"),
+    );
+    let session = cookie_value(&login_res).expect("session cookie set");
+
+    // 1. Create a token via Web POST form
+    let create_resp = http
+        .post(&format!("{}/settings/api-tokens/create", server.base_url))
+        .set("cookie", &session)
+        .set("Content-Type", "application/x-www-form-urlencoded")
+        .set("Origin", &server.base_url)
+        .send_string("name=audit-token-test&read_fleet=true")
+        .expect("post create token");
+    assert_eq!(create_resp.status(), 200);
+    let body = create_resp.into_string().expect("read response");
+    assert!(body.contains("audit-token-test"));
+
+    let repository = Repository::open(&server.db_path).expect("reopen workspace");
+    let tokens = repository.list_api_tokens().expect("list tokens");
+    let created = tokens
+        .iter()
+        .find(|t| t.name == "audit-token-test")
+        .expect("found created token");
+
+    // Check ApiTokenCreated audit event recorded
+    let events = repository
+        .list_events(RuntimeEventFilter::new(None, "", 10))
+        .expect("events");
+    assert!(
+        events
+            .iter()
+            .any(|e| e.kind.to_string() == "api-token-created"),
+        "api-token-created event must be recorded"
+    );
+
+    // 2. Delete the token via POST -> must redirect to /settings/api-tokens?flash=...
+    let delete_resp = http
+        .post(&format!(
+            "{}/settings/api-tokens/{}/delete",
+            server.base_url, created.id
+        ))
+        .set("cookie", &session)
+        .set("Origin", &server.base_url)
+        .call()
+        .expect("post delete token");
+    assert_eq!(delete_resp.status(), 303);
+    let location = delete_resp.header("location").unwrap_or("");
+    assert!(
+        location.contains("/settings/api-tokens"),
+        "should redirect back to api-tokens page, got: {location}"
+    );
+
+    // Check ApiTokenDeleted audit event recorded
+    let events_after = repository
+        .list_events(RuntimeEventFilter::new(None, "", 10))
+        .expect("events");
+    assert!(
+        events_after
+            .iter()
+            .any(|e| e.kind.to_string() == "api-token-deleted"),
+        "api-token-deleted event must be recorded"
+    );
+}

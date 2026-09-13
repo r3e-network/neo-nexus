@@ -29,12 +29,16 @@ use crate::signing::{LocalSignerConfig, LocalWalletConfig};
 
 use super::auth::{AuthStore, WebSecurity};
 use super::jobs::Jobs;
+use crate::core::workspace_commands::WorkspaceCommands;
+use crate::core::workspace_queries::WorkspaceQueries;
 
 const SIGNER_RELAY_CONCURRENCY: usize = 32;
 
 #[derive(Clone)]
 pub struct WebState {
-    pub repository: Repository,
+    repository: Repository,
+    pub workspace: WorkspaceQueries,
+    pub commands: WorkspaceCommands,
     pub data_dir: PathBuf,
     pub auth: AuthStore,
     web_security: WebSecurity,
@@ -81,8 +85,12 @@ impl WebState {
         web_security: WebSecurity,
         processes: Arc<Mutex<ProcessSupervisor>>,
     ) -> Result<Self> {
+        let workspace = WorkspaceQueries::new(repository.clone());
+        let commands = WorkspaceCommands::new(repository.clone());
         Ok(Self {
             repository,
+            workspace,
+            commands,
             data_dir,
             auth,
             web_security,

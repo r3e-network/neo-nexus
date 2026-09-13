@@ -3,8 +3,7 @@
 
 use anyhow::Result;
 
-use crate::core::node_health;
-use crate::repository::Repository;
+use crate::core::workspace_queries::WorkspaceQueries;
 use crate::rpc_health::RpcHealthStatus;
 use crate::types::NodeConfig;
 
@@ -18,12 +17,16 @@ pub struct Fleet {
 }
 
 impl Fleet {
-    pub fn load(repository: &Repository) -> Result<Self> {
-        let nodes = repository.list_nodes()?;
+    pub fn load(workspace: &WorkspaceQueries) -> Result<Self> {
+        let nodes = workspace.list_nodes()?;
         let rows = nodes
             .into_iter()
             .map(|node| {
-                let rpc_health = latest_health_label(repository, &node.id);
+                let rpc_health = if node.rpc_port == 0 {
+                    "disabled".to_string()
+                } else {
+                    latest_health_label(workspace, &node.id)
+                };
                 FleetRow { node, rpc_health }
             })
             .collect();
@@ -54,8 +57,8 @@ pub struct FleetCounts {
     pub error: usize,
 }
 
-fn latest_health_label(repository: &Repository, node_id: &str) -> String {
-    match node_health::latest_node_rpc_health(repository, node_id) {
+fn latest_health_label(workspace: &WorkspaceQueries, node_id: &str) -> String {
+    match workspace.latest_node_rpc_health(node_id) {
         Ok(Some(record)) => match record.status {
             RpcHealthStatus::Healthy => {
                 format!(

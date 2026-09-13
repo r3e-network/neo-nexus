@@ -76,10 +76,10 @@ pub async fn import_wallet_profile(
         )?;
 
         // Persist via upsert_neo_wallet_profile
-        state.repository.upsert_neo_wallet_profile(&profile)?;
+        state.commands.upsert_neo_wallet_profile(&profile)?;
 
         // Record event immediately, before leaving the closure
-        let _ = state.repository.record_event(NewRuntimeEvent {
+        let _ = state.commands.record_event(NewRuntimeEvent {
             node_id: None,
             node_name: None,
             kind: EventKind::NeoWalletProfileImported,
@@ -144,7 +144,7 @@ pub async fn delete_wallet_profile(
     // there is no listing row the operator could have clicked from, so the
     // request names something the workspace never held.
     let exists = state
-        .repository
+        .workspace
         .list_neo_wallet_profiles()
         .map(|profiles| profiles.iter().any(|profile| profile.id == id))
         .unwrap_or(false);
@@ -153,11 +153,11 @@ pub async fn delete_wallet_profile(
     }
 
     // Execute synchronous delete (single row, small transaction).
-    let message = match state.repository.delete_neo_wallet_profile(&id) {
+    let message = match state.commands.delete_neo_wallet_profile(&id) {
         Ok(()) => {
             let message = format!("deleted wallet '{id}'");
             // Record the deletion only once it has actually happened.
-            let _ = state.repository.record_event(NewRuntimeEvent {
+            let _ = state.commands.record_event(NewRuntimeEvent {
                 node_id: None,
                 node_name: None,
                 kind: EventKind::NeoWalletProfileDeleted,

@@ -58,7 +58,7 @@ pub async fn verify_snapshot(
             );
         }
         state
-            .repository
+            .commands
             .mark_fast_sync_snapshot_verified(&snapshot.id, &verification)?;
         let message = format!(
             "snapshot '{}' verified — sha256 {} ({})",
@@ -98,7 +98,7 @@ fn download_blocking(state: &WebState, snapshot_id: &str) -> anyhow::Result<Stri
         FastSyncSnapshotManager::download_https(&request, state.workspace_child_dir(CACHE_DIR))
             .map_err(|error| anyhow::anyhow!("download failed: {error}"))?;
     state
-        .repository
+        .commands
         .mark_fast_sync_snapshot_cached(&snapshot.id, &cache)?;
     let message = format!(
         "snapshot '{}' downloaded and cached — {} ({})",
@@ -123,7 +123,7 @@ pub async fn cache_snapshot(
         let cache = FastSyncSnapshotManager::cache(&snapshot, state.workspace_child_dir(CACHE_DIR))
             .map_err(|error| anyhow::anyhow!("cache failed: {error}"))?;
         state
-            .repository
+            .commands
             .mark_fast_sync_snapshot_cached(&snapshot.id, &cache)?;
         let message = format!(
             "snapshot '{}' cached — {} ({})",
@@ -182,7 +182,7 @@ pub async fn save_snapshot(
                 anyhow::anyhow!("{} is not a supported client", input.node_type.trim())
             })?;
         let snapshot = state
-            .repository
+            .commands
             .upsert_fast_sync_snapshot(NewFastSyncSnapshot {
                 id: input.id.trim().to_string(),
                 label: input.label.trim().to_string(),
@@ -204,7 +204,7 @@ pub async fn save_snapshot(
 /// Resolve a snapshot by id, or say plainly that it is not registered.
 fn load_snapshot(state: &WebState, snapshot_id: &str) -> anyhow::Result<FastSyncSnapshot> {
     state
-        .repository
+        .workspace
         .list_fast_sync_snapshots()?
         .into_iter()
         .find(|snapshot| snapshot.id == snapshot_id)
@@ -238,7 +238,7 @@ fn short_hash(hash: &str) -> String {
 /// Journal a snapshot stage transition. The change already happened, so a failed
 /// write must not be reported as if the operation itself had failed.
 fn record(state: &WebState, kind: EventKind, message: String) {
-    let _ = state.repository.record_event(NewRuntimeEvent {
+    let _ = state.commands.record_event(NewRuntimeEvent {
         node_id: None,
         node_name: None,
         kind,

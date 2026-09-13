@@ -13,7 +13,7 @@ use crate::metrics::{MetricsCollector, MetricsSnapshot};
 use super::super::{html, WebState};
 
 pub async fn metrics(State(state): State<WebState>) -> Response {
-    match render(&state.repository) {
+    match render(&state.workspace) {
         Ok(body) => Html(html::layout("Metrics", "metrics", "", &body)).into_response(),
         Err(error) => Html(html::layout(
             "Metrics",
@@ -25,8 +25,8 @@ pub async fn metrics(State(state): State<WebState>) -> Response {
     }
 }
 
-fn render(repository: &crate::repository::Repository) -> anyhow::Result<String> {
-    let nodes = repository.list_nodes()?;
+fn render(workspace: &crate::core::workspace_queries::WorkspaceQueries) -> anyhow::Result<String> {
+    let nodes = workspace.list_nodes()?;
     let mut collector = MetricsCollector::new(Duration::ZERO);
     let snapshot = collector.refresh(&nodes, Instant::now());
     Ok(format!(
@@ -43,9 +43,9 @@ fn render(repository: &crate::repository::Repository) -> anyhow::Result<String> 
 
 /// Snapshot builder shared with the JSON API.
 pub fn collect_snapshot(
-    repository: &crate::repository::Repository,
+    workspace: &crate::core::workspace_queries::WorkspaceQueries,
 ) -> anyhow::Result<MetricsSnapshot> {
-    let nodes = repository.list_nodes()?;
+    let nodes = workspace.list_nodes()?;
     let mut collector = MetricsCollector::new(Duration::ZERO);
     Ok(collector.refresh(&nodes, Instant::now()))
 }

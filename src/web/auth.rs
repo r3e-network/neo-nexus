@@ -218,7 +218,7 @@ impl AuthStore {
     /// Constant-time comparison over digests: comparing SHA-256 output instead
     /// of the token keeps token length and prefix matches out of the timing
     /// channel.
-    fn token_matches(&self, candidate: &str) -> bool {
+    pub fn token_matches(&self, candidate: &str) -> bool {
         if candidate.len() > MAX_OPERATOR_TOKEN_BYTES {
             return false;
         }

@@ -1,4 +1,5 @@
 use axum::response::{Html, IntoResponse, Response};
+use log::error;
 
 use crate::signer_client::{AuditRow, Caller, KeyBoundary, Policy};
 
@@ -324,7 +325,7 @@ fn json(value: &impl serde::Serialize) -> String {
     match serde_json::to_string(value) {
         Ok(serialized) => serialized,
         Err(error) => {
-            eprintln!("NeoNexus could not render a signer policy field: {error}");
+            error!("NeoNexus could not render a signer policy field: {error}");
             String::new()
         }
     }

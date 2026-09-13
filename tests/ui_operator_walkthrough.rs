@@ -223,7 +223,7 @@ fn density_comfortable_rendering() {
         "comfortable renders the wide table, not the single-line row"
     );
     assert!(
-        nodes.contains(">Health</th>"),
+        nodes.contains(">Status Check</th>"),
         "the comfortable table keeps its own columns"
     );
 

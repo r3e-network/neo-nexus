@@ -37,8 +37,8 @@ pub async fn snapshots(
     Query(params): Query<SnapshotQuery>,
 ) -> Response {
     let (snapshots, nodes) = match (
-        state.repository.list_fast_sync_snapshots(),
-        state.repository.list_nodes(),
+        state.workspace.list_fast_sync_snapshots(),
+        state.workspace.list_nodes(),
     ) {
         (Ok(snapshots), Ok(nodes)) => (snapshots, nodes),
         (Err(error), _) => {
@@ -99,20 +99,34 @@ fn render_body(
     nodes: &[NodeConfig],
     params: &SnapshotQuery,
 ) -> String {
+    let breadcrumb = html::breadcrumb(&[
+        ("EC2", "/nodes"),
+        ("Elastic Block Store", "/snapshots"),
+        ("Snapshots", ""),
+    ]);
+    let head = html::page_head(
+        "EBS Snapshots & Fast-Sync",
+        "Point-in-time cryptographic block volume checkpoints, SHA-256 integrity verifications, and one-click instance attachments.",
+        r#"<a class="btn" href="/config">⚙️ Volumes Config</a> <a class="btn primary" href="/nodes">⬡ EC2 Instances</a>"#,
+    );
     format!(
-        r#"<h1>Snapshots</h1>
+        r#"{breadcrumb}
+{head}
 {tiles}
 {register}
 {filters}
+<h2>EBS Snapshot Inventory</h2>
 {table}"#,
+        breadcrumb = breadcrumb,
+        head = head,
         tiles = html::cards(&[
-            ("Known", all.len().to_string()),
+            ("Known Snapshots", all.len().to_string()),
             (
-                "Cached",
+                "Cached on Disk",
                 count(all, |snapshot| snapshot.cached_path.is_some())
             ),
             (
-                "Verified",
+                "Verified (SHA-256)",
                 count(all, |snapshot| snapshot.verified_sha256.is_some()),
             ),
             ("Matching", visible.len().to_string()),

@@ -112,7 +112,7 @@ fn layout_has_accessible_desktop_and_native_mobile_navigation() {
     assert!(page.contains(r#"aria-label="Mobile navigation""#));
     assert!(page.contains(r#"<main class="content" id="main-content" tabindex="-1">"#));
     assert!(page.contains(r#"href="/metrics""#));
-    assert_eq!(page.matches(r#"action="/logout""#).count(), 2);
+    assert_eq!(page.matches(r#"action="/logout""#).count(), 3);
 }
 
 #[test]

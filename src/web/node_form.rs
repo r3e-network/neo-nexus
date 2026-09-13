@@ -15,7 +15,25 @@ use crate::{
         plan_available_node_ports, validate_node_ports, Network, NewNode, NodeConfig, NodeType,
         StorageEngine, DEFAULT_RPC_PORT,
     },
+    runtime::RuntimeInstallation,
+    types::NodeTypeTraits,
 };
+
+fn is_default_or_generic_binary(path: &str) -> bool {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return true;
+    }
+    let normalized = trimmed.replace('\\', "/");
+    let filename = normalized.rsplit('/').next().unwrap_or(trimmed);
+    let stem = filename.strip_suffix(".exe").unwrap_or(filename);
+    let stem = stem.strip_suffix(".dll").unwrap_or(stem);
+    NodeType::ALL.iter().any(|node_type| {
+        let default_name = node_type.default_binary_name();
+        let default_stem = default_name.strip_suffix(".exe").unwrap_or(default_name);
+        filename.eq_ignore_ascii_case(default_name) || stem.eq_ignore_ascii_case(default_stem)
+    })
+}
 
 /// Field name → the message to show under that field.
 pub type FieldErrors = BTreeMap<&'static str, String>;
@@ -35,6 +53,17 @@ pub struct NodeDraft {
     pub rpc_port: String,
     pub p2p_port: String,
     pub ws_port: String,
+    pub role: String,
+    pub enable_rpc: String,
+    pub rpc_configured: String,
+    #[serde(default)]
+    pub hermes_enabled: String,
+    #[serde(default)]
+    pub signer_backend: String,
+    #[serde(default)]
+    pub signer_key: String,
+    #[serde(deserialize_with = "deserialize_plugins")]
+    pub plugins: Vec<String>,
     /// Not node properties: submit flags. Each is raised by its own button, or
     /// by the auto-submitting client select, so no two intents share a name.
     #[serde(default)]
@@ -43,7 +72,87 @@ pub struct NodeDraft {
     pub client: String,
 }
 
+fn deserialize_plugins<'de, D>(deserializer: D) -> std::result::Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(serde::Deserialize)]
+    #[serde(untagged)]
+    enum Helper {
+        List(Vec<String>),
+        Single(String),
+    }
+
+    match <Option<Helper> as serde::Deserialize>::deserialize(deserializer)? {
+        Some(Helper::List(list)) => {
+            let mut result = Vec::new();
+            for item in list {
+                for part in item.split(',') {
+                    let trimmed = part.trim();
+                    if !trimmed.is_empty() && !result.iter().any(|r| r == trimmed) {
+                        result.push(trimmed.to_string());
+                    }
+                }
+            }
+            Ok(result)
+        }
+        Some(Helper::Single(single)) => {
+            let mut result = Vec::new();
+            for part in single.split(',') {
+                let trimmed = part.trim();
+                if !trimmed.is_empty() && !result.iter().any(|r| r == trimmed) {
+                    result.push(trimmed.to_string());
+                }
+            }
+            Ok(result)
+        }
+        None => Ok(Vec::new()),
+    }
+}
+
 impl NodeDraft {
+    /// Whether JSON-RPC API is enabled for this draft.
+    pub fn is_rpc_enabled(&self) -> bool {
+        if !self.rpc_configured.trim().is_empty() {
+            return matches!(
+                self.enable_rpc.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "on" | "yes"
+            );
+        }
+        if self.rpc_port.trim() == "0" {
+            return false;
+        }
+        let role = self.role.trim();
+        if !role.is_empty()
+            && (role == "relay" || role == "validator")
+            && self.enable_rpc.trim().is_empty()
+        {
+            return false;
+        }
+        !self.rpc_port.trim().is_empty()
+    }
+
+    /// Whether Hermes guest agent is enabled for this draft.
+    pub fn is_hermes_enabled(&self) -> bool {
+        self.hermes_enabled.trim() != "0"
+    }
+
+    pub fn selected_plugins(&self) -> Vec<crate::catalog::PluginId> {
+        use std::str::FromStr;
+        self.plugins
+            .iter()
+            .filter_map(|name| crate::catalog::PluginId::from_str(name).ok())
+            .collect()
+    }
+
+    pub fn resolved_role(&self) -> Option<crate::roles::NodeRole> {
+        let role = self.role.trim();
+        if role.is_empty() || role == "relay" || role == "custom" {
+            None
+        } else {
+            crate::roles::NodeRole::from_persist_key(role)
+        }
+    }
     /// The operator asked for a free port block rather than a save.
     pub fn wants_suggested_ports(&self) -> bool {
         !self.suggest.trim().is_empty()
@@ -57,6 +166,7 @@ impl NodeDraft {
 
     /// Adopt the selected client's storage default when its current choice is
     /// not usable, which is what the old desktop editor did on every change.
+    /// Also updates binary path if it was empty or held a default binary name.
     pub fn with_client_defaults(mut self) -> Self {
         if let Some(node_type) = self.parsed_type() {
             if !self
@@ -64,6 +174,23 @@ impl NodeDraft {
                 .is_some_and(|storage| node_type.supports_storage_engine(storage))
             {
                 self.storage_engine = node_type.default_storage_engine().to_string();
+            }
+            if is_default_or_generic_binary(&self.binary_path) {
+                self.binary_path = node_type.default_binary_name().to_string();
+            }
+        }
+        self
+    }
+
+    /// Infers client type and storage engine from binary path if one can be detected.
+    pub fn with_inferred_client(mut self) -> Self {
+        if let Some(inferred) = NodeType::infer_from_str(&self.binary_path) {
+            self.node_type = inferred.to_string();
+            if !self
+                .parsed_storage()
+                .is_some_and(|storage| inferred.supports_storage_engine(storage))
+            {
+                self.storage_engine = inferred.default_storage_engine().to_string();
             }
         }
         self
@@ -81,7 +208,7 @@ const GENERAL: &str = "general";
 
 impl NodeDraft {
     /// A blank draft carries the defaults an operator would usually keep: the first
-    /// client, mainnet, its matching storage, and the conventional RPC / RPC+1
+    /// client, mainnet, its matching storage, its standard binary, and the conventional RPC / RPC+1
     /// pair. A collision is not guessed away — "Suggest free ports" resolves it
     /// against the fleet and the host.
     pub fn blank() -> Self {
@@ -89,14 +216,65 @@ impl NodeDraft {
         Self {
             node_type: node_type.to_string(),
             network: Network::Mainnet.to_string(),
+            binary_path: node_type.default_binary_name().to_string(),
             storage_engine: node_type.default_storage_engine().to_string(),
             rpc_port: DEFAULT_RPC_PORT.to_string(),
             p2p_port: (DEFAULT_RPC_PORT + 1).to_string(),
+            role: "rpc-api".to_string(),
+            enable_rpc: "1".to_string(),
+            hermes_enabled: "1".to_string(),
+            plugins: vec!["RpcServer".to_string()],
             ..Self::default()
         }
     }
 
+    /// Creates a blank draft prioritizing installed workspace runtimes.
+    pub fn blank_with_installations(installations: &[RuntimeInstallation]) -> Self {
+        let mut draft = Self::blank();
+        if let Some(node_type) = draft.parsed_type() {
+            if let Some(installation) = installations.iter().find(|i| i.node_type == node_type) {
+                draft.binary_path = installation.binary_path.display().to_string();
+                draft.runtime_version = installation.version.clone();
+            }
+        }
+        draft
+    }
+
+    /// Creates a blank draft prioritizing installed workspace runtimes and automatically
+    /// allocating free non-overlapping ports across the existing fleet.
+    pub fn blank_with_installations_and_fleet(
+        installations: &[RuntimeInstallation],
+        fleet: &[NodeConfig],
+    ) -> Self {
+        let mut draft = Self::blank_with_installations(installations);
+        draft.name = format!("node-{:02}", fleet.len() + 1);
+        if let Some(suggested) = draft.suggest_ports(fleet, None) {
+            draft.p2p_port = suggested.p2p_port;
+            draft.rpc_port = suggested.rpc_port;
+            draft.ws_port = suggested.ws_port;
+        }
+        draft
+    }
+
     pub fn from_node(node: &NodeConfig) -> Self {
+        Self::from_node_with_role_and_plugins(node, None, &[])
+    }
+
+    pub fn from_node_with_role_and_plugins(
+        node: &NodeConfig,
+        role: Option<crate::roles::NodeRole>,
+        plugin_states: &[crate::catalog::PluginState],
+    ) -> Self {
+        let enable_rpc = if node.rpc_port == 0 {
+            "0".to_string()
+        } else {
+            "1".to_string()
+        };
+        let plugins = plugin_states
+            .iter()
+            .filter(|p| p.enabled)
+            .map(|p| p.plugin_id.to_string())
+            .collect();
         Self {
             name: node.name.clone(),
             node_type: node.node_type.to_string(),
@@ -105,12 +283,43 @@ impl NodeDraft {
             args: format_argv(&node.args),
             runtime_version: node.runtime_version.clone(),
             storage_engine: node.storage_engine.to_string(),
-            rpc_port: node.rpc_port.to_string(),
+            rpc_port: if node.rpc_port == 0 {
+                String::new()
+            } else {
+                node.rpc_port.to_string()
+            },
             p2p_port: node.p2p_port.to_string(),
             ws_port: node
                 .ws_port
                 .map_or_else(String::new, |port| port.to_string()),
+            role: role.map_or_else(String::new, |r| r.persist_key().to_string()),
+            enable_rpc,
+            plugins,
             ..Self::default()
+        }
+    }
+
+    pub fn from_node_with_role_plugins_and_signer(
+        node: &NodeConfig,
+        role: Option<crate::roles::NodeRole>,
+        plugin_states: &[crate::catalog::PluginState],
+        signer: Option<&crate::signing::SignerKeyRef>,
+    ) -> Self {
+        let mut draft = Self::from_node_with_role_and_plugins(node, role, plugin_states);
+        if let Some(s) = signer {
+            draft.signer_backend = s.backend_id.clone();
+            draft.signer_key = s.key_id.clone();
+        }
+        draft
+    }
+
+    pub fn resolved_signer_key(&self) -> Option<crate::signing::SignerKeyRef> {
+        let backend = self.signer_backend.trim();
+        let key = self.signer_key.trim();
+        if !backend.is_empty() && !key.is_empty() {
+            crate::signing::SignerKeyRef::new(backend, key).ok()
+        } else {
+            None
         }
     }
 
@@ -200,8 +409,10 @@ impl NodeDraft {
             );
         }
 
-        let node_type = self.parsed_type();
-        if self.node_type.trim().is_empty() {
+        let node_type = self
+            .parsed_type()
+            .or_else(|| NodeType::infer_from_str(&self.binary_path));
+        if self.node_type.trim().is_empty() && node_type.is_none() {
             errors.insert(
                 "node_type",
                 "Choose which client this node runs.".to_string(),
@@ -221,7 +432,7 @@ impl NodeDraft {
             );
         }
 
-        if self.binary_path.trim().is_empty() {
+        if self.binary_path.trim().is_empty() && node_type.is_none() {
             errors.insert(
                 "binary_path",
                 "The node binary path is required.".to_string(),
@@ -236,7 +447,21 @@ impl NodeDraft {
             }
         };
 
-        let storage = self.parsed_storage();
+        let storage = match (self.parsed_type(), self.parsed_storage(), node_type) {
+            (None, _, Some(inferred)) => {
+                if let Some(explicit_storage) = self.parsed_storage() {
+                    if inferred.supports_storage_engine(explicit_storage) {
+                        Some(explicit_storage)
+                    } else {
+                        Some(inferred.default_storage_engine())
+                    }
+                } else {
+                    Some(inferred.default_storage_engine())
+                }
+            }
+            (_, storage, Some(nt)) => storage.or_else(|| Some(nt.default_storage_engine())),
+            (_, storage, None) => storage,
+        };
         match storage {
             None => errors.insert("storage_engine", "Choose a storage engine.".to_string()),
             Some(storage)
@@ -254,9 +479,32 @@ impl NodeDraft {
             Some(_) => None,
         };
 
-        let rpc_port = parse_port(self.rpc_port.trim(), "RPC", "rpc_port", &mut errors);
-        let p2p_port = parse_port(self.p2p_port.trim(), "P2P", "p2p_port", &mut errors);
-        let ws_port = parse_optional_port(self.ws_port.trim(), &mut errors);
+        let is_rpc_enabled = self.is_rpc_enabled();
+        let rpc_port = if is_rpc_enabled {
+            if self.rpc_port.trim().is_empty() {
+                let assigned = plan_available_node_ports(existing, current_id, DEFAULT_RPC_PORT, false)
+                    .map(|a| a.rpc_port)
+                    .unwrap_or(10332);
+                Some(assigned)
+            } else {
+                parse_port(self.rpc_port.trim(), "RPC", "rpc_port", &mut errors)
+            }
+        } else {
+            Some(0u16)
+        };
+        let p2p_port = if self.p2p_port.trim().is_empty() {
+            let assigned = plan_available_node_ports(existing, current_id, DEFAULT_RPC_PORT, false)
+                .map(|a| a.p2p_port)
+                .unwrap_or(20333);
+            Some(assigned)
+        } else {
+            parse_port(self.p2p_port.trim(), "P2P", "p2p_port", &mut errors)
+        };
+        let ws_port = if is_rpc_enabled {
+            parse_optional_port(self.ws_port.trim(), &mut errors)
+        } else {
+            None
+        };
 
         if let (Some(rpc_port), Some(p2p_port)) = (rpc_port, p2p_port) {
             let ws_value = ws_port.flatten();
@@ -269,14 +517,34 @@ impl NodeDraft {
                 if let Some((port, owner)) =
                     find_port_conflict(existing, current_id, rpc_port, p2p_port, ws_value)
                 {
+                    let conflict_key = if ws_value.is_some_and(|ws| ws == port) {
+                        "ws_port"
+                    } else if port == p2p_port {
+                        "p2p_port"
+                    } else {
+                        "rpc_port"
+                    };
                     errors.insert(
-                        "rpc_port",
+                        conflict_key,
                         format!(
                             "Port {port} is already used by \"{}\". Choose free ports, or use Suggest free ports.",
                             owner.name
                         ),
                     );
                 }
+            }
+        }
+
+        if !self.signer_backend.trim().is_empty() || !self.signer_key.trim().is_empty() {
+            let backend = self.signer_backend.trim();
+            let key = self.signer_key.trim();
+            if backend.is_empty() || key.is_empty() {
+                errors.insert(
+                    "signer_backend",
+                    "Signer backend and key identifier must both be specified or both left blank.".to_string(),
+                );
+            } else if let Err(err) = crate::signing::SignerKeyRef::new(backend, key) {
+                errors.insert("signer_backend", format!("Invalid signer key: {err}"));
             }
         }
 
@@ -327,11 +595,17 @@ impl Parsed<'_> {
     /// Assemble the accepted node. The `?` marks are a consistency check between
     /// the error map and this path, not a silent failure.
     fn into_node(self, draft: &NodeDraft) -> Option<NewNode> {
+        let node_type = self.node_type?;
+        let binary_path = if draft.binary_path.trim().is_empty() {
+            PathBuf::from(node_type.default_binary_name())
+        } else {
+            PathBuf::from(draft.binary_path.trim())
+        };
         Some(NewNode {
             name: self.name.to_string(),
-            node_type: self.node_type?,
+            node_type,
             network: self.network?,
-            binary_path: PathBuf::from(draft.binary_path.trim()),
+            binary_path,
             args: self.args?,
             runtime_version: normalize_version(draft.runtime_version.trim()),
             storage_engine: self.storage?,
@@ -423,12 +697,20 @@ fn find_port_conflict<'a>(
     p2p_port: u16,
     ws_port: Option<u16>,
 ) -> Option<(u16, &'a NodeConfig)> {
-    let wanted = [Some(rpc_port), Some(p2p_port), ws_port];
+    let wanted = [
+        (rpc_port > 0).then_some(rpc_port),
+        (p2p_port > 0).then_some(p2p_port),
+        ws_port.filter(|&port| port > 0),
+    ];
     for node in existing {
         if current_id.is_some_and(|current| current == node.id) {
             continue;
         }
-        let held = [Some(node.rpc_port), Some(node.p2p_port), node.ws_port];
+        let held = [
+            (node.rpc_port > 0).then_some(node.rpc_port),
+            (node.p2p_port > 0).then_some(node.p2p_port),
+            node.ws_port.filter(|&port| port > 0),
+        ];
         for port in wanted.iter().flatten().copied() {
             if held.iter().flatten().copied().any(|held| held == port) {
                 return Some((port, node));

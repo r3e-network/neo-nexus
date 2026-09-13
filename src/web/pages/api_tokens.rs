@@ -4,43 +4,26 @@
 //! programmatic access to protected endpoints via Bearer token headers.
 
 use axum::{
-    body::Body,
-    extract::{Form, Path, State},
+    extract::{Form, Path, Query, State},
     http::StatusCode,
-    response::{Html, IntoResponse, Response},
+    response::{Html, IntoResponse, Redirect, Response},
 };
 
 use crate::wallet::TokenPermission;
-use crate::web::WebState;
+use crate::web::{html, WebState};
 
-pub async fn api_tokens_page(State(state): State<WebState>) -> Response {
-    let Some(body) = render_body(&state.repository).ok() else {
-        return Response::builder()
-            .status(500)
-            .body(Body::from("Internal Server Error"))
-            .unwrap();
+pub async fn api_tokens_page(
+    State(state): State<WebState>,
+    Query(params): Query<std::collections::BTreeMap<String, String>>,
+) -> Response {
+    let body = match render_body(&state.workspace) {
+        Ok(b) => b,
+        Err(_) => {
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
+        }
     };
-
-    Html(format!(
-        r#"<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>API Tokens - Settings | NeoNexus</title>
-    <link rel="stylesheet" href="/styles/main.css">
-</head>
-<body class="settings-page">
-    <nav class="breadcrumbs">
-        <a href="/settings">Settings</a> / API Tokens
-    </nav>
-    <main>
-{body}
-    </main>
-</body>
-</html>"#,
-        body = body
-    ))
-    .into_response()
+    let flash = params.get("flash").map(String::as_str).unwrap_or("");
+    Html(html::layout("API Tokens", "settings", flash, &body)).into_response()
 }
 
 /// Form POST handler for creating new API tokens
@@ -60,13 +43,13 @@ pub async fn create_token(
     // Build permissions from form data
     let mut permissions = Vec::new();
 
-    if form_data.read_fleet {
+    if is_checked(form_data.read_fleet.as_deref()) {
         permissions.push(TokenPermission::ReadFleet);
     }
-    if form_data.read_readiness {
+    if is_checked(form_data.read_readiness.as_deref()) {
         permissions.push(TokenPermission::ReadReadiness);
     }
-    if form_data.admin_all {
+    if is_checked(form_data.admin_all.as_deref()) {
         permissions.push(TokenPermission::AdminAll);
     }
 
@@ -79,9 +62,16 @@ pub async fn create_token(
     }
 
     // Create the token (no expiration for now)
-    match state.repository.create_api_token(name, permissions, None) {
+    match state.commands.create_api_token(name, permissions, None) {
         Ok((token, secret)) => {
-            let body = render_with_created_token(&state.repository, &token, &secret);
+            let _ = state.commands.record_event(crate::events::NewRuntimeEvent {
+                node_id: None,
+                node_name: None,
+                kind: crate::events::EventKind::ApiTokenCreated,
+                severity: crate::events::EventSeverity::Info,
+                message: format!("created API token '{}' ({})", token.name, token.id),
+            });
+            let body = render_with_created_token(&state.workspace, &token, &secret);
             Ok(Html(body).into_response())
         }
         Err(e) => Err((
@@ -92,66 +82,144 @@ pub async fn create_token(
 }
 
 /// POST handler for deleting a token
-pub async fn delete_token(
-    state: State<WebState>,
-    path: Path<String>,
-) -> Result<Response, (StatusCode, String)> {
-    match state.repository.delete_api_token(&path.0) {
-        Ok(_) => {
-            let body = "Token deleted. <a href='/settings/api-tokens'>Back to tokens</a>";
-            Ok(Html(body.to_string()).into_response())
+pub async fn delete_token(State(state): State<WebState>, Path(token_id): Path<String>) -> Response {
+    let outcome = (|| -> anyhow::Result<()> {
+        state.commands.delete_api_token(&token_id)?;
+        let _ = state.commands.record_event(crate::events::NewRuntimeEvent {
+            node_id: None,
+            node_name: None,
+            kind: crate::events::EventKind::ApiTokenDeleted,
+            severity: crate::events::EventSeverity::Info,
+            message: format!("deleted API token '{token_id}'"),
+        });
+        Ok(())
+    })();
+
+    let flash = match outcome {
+        Ok(()) => format!("API token {token_id} deleted"),
+        Err(e) => format!("failed to delete token: {e}"),
+    };
+
+    Redirect::to(&format!(
+        "/settings/api-tokens?flash={}",
+        html::urlencoding_lite(&flash)
+    ))
+    .into_response()
+}
+
+fn is_checked(val: Option<&str>) -> bool {
+    match val {
+        Some(s) => {
+            let s = s.trim().to_ascii_lowercase();
+            s == "on" || s == "true" || s == "1" || s == "yes"
         }
-        Err(e) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Error deleting token: {}", e),
-        )),
+        None => false,
     }
 }
 
 #[derive(serde::Deserialize)]
 pub struct TokenCreateForm {
+    #[serde(default)]
     name: String,
-    read_fleet: bool,
-    read_readiness: bool,
-    admin_all: bool,
+    #[serde(default)]
+    read_fleet: Option<String>,
+    #[serde(default)]
+    read_readiness: Option<String>,
+    #[serde(default)]
+    admin_all: Option<String>,
 }
 
-fn render_body(repository: &crate::repository::Repository) -> anyhow::Result<String> {
-    let tokens = repository.list_api_tokens()?;
+fn render_body(
+    workspace: &crate::core::workspace_queries::WorkspaceQueries,
+) -> anyhow::Result<String> {
+    let tokens = workspace.list_api_tokens()?;
     let token_table = render_token_table(&tokens);
+    let breadcrumb = html::breadcrumb(&[
+        ("IAM", "/settings/api-tokens"),
+        ("Security credentials", "/settings/api-tokens"),
+        ("Access keys", "/settings/api-tokens"),
+    ]);
+    let head = html::page_head(
+        "IAM Security Credentials & Access Keys",
+        "Manage programmatic access keys, secret tokens, and least-privilege IAM permission boundaries.",
+        r#"<a class="btn" href="/signer">KMS Custody</a>"#,
+    );
 
     Ok(format!(
-        r#"<h1>API Tokens</h1>
-<p class="muted">Create and manage API authentication tokens for programmatic access to NeoNexus endpoints.</p>
-<div class="grid">
-    <section class="card">
-        <h2>Create New Token</h2>
+        r#"{breadcrumb}
+{head}
+<div class="cards" style="margin-bottom: 20px;">
+    <div class="card"><div class="stat-label">Active Access Keys</div><div class="stat-value">{}</div><div class="stat-detail">Programmatic service credentials</div></div>
+    <div class="card"><div class="stat-label">Permission Enforcement</div><div class="stat-value" style="color: var(--jade);">Strict RBAC</div><div class="stat-detail">Signed Bearer token verification</div></div>
+    <div class="card"><div class="stat-label">Cryptographic Storage</div><div class="stat-value" style="color: var(--cyan);">Argon2id</div><div class="stat-detail">Zero raw secrets in persistent store</div></div>
+</div>
+<div class="grid" style="grid-template-columns: minmax(300px, 1fr) minmax(420px, 2fr); gap: 20px;">
+    <section class="panel" style="padding: 18px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;">
+        <h2 style="margin-top: 0; font-size: 16px;">Create Access Key</h2>
+        <div class="muted" style="font-size: 12px; margin-bottom: 14px;">Issue a new API credential with scoped capabilities for automation and CI/CD pipelines.</div>
         {creation_form}
     </section>
-    <section class="card">
-        <h2>Existing Tokens</h2>
+    <section class="panel" style="padding: 18px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;">
+        <h2 style="margin-top: 0; font-size: 16px;">Access Keys Inventory</h2>
+        <div class="muted" style="font-size: 12px; margin-bottom: 14px;">Existing cryptographic access credentials authorized for RPC endpoints.</div>
         {token_table}
     </section>
 </div>"#,
+        tokens.iter().filter(|t| !t.is_expired()).count(),
         creation_form = create_token_form(),
         token_table = token_table
     ))
 }
 
 fn render_with_created_token(
-    repository: &crate::repository::Repository,
+    workspace: &crate::core::workspace_queries::WorkspaceQueries,
     token: &crate::wallet::ApiToken,
     secret: &str,
 ) -> String {
-    let tokens = repository.list_api_tokens().unwrap_or_default();
+    let tokens = workspace.list_api_tokens().unwrap_or_default();
     let token_table = render_token_table(&tokens);
+    let breadcrumb = html::breadcrumb(&[
+        ("IAM", "/settings/api-tokens"),
+        ("Security credentials", "/settings/api-tokens"),
+        ("Access keys", "/settings/api-tokens"),
+    ]);
+    let head = html::page_head(
+        "IAM Security Credentials & Access Keys",
+        "Manage programmatic access keys, secret tokens, and least-privilege IAM permission boundaries.",
+        r#"<a class="btn" href="/signer">KMS Custody</a>"#,
+    );
 
     format!(
-        "<h1>API Tokens</h1>\n<div class=\"success-box\">\n    <h2>Token Created Successfully!</h2>\n    <p><strong>Your generated token (copy it NOW - cannot retrieve later):</strong></p>\n    <div class=\"token-display\">\n        <code>{}</code>\n    </div>\n    <p class=\"warn\">This secret will NEVER be shown again. Save it securely!</p>\n    <button onclick=\"navigator.clipboard.writeText('{}'); alert('Copied!')\">Copy to Clipboard</button>\n</div>\n<div class=\"grid\">\n    <section class=\"card\">\n        <h2>Token Details</h2>\n{}\n    </section>\n    <section class=\"card\">\n        <h2>Existing Tokens</h2>\n{}\n    </section>\n</div>",
-        escape_html(secret),
-        escape_html(secret),
-        render_token_details(token),
-        token_table
+        r#"{breadcrumb}
+{head}
+<div class="panel" style="margin-bottom: 20px; padding: 20px; background: rgba(59, 209, 132, 0.08); border: 1px solid var(--jade); border-radius: 8px;">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+        <span class="badge running" style="font-size: 12px;">✓ Access Key Created Successfully</span>
+        <span class="muted mono" style="font-size: 12px;">arn:neo:iam::nexus:token/{id}</span>
+    </div>
+    <p style="font-size: 13px; color: #fff; margin: 6px 0 12px 0;">This is the only time your secret access token can be viewed or downloaded. You cannot recover it later.</p>
+    <div style="display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.4); padding: 12px 16px; border-radius: 6px; border: 1px solid var(--line); flex-wrap: wrap;">
+        <code id="new-token-secret" class="mono" style="font-size: 14px; font-weight: 600; color: var(--jade); word-break: break-all;">{secret}</code>
+        <button type="button" class="btn small primary" data-copy-target="new-token-secret">Copy Secret Key</button>
+    </div>
+    <div class="notice warn" style="margin-top: 12px; font-size: 12px;"><strong>Security Best Practice:</strong> Treat this token like a root password. Never commit secrets to public version control or insecure logs.</div>
+</div>
+<div class="grid" style="grid-template-columns: minmax(300px, 1fr) minmax(420px, 2fr); gap: 20px;">
+    <section class="panel" style="padding: 18px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;">
+        <h2 style="margin-top: 0; font-size: 16px;">Access Key Specifications</h2>
+        {details}
+    </section>
+    <section class="panel" style="padding: 18px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;">
+        <h2 style="margin-top: 0; font-size: 16px;">Access Keys Inventory</h2>
+        {token_table}
+    </section>
+</div>"#,
+        breadcrumb = breadcrumb,
+        head = head,
+        id = html::escape(&token.id.to_string()),
+        secret = html::escape(secret),
+        details = render_token_details(token),
+        token_table = token_table
     )
 }
 
@@ -176,24 +244,24 @@ fn render_token_details(token: &crate::wallet::ApiToken) -> String {
     };
 
     format!(
-        r#"<dl class="token-meta">
-    <dt>ID</dt>
-    <dd><code>{id_display}</code></dd>
+        r#"<dl class="token-meta" style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; font-size: 13px;">
+    <dt class="muted">Access Key ID</dt>
+    <dd><code class="mono" style="color: var(--cyan);">{id_display}</code></dd>
     
-    <dt>Name</dt>
-    <dd>{name}</dd>
+    <dt class="muted">Token Name</dt>
+    <dd><strong>{name}</strong></dd>
     
-    <dt>Created</dt>
-    <dd>{created_at}</dd>
+    <dt class="muted">Created</dt>
+    <dd class="mono">{created_at}</dd>
     
-    <dt>Expires</dt>
-    <dd>{expires}</dd>
+    <dt class="muted">Expires</dt>
+    <dd class="mono">{expires}</dd>
     
-    <dt>Permissions</dt>
+    <dt class="muted">Permissions</dt>
     <dd>{permissions_str}</dd>
     
-    <dt>Status</dt>
-    <dd class="{status_class}">{status}</dd>
+    <dt class="muted">Status</dt>
+    <dd><span class="badge {status_class}">{status}</span></dd>
 </dl>"#,
         id_display = escape_html(&id_display),
         name = escape_html(&token.name),
@@ -210,35 +278,37 @@ fn render_token_details(token: &crate::wallet::ApiToken) -> String {
 }
 
 fn create_token_form() -> String {
-    r#"<form method="post" action="/settings/api-tokens/create" class="filters">
+    r#"<form method="post" action="/settings/api-tokens/create" class="filters" style="display: flex; flex-direction: column; gap: 14px;">
     <div class="form-group">
-        <label for="token-name">Token Name</label>
-        <input type="text" id="token-name" name="name" placeholder="e.g., CI/CD Pipeline" required>
-        <small>Give this token a memorable name for identification</small>
+        <label for="token-name" style="font-weight: 600; font-size: 13px; display: block; margin-bottom: 4px;">Access Key Name</label>
+        <input type="text" id="token-name" name="name" placeholder="e.g. CI-CD-Deployer or Hermes-Autonomic" required style="width: 100%;">
+        <div class="muted" style="font-size: 11px; margin-top: 4px;">Descriptive identifier for IAM audit tracking in CloudTrail.</div>
     </div>
     
     <div class="form-group">
-        <label>Permissions</label>
-        <label class="checkbox-label">
-            <input type="checkbox" name="read_fleet"> Read Fleet Access
-        </label>
-        <label class="checkbox-label">
-            <input type="checkbox" name="read_readiness"> Read Readiness Access
-        </label>
-        <label class="checkbox-label">
-            <input type="checkbox" name="admin_all"> Full Admin Access
-        </label>
-        <small>Select at least one permission</small>
+        <label style="font-weight: 600; font-size: 13px; display: block; margin-bottom: 6px;">IAM Permission Boundary Policies</label>
+        <div style="display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; border: 1px solid var(--line);">
+            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
+                <input type="checkbox" name="read_fleet" value="true"> <code>arn:neo:iam::nexus:policy/ReadOnlyFleet</code>
+            </label>
+            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
+                <input type="checkbox" name="read_readiness" value="true"> <code>arn:neo:iam::nexus:policy/ReadOnlyReadiness</code>
+            </label>
+            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
+                <input type="checkbox" name="admin_all" value="true"> <code>arn:neo:iam::nexus:policy/AdministratorAccess</code>
+            </label>
+        </div>
+        <div class="muted" style="font-size: 11px; margin-top: 4px;">Assign least-privilege permission grants required for programmatic caller.</div>
     </div>
     
-    <button type="submit" class="primary-btn">Generate Token</button>
+    <button type="submit" class="btn primary" style="align-self: flex-start; margin-top: 4px;">+ Create Access Key</button>
 </form>"#
         .to_string()
 }
 
 fn render_token_table(tokens: &[crate::wallet::ApiToken]) -> String {
     if tokens.is_empty() {
-        return "<p class='muted'>No API tokens have been created yet.</p>".to_string();
+        return "<p class='muted' style='padding: 12px 0;'>No IAM access key credentials have been generated yet.</p>".to_string();
     }
 
     let rows: Vec<String> = tokens
@@ -251,26 +321,25 @@ fn render_token_table(tokens: &[crate::wallet::ApiToken]) -> String {
                 || "Never".to_string(),
                 pretty_timestamp
             );
-            let permissions_str = token.permissions.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
+            let perms = token.permissions.iter().map(|p| format!(r#"<span class="badge">{}</span>"#, html::escape(&p.to_string()))).collect::<Vec<_>>().join(" ");
 
-            let status_class = if token.is_expired() {
-                "badge expired"
+            let status_badge = if token.is_expired() {
+                r#"<span class="badge danger">Expired</span>"#
             } else {
-                "badge active"
+                r#"<span class="badge running">Active</span>"#
             };
-            let status_text = if token.is_expired() { "Expired" } else { "Active" };
 
             format!(
                 r#"<tr>
     <td><strong>{name}</strong></td>
-    <td><code>{id_display}</code></td>
-    <td>{created_at}</td>
-    <td>{expires}</td>
-    <td><span class="badges">{perms}</span></td>
-    <td><span class="{status_class}">{status}</span></td>
+    <td><code class="mono" style="color: var(--cyan);">{id_display}</code></td>
+    <td class="mono muted" style="font-size: 11px;">{created_at}</td>
+    <td class="mono muted" style="font-size: 11px;">{expires}</td>
+    <td>{perms}</td>
+    <td>{status_badge}</td>
     <td>
-        <form method="POST" action="/settings/api-tokens/{token_id}/delete" class="inline-form">
-            <button type="submit" class="danger-btn" onclick="return confirm('Delete token {name}?')">Delete</button>
+        <form method="POST" action="/settings/api-tokens/{token_id}/delete" class="inline-form" data-confirm="Are you sure you want to permanently revoke API access key &#39;{name}&#39;?">
+            <button type="submit" class="btn small danger">Revoke</button>
         </form>
     </td>
 </tr>"#,
@@ -278,9 +347,8 @@ fn render_token_table(tokens: &[crate::wallet::ApiToken]) -> String {
                 id_display = id_display,
                 created_at = created_at,
                 expires = expires,
-                perms = permissions_str,
-                status_class = status_class,
-                status = status_text,
+                perms = perms,
+                status_badge = status_badge,
                 token_id = token.id
             )
         })
@@ -290,14 +358,14 @@ fn render_token_table(tokens: &[crate::wallet::ApiToken]) -> String {
 
     format!(
         r#"<div class="table-container">
-<table class="data-table">
+<table class="dashboard-table">
     <thead>
         <tr>
-            <th>Name</th>
-            <th>ID</th>
+            <th>Key Name</th>
+            <th>Access Key ID</th>
             <th>Created</th>
             <th>Expires</th>
-            <th>Permissions</th>
+            <th>Policy Grants</th>
             <th>Status</th>
             <th>Actions</th>
         </tr>
