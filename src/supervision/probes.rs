@@ -1,7 +1,11 @@
-//! The two health probes the Settings page configures: this node's RPC endpoint
-//! and the remote federation servers. Both are rate-limited by their own policy
-//! interval and both only journal on a change of status, so a healthy node does
-//! not fill the journal with "still healthy".
+//! The remote federation probe the Settings page configures: rate-limited by
+//! its own policy interval and journalling only on a change of status, so a
+//! healthy server does not fill the journal with "still healthy".
+//!
+//! This node's own RPC endpoint used to be probed here too, one node per tick.
+//! That probe now lives in [`super::observation`], which samples the fleet on
+//! its own thread and writes the same `rpc_health_checks` rows from a richer
+//! round. What stays here is the per-node retention the two share.
 
 use std::time::{Duration, Instant};
 
@@ -11,65 +15,20 @@ use crate::{
     events::{EventKind, NewRuntimeEvent},
     federation::RemoteFederationClient,
     health_events::{
-        remote_probe_event_severity, remote_probe_notice, rpc_health_event_severity,
-        rpc_health_notice, should_record_remote_probe_event, should_record_rpc_health_event,
+        remote_probe_event_severity, remote_probe_notice, should_record_remote_probe_event,
     },
-    rpc_health::probe_node_rpc,
 };
 
 use super::state::{EngineState, LoopState};
 
-const RPC_HEALTH_TIMEOUT: Duration = Duration::from_secs(3);
 const FEDERATION_TIMEOUT: Duration = Duration::from_secs(5);
-const RPC_HEALTH_RETAIN_PER_NODE: usize = 24;
+pub(super) const RPC_HEALTH_RETAIN_PER_NODE: usize = 24;
 
 impl LoopState {
     /// Whether something last done at `seen` is due again. Never having done it
     /// counts as due.
     fn due(&self, seen: Option<Instant>, now: Instant, interval: Duration) -> bool {
         seen.is_none_or(|seen| now.duration_since(seen) >= interval)
-    }
-
-    pub(super) fn probe_rpc_health(&mut self, state: &EngineState) {
-        let Ok(policy) = state.repository.load_rpc_health_monitor_policy() else {
-            return;
-        };
-        if !policy.enabled {
-            return;
-        }
-        let interval = policy.interval_duration();
-        let now = Instant::now();
-        let Some(node) = state.nodes().into_iter().find(|node| {
-            node.status.is_running()
-                && node.rpc_port > 0
-                && self.due(self.rpc_last_probe.get(&node.id).copied(), now, interval)
-        }) else {
-            return;
-        };
-        self.rpc_last_probe.insert(node.id.clone(), now);
-
-        let report = probe_node_rpc(&node, RPC_HEALTH_TIMEOUT);
-        let previous = state
-            .repository
-            .latest_rpc_health(&node.id)
-            .ok()
-            .flatten()
-            .map(|record| record.status);
-        if state.repository.record_rpc_health(&node, &report).is_err() {
-            return;
-        }
-        let _ = state
-            .repository
-            .prune_rpc_health_keep_recent_per_node(RPC_HEALTH_RETAIN_PER_NODE);
-        if should_record_rpc_health_event(previous, report.status) {
-            let message = rpc_health_notice(&report);
-            state.journal(
-                &node,
-                EventKind::RpcHealthChecked,
-                rpc_health_event_severity(report.status),
-                format!("Automatic RPC health: {message}"),
-            );
-        }
     }
 
     pub(super) fn probe_federation(&mut self, state: &EngineState) {

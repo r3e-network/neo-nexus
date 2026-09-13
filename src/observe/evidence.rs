@@ -104,6 +104,23 @@ pub enum NotSampled {
         method: &'static str,
         detail: String,
     },
+    /// The round reached the node's endpoint and got nothing back at all.
+    ///
+    /// Wider than [`Self::CallFailed`], which names one call that failed while
+    /// others in the same round may have answered.
+    NodeDidNotAnswer,
+    /// A stored round reached the node but has no value in this particular
+    /// column, most often because that class was not due.
+    ///
+    /// A saved sample keeps one null per unread column; it does not keep a
+    /// sentence per column explaining each null, because that would cost more
+    /// than it is worth on every row of every round. So a value read back from
+    /// storage says honestly that it was not recorded, rather than guessing at
+    /// [`Self::CallFailed`] for something that may have been
+    /// [`Self::MethodUnsupported`] — the live round is where that reason is
+    /// visible, and inventing it here would be the same fabrication this type
+    /// exists to prevent.
+    NotRecorded,
 }
 
 impl fmt::Display for NotSampled {
@@ -123,6 +140,10 @@ impl fmt::Display for NotSampled {
                 write!(formatter, "this client does not implement {method}")
             }
             Self::CallFailed { method, detail } => write!(formatter, "{method} failed: {detail}"),
+            Self::NodeDidNotAnswer => {
+                formatter.write_str("the node did not answer when this was checked")
+            }
+            Self::NotRecorded => formatter.write_str("was not recorded in this sample"),
         }
     }
 }

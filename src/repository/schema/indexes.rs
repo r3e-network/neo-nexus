@@ -26,5 +26,12 @@ pub(in crate::repository::schema) fn create_indexes(connection: &Connection) -> 
          ON remote_server_probe_records (remote_server_id, checked_at_unix DESC, id DESC)",
         [],
     )?;
+    // Every read of this table is "the most recent samples for one node", which
+    // is what the derivations walk backwards over.
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_node_samples_recent
+         ON node_samples (node_id, sampled_at_unix DESC, id DESC)",
+        [],
+    )?;
     Ok(())
 }

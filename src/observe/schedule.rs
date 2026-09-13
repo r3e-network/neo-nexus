@@ -38,6 +38,14 @@ pub struct ObservationPolicy {
     pub max_nodes_per_tick: usize,
     /// How long a single call may take.
     pub probe_timeout: Duration,
+    /// The shortest period any class may be asked at.
+    ///
+    /// This is the operator's configured monitoring interval, and it can only
+    /// ever slow sampling down. An operator who sets a sixty-second interval is
+    /// asking for less traffic against their nodes, and a per-class default of
+    /// fifteen seconds must not quietly overrule that; an operator who sets ten
+    /// seconds is not thereby asking for `getversion` six times a minute.
+    pub min_period: Duration,
 }
 
 impl Default for ObservationPolicy {
@@ -46,6 +54,7 @@ impl Default for ObservationPolicy {
             enabled: true,
             max_nodes_per_tick: 4,
             probe_timeout: Duration::from_secs(3),
+            min_period: Duration::from_secs(15),
         }
     }
 }
@@ -116,7 +125,7 @@ impl Scheduler {
                     if backoff > 1 && !class.is_liveness() {
                         return false;
                     }
-                    self.is_due(&node.id, *class, now, backoff)
+                    self.is_due(&node.id, *class, now, backoff, policy)
                 })
                 .collect();
             if !classes.is_empty() {
@@ -129,8 +138,15 @@ impl Scheduler {
         work
     }
 
-    fn is_due(&self, node_id: &str, class: SampleClass, now: Instant, backoff: u32) -> bool {
-        let period = class.default_period() * backoff;
+    fn is_due(
+        &self,
+        node_id: &str,
+        class: SampleClass,
+        now: Instant,
+        backoff: u32,
+        policy: &ObservationPolicy,
+    ) -> bool {
+        let period = (class.default_period() * backoff).max(policy.min_period);
         self.last_run
             .get(&(node_id.to_string(), class))
             .is_none_or(|last| now.duration_since(*last) >= period)

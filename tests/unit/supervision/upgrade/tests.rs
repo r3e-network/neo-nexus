@@ -52,7 +52,6 @@ fn test_probe_runtime_upgrade_disabled_by_default() {
     let mut loop_state = LoopState {
         watchdog: Watchdog::new(default_restart_policy()),
         applied_policy: default_restart_policy(),
-        rpc_last_probe: BTreeMap::new(),
         federation_last_probe: BTreeMap::new(),
         last_routed_event: 0,
     };
@@ -141,7 +140,6 @@ fn test_probe_runtime_upgrade_respects_interval() {
     let mut loop_state = LoopState {
         watchdog: Watchdog::new(default_restart_policy()),
         applied_policy: default_restart_policy(),
-        rpc_last_probe: BTreeMap::new(),
         federation_last_probe: BTreeMap::new(),
         last_routed_event: 0,
     };
@@ -247,7 +245,6 @@ fn test_probe_runtime_upgrade_respects_maintenance_window() {
     let mut loop_state = LoopState {
         watchdog: Watchdog::new(default_restart_policy()),
         applied_policy: default_restart_policy(),
-        rpc_last_probe: BTreeMap::new(),
         federation_last_probe: BTreeMap::new(),
         last_routed_event: 0,
     };
@@ -299,7 +296,6 @@ fn test_probe_runtime_upgrade_returns_early_without_catalog_config() {
     let mut loop_state = LoopState {
         watchdog: Watchdog::new(default_restart_policy()),
         applied_policy: default_restart_policy(),
-        rpc_last_probe: BTreeMap::new(),
         federation_last_probe: BTreeMap::new(),
         last_routed_event: 0,
     };

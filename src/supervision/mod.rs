@@ -21,6 +21,7 @@ mod alerts;
 mod engine;
 mod external;
 mod launch;
+mod observation;
 mod probes;
 mod restarts;
 mod startup;

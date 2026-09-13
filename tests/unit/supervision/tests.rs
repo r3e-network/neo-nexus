@@ -237,7 +237,6 @@ fn failed_watchdog_attempt_schedules_the_next_attempt() {
     let mut loop_state = LoopState {
         watchdog: Watchdog::new(policy),
         applied_policy: policy,
-        rpc_last_probe: BTreeMap::new(),
         federation_last_probe: BTreeMap::new(),
         last_routed_event: 0,
     };

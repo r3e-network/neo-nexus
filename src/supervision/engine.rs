@@ -15,6 +15,7 @@ use std::{
 use anyhow::Context;
 
 use super::{
+    observation::run_observation_loop,
     startup::reconcile_startup,
     state::{EngineState, LoopState},
 };
@@ -30,6 +31,8 @@ pub struct Engine {
     pub(super) worker: Option<JoinHandle<()>>,
     pub(super) log_collection_stop: Arc<AtomicBool>,
     pub(super) log_collection_handle: Option<JoinHandle<()>>,
+    pub(super) observation_stop: Arc<AtomicBool>,
+    pub(super) observation_handle: Option<JoinHandle<()>>,
 }
 
 impl Engine {
@@ -55,6 +58,20 @@ impl Engine {
             worker
         };
 
+        // Chain observation gets its own thread because a pass is blocking I/O
+        // bounded by nodes-per-pass × timeout. On the supervision thread that
+        // would put a dozen seconds of unreachable-node timeouts in front of
+        // every crash restart, which is the one thing the tick must do promptly.
+        let observation_stop = Arc::new(AtomicBool::new(false));
+        let observation_handle = {
+            let state = state.clone();
+            let stop = Arc::clone(&observation_stop);
+            thread::Builder::new()
+                .name("neonexus-observation".to_string())
+                .spawn(move || run_observation_loop(state, stop))
+                .context("failed to start the NeoNexus observation loop")?
+        };
+
         let stop = Arc::new(AtomicBool::new(false));
         let closing = Arc::clone(&stop);
         let worker = thread::Builder::new()
@@ -73,18 +90,28 @@ impl Engine {
             worker: Some(worker),
             log_collection_stop,
             log_collection_handle: Some(log_worker),
+            observation_stop,
+            observation_handle: Some(observation_handle),
         })
     }
 }
 
 impl Drop for Engine {
     fn drop(&mut self) {
-        // Stop both workers
+        // Stop every worker
         self.stop.store(true, Ordering::Relaxed);
         self.log_collection_stop.store(true, Ordering::Relaxed);
+        self.observation_stop.store(true, Ordering::Relaxed);
 
         if let Some(worker) = self.worker.take() {
             let _ = worker.join();
+        }
+        if let Some(observer) = self.observation_handle.take() {
+            // A pass already in flight finishes first: its calls carry the
+            // policy's timeout, so the wait is bounded, and abandoning a
+            // half-written round would leave the sample and its legacy row
+            // disagreeing.
+            let _ = observer.join();
         }
         if let Some(log_worker) = self.log_collection_handle.take() {
             // The collector spends most of its life in a 30-second `park_timeout`;

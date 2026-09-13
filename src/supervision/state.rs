@@ -71,7 +71,6 @@ pub(super) struct LoopState {
     /// The policy the watchdog is running under, so a tick that reads an
     /// unchanged policy leaves scheduled restarts alone.
     pub(super) applied_policy: RestartPolicy,
-    pub(super) rpc_last_probe: BTreeMap<String, Instant>,
     pub(super) federation_last_probe: BTreeMap<String, Instant>,
     /// Highest journal id already offered to the alert route. Seeded at startup
     /// so starting the workbench cannot deliver a webhook for events from weeks
@@ -92,7 +91,6 @@ impl LoopState {
         Self {
             watchdog: Watchdog::new(policy),
             applied_policy: policy,
-            rpc_last_probe: BTreeMap::new(),
             federation_last_probe: BTreeMap::new(),
             last_routed_event: newest,
         }
@@ -103,7 +101,6 @@ impl LoopState {
         self.reconcile_exits(state);
         self.run_due_restarts(state);
         self.watch_external_processes(state);
-        self.probe_rpc_health(state);
         self.probe_federation(state);
         self.route_alerts(state);
         self.probe_runtime_upgrade(state);

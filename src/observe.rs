@@ -41,5 +41,11 @@ pub use derive::{derive, Derived, ReferenceHead};
 pub use evidence::{Evidence, NotSampled, Observation};
 pub use health::{Cause, HealthState, HealthTone, NextStep, StallScope, Verdict};
 pub use run::{forget_missing, run_pass};
-pub use sample::{NodeSample, SampleClass, SampleRound};
+pub use sample::{head_method, NodeSample, SampleClass, SampleRound};
 pub use schedule::{DueWork, ObservationPolicy, Scheduler};
+
+/// How many rounds are retained per node.
+///
+/// Re-exported from the repository so the loop that writes rounds and the
+/// reader that asks for them cannot disagree about how much history exists.
+pub(crate) use crate::repository::SAMPLES_KEPT_PER_NODE;

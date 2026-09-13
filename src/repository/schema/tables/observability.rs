@@ -59,6 +59,39 @@ pub(super) fn create_observability_tables(connection: &Connection) -> Result<()>
             version TEXT,
             block_count INTEGER,
             message TEXT NOT NULL
+        );
+        -- What the chain said, per node, per round.
+        --
+        -- Every value is nullable and nullable means *not read*, never zero.
+        -- The distinction is the whole point: a peer count of 0 is Isolated, a
+        -- state that pages someone, while a null peer count is a client that
+        -- was not asked or does not answer that question. Collapsing them is
+        -- how a healthy node comes to look like an incident.
+        --
+        -- `observed_magic` is the chain the node *joined*, not the one it was
+        -- configured with. A node set to a private network that fell back to
+        -- compiled-in MainNet defaults reports MainNet's magic here, and that
+        -- mismatch is the only way to see it.
+        CREATE TABLE IF NOT EXISTS node_samples (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            node_id TEXT NOT NULL,
+            sampled_at_unix INTEGER NOT NULL,
+            endpoint TEXT NOT NULL,
+            head_ok INTEGER NOT NULL,
+            head_latency_ms INTEGER,
+            block_height INTEGER,
+            header_height INTEGER,
+            syncing INTEGER,
+            head_block_time_unix INTEGER,
+            peers_connected INTEGER,
+            observed_magic INTEGER,
+            ms_per_block INTEGER,
+            mempool_capacity INTEGER,
+            mempool_verified INTEGER,
+            mempool_unverified INTEGER,
+            validators_count INTEGER,
+            client_version TEXT,
+            FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
         );",
     )?;
     Ok(())

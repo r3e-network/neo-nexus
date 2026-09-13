@@ -91,6 +91,19 @@ impl SampleClass {
     }
 }
 
+/// The call whose answer decides whether a node is reachable.
+///
+/// Exposed because a caller reporting *why* a node did not answer has to name
+/// the method it asked, and naming it a second time by hand is how a report
+/// comes to blame `getblockcount` for a Neo X node that was asked
+/// `eth_blockNumber`.
+pub fn head_method(family: crate::types::ChainFamily) -> &'static str {
+    match family {
+        crate::types::ChainFamily::NeoN3 => neo_n3::BLOCK_COUNT,
+        crate::types::ChainFamily::NeoX => neox::BLOCK_NUMBER,
+    }
+}
+
 #[cfg(test)]
 #[path = "../../tests/unit/observe/sample_tests.rs"]
 mod tests;
