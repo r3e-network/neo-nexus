@@ -76,6 +76,9 @@ fn render_body(state: &WebState) -> anyhow::Result<String> {
         } else {
             html::note("No export yet. Generate one using the button below.")
         },
-        actions = html::control_form("/backup/export", &[], "Generate workspace backup"),
+        // Posts to the route that exists. This read "/backup/export", which is
+        // registered nowhere, so the page's only button 404'd and a workspace
+        // backup could not be taken from the console at all.
+        actions = html::control_form("/backup", &[], "Generate workspace backup"),
     ))
 }

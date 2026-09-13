@@ -93,6 +93,7 @@ fn information_architecture_matches_the_operations_console() {
         ("wallets", "/wallets", "Wallets"),
         ("signer", "/signer", "Signer"),
         ("metrics", "/metrics", "Metrics"),
+        ("backup", "/backup", "Backup"),
         ("settings", "/settings", "Settings"),
     ];
     assert_eq!(

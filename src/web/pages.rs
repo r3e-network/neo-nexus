@@ -25,3 +25,7 @@ pub mod wallets;
 #[cfg(test)]
 #[path = "../../tests/unit/web/honesty/tests.rs"]
 mod honesty_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/web/parity/tests.rs"]
+mod parity_tests;

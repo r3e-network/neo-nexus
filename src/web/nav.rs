@@ -146,6 +146,16 @@ const SECTIONS: &[Section] = &[
                 label: "Metrics",
                 icon: "metrics",
             },
+            // Registered, rendered, and reachable only by typing the URL: no
+            // nav entry and no inbound link from any page. Taking a backup
+            // before a risky change is not a thing an operator should have to
+            // already know about.
+            Destination {
+                key: "backup",
+                href: "/backup",
+                label: "Backup",
+                icon: "snapshot",
+            },
             Destination {
                 key: "settings",
                 href: "/settings",
