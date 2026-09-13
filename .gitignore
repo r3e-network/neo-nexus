@@ -39,6 +39,7 @@ logs/
 # IDE and OS
 .vscode/
 .idea/
+.workbuddy/
 *.swp
 *.swo
 *~

@@ -2,6 +2,8 @@ use crate::*;
 
 #[path = "basics_settings/alerts.rs"]
 mod alerts;
+#[path = "basics_settings/api_tokens.rs"]
+mod api_tokens;
 #[path = "basics_settings/nodes.rs"]
 mod nodes;
 #[path = "basics_settings/sidecars_federation.rs"]
