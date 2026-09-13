@@ -18,13 +18,15 @@
 //! a second probe, so the two can never disagree, and the status-change journal
 //! entry an operator is used to seeing keeps arriving.
 
+mod evaluate;
+
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
     thread,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use crate::{
@@ -38,6 +40,7 @@ use crate::{
     types::NodeConfig,
 };
 
+use self::evaluate::{evaluate_fleet, HealthTracker};
 use super::state::EngineState;
 
 /// How often the thread wakes to see whether anything is due.
@@ -47,53 +50,89 @@ use super::state::EngineState;
 /// set by the policy rather than by this.
 const WAKE: Duration = Duration::from_secs(1);
 
+/// What the loop carries between passes.
+#[derive(Default)]
+pub(super) struct ObservationState {
+    scheduler: Scheduler,
+    health: HealthTracker,
+    /// Node ids seen, so ones that disappear can be forgotten.
+    known: Vec<String>,
+    /// When the fleet's health was last judged. `None` until the first pass, so
+    /// a freshly started workspace evaluates immediately rather than showing
+    /// nothing for a monitoring interval.
+    last_evaluation: Option<Instant>,
+}
+
 /// Sample the fleet until told to stop.
 pub(super) fn run_observation_loop(state: EngineState, stop: Arc<AtomicBool>) {
-    let mut scheduler = Scheduler::default();
-    let mut known = Vec::new();
+    let mut observation = ObservationState::default();
     while !stop.load(Ordering::Relaxed) {
-        observe_once(&state, &mut scheduler, &mut known);
+        observe_once(&state, &mut observation);
         thread::sleep(WAKE);
     }
 }
 
-fn observe_once(state: &EngineState, scheduler: &mut Scheduler, known: &mut Vec<String>) {
+fn observe_once(state: &EngineState, observation: &mut ObservationState) {
     let Ok(monitor) = state.repository.load_rpc_health_monitor_policy() else {
         return;
     };
+    let monitor = monitor.normalized();
     let policy = ObservationPolicy {
         enabled: monitor.enabled,
-        min_period: monitor.normalized().interval_duration(),
+        min_period: monitor.interval_duration(),
         ..ObservationPolicy::default()
     };
 
     let nodes = state.nodes();
     // Done before the pass and regardless of whether sampling is enabled, so a
-    // workspace that churns nodes does not grow the scheduler's maps for the
-    // life of the process just because monitoring is switched off.
-    forget_missing(scheduler, &nodes, known);
+    // workspace that churns nodes does not grow the loop's maps for the life of
+    // the process just because monitoring is switched off.
+    forget_missing(&mut observation.scheduler, &nodes, &mut observation.known);
+    observation.health.retain(&nodes);
 
     let running: Vec<NodeConfig> = nodes
-        .into_iter()
+        .iter()
         .filter(|node| node.status.is_running())
+        .cloned()
         .collect();
     let Some(now_unix) = current_unix_time() else {
         return;
     };
 
-    let round = run_pass(scheduler, &running, &policy, now_unix);
-    if round.samples.is_empty() {
-        return;
-    }
+    let round = run_pass(&mut observation.scheduler, &running, &policy, now_unix);
     for sample in &round.samples {
         let Some(node) = running.iter().find(|node| node.id == sample.node_id) else {
             continue;
         };
         record(state, node, sample);
     }
-    let _ = state
-        .repository
-        .prune_node_samples_keep_recent_per_node(SAMPLES_KEPT_PER_NODE);
+    if !round.samples.is_empty() {
+        let _ = state
+            .repository
+            .prune_node_samples_keep_recent_per_node(SAMPLES_KEPT_PER_NODE);
+    }
+
+    // Judged on the monitoring interval rather than on every wake, which is
+    // what makes "a state must be seen twice" mean two intervals instead of two
+    // seconds. Every node is judged, not only the ones sampled: nothing polls a
+    // node the workspace believes is down, so a crashed node would otherwise
+    // keep the verdict it held when it died.
+    if !policy.enabled {
+        return;
+    }
+    let due = observation
+        .last_evaluation
+        .is_none_or(|last| last.elapsed() >= monitor.interval_duration());
+    if due {
+        observation.last_evaluation = Some(Instant::now());
+        evaluate_fleet(
+            state,
+            &observation.scheduler,
+            &nodes,
+            &mut observation.health,
+            now_unix,
+        );
+    }
 }
 
 fn record(state: &EngineState, node: &NodeConfig, sample: &NodeSample) {
@@ -170,5 +209,5 @@ fn current_unix_time() -> Option<u64> {
 }
 
 #[cfg(test)]
-#[path = "../../tests/unit/supervision/observation_tests.rs"]
+#[path = "../../tests/unit/supervision/observation/tests.rs"]
 mod tests;

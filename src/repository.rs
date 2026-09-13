@@ -49,7 +49,7 @@ mod runtime_assets;
 mod schema;
 mod settings_keys;
 
-pub(crate) use self::events_health::SAMPLES_KEPT_PER_NODE;
+pub(crate) use self::events_health::{SAMPLES_KEPT_PER_NODE, TRANSITIONS_KEPT_PER_NODE};
 use self::helpers::*;
 pub(crate) use self::helpers::{validate_backup_setting_key, validate_node_config};
 pub(crate) use self::model::QuarantinedRuntimeSpec;

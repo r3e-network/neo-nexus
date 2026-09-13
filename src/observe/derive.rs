@@ -53,6 +53,15 @@ pub struct Derived {
     /// The height went backwards. A deep reorg, a restored archive or a
     /// swapped data directory — a real incident, and never a negative rate.
     pub height_regressed: Option<(u64, u64)>,
+    /// Whether the height increased at any point across the samples in hand.
+    ///
+    /// The gate on the chain-lag witness. A node doing its initial sync is
+    /// hours or days behind the chain's head while climbing steadily every
+    /// round, so chain lag alone would call it stalled — and `Stalled` outranks
+    /// `Syncing`, which would make the most common state a new node passes
+    /// through page an operator. A node producing blocks is not stalled,
+    /// whatever its distance from the head.
+    pub height_advanced_in_window: bool,
 }
 
 /// How far into the future a block may be dated before the clock is suspect.
@@ -100,7 +109,28 @@ pub fn derive(history: &[NodeSample], reference: &ReferenceHead, now_unix: u64) 
     derived.height_regressed = height_regression(history);
     derived.blocks_per_minute = blocks_per_minute(history);
     derived.mempool_utilisation = mempool_utilisation(latest);
+    derived.height_advanced_in_window = height_advanced_in_window(history);
     derived
+}
+
+/// Whether the height is higher now than at the oldest sample in hand.
+///
+/// Deliberately not derived from `blocks_per_minute`, which returns `None`
+/// until the window is thirty seconds wide: a node that has produced one block
+/// since it was first sampled is advancing, and a rate too short to divide by
+/// is not evidence to the contrary.
+fn height_advanced_in_window(history: &[NodeSample]) -> bool {
+    let Some(newest) = history
+        .iter()
+        .find_map(|sample| sample.block_height.value().copied())
+    else {
+        return false;
+    };
+    history
+        .iter()
+        .rev()
+        .find_map(|sample| sample.block_height.value().copied())
+        .is_some_and(|oldest| newest > oldest)
 }
 
 /// Seconds since the height last increased.

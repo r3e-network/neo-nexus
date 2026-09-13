@@ -45,7 +45,25 @@ pub(super) fn spawn_managed_child(
     let output_offset = log_file.metadata().map(|meta| meta.len()).unwrap_or(0);
 
     Ok((
-        ManagedChild::new(child, log_path.clone(), spec.id.clone(), output_offset),
+        ManagedChild::new(
+            child,
+            log_path.clone(),
+            spec.id.clone(),
+            output_offset,
+            spawned_at_unix(),
+        ),
         ProcessStart { pid, log_path },
     ))
+}
+
+/// When a child was spawned, in unix seconds.
+///
+/// A clock that cannot be read gives 0, which the health layer reads as an
+/// implausibly long uptime and therefore as "no startup grace" — the safe
+/// direction, since it reports a silent node rather than excusing it.
+fn spawned_at_unix() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_secs())
+        .unwrap_or_default()
 }

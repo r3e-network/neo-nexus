@@ -183,6 +183,41 @@ fn behind_and_moving_is_syncing_behind_and_stuck_is_stalled() {
     );
 }
 
+/// Initial sync, which every node does exactly once and which must not page
+/// anyone.
+///
+/// A node restoring from a snapshot is hours behind the chain head, so its
+/// newest block is hours old and the chain-lag witness fires — and `Stalled`
+/// outranks `Syncing`. The height climbing every round is what separates the
+/// two, and it has to be consulted before the lag is believed.
+#[test]
+fn a_node_working_through_its_initial_sync_is_syncing_not_stalled() {
+    let latest = answering(1_000, NOW);
+    let restoring = Derived {
+        // Six hours behind the head, and climbing.
+        chain_lag_seconds: Some(21_600),
+        head_lag: Some(1_440),
+        height_unchanged_seconds: Some(15),
+        height_advanced_in_window: true,
+        ..Derived::default()
+    };
+    assert_eq!(
+        classify(&inputs(Some(&latest), &restoring)).state(),
+        HealthState::Syncing
+    );
+
+    // The same distance from the head, with the height no longer moving, is the
+    // stall the witness is for.
+    let stuck = Derived {
+        height_advanced_in_window: false,
+        ..restoring
+    };
+    assert_eq!(
+        classify(&inputs(Some(&latest), &stuck)).state(),
+        HealthState::Stalled
+    );
+}
+
 /// Neo X answers the sync question directly, so nothing has to be inferred.
 #[test]
 fn a_neox_node_that_says_it_is_syncing_is_believed() {
@@ -199,6 +234,47 @@ fn a_neox_node_that_says_it_is_syncing_is_believed() {
         classify(&inputs(Some(&latest), &derived)).state(),
         HealthState::Syncing
     );
+}
+
+/// A crashed node reads as unreachable, not as unchecked.
+///
+/// Nothing polls a node the workspace already believes is down, so its
+/// consecutive-failure count never rises and the `Unreachable` threshold is
+/// never met. Without a guard on the process itself, a node that died reads
+/// "Not checked" — which is exactly the shape of an incident hiding behind a
+/// blank.
+#[test]
+fn a_node_that_should_be_running_with_no_process_is_unreachable() {
+    let derived = Derived::default();
+    let crashed = HealthInputs {
+        process_running: false,
+        wants_running: true,
+        uptime_seconds: None,
+        latest: None,
+        ..inputs(None, &derived)
+    };
+    let verdict = classify(&crashed);
+    assert_eq!(verdict.state(), HealthState::Unreachable);
+    assert!(verdict.reason().contains("no process"));
+
+    // Still inside its grace, it is starting rather than failed.
+    let coming_up = HealthInputs {
+        process_running: false,
+        wants_running: true,
+        uptime_seconds: Some(20),
+        latest: None,
+        ..inputs(None, &derived)
+    };
+    assert_eq!(classify(&coming_up).state(), HealthState::Starting);
+
+    // And a node the operator stopped is still not news.
+    let stopped = HealthInputs {
+        process_running: false,
+        wants_running: false,
+        latest: None,
+        ..inputs(None, &derived)
+    };
+    assert_eq!(classify(&stopped).state(), HealthState::Stopped);
 }
 
 /// Never having looked must never read as having looked and found nothing.

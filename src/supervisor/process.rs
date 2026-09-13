@@ -90,6 +90,19 @@ impl ProcessSupervisor {
         self.children.keys().cloned().collect()
     }
 
+    /// When this supervisor spawned `node_id`, in unix seconds.
+    ///
+    /// `None` for a node it does not hold the handle for — one adopted from a
+    /// previous run, or started outside the workbench. The health layer reads
+    /// that as "uptime unknown" rather than assuming a value, because a guessed
+    /// uptime either excuses a genuinely silent node or denies a slow-starting
+    /// one the grace its client needs.
+    pub fn started_at_unix(&self, node_id: &str) -> Option<u64> {
+        self.children
+            .get(node_id)
+            .map(ManagedChild::started_at_unix)
+    }
+
     /// Get reference to adapter registry.
     pub fn adapters(&self) -> &model::NodeAdapters {
         &self.adapters

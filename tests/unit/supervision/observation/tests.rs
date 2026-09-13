@@ -155,9 +155,8 @@ fn a_pass_writes_the_round_and_its_compatibility_row_together() {
     // spending the policy timeout.
     let node = running_node(&state, "n3-1", NodeType::NeoGo, 1, 10333);
 
-    let mut scheduler = Scheduler::default();
-    let mut known = Vec::new();
-    observe_once(&state, &mut scheduler, &mut known);
+    let mut observation = ObservationState::default();
+    observe_once(&state, &mut observation);
 
     let sample = state
         .repository
@@ -179,7 +178,7 @@ fn a_pass_writes_the_round_and_its_compatibility_row_together() {
     assert_eq!(legacy.block_count, None);
 
     assert_eq!(
-        scheduler.consecutive_failures(&node.id),
+        observation.scheduler.consecutive_failures(&node.id),
         1,
         "the pass must tell the scheduler to back off"
     );
@@ -195,9 +194,8 @@ fn a_node_with_no_rpc_port_is_recorded_without_being_called_unreachable() {
     let state = workspace(dir.path());
     let node = running_node(&state, "consensus-1", NodeType::NeoGo, 0, 10333);
 
-    let mut scheduler = Scheduler::default();
-    let mut known = Vec::new();
-    observe_once(&state, &mut scheduler, &mut known);
+    let mut observation = ObservationState::default();
+    observe_once(&state, &mut observation);
 
     let sample = state
         .repository
@@ -235,9 +233,8 @@ fn a_disabled_monitor_policy_stops_the_pass() {
         })
         .unwrap();
 
-    let mut scheduler = Scheduler::default();
-    let mut known = Vec::new();
-    observe_once(&state, &mut scheduler, &mut known);
+    let mut observation = ObservationState::default();
+    observe_once(&state, &mut observation);
 
     assert!(state
         .repository
@@ -263,9 +260,8 @@ fn a_stopped_node_is_not_polled() {
         .update_node_status(&node.id, NodeStatus::Stopped, None)
         .unwrap();
 
-    let mut scheduler = Scheduler::default();
-    let mut known = Vec::new();
-    observe_once(&state, &mut scheduler, &mut known);
+    let mut observation = ObservationState::default();
+    observe_once(&state, &mut observation);
 
     assert!(state
         .repository
@@ -283,10 +279,9 @@ fn a_deleted_node_is_forgotten_even_with_monitoring_disabled() {
     let state = workspace(dir.path());
     let node = running_node(&state, "n3-1", NodeType::NeoGo, 1, 10333);
 
-    let mut scheduler = Scheduler::default();
-    let mut known = Vec::new();
-    observe_once(&state, &mut scheduler, &mut known);
-    assert_eq!(known, vec![node.id.clone()]);
+    let mut observation = ObservationState::default();
+    observe_once(&state, &mut observation);
+    assert_eq!(observation.known, vec![node.id.clone()]);
 
     state
         .repository
@@ -300,8 +295,8 @@ fn a_deleted_node_is_forgotten_even_with_monitoring_disabled() {
         .update_node_status(&node.id, NodeStatus::Stopped, None)
         .unwrap();
     state.repository.delete_node(&node.id).unwrap();
-    observe_once(&state, &mut scheduler, &mut known);
+    observe_once(&state, &mut observation);
 
-    assert!(known.is_empty());
-    assert_eq!(scheduler.consecutive_failures(&node.id), 0);
+    assert!(observation.known.is_empty());
+    assert_eq!(observation.scheduler.consecutive_failures(&node.id), 0);
 }

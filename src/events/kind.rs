@@ -80,6 +80,7 @@ define_event_kinds! {
     NeoWalletProfileUsed => "neo-wallet-profile-used",
     NeoWalletProfileDeleted => "neo-wallet-profile-deleted",
     RpcHealthChecked => "rpc-health-checked",
+    NodeHealthChanged => "node-health-changed",
     RpcHealthMonitorPolicyUpdated => "rpc-health-monitor-policy-updated",
     AlertRoutingPolicyUpdated => "alert-routing-policy-updated",
     RemoteServerCreated => "remote-server-created",

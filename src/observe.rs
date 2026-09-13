@@ -32,6 +32,7 @@ mod client;
 mod derive;
 mod evidence;
 mod health;
+mod record;
 mod run;
 mod sample;
 mod schedule;
@@ -40,6 +41,7 @@ pub use classify::{classify, HealthInputs, HealthPolicy};
 pub use derive::{derive, Derived, ReferenceHead};
 pub use evidence::{Evidence, NotSampled, Observation};
 pub use health::{Cause, HealthState, HealthTone, NextStep, StallScope, Verdict};
+pub use record::{HealthTransition, NodeHealth};
 pub use run::{forget_missing, run_pass};
 pub use sample::{head_method, NodeSample, SampleClass, SampleRound};
 pub use schedule::{DueWork, ObservationPolicy, Scheduler};
@@ -48,4 +50,4 @@ pub use schedule::{DueWork, ObservationPolicy, Scheduler};
 ///
 /// Re-exported from the repository so the loop that writes rounds and the
 /// reader that asks for them cannot disagree about how much history exists.
-pub(crate) use crate::repository::SAMPLES_KEPT_PER_NODE;
+pub(crate) use crate::repository::{SAMPLES_KEPT_PER_NODE, TRANSITIONS_KEPT_PER_NODE};

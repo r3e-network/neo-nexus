@@ -146,11 +146,27 @@ pub enum StallScope {
 }
 
 impl StallScope {
+    pub const ALL: [Self; 2] = [Self::Node, Self::Chain];
+
     pub fn label(self) -> &'static str {
         match self {
             Self::Node => "this node",
             Self::Chain => "the whole chain",
         }
+    }
+
+    /// The stable string this scope is stored by.
+    pub fn persist_key(self) -> &'static str {
+        match self {
+            Self::Node => "node",
+            Self::Chain => "chain",
+        }
+    }
+
+    pub fn from_persist_key(key: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|scope| scope.persist_key() == key)
     }
 }
 

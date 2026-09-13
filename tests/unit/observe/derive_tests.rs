@@ -193,3 +193,25 @@ fn no_samples_derives_nothing_rather_than_zeroes() {
     assert_eq!(derived.chain_lag_seconds, None);
     assert_eq!(derived.blocks_per_minute, None);
 }
+
+/// The gate that keeps initial sync out of the stall detector.
+///
+/// One block of progress is progress. This is deliberately not read off
+/// `blocks_per_minute`, which stays `None` until the window is thirty seconds
+/// wide — a rate too short to divide by is not evidence that nothing happened.
+#[test]
+fn a_single_block_of_progress_counts_as_advancing() {
+    let climbing = [at(1_002, NOW), at(1_001, NOW - 15)];
+    assert!(derive(&climbing, &ReferenceHead::SelfOnly, NOW).height_advanced_in_window);
+    assert_eq!(
+        derive(&climbing, &ReferenceHead::SelfOnly, NOW).blocks_per_minute,
+        None,
+        "the window is too short for a rate, which must not be read as no progress"
+    );
+
+    let stuck = [at(1_001, NOW), at(1_001, NOW - 600)];
+    assert!(!derive(&stuck, &ReferenceHead::SelfOnly, NOW).height_advanced_in_window);
+
+    let never_read = [NodeSample::not_observable("node-1", NOW)];
+    assert!(!derive(&never_read, &ReferenceHead::SelfOnly, NOW).height_advanced_in_window);
+}

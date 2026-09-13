@@ -92,6 +92,46 @@ pub(super) fn create_observability_tables(connection: &Connection) -> Result<()>
             validators_count INTEGER,
             client_version TEXT,
             FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+        );
+        -- The current verdict on each node, computed in one place.
+        --
+        -- Health is evaluated by the observation loop and read by every
+        -- surface, rather than each page re-deriving it from samples. Two
+        -- pages that derive the same thing separately eventually disagree, and
+        -- an operator comparing a list row against a detail page has no way to
+        -- tell which one is wrong.
+        --
+        -- `since_unix` is when this state was *entered*, not when it was last
+        -- confirmed, so a surface can say `stalled for 12m` rather than
+        -- `stalled, checked 15s ago` — the first is the number that decides
+        -- whether to act.
+        --
+        -- `next_href` NULL means the step is not something this console can do;
+        -- `next_label` then carries the whole sentence. Between them they make
+        -- a verdict with no way forward unrepresentable.
+        CREATE TABLE IF NOT EXISTS node_health_state (
+            node_id TEXT PRIMARY KEY,
+            state TEXT NOT NULL,
+            since_unix INTEGER NOT NULL,
+            evaluated_at_unix INTEGER NOT NULL,
+            reason TEXT NOT NULL,
+            scope TEXT,
+            cause TEXT,
+            next_label TEXT NOT NULL,
+            next_href TEXT,
+            FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+        );
+        -- Every change of state, so `it was fine an hour ago` is a question the
+        -- workspace can answer rather than one an operator has to reconstruct
+        -- from log files.
+        CREATE TABLE IF NOT EXISTS node_health_transitions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            node_id TEXT NOT NULL,
+            at_unix INTEGER NOT NULL,
+            from_state TEXT,
+            to_state TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
         );",
     )?;
     Ok(())

@@ -23,6 +23,14 @@ pub(super) struct ManagedChild {
     /// header. Reading from here yields what the child said and nothing this
     /// process wrote about it, which is what a failure report needs to quote.
     output_offset: u64,
+    /// When this generation was spawned, in unix seconds.
+    ///
+    /// The health layer needs it to tell "this client is still opening its
+    /// store" from "this node is not answering". A client that takes three
+    /// minutes to come up has not failed; it has not been asked yet. Only
+    /// processes this supervisor launched have one — a node adopted from a
+    /// previous run reports no uptime rather than a guessed one.
+    started_at_unix: u64,
 }
 
 impl ManagedChild {
@@ -31,13 +39,19 @@ impl ManagedChild {
         log_path: PathBuf,
         node_id: String,
         output_offset: u64,
+        started_at_unix: u64,
     ) -> Self {
         Self {
             child,
             log_path,
             node_id,
             output_offset,
+            started_at_unix,
         }
+    }
+
+    pub(super) fn started_at_unix(&self) -> u64 {
+        self.started_at_unix
     }
 
     pub(super) fn pid(&self) -> u32 {

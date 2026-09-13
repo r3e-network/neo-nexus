@@ -33,5 +33,17 @@ pub(in crate::repository::schema) fn create_indexes(connection: &Connection) -> 
          ON node_samples (node_id, sampled_at_unix DESC, id DESC)",
         [],
     )?;
+    // The attention queue asks "which nodes are not healthy", fleet-wide, on
+    // every page load of the home screen.
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_node_health_state_by_state
+         ON node_health_state (state, since_unix ASC)",
+        [],
+    )?;
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_node_health_transitions_recent
+         ON node_health_transitions (node_id, at_unix DESC, id DESC)",
+        [],
+    )?;
     Ok(())
 }

@@ -133,7 +133,22 @@ pub fn classify(inputs: &HealthInputs<'_>) -> Verdict {
         }
     }
 
-    // 3. Expected to be running and not answering.
+    // 3. Expected to be running, with no process to ask.
+    //
+    // Reached only after the startup grace above, so a node still coming up is
+    // not condemned. Without this a crashed node would fall through to
+    // `Unknown` — "not checked yet" — because nothing polls a node the
+    // workspace already believes is down, so its failure count never rises.
+    if !inputs.process_running {
+        return Verdict::new(
+            HealthState::Unreachable,
+            "this node should be running, and no process is",
+            Vec::new(),
+            NextStep::here("Start it", node_link(&node_id)),
+        );
+    }
+
+    // 4. Expected to be running and not answering.
     if inputs.consecutive_failures >= inputs.policy.unreachable_after {
         let detail = inputs
             .latest
@@ -153,7 +168,7 @@ pub fn classify(inputs: &HealthInputs<'_>) -> Verdict {
         );
     }
 
-    // 4. Not enough is known. This is the state that must never look like a
+    // 5. Not enough is known. This is the state that must never look like a
     //    pass: a node that has never been probed used to render identically to
     //    a healthy one.
     let Some(latest) = inputs.latest else {
@@ -186,7 +201,7 @@ pub fn classify(inputs: &HealthInputs<'_>) -> Verdict {
         );
     }
 
-    // 5. Answering, with nobody to talk to. Ranked above the stall it causes.
+    // 6. Answering, with nobody to talk to. Ranked above the stall it causes.
     if latest.peers_connected.value() == Some(&0) {
         return Verdict::new(
             HealthState::Isolated,
@@ -200,7 +215,7 @@ pub fn classify(inputs: &HealthInputs<'_>) -> Verdict {
         .with_cause(Some(Cause::NoPeers));
     }
 
-    // 6. Answering promptly, and going nowhere. The failure this layer exists
+    // 7. Answering promptly, and going nowhere. The failure this layer exists
     //    for, and the one a process watchdog cannot see.
     if let Some(scope) = stall_scope(inputs) {
         let local = inputs.derived.height_unchanged_seconds.unwrap_or(0);
@@ -217,12 +232,12 @@ pub fn classify(inputs: &HealthInputs<'_>) -> Verdict {
         .with_cause(stall_cause(inputs));
     }
 
-    // 7. Behind, and catching up.
+    // 8. Behind, and catching up.
     if let Some(verdict) = syncing(inputs, &node_id, &evidence(Some(latest))) {
         return verdict;
     }
 
-    // 8. Working, with something worth knowing.
+    // 9. Working, with something worth knowing.
     if let Some(verdict) = degraded(inputs, latest, &node_id, &evidence(Some(latest))) {
         return verdict;
     }
@@ -265,7 +280,13 @@ fn stall_scope(inputs: &HealthInputs<'_>) -> Option<StallScope> {
         .derived
         .height_unchanged_seconds
         .is_some_and(|seconds| seconds >= inputs.policy.stall_seconds);
-    let chain_stale = !inputs.derived.clock_suspect
+    // The chain-lag witness only applies to a node that is not producing.
+    // A node doing its initial sync is hours behind the head while climbing
+    // every round, and without this gate its distance from the head would read
+    // as a stall — which outranks `Syncing`, so the most common state a new
+    // node passes through would page an operator.
+    let chain_stale = !inputs.derived.height_advanced_in_window
+        && !inputs.derived.clock_suspect
         && inputs
             .derived
             .chain_lag_seconds
