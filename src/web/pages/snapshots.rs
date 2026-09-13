@@ -13,7 +13,7 @@ use crate::core::{
     operations::format_bytes,
     runtime::{filter_snapshots, FastSyncSnapshot, SnapshotFilter},
 };
-use crate::types::NodeConfig;
+use crate::types::{Network, NodeConfig, NodeType};
 
 use super::super::{html, WebState};
 
@@ -340,18 +340,30 @@ fn register_form() -> String {
 </form>"#,
         id = html::text_field("Snapshot id", "id", ""),
         label = html::text_field("Label", "label", ""),
-        network = html::TextField {
+        // Both are closed sets the save handler parses and rejects on a typo,
+        // so they are chosen rather than typed. The node editor has always
+        // offered them this way; this form asked the operator to remember the
+        // exact spelling and told them afterwards when it was wrong.
+        network = html::ChoiceField {
             label: "Network",
             name: "network",
-            placeholder: Some("mainnet"),
-            ..html::TextField::default()
+            options: &Network::ALL
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+            selected: &Network::Mainnet.to_string(),
+            ..html::ChoiceField::default()
         }
         .render(),
-        runtime = html::TextField {
+        runtime = html::ChoiceField {
             label: "Runtime",
             name: "node_type",
-            placeholder: Some("neo-rs"),
-            ..html::TextField::default()
+            options: &NodeType::ALL
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+            selected: &NodeType::ALL[0].to_string(),
+            ..html::ChoiceField::default()
         }
         .render(),
         source_path = html::TextField {
