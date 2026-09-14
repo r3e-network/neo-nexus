@@ -8,6 +8,8 @@ fn alert_policy_matches_threshold_and_enabled_state() {
         min_severity: EventSeverity::Warning,
         webhook_url: Some("https://hooks.example.com/neo".to_string()),
         timeout_seconds: 5,
+        kinds: Vec::new(),
+        node_ids: Vec::new(),
     };
 
     assert!(!should_route_alert(&policy, &event(EventSeverity::Info)));
@@ -61,6 +63,8 @@ fn alert_policy_validation_requires_target_when_enabled() {
         min_severity: EventSeverity::Critical,
         webhook_url: None,
         timeout_seconds: 5,
+        kinds: Vec::new(),
+        node_ids: Vec::new(),
     };
     assert!(policy.validation_message().is_some());
 
@@ -73,6 +77,8 @@ fn alert_policy_validation_requires_target_when_enabled() {
         min_severity: EventSeverity::Warning,
         webhook_url: Some("https://api.telegram.org/bot123:abc/sendMessage".to_string()),
         timeout_seconds: 5,
+        kinds: Vec::new(),
+        node_ids: Vec::new(),
     };
     assert!(telegram_without_chat
         .validation_message()
@@ -84,6 +90,8 @@ fn alert_policy_validation_requires_target_when_enabled() {
         min_severity: EventSeverity::Warning,
         webhook_url: Some("https://events.pagerduty.com/v2/enqueue".to_string()),
         timeout_seconds: 5,
+        kinds: Vec::new(),
+        node_ids: Vec::new(),
     };
     assert!(pagerduty_without_key
         .validation_message()
@@ -95,6 +103,8 @@ fn alert_policy_validation_requires_target_when_enabled() {
         min_severity: EventSeverity::Warning,
         webhook_url: Some("https://api.opsgenie.com/v2/alerts".to_string()),
         timeout_seconds: 5,
+        kinds: Vec::new(),
+        node_ids: Vec::new(),
     };
     assert!(opsgenie_without_key
         .validation_message()
@@ -108,6 +118,8 @@ fn alert_policy_validation_requires_target_when_enabled() {
             "https://event-management-intake.datadoghq.com/api/v2/events".to_string(),
         ),
         timeout_seconds: 5,
+        kinds: Vec::new(),
+        node_ids: Vec::new(),
     };
     assert!(datadog_without_key
         .validation_message()

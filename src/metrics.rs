@@ -9,8 +9,8 @@ pub use collector::MetricsCollector;
 pub use filter::{filter_process_rows, ProcessFilter, ProcessRow, ProcessStateFilter};
 pub use formatter::format_bytes;
 pub use prometheus::{
-    NeoCliMetricsExporter, NeoGoMetricsAdapter, NeoRsMetricsAdapter, NeoXGethMetricsAdapter,
-    NeoXRethMetricsAdapter,
+    exposition, ChainMetricRow, NeoCliMetricsExporter, NeoGoMetricsAdapter, NeoRsMetricsAdapter,
+    NeoXGethMetricsAdapter, NeoXRethMetricsAdapter,
 };
 pub use store::{HostSample, MetricsStore, HISTORY_SAMPLES, SAMPLE_INTERVAL};
 pub use types::{

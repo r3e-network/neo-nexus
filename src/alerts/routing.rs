@@ -5,6 +5,15 @@ use super::{
     AlertDeliveryReport, AlertDeliveryStatus, AlertRoutingPolicy,
 };
 
+/// Whether this event is one the operator asked to be told about.
+///
+/// The severity floor was the whole of this decision — `event.node_id` and
+/// `event.kind` were never read — so one webhook received every event above a
+/// global threshold and nothing could be scoped to anything.
+///
+/// An empty scope means "all", never "none". A policy that narrowed to nothing
+/// by default would be an alert route that silently delivers nothing, which is
+/// the failure mode alerting exists to avoid.
 pub fn should_route_alert(policy: &AlertRoutingPolicy, event: &RuntimeEvent) -> bool {
     policy.enabled
         && policy
@@ -12,6 +21,23 @@ pub fn should_route_alert(policy: &AlertRoutingPolicy, event: &RuntimeEvent) -> 
             .as_deref()
             .is_some_and(|url| !url.is_empty())
         && severity_rank(event.severity) >= severity_rank(policy.min_severity)
+        && (policy.kinds.is_empty() || policy.kinds.contains(&event.kind))
+        && matches_node_scope(policy, event)
+}
+
+/// Whether the event falls inside the policy's node scope.
+///
+/// A workspace-wide event has no `node_id`. When a policy names specific nodes,
+/// such an event is **not** in scope: an operator who narrowed a route to their
+/// validator did not thereby ask to hear about backup exports.
+fn matches_node_scope(policy: &AlertRoutingPolicy, event: &RuntimeEvent) -> bool {
+    if policy.node_ids.is_empty() {
+        return true;
+    }
+    event
+        .node_id
+        .as_deref()
+        .is_some_and(|node_id| policy.node_ids.iter().any(|scoped| scoped == node_id))
 }
 
 pub fn deliver_webhook_alert(

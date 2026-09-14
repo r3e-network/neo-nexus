@@ -21,12 +21,25 @@ use anyhow::{anyhow, Result};
 use super::types::MetricsSnapshot;
 use crate::config::GenerationContext;
 
+pub use families::ChainMetricRow;
+
 pub(super) fn snapshot_to_text(snapshot: &MetricsSnapshot) -> String {
+    exposition(snapshot, &[])
+}
+
+/// The host and process families, plus what each node says about its chain.
+///
+/// Chain rows arrive from the caller rather than from the snapshot: a
+/// `MetricsSnapshot` is a reading of *this host*, and the chain is a reading of
+/// somewhere else entirely. Fusing them would put an RPC round trip in the same
+/// struct as a resident set size and make either one harder to reason about.
+pub fn exposition(snapshot: &MetricsSnapshot, chain: &[ChainMetricRow]) -> String {
     let mut output = String::new();
     families::push_workspace_metrics(&mut output, snapshot);
     families::push_system_metrics(&mut output, snapshot);
     families::push_node_process_metrics(&mut output, snapshot);
     families::push_missing_process_metrics(&mut output, snapshot);
+    families::push_chain_metrics(&mut output, chain);
     output
 }
 
@@ -46,3 +59,7 @@ pub(super) fn node_dir_from_context(ctx: &GenerationContext) -> Result<&Path> {
         )
     })
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/metrics/documented/tests.rs"]
+mod documented_tests;

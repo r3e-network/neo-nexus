@@ -18,6 +18,8 @@ fn loads_and_persists_alert_routing_policy_without_backing_up_webhook_secret() {
             "https://api.telegram.org/bot123:abc/sendMessage?chat_id=-100123".to_string(),
         ),
         timeout_seconds: 9,
+        kinds: Vec::new(),
+        node_ids: Vec::new(),
     };
     repository.save_alert_routing_policy(custom).unwrap();
     let loaded = repository.load_alert_routing_policy().unwrap();
@@ -42,6 +44,8 @@ fn loads_and_persists_alert_routing_policy_without_backing_up_webhook_secret() {
         min_severity: EventSeverity::Warning,
         webhook_url: Some("http://hooks.example.com/neo".to_string()),
         timeout_seconds: 5,
+        kinds: Vec::new(),
+        node_ids: Vec::new(),
     };
     assert!(repository.save_alert_routing_policy(insecure).is_err());
 
@@ -51,6 +55,8 @@ fn loads_and_persists_alert_routing_policy_without_backing_up_webhook_secret() {
         min_severity: EventSeverity::Warning,
         webhook_url: Some("https://api.telegram.org/bot123:abc/sendMessage".to_string()),
         timeout_seconds: 5,
+        kinds: Vec::new(),
+        node_ids: Vec::new(),
     };
     assert!(repository
         .save_alert_routing_policy(telegram_without_chat)
@@ -62,6 +68,8 @@ fn loads_and_persists_alert_routing_policy_without_backing_up_webhook_secret() {
         min_severity: EventSeverity::Critical,
         webhook_url: Some("https://events.pagerduty.com/v2/enqueue?routing_key=abc123".to_string()),
         timeout_seconds: 7,
+        kinds: Vec::new(),
+        node_ids: Vec::new(),
     };
     repository.save_alert_routing_policy(pagerduty).unwrap();
     let loaded = repository.load_alert_routing_policy().unwrap();
@@ -77,6 +85,8 @@ fn loads_and_persists_alert_routing_policy_without_backing_up_webhook_secret() {
         min_severity: EventSeverity::Critical,
         webhook_url: Some("https://api.opsgenie.com/v2/alerts?api_key=abc123".to_string()),
         timeout_seconds: 8,
+        kinds: Vec::new(),
+        node_ids: Vec::new(),
     };
     repository.save_alert_routing_policy(opsgenie).unwrap();
     let loaded = repository.load_alert_routing_policy().unwrap();
@@ -94,6 +104,8 @@ fn loads_and_persists_alert_routing_policy_without_backing_up_webhook_secret() {
             "https://event-management-intake.datadoghq.com/api/v2/events?api_key=dd123".to_string(),
         ),
         timeout_seconds: 6,
+        kinds: Vec::new(),
+        node_ids: Vec::new(),
     };
     repository.save_alert_routing_policy(datadog).unwrap();
     let loaded = repository.load_alert_routing_policy().unwrap();

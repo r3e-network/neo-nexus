@@ -13,7 +13,7 @@ pub use maintenance::{
 };
 pub use node::{batch_node_action, node_restart, node_start, node_stop, smoke_test_node};
 pub use settings::{
-    save_alert_routing, save_density, save_federation_monitor, save_rpc_health_monitor,
-    save_runtime_upgrade_policy, save_watchdog, AlertRoutingForm, DensityForm, MonitorForm,
-    RuntimeUpgradeForm, WatchdogForm,
+    preview_alert_routing, save_alert_routing, save_density, save_federation_monitor,
+    save_rpc_health_monitor, save_runtime_upgrade_policy, save_watchdog, AlertRoutingForm,
+    DensityForm, MonitorForm, RuntimeUpgradeForm, WatchdogForm,
 };

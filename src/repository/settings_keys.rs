@@ -47,6 +47,8 @@ pub(in crate::repository) const SETTING_ALERT_ROUTING_MIN_SEVERITY: &str =
     "alert_routing.min_severity";
 pub(in crate::repository) const SETTING_ALERT_ROUTING_WEBHOOK_URL: &str =
     "alert_routing.webhook_url";
+pub(in crate::repository) const SETTING_ALERT_ROUTING_KINDS: &str = "alert_routing.kinds";
+pub(in crate::repository) const SETTING_ALERT_ROUTING_NODE_IDS: &str = "alert_routing.node_ids";
 pub(in crate::repository) const SETTING_ALERT_ROUTING_TIMEOUT_SECONDS: &str =
     "alert_routing.timeout_seconds";
 

@@ -110,6 +110,11 @@ impl WorkspaceQueries {
         crate::core::node_health::node_chain_view(&self.repository, nodes, node_id, now_unix)
     }
 
+    /// Every node's stored verdict, worst first.
+    pub fn list_node_health(&self) -> Result<Vec<crate::observe::NodeHealth>> {
+        self.repository.list_node_health()
+    }
+
     pub fn node_health_timeline(
         &self,
         node_id: &str,

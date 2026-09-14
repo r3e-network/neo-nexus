@@ -263,21 +263,39 @@ Exposes comprehensive fleet metrics formatted for Prometheus scrapers.
 - **Content-Type**: `text/plain; version=0.0.4; charset=utf-8`
 - **Sample Output**:
 ```prometheus
-# HELP neonexus_node_running Process running state (1 = running, 0 = stopped)
+# HELP neonexus_node_running 1 when NeoNexus believes a process is running for this node, 0 otherwise.
 # TYPE neonexus_node_running gauge
-neonexus_node_running{node="node-01",type="neo-cli",chain="neo-n3"} 1
-neonexus_node_running{node="node-02",type="neox-geth",chain="neo-x"} 1
+neonexus_node_running{node_id="node-a1b2",node_name="rpc-1",client="neo-go",network="private",chain="1230000"} 1
 
-# HELP neonexus_node_block_height Latest observed block height
+# HELP neonexus_node_health 1 for the node's current chain health state, carried in the state label.
+# TYPE neonexus_node_health gauge
+neonexus_node_health{node_id="node-a1b2",node_name="rpc-1",client="neo-go",network="private",chain="1230000",state="healthy"} 1
+
+# HELP neonexus_node_block_height Blocks the node reported holding. Absent when the height was not read.
 # TYPE neonexus_node_block_height gauge
-neonexus_node_block_height{node="node-01",chain="neo-n3"} 6245100
-neonexus_node_block_height{node="node-02",chain="neo-x"} 1845120
+neonexus_node_block_height{node_id="node-a1b2",node_name="rpc-1",client="neo-go",network="private",chain="1230000"} 6245100
 
-# HELP neonexus_node_rpc_latency_seconds RPC probe response time
+# HELP neonexus_node_rpc_latency_seconds Round trip of the node's head call, in seconds. Absent when not measured.
 # TYPE neonexus_node_rpc_latency_seconds gauge
-neonexus_node_rpc_latency_seconds{node="node-01"} 0.0034
-neonexus_node_rpc_latency_seconds{node="node-02"} 0.0028
+neonexus_node_rpc_latency_seconds{node_id="node-a1b2",node_name="rpc-1",client="neo-go",network="private",chain="1230000"} 0.011
 ```
+
+Also published per node: `neonexus_node_header_height`,
+`neonexus_node_peers_connected`, `neonexus_node_head_lag_blocks`,
+`neonexus_node_seconds_since_height_changed`.
+
+**A value that was not read produces no series.** Prometheus has no null, and a
+missing series is how it says "no data" — so a node whose client does not
+implement `getconnectioncount` emits no `neonexus_node_peers_connected` sample
+rather than a zero. A rule that alerts on zero peers should therefore use
+`neonexus_node_peers_connected == 0`, which fires only on a node that was asked
+and answered zero. Use `neonexus_node_health{state="isolated"}` if you want the
+workspace's own verdict instead.
+
+`chain` is the network magic the node **actually joined**, read from its own
+`getversion`, not the network it was configured with. Two nodes labelled
+`network="private"` can be on different chains, and summing their heights would
+be meaningless.
 
 ---
 

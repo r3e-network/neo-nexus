@@ -49,6 +49,7 @@ pub async fn alerts(
 }
 
 fn render_body(workspace: &WorkspaceQueries, params: &AlertQuery) -> anyhow::Result<String> {
+    let nodes = workspace.list_nodes()?;
     let policy = workspace.load_alert_routing_policy()?;
     let deliveries = workspace.list_alert_deliveries(DELIVERY_WINDOW)?;
     let visible = filter_alert_deliveries(
@@ -92,11 +93,22 @@ fn render_body(workspace: &WorkspaceQueries, params: &AlertQuery) -> anyhow::Res
                 count_status(&deliveries, AlertDeliveryStatus::Skipped)
             ),
         ]),
+        // The warning that stood here — "NeoNexus does not evaluate alarm
+        // conditions … a node that stops producing blocks will not raise an
+        // alert" — was true when it was written and is not any more. Chain
+        // health is evaluated every monitoring interval, and a change of state
+        // journals a `node-health-changed` event whose severity follows the
+        // state: Critical for unreachable and stalled, Warning for isolated and
+        // degraded. Routing that kind is how a stall reaches a pager.
         no_alarms = html::notice(
-            "warn",
-            "NeoNexus does not evaluate alarm conditions. Nothing here watches block height, peer count or signer state; events reach this page only when something else in the workspace journals them, and routing below decides where they are sent. A node that stops producing blocks will not raise an alert.",
+            "info",
+            "Chain health is evaluated for every node on the monitoring interval, and a change \
+             of state is journalled as node-health-changed — Critical when a node becomes \
+             unreachable or stalls, Warning when it becomes isolated or degraded. Route that \
+             kind to page on a node that stops producing blocks. Nothing is evaluated on a \
+             schedule of its own beyond that: these are journal events, not independent alarms.",
         ),
-        policy_form = policy_form(&policy),
+        policy_form = policy_form(&policy, &nodes),
         filters = html::typed_filter_form(
             "/alerts",
             &[],
@@ -124,17 +136,26 @@ fn render_body(workspace: &WorkspaceQueries, params: &AlertQuery) -> anyhow::Res
     ))
 }
 
-fn policy_form(policy: &AlertRoutingPolicy) -> String {
+fn policy_form(policy: &AlertRoutingPolicy, nodes: &[crate::types::NodeConfig]) -> String {
     format!(
-        r#"<h2>Amazon SNS Notification Routing</h2>
+        r#"<h2>Where events are sent</h2>
 <p class="muted">{describe}</p>
-<form class="filters" method="post" action="/alerts/routing">
+<form method="post" action="/alerts/routing">
+<div class="filters">
 {enabled}
 {provider}
 {severity}
 {target}
 {timeout}
+</div>
+<div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin: 12px 0;">
+  <label class="field"><span>Only these kinds</span>{kinds}<small class="muted">Nothing selected means every kind. Hold ⌘ or Ctrl to pick several.</small></label>
+  <label class="field"><span>Only these nodes</span>{node_scope}<small class="muted">Nothing selected means any node. Workspace-wide events are excluded once you name nodes.</small></label>
+</div>
 <button type="submit">Save</button>
+</form>
+<form method="post" action="/alerts/routing/preview" style="margin-top: -6px;">
+  <button type="submit" class="btn small" title="Build the exact request this provider would receive, with credentials redacted. Sends nothing.">Show what would be sent</button>
 </form>
 <p class="muted">Current target: {masked}</p>
 {warning}"#,
@@ -163,12 +184,76 @@ fn policy_form(policy: &AlertRoutingPolicy) -> String {
             "timeout_seconds",
             &policy.timeout_seconds.to_string()
         ),
+        kinds = multi_select("kinds", &kind_options(), &selected_kinds(policy)),
+        node_scope = multi_select("node_ids", &node_options(nodes), &policy.node_ids),
         masked = html::escape(&masked_target(policy)),
         warning = policy
             .validation_message()
             .map(|message| html::note(&format!("policy needs attention: {message}")))
             .unwrap_or_default(),
     )
+}
+
+/// A multi-select. Nothing selected posts no field at all, which the handler
+/// reads as "no scope" — that is, everything.
+fn multi_select(name: &str, options: &[(String, String)], selected: &[String]) -> String {
+    let rendered = options
+        .iter()
+        .map(|(value, label)| {
+            let is_selected = if selected.iter().any(|chosen| chosen == value) {
+                " selected"
+            } else {
+                ""
+            };
+            format!(
+                r#"<option value="{value}"{is_selected}>{label}</option>"#,
+                value = html::escape(value),
+                label = html::escape(label),
+            )
+        })
+        .collect::<String>();
+    format!(r#"<select name="{name}" multiple size="6">{rendered}</select>"#)
+}
+
+/// The kinds worth offering as a routing scope.
+///
+/// Every one of the 93 would be a wall of names, most of which no code path
+/// constructs. These are the ones that describe something happening *to a
+/// node* — which is what an operator routes on.
+fn kind_options() -> Vec<(String, String)> {
+    use crate::events::EventKind;
+    [
+        EventKind::NodeHealthChanged,
+        EventKind::NodeExited,
+        EventKind::NodeStartFailed,
+        EventKind::NodeStarted,
+        EventKind::NodeStopped,
+        EventKind::NodeRestarted,
+        EventKind::WatchdogRestarted,
+        EventKind::WatchdogExhausted,
+        EventKind::RpcHealthChecked,
+        EventKind::RemoteServerProbed,
+        EventKind::RuntimeApplied,
+        EventKind::NodeSignerBound,
+    ]
+    .into_iter()
+    .map(|kind| (kind.label().to_string(), kind.label().to_string()))
+    .collect()
+}
+
+fn selected_kinds(policy: &AlertRoutingPolicy) -> Vec<String> {
+    policy
+        .kinds
+        .iter()
+        .map(|kind| kind.label().to_string())
+        .collect()
+}
+
+fn node_options(nodes: &[crate::types::NodeConfig]) -> Vec<(String, String)> {
+    nodes
+        .iter()
+        .map(|node| (node.id.clone(), node.name.clone()))
+        .collect()
 }
 
 /// The stored target may hold a provider token. For Slack, Discord, and

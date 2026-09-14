@@ -60,6 +60,8 @@ fn opsgenie_target_requires_alerts_api_v2_and_builds_genie_key_header() -> anyho
         min_severity: EventSeverity::Warning,
         webhook_url: Some("https://api.opsgenie.com/v2/alerts?api_key=abc123".to_string()),
         timeout_seconds: 5,
+        kinds: Vec::new(),
+        node_ids: Vec::new(),
     };
     let request = alert_delivery_request(
         policy.provider,
@@ -103,6 +105,8 @@ fn datadog_target_requires_events_api_v2_and_builds_api_key_header() -> anyhow::
             "https://event-management-intake.datadoghq.com/api/v2/events?api_key=dd123".to_string(),
         ),
         timeout_seconds: 5,
+        kinds: Vec::new(),
+        node_ids: Vec::new(),
     };
     let request = alert_delivery_request(
         policy.provider,

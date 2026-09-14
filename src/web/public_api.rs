@@ -33,20 +33,36 @@ struct PublicStatus {
     /// Detailed chain height and peer data are intentionally not published.
     total_blocks: Option<u64>,
     total_peers: Option<u64>,
+    /// Nodes whose chain state needs someone. Published as a count only — which
+    /// node and why is behind the session.
+    nodes_needing_attention: usize,
     timestamp: u64,
 }
 
 pub async fn status(State(state): State<WebState>) -> Response {
     let payload = (|| -> anyhow::Result<PublicStatusEnvelope> {
         let nodes = state.workspace.list_nodes()?;
+        // `syncing_nodes` counted `NodeStatus::Starting`, a state a node leaves
+        // after a 600 ms launch settle window — under a column that federation
+        // renders as "Syncing". It was the one chain word in this product
+        // sitting on a process counter, and the fields beside it were honestly
+        // `None`. It is a chain question, so it is answered from chain health.
+        let health = state.workspace.list_node_health()?;
+        let counted = |wanted: crate::observe::HealthState| {
+            health.iter().filter(|entry| entry.state == wanted).count()
+        };
         Ok(PublicStatusEnvelope {
             status: PublicStatus {
                 total_nodes: nodes.len(),
                 running_nodes: count_status(&nodes, NodeStatus::Running),
-                syncing_nodes: count_status(&nodes, NodeStatus::Starting),
+                syncing_nodes: counted(crate::observe::HealthState::Syncing),
                 error_nodes: count_status(&nodes, NodeStatus::Error),
                 total_blocks: None,
                 total_peers: None,
+                nodes_needing_attention: health
+                    .iter()
+                    .filter(|entry| entry.state.needs_attention())
+                    .count(),
                 timestamp: unix_millis()?,
             },
         })

@@ -122,6 +122,10 @@ pub fn build_router(state: WebState) -> Router {
         .route("/events/export", post(pages::events::export_events))
         .route("/alerts", get(pages::alerts::alerts))
         .route("/alerts/routing", post(control::save_alert_routing))
+        .route(
+            "/alerts/routing/preview",
+            post(control::preview_alert_routing),
+        )
         .route("/federation", get(pages::federation::federation))
         .route("/federation/{id}/toggle", post(pages::federation::toggle))
         .route("/federation/{id}/probes", get(pages::federation::probes))

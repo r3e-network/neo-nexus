@@ -23,7 +23,51 @@ pub use iac::{fleet_iac, node_iac};
 /// Shared by both authenticated (/api/metrics-prometheus) and public (/public-metrics) routes.
 pub fn collect_metrics_snapshot(state: &crate::web::WebState) -> anyhow::Result<String> {
     let snapshot = crate::web::pages::metrics_page::collect_snapshot(state)?;
-    Ok(snapshot.to_prometheus_text())
+    Ok(crate::metrics::exposition(
+        &snapshot,
+        &chain_metric_rows(state)?,
+    ))
+}
+
+/// Each node's chain state, flattened for the exposition.
+///
+/// Every optional field stays optional all the way out: an unread peer count
+/// emits no series rather than a zero, because Prometheus has no null and a
+/// zero here would put a node whose client cannot answer permanently into
+/// whatever alert watches for isolation.
+pub fn chain_metric_rows(
+    state: &crate::web::WebState,
+) -> anyhow::Result<Vec<crate::metrics::ChainMetricRow>> {
+    let nodes = state.workspace.list_nodes()?;
+    let now = crate::web::time::now_unix();
+    let views = state.workspace.fleet_chain_view(&nodes, now)?;
+    Ok(nodes
+        .iter()
+        .map(|node| {
+            let view = views.iter().find(|view| view.node_id == node.id);
+            let latest = view.and_then(|view| view.latest.as_ref());
+            crate::metrics::ChainMetricRow {
+                node_id: node.id.clone(),
+                node_name: node.name.clone(),
+                client: node.node_type.to_string(),
+                network: node.network.to_string(),
+                health_state: view
+                    .and_then(|view| view.health.as_ref())
+                    .map(|health| health.state.persist_key().to_string()),
+                process_running: node.status.is_running(),
+                block_height: latest.and_then(|latest| latest.block_height.value().copied()),
+                header_height: latest.and_then(|latest| latest.header_height.value().copied()),
+                peers_connected: latest.and_then(|latest| latest.peers_connected.value().copied()),
+                rpc_latency_ms: latest.and_then(|latest| latest.head_latency_ms),
+                head_lag_blocks: view.and_then(|view| view.derived.head_lag),
+                seconds_since_height_changed: view
+                    .and_then(|view| view.derived.height_unchanged_seconds),
+                seconds_since_head_block: view.and_then(|view| view.derived.chain_lag_seconds),
+                observed_magic: latest.and_then(|latest| latest.observed_magic.value().copied()),
+                sampled_at_unix: latest.map(|latest| latest.sampled_at_unix),
+            }
+        })
+        .collect())
 }
 
 #[derive(Serialize)]

@@ -1,6 +1,6 @@
 //! Settings and policy form save handlers.
 
-use std::time::Duration;
+use std::{str::FromStr, time::Duration};
 
 use axum::{
     extract::{Form, State},
@@ -80,6 +80,13 @@ pub struct AlertRoutingForm {
     webhook_url: String,
     #[serde(default)]
     timeout_seconds: String,
+    /// The kinds of event worth waking someone for. A multi-select posts one
+    /// field per selection, so this is a list; empty means every kind.
+    #[serde(default)]
+    kinds: Vec<String>,
+    /// Which nodes. Empty means any.
+    #[serde(default)]
+    node_ids: Vec<String>,
 }
 
 /// Save the UI density preference.
@@ -247,6 +254,25 @@ pub async fn save_alert_routing(
                 Some(submitted.to_string())
             },
             timeout_seconds,
+            // An unparseable kind is an error rather than a silent drop: a
+            // route that quietly narrows to fewer kinds than the operator
+            // selected is a rule that stops covering what it was written for.
+            kinds: input
+                .kinds
+                .iter()
+                .map(|raw| raw.trim())
+                .filter(|raw| !raw.is_empty())
+                .map(|raw| {
+                    EventKind::from_str(raw)
+                        .map_err(|_| anyhow::anyhow!("{raw} is not an event kind"))
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?,
+            node_ids: input
+                .node_ids
+                .iter()
+                .map(|raw| raw.trim().to_string())
+                .filter(|raw| !raw.is_empty())
+                .collect(),
         }
         .normalized();
         if let Some(problem) = policy.validation_message() {
@@ -286,4 +312,46 @@ fn respond_to(path: &str, outcome: anyhow::Result<String>) -> Response {
         path = path
     ))
     .into_response()
+}
+
+/// Show what would actually be sent, without sending it.
+///
+/// `preview_alert_route` renders the exact provider payload and header set, with
+/// credentials redacted, and was reachable only from `--alert-preview`. So an
+/// operator who pasted a webhook URL into the console could not tell whether it
+/// was the right shape for the provider they picked until a real incident
+/// delivered — or failed to deliver — against it.
+///
+/// This sends nothing. It builds the request and renders it, so a mistyped
+/// Slack hook is caught at configuration time rather than at 03:00.
+pub async fn preview_alert_routing(State(state): State<WebState>) -> Response {
+    let outcome = (|| -> anyhow::Result<String> {
+        let policy = state.workspace.load_alert_routing_policy()?;
+        let Some(url) = policy.webhook_url.as_deref().filter(|url| !url.is_empty()) else {
+            anyhow::bail!("no webhook target is configured, so there is nothing to preview");
+        };
+        let sample = crate::events::RuntimeEvent {
+            id: 0,
+            occurred_at_unix: crate::web::time::now_unix(),
+            node_id: None,
+            node_name: Some("example-node".to_string()),
+            kind: crate::events::EventKind::NodeHealthChanged,
+            severity: policy.min_severity,
+            message: "Healthy → Stalled: height 8421 has not advanced in 600s".to_string(),
+        };
+        let report = crate::alerts::preview_alert_route(
+            policy.provider,
+            url,
+            &sample,
+            env!("CARGO_PKG_VERSION"),
+        )?;
+        Ok(format!(
+            "preview built for {} → {} ({} headers, {} bytes of payload); nothing was sent",
+            report.provider,
+            report.target,
+            report.header_count,
+            report.payload_json.len(),
+        ))
+    })();
+    respond_to("/alerts", outcome)
 }
