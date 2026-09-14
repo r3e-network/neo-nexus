@@ -45,8 +45,12 @@ pub(in crate::config::validation) fn validate_neo_go_config(
         &value,
         &["ProtocolConfiguration", "SeedList"],
         effective_seed_nodes(node.network, profile).len(),
-        "Seed list",
+        "Seed list matches",
     );
+    // Every check above compares the file against what this workspace would
+    // generate, which cannot catch a workspace that generates an unusable file:
+    // `effective_seed_nodes(Private, None)` is empty and `len >= 0` passes.
+    check_chain_identity(report, node, &chain_identity(&value));
     check_yaml_string(
         report,
         &value,
@@ -90,4 +94,25 @@ pub(in crate::config::validation) fn validate_neo_go_config(
         "console",
         "Log encoding",
     );
+}
+
+/// Read the identity keys out of a neo-go config.
+///
+/// `None` means the key is absent, which is materially different from present
+/// and empty: an absent key means the client uses whatever it was compiled
+/// with, and for a node carrying a private magic those are the public values.
+fn chain_identity(value: &serde_yaml::Value) -> ChainIdentity {
+    let array_len = |path: &[&str]| {
+        yaml_path(value, path).and_then(|found| match found {
+            serde_yaml::Value::Sequence(items) => Some(items.len()),
+            _ => None,
+        })
+    };
+    ChainIdentity {
+        seed_count: array_len(&["ProtocolConfiguration", "SeedList"]),
+        committee_count: array_len(&["ProtocolConfiguration", "StandbyCommittee"]),
+        validators_count: yaml_path(value, &["ProtocolConfiguration", "ValidatorsCount"])
+            .and_then(serde_yaml::Value::as_u64),
+        committee_is_expressible: true,
+    }
 }

@@ -53,8 +53,9 @@ pub(super) fn check(
         value,
         &["p2p", "seed_nodes"],
         effective_seed_nodes(node.network, profile).len(),
-        "Seed nodes",
+        "Seed nodes match",
     );
+    check_chain_identity(report, node, &chain_identity(value));
     check_toml_bool(
         report,
         value,
@@ -69,4 +70,21 @@ pub(super) fn check(
         broadcast_history_limit(node.network) as u32,
         "P2P broadcast history",
     );
+}
+
+/// Read the identity keys out of a neo-rs config.
+fn chain_identity(value: &toml::Value) -> ChainIdentity {
+    let array_len =
+        |path: &[&str]| toml_path(value, path).and_then(|found| found.as_array().map(Vec::len));
+    ChainIdentity {
+        seed_count: array_len(&["p2p", "seed_nodes"]),
+        committee_count: array_len(&["consensus", "standby_committee"])
+            .or_else(|| array_len(&["network", "standby_committee"])),
+        validators_count: toml_path(value, &["consensus", "validators_count"])
+            .or_else(|| toml_path(value, &["network", "validators_count"]))
+            .and_then(toml::Value::as_integer)
+            .map(|count| count.max(0) as u64),
+        // neo-rs config has no committee key at all; the client carries its own.
+        committee_is_expressible: false,
+    }
 }

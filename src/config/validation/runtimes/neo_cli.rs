@@ -52,6 +52,11 @@ pub(in crate::config::validation) fn validate_neo_cli_config(
             "Standby committee",
         );
     }
+    // The one that mattered most: the generator writes SeedList,
+    // ValidatorsCount and StandbyCommittee *only* under a profile, so a private
+    // node's whole ProtocolConfiguration was `{"Network": 1230000}` — and
+    // neo-cli then dials MainNet seeds with a private magic.
+    check_chain_identity(report, node, &chain_identity(&value));
     check_json_string(
         report,
         &value,
@@ -95,4 +100,17 @@ pub(in crate::config::validation) fn validate_neo_cli_config(
         "Logging",
     );
     check_neo_cli_plugin_source(report, &value);
+}
+
+/// Read the identity keys out of a neo-cli config.
+fn chain_identity(value: &serde_json::Value) -> ChainIdentity {
+    let array_len =
+        |path: &[&str]| json_path(value, path).and_then(|found| found.as_array().map(Vec::len));
+    ChainIdentity {
+        seed_count: array_len(&["ProtocolConfiguration", "SeedList"]),
+        committee_count: array_len(&["ProtocolConfiguration", "StandbyCommittee"]),
+        validators_count: json_path(value, &["ProtocolConfiguration", "ValidatorsCount"])
+            .and_then(serde_json::Value::as_u64),
+        committee_is_expressible: true,
+    }
 }

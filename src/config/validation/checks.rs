@@ -1,7 +1,11 @@
+mod chain_identity;
 mod json;
 mod paths;
 mod toml;
 mod yaml;
+
+pub(super) use chain_identity::{check_chain_identity, ChainIdentity};
+pub(super) use paths::{json_path, toml_path, yaml_path};
 
 pub(super) use json::{
     check_json_array_len_at_least, check_json_bool, check_json_string, check_json_u16,

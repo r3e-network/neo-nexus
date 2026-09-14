@@ -6,8 +6,9 @@ use serde_json::{json, Value};
 use crate::{catalog::PluginState, types::NodeConfig};
 
 use super::super::format::{
-    effective_network_magic, max_transactions_per_block, neo_cli_storage_engine, GenerationContext,
-    RuntimeConfigProfile,
+    effective_committee_public_keys, effective_network_magic, effective_seed_nodes,
+    effective_validators_count, max_transactions_per_block, neo_cli_storage_engine,
+    GenerationContext, RuntimeConfigProfile,
 };
 use super::ConfigGenerator;
 
@@ -65,16 +66,24 @@ impl ConfigGenerator {
         profile: Option<&RuntimeConfigProfile>,
         context: &GenerationContext,
     ) -> Result<Value> {
-        let mut protocol = json!({
-            "Network": effective_network_magic(node.network, profile)
+        // Every chain-identity key is written, always.
+        //
+        // These used to appear only under a profile, so a private node's whole
+        // `ProtocolConfiguration` was `{"Network": 1230000}` — and neo-cli then
+        // filled the gaps from what it was compiled with. Those defaults are the
+        // **public** ones, so the node dialled MainNet seeds and trusted the
+        // MainNet committee while carrying a private magic. Writing the keys
+        // explicitly means an empty private network produces a node that fails
+        // to sync, which is visible and recoverable, rather than one that
+        // quietly joins the wrong chain.
+        let protocol = json!({
+            "Network": effective_network_magic(node.network, profile),
+            "SeedList": effective_seed_nodes(node.network, profile),
+            "ValidatorsCount": effective_validators_count(node.network, profile),
+            "StandbyCommittee": effective_committee_public_keys(node.network, profile),
+            "MillisecondsPerBlock": 15_000,
+            "MaxTransactionsPerBlock": max_transactions_per_block(node.network),
         });
-        if let Some(profile) = profile {
-            protocol["SeedList"] = json!(profile.seed_nodes);
-            protocol["ValidatorsCount"] = json!(profile.validators_count);
-            protocol["StandbyCommittee"] = json!(profile.committee_public_keys);
-            protocol["MillisecondsPerBlock"] = json!(15_000);
-            protocol["MaxTransactionsPerBlock"] = json!(max_transactions_per_block(node.network));
-        }
 
         Ok(json!({
             "ProtocolConfiguration": protocol,

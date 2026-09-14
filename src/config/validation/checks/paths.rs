@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-pub(in crate::config::validation::checks) fn json_path<'a>(
+pub(in crate::config::validation) fn json_path<'a>(
     value: &'a Value,
     path: &[&str],
 ) -> Option<&'a Value> {
@@ -11,7 +11,7 @@ pub(in crate::config::validation::checks) fn json_path<'a>(
     Some(current)
 }
 
-pub(in crate::config::validation::checks) fn yaml_path<'a>(
+pub(in crate::config::validation) fn yaml_path<'a>(
     value: &'a serde_yaml::Value,
     path: &[&str],
 ) -> Option<&'a serde_yaml::Value> {
@@ -25,7 +25,7 @@ pub(in crate::config::validation::checks) fn yaml_path<'a>(
     Some(current)
 }
 
-pub(in crate::config::validation::checks) fn toml_path<'a>(
+pub(in crate::config::validation) fn toml_path<'a>(
     value: &'a toml::Value,
     path: &[&str],
 ) -> Option<&'a toml::Value> {
