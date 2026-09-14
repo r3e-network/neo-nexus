@@ -663,8 +663,28 @@ fn node_and_fleet_iac_api_serves_cloud_manifests() {
     assert!(detail_html.contains("data-tab-target=\"tab-tags\""));
     assert!(detail_html.contains("data-tab-target=\"tab-iac\""));
     assert!(detail_html.contains("aws-action-bar"));
-    assert!(detail_html.contains("CloudWatch Logs"));
-    assert!(detail_html.contains("CloudWatch Alarms"));
+
+    // The console used up to four names per destination — "Alerts" in the nav,
+    // "CloudWatch Alarms & SNS" in the services menu, "CloudWatch Alarms" on
+    // buttons — so the word an operator clicked never appeared on the page that
+    // opened. The menu is generated from the nav's own destinations now, and
+    // these assertions pin that the borrowed service names are gone rather
+    // than merely moved.
+    for borrowed in [
+        "CloudWatch Alarms",
+        "CloudTrail",
+        "Systems Manager OpsCenter",
+        "AMIs &amp; Runtimes",
+        "KMS Key Management",
+        "EC2 Control Plane",
+    ] {
+        assert!(
+            !detail_html.contains(borrowed),
+            "the console still says {borrowed:?}, which is another product's service name"
+        );
+    }
+    assert!(detail_html.contains("Alert routing"), "the nav's own word");
+    assert!(detail_html.contains("Signing keys"), "the nav's own word");
 
     // The Health tab. What stood here asserted the presence of a panel captioned
     // "AWS Systems Manager · Fleet Run Command" carrying a green "SSM Agent

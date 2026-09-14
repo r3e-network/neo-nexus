@@ -1,4 +1,16 @@
-//! The operations-console information architecture.
+//! The operations-console information architecture — **the** one, singular.
+//!
+//! There were two navigations with different labels and different coverage: this
+//! sidebar, and a hand-written `Services ▾` menu in the top bar. "Runtimes" was
+//! also "AMIs & Runtimes"; "Configuration" was also "CloudFormation & Config";
+//! "Signer" was also "KMS Key Management". The menu omitted Logs, Readiness,
+//! Federation, Duties, Wallets, Plugins, Metrics and Settings, and uniquely
+//! contained `/settings/api-tokens` — which has no nav entry at all despite
+//! marking Settings active.
+//!
+//! The menu is generated from these sections now, so there is one vocabulary
+//! and one coverage. A destination added here appears in both places or in
+//! neither.
 
 pub struct Destination {
     pub key: &'static str,
@@ -34,10 +46,13 @@ const SECTIONS: &[Section] = &[
                 label: "Nodes",
                 icon: "nodes",
             },
+            // "Health" named the *host* page while chain health lives on each
+            // node — two different questions under one word, and the more
+            // important one was not the one this linked to.
             Destination {
                 key: "monitor",
                 href: "/monitor",
-                label: "Health",
+                label: "Host health",
                 icon: "health",
             },
             Destination {
@@ -55,19 +70,22 @@ const SECTIONS: &[Section] = &[
             Destination {
                 key: "operations",
                 href: "/operations",
-                label: "Readiness",
+                label: "Operations",
                 icon: "readiness",
             },
             Destination {
                 key: "events",
                 href: "/events",
-                label: "Events",
+                label: "Journal",
                 icon: "events",
             },
+            // "Alerts" promised alarms. What this page holds is the routing
+            // policy and the delivery record — where journal events are sent
+            // and whether they arrived.
             Destination {
                 key: "alerts",
                 href: "/alerts",
-                label: "Alerts",
+                label: "Alert routing",
                 icon: "alerts",
             },
         ],
@@ -82,10 +100,14 @@ const SECTIONS: &[Section] = &[
                 label: "Federation",
                 icon: "federation",
             },
+            // This said "Private network" and opened the per-node duty
+            // support matrix. There is no private-network authoring surface in
+            // this build at all, so the label named a feature that does not
+            // exist while hiding the one that does.
             Destination {
                 key: "roles",
                 href: "/roles",
-                label: "Private network",
+                label: "Duties",
                 icon: "network",
             },
         ],
@@ -100,10 +122,13 @@ const SECTIONS: &[Section] = &[
                 label: "Runtimes",
                 icon: "runtime",
             },
+            // "Snapshots" beside a workspace "Backup" entry read as two names
+            // for one thing. These are *inbound* fast-sync archives a node
+            // syncs from; the backup is this workspace's own state going out.
             Destination {
                 key: "snapshots",
                 href: "/snapshots",
-                label: "Snapshots",
+                label: "Fast-sync archives",
                 icon: "snapshot",
             },
             Destination {
@@ -129,12 +154,26 @@ const SECTIONS: &[Section] = &[
     Section {
         title: "Security",
         utility: false,
-        destinations: &[Destination {
-            key: "signer",
-            href: "/signer",
-            label: "Signer",
-            icon: "signer",
-        }],
+        destinations: &[
+            // One binding wore five names across the console — "IAM Signer
+            // Lease", "IAM Signer Role", "IAM Instance Profile & Signer
+            // Identity", "Node signer", and a breadcrumb reading "KMS /
+            // Customer managed keys". Two words survive: **key** on the custody
+            // side, which is what this page holds, and **signer binding** on
+            // the node side.
+            Destination {
+                key: "signer",
+                href: "/signer",
+                label: "Signing keys",
+                icon: "signer",
+            },
+            Destination {
+                key: "api-tokens",
+                href: "/settings/api-tokens",
+                label: "API tokens",
+                icon: "signer",
+            },
+        ],
     },
     Section {
         title: "Workspace",
@@ -153,7 +192,7 @@ const SECTIONS: &[Section] = &[
             Destination {
                 key: "backup",
                 href: "/backup",
-                label: "Backup",
+                label: "Workspace backup",
                 icon: "snapshot",
             },
             Destination {
@@ -165,6 +204,43 @@ const SECTIONS: &[Section] = &[
         ],
     },
 ];
+
+/// The same destinations, as a compact jump list for the top bar.
+///
+/// Generated rather than written, because the hand-written one drifted: it used
+/// different labels for the same pages and omitted eight of them.
+pub fn service_menu() -> String {
+    SECTIONS
+        .iter()
+        .map(|section| {
+            let links = section
+                .destinations
+                .iter()
+                .map(|destination| {
+                    format!(
+                        r#"<a href="{href}" class="aws-service-link"><strong>{label}</strong></a>"#,
+                        href = destination.href,
+                        label = destination.label,
+                    )
+                })
+                .collect::<String>();
+            format!(
+                r#"<div class="aws-service-group"><div class="aws-service-group-title">{title}</div>{links}</div>"#,
+                title = section.title,
+            )
+        })
+        .collect()
+}
+
+/// Every destination as `(key, label)`, for tests that check the console says
+/// the same word twice.
+pub fn destinations() -> Vec<(&'static str, &'static str)> {
+    SECTIONS
+        .iter()
+        .flat_map(|section| section.destinations.iter())
+        .map(|destination| (destination.key, destination.label))
+        .collect()
+}
 
 pub fn keys() -> Vec<&'static str> {
     SECTIONS

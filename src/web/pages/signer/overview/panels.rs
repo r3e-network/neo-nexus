@@ -11,10 +11,15 @@ use super::{
 };
 
 pub fn page_head() -> String {
-    let breadcrumb = html::breadcrumb(&[("KMS", "/signer"), ("Customer managed keys", "")]);
+    // "KMS" and "IAM" are distinct AWS services; borrowing both to describe one
+    // key store and one caller list teaches a model that is wrong. And the
+    // isolation claim depends on which backend is configured — a local
+    // encrypted wallet is not hardware-isolated, and the audit log referred to
+    // is a *remote* service's that this console can neither write nor prune.
+    let breadcrumb = html::breadcrumb(&[("NeoNexus", "/"), ("Signing keys", "")]);
     let head = html::page_head(
-        "KMS & Custody Signer",
-        "Hardware-isolated cryptographic keys, least-privilege IAM caller policies, and immutable signing audit logs.",
+        "Signing keys",
+        "The keys this workspace can sign with, and which node each one is bound to. What a key is protected by depends on its backend.",
         r#"<a class="btn" href="/settings/api-tokens">🔑 IAM API Tokens</a>"#,
     );
     format!("{breadcrumb}\n{head}")

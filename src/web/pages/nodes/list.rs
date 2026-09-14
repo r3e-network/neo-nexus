@@ -58,10 +58,10 @@ fn list_body(
     params: &NodeListQuery,
     density: DensityMode,
 ) -> String {
-    let breadcrumb = html::breadcrumb(&[("EC2", "/nodes"), ("Instances", "")]);
+    let breadcrumb = html::breadcrumb(&[("NeoNexus", "/"), ("Nodes", "")]);
     let head = html::page_head(
-        "Instances",
-        "AWS EC2-style sovereign virtual node instances, consensus health status checks, and fleet orchestration.",
+        "Nodes",
+        "Every node this workspace manages: what its process is doing, and what its chain says when asked.",
         &add_button(),
     );
     if fleet.rows.is_empty() {
@@ -177,7 +177,11 @@ fn ec2_instance_drawer(state: &WebState, visible: &[NodeConfig]) -> String {
         });
     let signer_arn = signer.map_or_else(
         || "Unbound".to_string(),
-        |k| format!("arn:neo:kms:mesh-1a:key/{}", k.key_id),
+        // The key id is the identifier the signer registry actually uses, and
+        // the one an operator has to type to bind a node. Wrapping it in an
+        // invented ARN added a region and an account number that do not exist,
+        // and hid the only part that was real.
+        |key| format!("{}/{}", key.backend_id, key.key_id),
     );
 
     format!(
@@ -201,7 +205,7 @@ fn ec2_instance_drawer(state: &WebState, visible: &[NodeConfig]) -> String {
                 <div><span class="muted">Runs on:</span> <strong style="color: #fff;">this host, as a child process</strong></div>
                 <div><span class="muted">RPC Endpoint:</span> <span class="mono" data-drawer-rpc>:{}</span></div>
                 <div><span class="muted">P2P Port:</span> <span class="mono" data-drawer-p2p>:{}</span></div>
-                <div><span class="muted">IAM Signer Role:</span> <span class="mono muted" style="font-size: 11px;" data-drawer-signer>{}</span></div>
+                <div><span class="muted">Signing key:</span> <span class="mono muted" style="font-size: 11px;" data-drawer-signer>{}</span></div>
                 <div><span class="muted">Consensus Role:</span> <strong style="color: var(--jade);" data-drawer-role>{}</strong></div>
             </div>
         </div>"#,
@@ -366,7 +370,10 @@ fn manager_table(state: &WebState, fleet: &Fleet, visible: &[NodeConfig]) -> Str
                 html::raw_cell(&hermes_badge),
                 html::raw_cell(&actions),
             ];
-            let signer_arn_attr = signer.map_or_else(|| "Unbound".to_string(), |k| format!("arn:neo:kms:mesh-1a:key/{}", k.key_id));
+            let signer_arn_attr = signer.map_or_else(
+                || "none".to_string(),
+                |key| format!("{}/{}", key.backend_id, key.key_id),
+            );
             let role_str = role.map_or("Node", |r| r.label());
             format!(
                 r#"<tr data-node-id="{raw_id}" data-node-name="{name}" data-node-type="{node_type}" data-node-net="{net}" data-node-ver="{ver}" data-node-rpc-port="{rpc}" data-node-p2p-port="{p2p}" data-node-role="{role}" data-node-signer="{signer}" data-node-status="{status}">{}</tr>"#,

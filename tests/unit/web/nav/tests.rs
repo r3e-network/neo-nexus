@@ -79,21 +79,37 @@ fn information_architecture_matches_the_operations_console() {
     let expected = [
         ("home", "/", "Fleet overview"),
         ("nodes", "/nodes", "Nodes"),
-        ("monitor", "/monitor", "Health"),
+        // "Health" named the host page while chain health lives on each node —
+        // one word over two different questions, and the more important one was
+        // not the one it linked to.
+        ("monitor", "/monitor", "Host health"),
         ("logs", "/logs", "Logs"),
-        ("operations", "/operations", "Readiness"),
-        ("events", "/events", "Events"),
-        ("alerts", "/alerts", "Alerts"),
+        ("operations", "/operations", "Operations"),
+        ("events", "/events", "Journal"),
+        // "Alerts" promised alarms; this page holds the routing policy and the
+        // delivery record.
+        ("alerts", "/alerts", "Alert routing"),
         ("federation", "/federation", "Federation"),
-        ("roles", "/roles", "Private network"),
+        // Said "Private network", opened the per-node duty matrix — naming a
+        // feature this build does not have while hiding the one it does.
+        ("roles", "/roles", "Duties"),
         ("runtimes", "/runtimes", "Runtimes"),
-        ("snapshots", "/snapshots", "Snapshots"),
+        // Inbound archives a node fast-syncs *from*, not a capture of this
+        // workspace going out — which is what "Backup" below is.
+        ("snapshots", "/snapshots", "Fast-sync archives"),
         ("plugins", "/plugins", "Plugins"),
         ("config", "/config", "Configuration"),
         ("wallets", "/wallets", "Wallets"),
-        ("signer", "/signer", "Signer"),
+        // One signer binding wore five names across the console. Two words
+        // survive: "key" on the custody side and "signer binding" on the node
+        // side.
+        ("signer", "/signer", "Signing keys"),
+        // Registered, marked Settings active, and absent from the nav entirely
+        // — reachable only from the hand-written services menu that is now
+        // generated from these same destinations.
+        ("api-tokens", "/settings/api-tokens", "API tokens"),
         ("metrics", "/metrics", "Metrics"),
-        ("backup", "/backup", "Backup"),
+        ("backup", "/backup", "Workspace backup"),
         ("settings", "/settings", "Settings"),
     ];
     assert_eq!(

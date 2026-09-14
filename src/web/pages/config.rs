@@ -109,11 +109,9 @@ fn node_work_dir(state: &WebState, node: &NodeConfig) -> anyhow::Result<PathBuf>
 }
 
 fn render_body(state: &WebState, nodes: &[NodeConfig]) -> String {
-    let breadcrumb = html::breadcrumb(&[
-        ("Systems Manager", "/operations"),
-        ("Application Management", "/config"),
-        ("Parameter Store & Config", "/config"),
-    ]);
+    // Three crumbs, two of which linked to the page they were on, none of
+    // which was the word "Configuration" that the operator clicked to get here.
+    let breadcrumb = html::breadcrumb(&[("NeoNexus", "/"), ("Configuration", "")]);
     let head = html::page_head(
         "Systems Manager · Application Configuration",
         "Hierarchical node runtime parameters, configuration drift verification, and deterministic workspace exports.",

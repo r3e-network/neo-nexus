@@ -99,11 +99,9 @@ fn render_body(
     nodes: &[NodeConfig],
     params: &SnapshotQuery,
 ) -> String {
-    let breadcrumb = html::breadcrumb(&[
-        ("EC2", "/nodes"),
-        ("Elastic Block Store", "/snapshots"),
-        ("Snapshots", ""),
-    ]);
+    // "EBS Snapshots" named the wrong direction entirely: these are *inbound*
+    // archives a node fast-syncs from, not a capture of this workspace's state.
+    let breadcrumb = html::breadcrumb(&[("NeoNexus", "/"), ("Fast-sync archives", "")]);
     let head = html::page_head(
         "EBS Snapshots & Fast-Sync",
         "Point-in-time cryptographic block volume checkpoints, SHA-256 integrity verifications, and one-click instance attachments.",

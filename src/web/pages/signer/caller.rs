@@ -122,7 +122,7 @@ pub(super) fn confirmation_body(banner: &str, caller: &Caller, action: CallerAct
     format!(
         r#"{crumb}{head}{tabs}{banner}{warning}{facts}{controls}"#,
         crumb = html::breadcrumb(&[
-            ("Signer", "/signer?tab=callers"),
+            ("Signing keys", "/signer"),
             ("Callers", "/signer?tab=callers"),
             (action.verb(), "")
         ]),

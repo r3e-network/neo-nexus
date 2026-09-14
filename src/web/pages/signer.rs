@@ -89,7 +89,7 @@ async fn render_tab(
             Err(error) => overview::closed_page(&banner, &error, tab),
         },
     };
-    let mut response = Html(html::layout("Signer", "signer", flash, &body)).into_response();
+    let mut response = Html(html::layout("Signing keys", "signer", flash, &body)).into_response();
     if secret.is_some() {
         response
             .headers_mut()

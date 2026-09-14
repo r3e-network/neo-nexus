@@ -233,11 +233,7 @@ fn render_body(state: &WebState, params: &RuntimeQuery) -> anyhow::Result<String
             job.description
         ))
     });
-    let breadcrumb = html::breadcrumb(&[
-        ("EC2", "/nodes"),
-        ("Images", "/runtimes"),
-        ("AMIs & Node Runtimes", "/runtimes"),
-    ]);
+    let breadcrumb = html::breadcrumb(&[("NeoNexus", "/"), ("Runtimes", "")]);
     let head = html::page_head(
         "AMIs & Node Runtime Catalogs",
         "Verified blockchain client binary packages, cryptographic digest attestation, and staged release downloads.",

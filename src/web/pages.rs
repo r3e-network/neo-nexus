@@ -29,3 +29,7 @@ mod honesty_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/web/parity/tests.rs"]
 mod parity_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/web/naming/tests.rs"]
+mod naming_tests;

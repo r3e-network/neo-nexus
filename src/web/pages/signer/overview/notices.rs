@@ -163,7 +163,7 @@ pub fn render_local_wallet(
 }
 
 fn page_head_local() -> String {
-    let breadcrumb = html::breadcrumb(&[("KMS", "/signer"), ("Customer managed keys", "/signer")]);
+    let breadcrumb = html::breadcrumb(&[("NeoNexus", "/"), ("Signing keys", "")]);
     format!(
         "{breadcrumb}{}",
         html::page_head(

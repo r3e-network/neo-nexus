@@ -134,11 +134,7 @@ fn render_body(
 ) -> anyhow::Result<String> {
     let tokens = workspace.list_api_tokens()?;
     let token_table = render_token_table(&tokens);
-    let breadcrumb = html::breadcrumb(&[
-        ("IAM", "/settings/api-tokens"),
-        ("Security credentials", "/settings/api-tokens"),
-        ("Access keys", "/settings/api-tokens"),
-    ]);
+    let breadcrumb = html::breadcrumb(&[("NeoNexus", "/"), ("API tokens", "")]);
     let head = html::page_head(
         "IAM Security Credentials & Access Keys",
         "Manage programmatic access keys, secret tokens, and least-privilege IAM permission boundaries.",
@@ -178,11 +174,7 @@ fn render_with_created_token(
 ) -> String {
     let tokens = workspace.list_api_tokens().unwrap_or_default();
     let token_table = render_token_table(&tokens);
-    let breadcrumb = html::breadcrumb(&[
-        ("IAM", "/settings/api-tokens"),
-        ("Security credentials", "/settings/api-tokens"),
-        ("Access keys", "/settings/api-tokens"),
-    ]);
+    let breadcrumb = html::breadcrumb(&[("NeoNexus", "/"), ("API tokens", "")]);
     let head = html::page_head(
         "IAM Security Credentials & Access Keys",
         "Manage programmatic access keys, secret tokens, and least-privilege IAM permission boundaries.",
@@ -195,7 +187,7 @@ fn render_with_created_token(
 <div class="panel" style="margin-bottom: 20px; padding: 20px; background: rgba(59, 209, 132, 0.08); border: 1px solid var(--jade); border-radius: 8px;">
     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
         <span class="badge running" style="font-size: 12px;">✓ Access Key Created Successfully</span>
-        <span class="muted mono" style="font-size: 12px;">arn:neo:iam::nexus:token/{id}</span>
+        <span class="muted mono" style="font-size: 12px;">{id}</span>
     </div>
     <p style="font-size: 13px; color: #fff; margin: 6px 0 12px 0;">This is the only time your secret access token can be viewed or downloaded. You cannot recover it later.</p>
     <div style="display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.4); padding: 12px 16px; border-radius: 6px; border: 1px solid var(--line); flex-wrap: wrap;">
@@ -289,13 +281,13 @@ fn create_token_form() -> String {
         <label style="font-weight: 600; font-size: 13px; display: block; margin-bottom: 6px;">IAM Permission Boundary Policies</label>
         <div style="display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; border: 1px solid var(--line);">
             <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
-                <input type="checkbox" name="read_fleet" value="true"> <code>arn:neo:iam::nexus:policy/ReadOnlyFleet</code>
+                <input type="checkbox" name="read_fleet" value="true"> <code>read_fleet</code> — every node's configuration and state, read only
             </label>
             <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
-                <input type="checkbox" name="read_readiness" value="true"> <code>arn:neo:iam::nexus:policy/ReadOnlyReadiness</code>
+                <input type="checkbox" name="read_readiness" value="true"> <code>read_readiness</code> — the readiness report, read only
             </label>
             <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
-                <input type="checkbox" name="admin_all" value="true"> <code>arn:neo:iam::nexus:policy/AdministratorAccess</code>
+                <input type="checkbox" name="admin_all" value="true"> <code>admin_all</code> — everything, including starting and stopping nodes
             </label>
         </div>
         <div class="muted" style="font-size: 11px; margin-top: 4px;">Assign least-privilege permission grants required for programmatic caller.</div>

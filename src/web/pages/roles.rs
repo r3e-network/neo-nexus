@@ -46,8 +46,9 @@ pub async fn roles(
 
 fn render_body(nodes: &[NodeConfig], params: &RoleQuery) -> String {
     format!(
-        r#"<h1>Private network</h1>
-<h2>Support matrix</h2>
+        r#"<h1>Duties</h1>
+<p class="muted">Which duty each client can actually perform, and which duty each node is assigned. The nav called this "Private network", which is a feature this build does not have — while hiding the one it does.</p>
+<h2>What each client supports</h2>
 {matrix}
 {planner}"#,
         matrix = support_matrix(),

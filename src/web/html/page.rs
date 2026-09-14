@@ -76,60 +76,23 @@ pub fn layout_with_density(
 <a class="skip-link" href="#main-content">Skip to main content</a>
 <header class="aws-top-bar" role="banner">
   <div class="aws-top-bar-left">
-    <a class="aws-console-brand" href="/" title="NeoNexus Cloud Control Plane">
+    <a class="aws-console-brand" href="/" title="Fleet overview">
       <span class="aws-brand-hex" aria-hidden="true">⬡</span>
       <span class="aws-brand-name">NeoNexus</span>
-      <span class="aws-service-label">EC2 Control Plane</span>
     </a>
     <div class="aws-service-menu-wrap">
-      <button type="button" class="btn small" style="background: rgba(255,255,255,0.06); border: 1px solid var(--line); font-size: 11px; padding: 3px 8px; color: #fff; cursor: pointer;">Services ▾</button>
-      <div class="aws-service-menu" role="menu">
-        <div class="aws-service-group">
-          <div class="aws-service-group-title">Compute</div>
-          <a href="/nodes" class="aws-service-link"><span>⬡</span> <strong>EC2 Instances</strong></a>
-          <a href="/nodes/new" class="aws-service-link"><span>➕</span> <strong>Launch Instance</strong></a>
-          <a href="/runtimes" class="aws-service-link"><span>💿</span> <strong>AMIs &amp; Runtimes</strong></a>
-        </div>
-        <div class="aws-service-group">
-          <div class="aws-service-group-title">Management &amp; Governance</div>
-          <a href="/monitor" class="aws-service-link"><span>📊</span> <strong>CloudWatch Metrics</strong></a>
-          <a href="/alerts" class="aws-service-link"><span>🚨</span> <strong>CloudWatch Alarms &amp; SNS</strong></a>
-          <a href="/operations" class="aws-service-link"><span>⚙️</span> <strong>Systems Manager OpsCenter</strong></a>
-          <a href="/events" class="aws-service-link"><span>📜</span> <strong>CloudTrail Event History</strong></a>
-          <a href="/config" class="aws-service-link"><span>🏗️</span> <strong>CloudFormation &amp; Config</strong></a>
-        </div>
-        <div class="aws-service-group">
-          <div class="aws-service-group-title">Storage &amp; Security</div>
-          <a href="/snapshots" class="aws-service-link"><span>💾</span> <strong>EBS Snapshots</strong></a>
-          <a href="/signer" class="aws-service-link"><span>🔒</span> <strong>KMS Key Management</strong></a>
-          <a href="/settings/api-tokens" class="aws-service-link"><span>🔑</span> <strong>IAM API Credentials</strong></a>
-        </div>
-      </div>
+      <button type="button" class="btn small" style="background: rgba(255,255,255,0.06); border: 1px solid var(--line); font-size: 11px; padding: 3px 8px; color: #fff; cursor: pointer;">Go to ▾</button>
+      <div class="aws-service-menu" role="menu">{service_menu}</div>
     </div>
   </div>
   <div class="aws-top-bar-center">
     <form method="get" action="/nodes" class="aws-global-search" role="search">
       <span class="aws-search-icon" aria-hidden="true">🔍</span>
-      <input type="text" id="global-resource-search" name="q" placeholder="Search instances, services, logs, or templates (/ to focus)" autocomplete="off">
+      <input type="text" id="global-resource-search" name="q" placeholder="Search nodes by name, id, client or network (/ to focus)" autocomplete="off">
       <span class="aws-search-kbd">/</span>
     </form>
   </div>
   <div class="aws-top-bar-right">
-    <a href="/operations" class="aws-nav-action" title="Hermes Autonomous AI Copilot &amp; Systems Manager">
-      <span class="aws-copilot-pill">✦ Hermes AI</span>
-    </a>
-    <a href="/monitor" class="aws-nav-action" title="CloudWatch Health: All Systems Operational">
-      <span class="status-dot running" style="width: 8px; height: 8px;"></span>
-      <span class="aws-header-text">Health 2/2</span>
-    </a>
-    <div class="aws-region-pill" title="Active Cloud Region">
-      <span class="aws-region-dot"></span>
-      <span class="aws-header-text">neo:mesh-1a</span>
-    </div>
-    <div class="aws-account-badge" title="Authenticated IAM Role">
-      <span class="aws-user-icon">👤</span>
-      <span class="mono" style="font-size: 11px;">arn:neo:iam::nexus:operator</span>
-    </div>
     <form method="post" action="/logout" style="margin: 0;">
       <button class="nav-item logout" type="submit" title="Sign out" style="padding: 4px 10px; font-size: 11px;">Sign out</button>
     </form>
@@ -163,6 +126,7 @@ pub fn layout_with_density(
         css = crate::web::assets::CSS,
         script = crate::web::assets::SCRIPT,
         nav = crate::web::nav::render(active),
+        service_menu = crate::web::nav::service_menu(),
         mobile_nav = crate::web::nav::render(active),
         flash_banner = flash_banner(flash),
         body = body,

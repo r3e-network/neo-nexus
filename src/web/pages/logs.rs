@@ -42,11 +42,7 @@ pub async fn logs(State(state): State<WebState>, Query(params): Query<LogQuery>)
 }
 
 fn render_body(state: &WebState, nodes: &[NodeConfig], params: &LogQuery) -> String {
-    let breadcrumb = html::breadcrumb(&[
-        ("CloudWatch", "/monitor"),
-        ("Logs", "/logs"),
-        ("Log groups", "/logs"),
-    ]);
+    let breadcrumb = html::breadcrumb(&[("NeoNexus", "/"), ("Logs", "")]);
     let head = html::page_head(
         "Logs",
         "Live CloudWatch stdout/stderr stream with pattern diagnosis, error clustering, and high-frequency search filtering.",
@@ -61,12 +57,8 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], params: &LogQuery) -> Str
     };
 
     let log_stream_name = format!("aws/ec2/nexus/{}", selected.name);
-    let log_stream_breadcrumb = html::breadcrumb(&[
-        ("CloudWatch", "/monitor"),
-        ("Logs", "/logs"),
-        ("Log groups", "/logs"),
-        (&log_stream_name, ""),
-    ]);
+    let log_stream_breadcrumb =
+        html::breadcrumb(&[("NeoNexus", "/"), ("Logs", "/logs"), (&log_stream_name, "")]);
 
     let visible = visible_lines(&params.lines);
     let log_path = log_path_for(state.workspace_child_dir("logs"), selected);
@@ -76,7 +68,7 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], params: &LogQuery) -> Str
 <div class="panel" style="margin-bottom: 14px; padding: 12px 16px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
         <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted);">Instance Log Streams:</span>
-        <div class="mono muted" style="font-size: 11px;">Log Group: /aws/ec2/nexus · Region: nexus-global (mesh-1a)</div>
+        <div class="mono muted" style="font-size: 11px;">Read from the workspace log directory. Secrets are masked before display.</div>
     </div>
     <div class="actions" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
         {picker}

@@ -40,11 +40,7 @@ fn render(workspace: &WorkspaceQueries) -> anyhow::Result<String> {
     let diagnostics = evaluate_fleet(&nodes, &plugin_states);
     let readiness = diagnostics_text(&diagnostics);
 
-    let breadcrumb = html::breadcrumb(&[
-        ("Systems Manager", "/operations"),
-        ("OpsCenter", "/operations"),
-        ("Operational findings", ""),
-    ]);
+    let breadcrumb = html::breadcrumb(&[("NeoNexus", "/"), ("Operations", "")]);
     let head = html::page_head(
         "Operations",
         "Whether each node could start cleanly, and the artifacts to hand someone when one did not.",

@@ -58,7 +58,7 @@ fn render_body(workspace: &WorkspaceQueries, params: &AlertQuery) -> anyhow::Res
     );
     let breadcrumb = html::breadcrumb(&[("Operations", "/operations"), ("Alerts", "")]);
     let head = html::page_head(
-        "Alerts",
+        "Alert routing",
         "Where journal events are sent, and whether they arrived.",
         r#"<a class="btn" href="/events">Event journal</a>"#,
     );

@@ -47,7 +47,7 @@ fn render_body(state: &WebState) -> anyhow::Result<String> {
     let has_recent_export = export_dir.is_dir();
 
     Ok(format!(
-        r#"<h1>Workspace Backup</h1>
+        r#"<h1>Workspace backup</h1>
 {tiles}
 {description}
 {export_status}
