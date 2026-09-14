@@ -219,5 +219,8 @@ fn node_restart_cli_quiesces_the_recorded_process_before_spawning() -> Result<()
     Ok(())
 }
 
+#[path = "node_control/chain_health.rs"]
+mod chain_health;
+
 #[path = "node_control/report.rs"]
 mod report;

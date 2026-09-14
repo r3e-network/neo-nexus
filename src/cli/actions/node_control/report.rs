@@ -170,7 +170,7 @@ pub(in crate::cli::actions) fn node_status_json_action(args: &[String]) -> Resul
     })
 }
 
-fn truncate_node_name(name: &str, max: usize) -> String {
+pub(super) fn truncate_node_name(name: &str, max: usize) -> String {
     if name.len() <= max {
         name.to_string()
     } else {

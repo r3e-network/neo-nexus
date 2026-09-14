@@ -162,7 +162,7 @@ fn config_row(row: &ConfigRow) -> String {
             html::escape(&row.node.node_type.to_string())
         )),
         html::raw_cell(&format!(
-            r#"<span class="badge">{}</span> <span class="muted" style="font-size: 11px;">nexus-az-1a</span>"#,
+            r#"<span class="badge">{}</span>"#,
             html::escape(&row.node.network.to_string())
         )),
         html::raw_cell(&format!(

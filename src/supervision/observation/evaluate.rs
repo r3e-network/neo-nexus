@@ -15,9 +15,9 @@ use std::collections::BTreeMap;
 use crate::{
     events::EventKind,
     observe::{
-        classify, derive, HealthInputs, HealthPolicy, HealthState, HealthTransition, NodeHealth,
-        NodeSample, ReferenceHead, Scheduler, Verdict, SAMPLES_KEPT_PER_NODE,
-        TRANSITIONS_KEPT_PER_NODE,
+        classify, derive, reference_heads, HealthInputs, HealthPolicy, HealthState,
+        HealthTransition, NodeHealth, NodeSample, ReferenceHead, Scheduler, Verdict,
+        SAMPLES_KEPT_PER_NODE, TRANSITIONS_KEPT_PER_NODE,
     },
     types::NodeConfig,
 };
@@ -219,58 +219,6 @@ fn severity_for(state: HealthState) -> crate::events::EventSeverity {
         | HealthState::Syncing
         | HealthState::Healthy => EventSeverity::Info,
     }
-}
-
-/// Where each node's chain believes its head to be.
-///
-/// Grouped by the magic a node **actually joined**, read from its own
-/// `getversion`, not by the `Network` it was configured with. A node set to a
-/// private network that fell back to compiled-in MainNet defaults is on
-/// MainNet, and comparing its height against the other private nodes' would
-/// report a lag of several hundred million blocks instead of the configuration
-/// error that caused it.
-///
-/// A chain with only one node in the workspace reports
-/// [`ReferenceHead::SelfOnly`]: a node compared against itself is always at the
-/// head, and "0 blocks behind" on a single-node private chain is a number that
-/// means nothing while looking like reassurance.
-fn reference_heads(
-    nodes: &[NodeConfig],
-    histories: &BTreeMap<String, Vec<NodeSample>>,
-) -> BTreeMap<String, ReferenceHead> {
-    let mut chains: BTreeMap<String, Vec<(&NodeConfig, u64)>> = BTreeMap::new();
-    for node in nodes {
-        let Some(latest) = histories.get(&node.id).and_then(|history| history.first()) else {
-            continue;
-        };
-        let (Some(key), Some(height)) = (
-            latest.chain_key(node.node_type.family()),
-            latest.block_height.value().copied(),
-        ) else {
-            continue;
-        };
-        chains.entry(key).or_default().push((node, height));
-    }
-
-    let mut heads = BTreeMap::new();
-    for members in chains.into_values() {
-        if members.len() < 2 {
-            continue;
-        }
-        let Some((holder, height)) = members.iter().max_by_key(|(_, height)| *height) else {
-            continue;
-        };
-        for (node, _) in &members {
-            heads.insert(
-                node.id.clone(),
-                ReferenceHead::Known {
-                    height: *height,
-                    source: holder.name.clone(),
-                },
-            );
-        }
-    }
-    heads
 }
 
 /// How many rounds of history one evaluation reads per node.

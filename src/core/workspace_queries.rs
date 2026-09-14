@@ -64,6 +64,43 @@ impl WorkspaceQueries {
         crate::core::node_health::latest_node_rpc_health(&self.repository, node_id)
     }
 
+    /// Every node's chain state: the stored verdict plus the numbers behind it.
+    ///
+    /// Fleet-wide because a node's lag is measured against the highest height
+    /// among the nodes sharing its chain, so one node's answer needs the group.
+    pub fn fleet_chain_view(
+        &self,
+        nodes: &[NodeConfig],
+        now_unix: u64,
+    ) -> Result<Vec<crate::core::node_health::NodeChainView>> {
+        crate::core::node_health::fleet_chain_view(&self.repository, nodes, now_unix)
+    }
+
+    pub fn node_chain_view(
+        &self,
+        nodes: &[NodeConfig],
+        node_id: &str,
+        now_unix: u64,
+    ) -> Result<Option<crate::core::node_health::NodeChainView>> {
+        crate::core::node_health::node_chain_view(&self.repository, nodes, node_id, now_unix)
+    }
+
+    pub fn node_health_timeline(
+        &self,
+        node_id: &str,
+        limit: usize,
+    ) -> Result<Vec<crate::observe::HealthTransition>> {
+        crate::core::node_health::node_health_timeline(&self.repository, node_id, limit)
+    }
+
+    pub fn node_sample_history(
+        &self,
+        node_id: &str,
+        limit: usize,
+    ) -> Result<Vec<crate::observe::NodeSample>> {
+        crate::core::node_health::node_sample_history(&self.repository, node_id, limit)
+    }
+
     pub fn dashboard_summary(&self) -> Result<crate::dashboard::DashboardSummary> {
         crate::dashboard::DashboardSummary::load(&self.repository)
     }

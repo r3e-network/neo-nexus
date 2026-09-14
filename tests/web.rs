@@ -663,9 +663,26 @@ fn node_and_fleet_iac_api_serves_cloud_manifests() {
     assert!(detail_html.contains("data-tab-target=\"tab-tags\""));
     assert!(detail_html.contains("data-tab-target=\"tab-iac\""));
     assert!(detail_html.contains("aws-action-bar"));
-    assert!(detail_html.contains("AWS Systems Manager"));
     assert!(detail_html.contains("CloudWatch Logs"));
     assert!(detail_html.contains("CloudWatch Alarms"));
+
+    // The Health tab. What stood here asserted the presence of a panel captioned
+    // "AWS Systems Manager · Fleet Run Command" carrying a green "SSM Agent
+    // Ready" badge over nothing measurable, beside an overall score reading
+    // "2/2 System & Instance Checks Passed" derived from `is_running()` alone.
+    // The test pinned the defect in place, so it is replaced rather than
+    // deleted: the tab must now carry a real verdict, or say plainly that this
+    // node has not been judged.
+    assert!(detail_html.contains(">Health</button>"));
+    assert!(
+        detail_html.contains("has not been judged yet") || detail_html.contains("data-node-health"),
+        "the health tab must carry a verdict or say there is none yet"
+    );
+    assert!(
+        !detail_html.contains("Checks Passed"),
+        "no surface may report a fused check score again"
+    );
+    assert!(detail_html.contains("How it got here"));
 
     // Test SRE smoke sweep route
     let smoke_res = into_response(
@@ -704,8 +721,19 @@ fn node_and_fleet_iac_api_serves_cloud_manifests() {
     assert!(list_html.contains("global-resource-search"));
     assert!(list_html.contains("aws-action-bar"));
     assert!(list_html.contains("data-action=\"toggle-all-nodes\""));
-    assert!(list_html.contains("Status Check"));
-    assert!(list_html.contains("Availability Zone"));
+
+    // The two columns this used to assert were a duplicate and a fabrication:
+    // "Status Check" rendered the same `status_badge` as the "State" column
+    // beside it, and "Availability Zone" read `nexus-az-1a` for every row on a
+    // product that runs every node as a local child process. What replaces them
+    // are the node's two genuinely independent axes.
+    assert!(list_html.contains(">Process</th>"));
+    assert!(list_html.contains(">Chain health</th>"));
+    assert!(list_html.contains(">Height</th>"));
+    assert!(
+        !list_html.contains("nexus-az-1a"),
+        "no surface may invent an availability zone again"
+    );
 }
 
 /// Bearer-token API auth end to end: a valid `AdminAll` token authenticates and

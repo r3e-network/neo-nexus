@@ -13,6 +13,7 @@ pub mod api;
 pub mod api_tokens;
 pub mod assets;
 pub mod auth;
+pub mod chain_state_view;
 pub mod control;
 pub mod fleet;
 pub mod health;

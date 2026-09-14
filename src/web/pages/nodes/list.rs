@@ -7,7 +7,7 @@ use axum::{
 
 use crate::{
     core::node::{filter_nodes, NodeConfig, NodeInventoryFilter, NodeStatus},
-    web::{assets::DensityMode, fleet::Fleet, html, WebState},
+    web::{assets::DensityMode, chain_state_view as chain_view, fleet::Fleet, html, WebState},
 };
 
 #[derive(Default, serde::Deserialize)]
@@ -198,7 +198,7 @@ fn ec2_instance_drawer(state: &WebState, visible: &[NodeConfig]) -> String {
                 <div><span class="muted">Instance Type:</span> <strong style="color: #fff;" data-drawer-type>t3.{}</strong></div>
                 <div><span class="muted">Platform / AMI:</span> <span class="badge" data-drawer-ami>{}</span></div>
                 <div><span class="muted">Network / Chain:</span> <span class="badge" data-drawer-net>{}</span></div>
-                <div><span class="muted">Availability Zone:</span> <strong style="color: #fff;">nexus-az-1a</strong></div>
+                <div><span class="muted">Runs on:</span> <strong style="color: #fff;">this host, as a child process</strong></div>
                 <div><span class="muted">RPC Endpoint:</span> <span class="mono" data-drawer-rpc>:{}</span></div>
                 <div><span class="muted">P2P Port:</span> <span class="mono" data-drawer-p2p>:{}</span></div>
                 <div><span class="muted">IAM Signer Role:</span> <span class="mono muted" style="font-size: 11px;" data-drawer-signer>{}</span></div>
@@ -260,10 +260,15 @@ fn status_filter(raw: &str) -> Option<NodeStatus> {
 }
 
 fn manager_table(state: &WebState, fleet: &Fleet, visible: &[NodeConfig]) -> String {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as i64;
+    let now_unix = crate::web::time::now_unix();
+    let now = now_unix as i64;
+    let all_nodes: Vec<NodeConfig> = fleet.rows.iter().map(|row| row.node.clone()).collect();
+    // Fleet-wide, because a node's lag is measured against the highest height
+    // among the nodes sharing its chain — one row's answer needs the group.
+    let chain = state
+        .workspace
+        .fleet_chain_view(&all_nodes, now_unix)
+        .unwrap_or_default();
     let all_signers = state
         .workspace
         .list_all_signer_bindings()
@@ -279,11 +284,17 @@ fn manager_table(state: &WebState, fleet: &Fleet, visible: &[NodeConfig]) -> Str
             let signer = all_signers.iter().find(|(nid, _)| nid == &row.node.id).map(|(_, k)| k);
             let hermes = all_hermes.iter().find(|a| a.node_id == row.node.id);
 
-            // This read "2/2 passed" from `is_running()` alone. There are no
-            // two checks: the process state and the RPC health verdict are
-            // separate facts, the second of which may never have been taken.
-            // The RPC column beside this one carries that verdict already.
-            let status_check = html::status_badge(row.node.status.label());
+            // What the chain says, kept on its own axis. A process can be up
+            // while the node it runs has not produced a block in an hour, and
+            // that pair is the failure this workspace exists to catch — so the
+            // two are never fused into a single "checks passed" score.
+            let view = chain.iter().find(|view| view.node_id == row.node.id);
+            let health_cell = view.map_or_else(chain_view::not_judged_badge, |view| {
+                chain_view::health_cell(view, now_unix)
+            });
+            let chain_cell = view.map(chain_view::chain_cell).unwrap_or_else(|| {
+                r#"<span class="muted">not checked yet</span>"#.to_string()
+            });
 
             let role_badge = match role {
                 Some(crate::roles::NodeRole::Consensus) => "<span class=\"badge\">⚡ Validator</span>".to_string(),
@@ -343,8 +354,8 @@ fn manager_table(state: &WebState, fleet: &Fleet, visible: &[NodeConfig]) -> Str
                 html::raw_cell(&select_cell),
                 html::raw_cell(&instance_cell),
                 html::raw_cell(&html::status_badge(row.node.status.label())),
-                html::raw_cell(&status_check),
-                html::cell("nexus-az-1a"),
+                html::raw_cell(&health_cell),
+                html::raw_cell(&chain_cell),
                 html::raw_cell(&role_badge),
                 html::raw_cell(&format!(r#"<span class="badge">{}</span> <span class="badge">{}</span>"#, html::escape(&row.node.node_type.to_string()), html::escape(&row.node.network.to_string()))),
                 html::raw_cell(&ports_cell),
@@ -390,9 +401,9 @@ fn manager_table(state: &WebState, fleet: &Fleet, visible: &[NodeConfig]) -> Str
         &[
             "Select",
             "Instance",
-            "State",
-            "Status Check",
-            "Availability Zone",
+            "Process",
+            "Chain health",
+            "Height",
             "Role",
             "Client / Net",
             "Ports (P2P/RPC)",

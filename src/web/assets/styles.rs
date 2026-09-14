@@ -376,6 +376,30 @@ td.path, td.mono { color: var(--muted); word-break: break-all; }
   background: var(--red-surface);
 }
 .badge.stopped, .badge.unknown { color: var(--idle); }
+/* Chain health, coloured by tone rather than by state name, so the nine states
+   read as four weights an operator can scan. `health-neutral` is grey and never
+   green: "we have not looked" must not render as a pass. */
+.badge.health-good {
+  color: var(--jade-strong);
+  border-color: var(--jade-border);
+  background: var(--jade-surface);
+}
+.badge.health-working {
+  color: var(--cyan);
+  border-color: var(--cyan-border);
+  background: var(--cyan-surface);
+}
+.badge.health-warning {
+  color: var(--amber);
+  border-color: var(--amber-border);
+  background: var(--amber-surface);
+}
+.badge.health-bad {
+  color: var(--red);
+  border-color: var(--red-border);
+  background: var(--red-surface);
+}
+.badge.health-neutral { color: var(--idle); }
 .badge.event-info {
   color: var(--cyan);
   border-color: var(--cyan-border);

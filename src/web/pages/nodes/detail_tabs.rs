@@ -2,13 +2,14 @@
 
 use crate::{
     agents::HermesAgentAssociation,
-    core::node::NodeConfig,
+    core::{node::NodeConfig, node_health::NodeChainView},
     logs::LogReader,
+    observe::HealthTransition,
     roles::NodeRole,
-    rpc_health::{RpcHealthRecord, RpcHealthStatus},
+    rpc_health::RpcHealthRecord,
     signing::SignerKeyRef,
     supervisor::log_path_for,
-    web::{html, time, WebState},
+    web::{chain_state_view as chain_view, html, WebState},
 };
 
 use super::{binding::signer_binding, iac_spec::iac_spec_card};
@@ -59,8 +60,12 @@ pub fn summary_banner(
                 </div>
                 <div style="display: flex; gap: 6px; align-items: center;">
                     <span class="badge {status_class}">● {status}</span>
-                    <span class="badge" style="background: rgba(255,255,255,0.06);">AZ: nexus-az-1a</span>
-                    <span class="badge" style="background: rgba(255,255,255,0.06);">VPC: vpc-{network}</span>
+                    <!-- These read "AZ: nexus-az-1a" and "VPC: vpc-private" for
+                         every node on a product that runs every node as a local
+                         child process. There is no zone and no VPC; what there
+                         is, is a client and a chain. -->
+                    <span class="badge" style="background: rgba(255,255,255,0.06);">{client}</span>
+                    <span class="badge" style="background: rgba(255,255,255,0.06);">{network}</span>
                 </div>
             </div>
             <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;">
@@ -94,7 +99,8 @@ pub fn summary_banner(
         name = html::escape(&node.name),
         status_class = status_class,
         status = node.status.label(),
-        network = html::escape(&node.network.to_string().to_lowercase()),
+        client = html::escape(&node.node_type.to_string()),
+        network = html::escape(&node.network.to_string()),
         instance_type = html::escape(&instance_type),
         role_label = html::escape(role_label),
         rpc_text = html::escape(&rpc_text),
@@ -176,238 +182,106 @@ pub fn render_tab_details(node: &NodeConfig) -> String {
 }
 
 /// Tab 2: Status Checks View (AWS EC2 2/2 Checks)
-pub fn render_tab_status_checks(
+/// The health tab: what the chain says, why, and what to do about it.
+///
+/// What this replaces fused four unrelated facts into one score — `🟢 2/2
+/// System & Instance Checks Passed` — computed from `is_running()` and the
+/// last RPC probe, beside a panel captioned `SSM Agent Ready` that measured
+/// nothing at all. A node answering RPC promptly at a height that had not moved
+/// in an hour read as two passing checks.
+///
+/// The four facts are kept apart because they are independent and an operator
+/// needs each of them: a **process** can be up while the **chain** is stalled,
+/// and a stalled node holding a **signer** lease for an **elected** role is the
+/// expensive case this workspace exists to catch. One badge cannot say that.
+pub fn render_tab_health(
     node: &NodeConfig,
     role: Option<NodeRole>,
     signer: Option<&SignerKeyRef>,
-    history: &[RpcHealthRecord],
+    view: Option<&NodeChainView>,
+    timeline: &[HealthTransition],
     assoc: &HermesAgentAssociation,
     now: i64,
 ) -> String {
-    let (proc_badge, proc_desc) = if node.status.is_running() {
-        (
-            r#"<span class="badge running">Passed</span>"#,
-            format!(
-                "Running (PID: {})",
-                node.pid
-                    .map_or_else(|| "supervised".to_string(), |p| p.to_string())
-            ),
-        )
-    } else if node.status == crate::types::NodeStatus::Stopped {
-        (
-            r#"<span class="badge stopped">Quiesced</span>"#,
-            "Process stopped cleanly".to_string(),
-        )
-    } else {
-        (
-            r#"<span class="badge danger">Failed</span>"#,
-            format!("Status: {}", node.status.label()),
-        )
-    };
+    let now_unix = now.max(0) as u64;
+    let verdict = view
+        .map(|view| chain_view::verdict_panel(view, now_unix))
+        .unwrap_or_else(|| {
+            html::notice(
+                "info",
+                "This node has not been judged yet. The observation loop writes a \
+                 verdict on its next pass.",
+            )
+        });
 
-    let latest_rpc = history.first();
-    let (rpc_badge, rpc_desc) = if node.rpc_port == 0 {
-        (
-            r#"<span class="badge">Shielded</span>"#,
-            "Zero RPC Attack Surface".to_string(),
-        )
-    } else if let Some(rec) = latest_rpc {
-        match rec.status {
-            RpcHealthStatus::Healthy => (
-                r#"<span class="badge running">Passed</span>"#,
-                format!("JSON-RPC Responsive (: {})", node.rpc_port),
-            ),
-            RpcHealthStatus::Degraded => (
-                r#"<span class="badge warn">Degraded</span>"#,
-                format!("Lagging/Slow (: {})", node.rpc_port),
-            ),
-            RpcHealthStatus::Unreachable => (
-                r#"<span class="badge danger">Failed</span>"#,
-                format!("Unreachable (: {})", node.rpc_port),
-            ),
-        }
-    } else {
-        (
-            r#"<span class="badge stopped">Pending</span>"#,
-            format!("Port :{}", node.rpc_port),
-        )
+    let requires_signer = role.is_some_and(|role| role.requires_signer());
+    let signer_line = match signer {
+        Some(key) => format!(
+            "leased to {}/{}",
+            html::escape(&key.backend_id),
+            html::escape(&key.key_id)
+        ),
+        None if requires_signer => format!(
+            "none bound, and {} cannot do its job without one",
+            role.map_or("this role", NodeRole::label)
+        ),
+        None => "none bound; this node signs nothing".to_string(),
     };
-
-    let requires_signer = role.is_some_and(|r| r.requires_signer());
-    let (signer_badge, signer_desc) = match signer {
-        Some(key) => (
-            r#"<span class="badge running">Leased</span>"#,
-            format!(
-                "{}/{}",
-                html::escape(&key.backend_id),
-                html::escape(&key.key_id)
-            ),
-        ),
-        None if requires_signer => (
-            r#"<span class="badge danger">Required</span>"#,
-            format!(
-                "{} requires Signer Lease",
-                role.map_or("Role", |r| r.label())
-            ),
-        ),
-        None => (
-            r#"<span class="badge stopped">Unbound</span>"#,
-            "No Signing Duty".to_string(),
-        ),
-    };
-
-    let (hermes_badge, hermes_desc) = if assoc.is_alive(now) {
-        (
-            r#"<span class="badge running">Active</span>"#,
-            "Guest Copilot Online".to_string(),
-        )
+    let agent_line = if assoc.is_alive(now) {
+        "responding to heartbeats".to_string()
     } else if assoc.enabled {
-        (
-            r#"<span class="badge stopped">Standby</span>"#,
-            "Ready for Connection".to_string(),
-        )
+        "enrolled, no recent heartbeat".to_string()
     } else {
-        (
-            r#"<span class="badge stopped">Disabled</span>"#,
-            "Hermes Off".to_string(),
-        )
-    };
-
-    let overall_badge = if requires_signer && signer.is_none() {
-        r#"<span class="badge danger">🔴 2/4 Checks Failed (Signer Missing)</span>"#
-    } else if node.status.is_running() {
-        if node.rpc_port == 0 || latest_rpc.is_none_or(|r| r.status == RpcHealthStatus::Healthy) {
-            r#"<span class="badge running">🟢 2/2 System & Instance Checks Passed</span>"#
-        } else {
-            r#"<span class="badge warn">🟡 1/2 Checks Passed (RPC Impaired)</span>"#
-        }
-    } else if node.status == crate::types::NodeStatus::Stopped {
-        r#"<span class="badge stopped">⚪ Quiesced / Ready for Launch</span>"#
-    } else {
-        r#"<span class="badge danger">🔴 Health Impaired</span>"#
-    };
-
-    let trend = history
-        .iter()
-        .map(|record| {
-            html::row(&[
-                html::raw_cell(&time::time_cell(Some(record.checked_at_unix))),
-                html::cell(record.status.label()),
-                html::cell(
-                    &record
-                        .block_count
-                        .map_or_else(|| "—".to_string(), |block| block.to_string()),
-                ),
-                html::cell(&record.message),
-            ])
-        })
-        .collect::<Vec<_>>();
-
-    let trend_table = if trend.is_empty() {
-        html::note("No RPC health probes recorded yet.")
-    } else {
-        html::table(
-            &[
-                "Timestamp",
-                "Probe Status",
-                "Block Height",
-                "Diagnostic Message",
-            ],
-            &trend,
-        )
+        "not enrolled".to_string()
     };
 
     let enc_id = html::urlencoding_lite(&node.id);
-    let sweep_btn = format!(
-        r#"<form method="post" action="/nodes/{enc_id}/smoke" style="display: inline;">
-            <button type="submit" class="btn small primary" title="Run supervised smoke test across process binary and network socket">🩺 Run On-Demand SRE Health Sweep</button>
-        </form>"#
-    );
-
     format!(
         r#"<div style="margin-top: 12px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-                <div>
-                    <h3 style="margin: 0 0 2px 0;">System Status Checks (AWS EC2 Metric Model)</h3>
-                    <div class="muted" style="font-size: 12px;">Automated reachability, supervision, cryptographic signer lease, and guest AI health probes.</div>
-                </div>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    {overall_badge}
-                    {sweep_btn}
-                </div>
-            </div>
-            <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px;">
-                <div style="padding: 10px 12px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--line);">
-                    <div class="muted" style="font-size: 11px; margin-bottom: 4px;">1. SYSTEM REACHABILITY</div>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        {proc_badge}
-                        <span style="font-size: 12px; font-weight: 500;">{proc_desc}</span>
-                    </div>
-                </div>
-                <div style="padding: 10px 12px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--line);">
-                    <div class="muted" style="font-size: 11px; margin-bottom: 4px;">2. PROTOCOL RPC PROBE</div>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        {rpc_badge}
-                        <span style="font-size: 12px; font-weight: 500;">{rpc_desc}</span>
-                    </div>
-                </div>
-                <div style="padding: 10px 12px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--line);">
-                    <div class="muted" style="font-size: 11px; margin-bottom: 4px;">3. IAM SIGNER LEASE</div>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        {signer_badge}
-                        <span style="font-size: 12px; font-weight: 500;">{signer_desc}</span>
-                    </div>
-                </div>
-                <div style="padding: 10px 12px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--line);">
-                    <div class="muted" style="font-size: 11px; margin-bottom: 4px;">4. HERMES AI COPILOT</div>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        {hermes_badge}
-                        <span style="font-size: 12px; font-weight: 500;">{hermes_desc}</span>
-                    </div>
-                </div>
-            </div>
-            <h3>Historical Probe Journal</h3>
-            {trend_table}
-            <div class="panel" style="margin-top: 18px; padding: 16px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-                    <div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <strong style="font-size: 14px;">AWS Systems Manager · Fleet Run Command</strong>
-                            <span class="badge running" style="font-size: 11px;">SSM Agent Ready</span>
-                        </div>
-                        <div class="muted" style="font-size: 12px; margin-top: 2px;">
-                            Execute operational diagnostic routines and non-interactive health sweeps without inbound management ports.
-                        </div>
-                    </div>
-                    <div class="muted mono" style="font-size: 11px;">Document: AWS-RunShellScript/NeoNexus-SREProbe</div>
-                </div>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <form method="post" action="/nodes/{enc_id}/smoke" style="display: inline;">
-                        <button type="submit" class="btn small primary" title="Run supervised smoke test across process binary and network socket">🩺 Run SRE Health Sweep</button>
-                    </form>
-                    <form method="post" action="/nodes/{enc_id}/restart" style="display: inline;">
-                        <button type="submit" class="btn small" title="Reboot instance via supervisor watchdog">🔄 Reboot via SSM Watchdog</button>
-                    </form>
-                    <form method="post" action="/nodes/{enc_id}/agent/test-ping" style="display: inline;">
-                        <button type="submit" class="btn small" title="Dispatch guest copilot heartbeat probe">🤖 Ping Hermes Guest Agent</button>
-                    </form>
-                    <a href="/logs?node={enc_id}" class="btn small" title="Open full stdout/stderr system log stream">📋 View System Console Log</a>
-                </div>
-            </div>
-        </div>"#,
-        overall_badge = overall_badge,
-        sweep_btn = sweep_btn,
-        proc_badge = proc_badge,
-        proc_desc = html::escape(&proc_desc),
-        rpc_badge = rpc_badge,
-        rpc_desc = html::escape(&rpc_desc),
-        signer_badge = signer_badge,
-        signer_desc = signer_desc,
-        hermes_badge = hermes_badge,
-        hermes_desc = html::escape(&hermes_desc),
-        trend_table = trend_table,
-        enc_id = enc_id,
+{verdict}
+<div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 16px;">
+  <div style="padding: 10px 12px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--line);">
+    <div class="muted" style="font-size: 11px; margin-bottom: 4px;">PROCESS</div>
+    <div style="display: flex; align-items: center; gap: 6px;">{process_badge}<span style="font-size: 12px;">{process_line}</span></div>
+  </div>
+  <div style="padding: 10px 12px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--line);">
+    <div class="muted" style="font-size: 11px; margin-bottom: 4px;">SIGNING KEY</div>
+    <div style="font-size: 12px;">{signer_line}</div>
+  </div>
+  <div style="padding: 10px 12px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--line);">
+    <div class="muted" style="font-size: 11px; margin-bottom: 4px;">HERMES AGENT</div>
+    <div style="font-size: 12px;">{agent_line}</div>
+  </div>
+</div>
+<h3 style="margin-top: 20px;">How it got here</h3>
+<p class="muted" style="font-size: 12px; margin-top: 0;">Every change of state, newest first. A quiet timeline means the node has held one state since this workspace started watching it.</p>
+{timeline}
+<div style="margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
+  <form method="post" action="/nodes/{enc_id}/smoke" style="display: inline;"><button type="submit" class="btn small primary" title="Check the binary and the RPC socket now, without waiting for the next pass">Check now</button></form>
+  <form method="post" action="/nodes/{enc_id}/restart" style="display: inline;"><button type="submit" class="btn small">Restart</button></form>
+  <a href="/logs?node={enc_id}" class="btn small">Read the log</a>
+</div>
+</div>"#,
+        process_badge = html::status_badge(node.status.label()),
+        process_line = html::escape(&process_line(node)),
+        timeline = chain_view::timeline(timeline, now_unix),
     )
+}
+
+/// What the supervisor sees, said plainly.
+///
+/// Deliberately not a verdict. This axis answers "is there a process", and
+/// fusing it with what the chain says is the mistake the tab above corrects.
+fn process_line(node: &NodeConfig) -> String {
+    match node.status {
+        crate::types::NodeStatus::Running => node.pid.map_or_else(
+            || "running; this workspace does not hold its handle".to_string(),
+            |pid| format!("running as PID {pid}"),
+        ),
+        crate::types::NodeStatus::Starting => "starting".to_string(),
+        crate::types::NodeStatus::Stopped => "stopped by an operator".to_string(),
+        crate::types::NodeStatus::Error => "exited without being asked to".to_string(),
+    }
 }
 
 /// Tab 3: Monitoring & CloudWatch Telemetry
@@ -415,12 +289,18 @@ pub fn render_tab_monitoring(
     state: &WebState,
     node: &NodeConfig,
     history: &[RpcHealthRecord],
+    view: Option<&NodeChainView>,
 ) -> String {
     let enc_id = html::urlencoding_lite(&node.id);
-    let latest_block = history
-        .first()
-        .and_then(|h| h.block_count)
-        .map_or_else(|| NOT_MEASURED.to_string(), |b| b.to_string());
+    let latest_block = view
+        .and_then(|view| view.latest.as_ref())
+        .map(|latest| latest.block_height.cell(|height| height.to_string()))
+        .unwrap_or_else(|| {
+            history
+                .first()
+                .and_then(|record| record.block_count)
+                .map_or_else(|| NOT_MEASURED.to_string(), |block| block.to_string())
+        });
 
     // Read this node's actual process sample. These numbers used to be the
     // literals "1.2% (Active)", "64.5 MB" and "3.2 ms", selected only by
@@ -440,10 +320,14 @@ pub fn render_tab_monitoring(
         || NOT_MEASURED.to_string(),
         |metrics| crate::core::operations::format_bytes(metrics.memory_bytes),
     );
-    // Nothing in the workspace times an RPC request: `RpcHealthRecord` has no
-    // latency field and the probe does not measure one. Say so rather than
-    // print a number that was never taken.
-    let latency = NOT_MEASURED.to_string();
+    // The head call is timed on every round, so this is a real figure — and it
+    // means one thing, because it is always the same call. It stood at the
+    // literal "3.2 ms" for every running node until the sampler started
+    // measuring it.
+    let latency = view
+        .and_then(|view| view.latest.as_ref())
+        .and_then(|latest| latest.head_latency_ms)
+        .map_or_else(|| NOT_MEASURED.to_string(), |ms| format!("{ms} ms"));
 
     let log_path = log_path_for(state.workspace_child_dir("logs"), node);
     let log_terminal = match LogReader::snapshot(&log_path, 32 * 1024) {
@@ -465,13 +349,15 @@ pub fn render_tab_monitoring(
     };
 
     // The chart that stood here drew a fixed SVG path — the same curve for
-    // every node, at every moment — under the caption "1m Interval". Nothing
-    // in the workspace stores a metrics history to plot, so there is no series
-    // to draw. The recorded block heights are the one real series this node
-    // has, and they are already tabulated below.
-    let instance_chart = html::note(
-        "No metrics history is retained, so there is no series to plot here. Recorded RPC health checks, including block height, are listed below.",
-    );
+    // every node, at every moment — under the caption "1m Interval". Sampled
+    // rounds are now retained per node, so there is a real series behind the
+    // rate below; what there is still no code to do is draw one.
+    let instance_chart = html::note(&match view.and_then(|view| view.derived.blocks_per_minute) {
+        Some(rate) => format!(
+            "Producing {rate:.1} blocks per minute across the sampled window. No plotting code exists yet; the Health tab lists the readings behind this."
+        ),
+        None => "Not enough sampled history yet to state a block rate. The Health tab lists what has been read so far.".to_string(),
+    });
 
     // Read the operator's actual restart policy. The badge here used to read a
     // constant "Watchdog Armed (5 retries/60m)", which disagreed with the
@@ -484,7 +370,7 @@ pub fn render_tab_monitoring(
             r#"<div class="panel" style="padding: 14px; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 18px;">
                 <strong style="font-size: 14px;">Automatic restart</strong>
                 <div class="muted" style="font-size: 12px; margin-top: 4px;">On an unclean exit this node is restarted up to {attempts} times, backing off from {base}s to at most {max}s{jitter}. This is the workspace-wide policy; it is not set per node.</div>
-                <div class="muted" style="font-size: 12px; margin-top: 6px;">The watchdog acts on process exit only. A node that keeps running but stops syncing is not restarted, and is not currently detected.</div>
+                <div class="muted" style="font-size: 12px; margin-top: 6px;">The watchdog acts on process exit only. A node that keeps running but stops producing blocks is reported on the Health tab and in the attention queue, but is not restarted automatically — restarting a stalled node is a judgement call, not a reflex.</div>
                 <div style="margin-top: 8px;"><a class="btn small" href="/settings">Change restart policy</a></div>
             </div>"#,
             attempts = policy.max_restart_attempts,
@@ -533,12 +419,12 @@ pub fn render_tab_monitoring(
                 <div class="panel" style="padding: 14px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--line);">
                     <div class="muted" style="font-size: 11px; text-transform: uppercase;">Block height</div>
                     <div class="mono" style="font-size: 20px; font-weight: 700; margin-top: 4px;">{latest_block}</div>
-                    <div class="muted" style="font-size: 11px; margin-top: 2px;">Last value the RPC probe read. Not compared against the network head.</div>
+                    <div class="muted" style="font-size: 11px; margin-top: 2px;">{height_detail}</div>
                 </div>
                 <div class="panel" style="padding: 14px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--line);">
                     <div class="muted" style="font-size: 11px; text-transform: uppercase;">RPC latency</div>
                     <div style="font-size: 20px; font-weight: 700; margin-top: 4px;">{latency}</div>
-                    <div class="muted" style="font-size: 11px; margin-top: 2px;">The probe does not time its requests.</div>
+                    <div class="muted" style="font-size: 11px; margin-top: 2px;">Round trip of the head call, timed every round.</div>
                 </div>
             </div>
             {instance_chart}
@@ -564,12 +450,30 @@ pub fn render_tab_monitoring(
         name = html::escape(&node.name),
         cpu_load = cpu_load,
         mem_usage = mem_usage,
-        latest_block = latest_block,
+        latest_block = html::escape(&latest_block),
+        height_detail = html::escape(&height_detail(view)),
         latency = latency,
         instance_chart = instance_chart,
         watchdog_panel = watchdog_panel,
         log_terminal = log_terminal,
     )
+}
+
+/// What the height beside it is measured against.
+///
+/// The caption read "Not compared against the network head" because nothing
+/// resolved one. A node now has a reference head whenever it shares a chain
+/// with another node in this workspace, and says so where it does not.
+fn height_detail(view: Option<&NodeChainView>) -> String {
+    match view.map(|view| (&view.reference, view.derived.head_lag)) {
+        Some((crate::observe::ReferenceHead::Known { source, .. }, Some(0))) => {
+            format!("Level with {source}, the highest node on this chain.")
+        }
+        Some((crate::observe::ReferenceHead::Known { source, .. }, Some(lag))) => {
+            format!("{lag} blocks behind {source}, the highest node on this chain.")
+        }
+        _ => "No other node in this workspace is on this chain, so there is nothing to compare against.".to_string(),
+    }
 }
 
 /// Tab 4: Networking & Security Groups

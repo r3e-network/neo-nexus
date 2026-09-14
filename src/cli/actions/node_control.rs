@@ -4,9 +4,13 @@
 //! node and an operator-driven node behave identically. Reporting lives in
 //! `report`, and workspace lookup in `workspace`.
 
+mod chain_health;
 mod report;
 mod workspace;
 
+pub(in crate::cli::actions) use chain_health::{
+    fleet_health_action, fleet_health_json_action, node_health_action, node_health_json_action,
+};
 pub(in crate::cli::actions) use report::{
     node_list_action, node_list_json_action, node_status_action, node_status_json_action,
 };

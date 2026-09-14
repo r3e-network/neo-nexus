@@ -1,9 +1,20 @@
-//! Fleet Overview: current node state, readiness, activity and real host load.
+//! What to look at first.
+//!
+//! This page used to open with a panel captioned "AWS Health Dashboard"
+//! reporting `● Operational` and `Open issues: 0` — literals, computed from
+//! nothing — above a tile reading `2/2 checks passing` that was mapped straight
+//! from `is_running()`, and an instance table whose "RPC health" column showed
+//! the result of a probe that ran against one node per second. An operator
+//! could open this console during an incident, read a screen of green, and stop
+//! looking.
+//!
+//! What replaces it is an **attention queue**: the nodes whose state needs
+//! someone, worst first, each with the reason it is there and one thing to do
+//! about it. When the queue is empty the page says what it checked and when,
+//! rather than asserting that all is well — the two are not the same claim, and
+//! only the first is one this workspace can make.
 
-use std::{
-    collections::BTreeMap,
-    time::{Duration, Instant},
-};
+use std::collections::BTreeMap;
 
 use axum::{
     extract::State,
@@ -11,67 +22,17 @@ use axum::{
 };
 
 use crate::{
-    core::operations::evaluate_fleet,
+    core::{
+        node_health::{NodeChainView, NodeHealth},
+        operations::evaluate_fleet,
+    },
     diagnostics::FleetDiagnostics,
     events::{RuntimeEvent, RuntimeEventFilter},
-    metrics::{format_bytes, MetricsCollector, MetricsSnapshot},
+    observe::HealthState,
+    types::NodeConfig,
 };
 
-use super::super::{fleet::Fleet, html, time, WebState};
-
-pub fn fleet_table(fleet: &Fleet, snapshot: &MetricsSnapshot) -> String {
-    if fleet.rows.is_empty() {
-        return html::empty_state(
-            "No instances registered",
-            "Launch an EC2 node instance to bring its configuration, process supervision, and RPC telemetry into this workspace.",
-            r#"<a class="btn primary" href="/nodes/new">+ Launch Instance</a>"#,
-        );
-    }
-    let rows = fleet
-        .rows
-        .iter()
-        .map(|row| {
-            let id = html::urlencoding_lite(&row.node.id);
-            let uptime = snapshot
-                .node_processes
-                .iter()
-                .find(|process| process.node_id == row.node.id)
-                .map(|process| uptime_label(process.run_time_seconds))
-                .unwrap_or_else(|| "—".to_string());
-            // "2/2 passed" was mapped straight from `is_running()`, so a node
-            // whose RPC had never answered — or had never been probed — read
-            // as two passing checks. There are no two checks here; there is a
-            // process state. Report that — once. The row carried the same
-            // state twice, as "State" and as a "Status check" reading
-            // "2/2 passed", beside an "Availability Zone" column that read
-            // `nexus-az-1a` for every node on a product that runs every node
-            // as a local child process.
-            format!(
-                r#"<tr data-node-id="{raw_id}">
-<td data-label="Node"><div><a class="node-name" href="/nodes/{id}" style="font-weight: 600;">{name}</a></div><div class="muted mono" style="font-size: 11px;">{raw_id}</div></td>
-<td data-label="Client"><span class="badge">{client}</span> <span class="badge">{network}</span></td>
-<td data-label="State">{status}</td>
-<td data-label="RPC health"><span data-node-rpc>{rpc_health}</span></td>
-<td data-label="Uptime" class="mono">{uptime}</td>
-<td data-label="Actions"><div class="row-actions"><a class="btn small primary" href="/nodes/{id}">Open</a><a class="btn small" href="/logs?node={id}">Logs</a></div></td>
-</tr>"#,
-                raw_id = html::escape(&row.node.id),
-                name = html::escape(&row.node.name),
-                client = html::escape(&row.node.node_type.to_string()),
-                network = html::escape(&row.node.network.to_string()),
-                status = html::status_badge(row.node.status.label()),
-                rpc_health = html::escape(&row.rpc_health),
-                uptime = html::escape(&uptime),
-            )
-        })
-        .collect::<String>();
-    format!(
-        r#"<table class="dashboard-table">
-<thead><tr><th scope="col">Node</th><th scope="col">Client &amp; network</th><th scope="col">State</th><th scope="col">RPC health</th><th scope="col">Uptime</th><th scope="col">Actions</th></tr></thead>
-<tbody>{rows}</tbody>
-</table>"#
-    )
-}
+use super::super::{chain_state_view as chain_view, html, time, WebState};
 
 pub async fn home(State(state): State<WebState>) -> Response {
     match render(&state) {
@@ -87,8 +48,9 @@ pub async fn home(State(state): State<WebState>) -> Response {
 }
 
 fn render(state: &WebState) -> anyhow::Result<String> {
-    let fleet = Fleet::load(&state.workspace)?;
+    let now = time::now_unix();
     let nodes = state.workspace.list_nodes()?;
+    let views = state.workspace.fleet_chain_view(&nodes, now)?;
     let plugin_states = nodes
         .iter()
         .map(|node| {
@@ -101,104 +63,239 @@ fn render(state: &WebState) -> anyhow::Result<String> {
     let diagnostics = evaluate_fleet(&nodes, &plugin_states);
     let events = state
         .workspace
-        .list_events(RuntimeEventFilter::new(None, "", 5))?;
-    let mut collector = MetricsCollector::new(Duration::ZERO);
-    let snapshot = collector.refresh(&nodes, Instant::now());
-    let table = fleet_table(&fleet, &snapshot);
-
-    let breadcrumb = html::breadcrumb(&[("AWS Console", "/"), ("Console Home", "/")]);
-
-    let quick_services = r#"<div class="panel" style="margin-bottom: 16px; padding: 14px 18px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <strong style="font-size: 13px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.5px;">Recently Visited Services</strong>
-            <span class="mono muted" style="font-size: 11px;">Region: nexus-global (mesh-1a) · Account: 0123-4567-8901</span>
-        </div>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <a href="/nodes" class="btn small" style="display: inline-flex; align-items: center; gap: 6px;"><span>💻</span> EC2 Instances</a>
-            <a href="/nodes/new" class="btn small primary" style="display: inline-flex; align-items: center; gap: 6px;"><span>➕</span> Launch Instance</a>
-            <a href="/monitor" class="btn small" style="display: inline-flex; align-items: center; gap: 6px;"><span>📊</span> CloudWatch Metrics</a>
-            <a href="/alerts" class="btn small" style="display: inline-flex; align-items: center; gap: 6px;"><span>🚨</span> CloudWatch Alarms</a>
-            <a href="/operations" class="btn small" style="display: inline-flex; align-items: center; gap: 6px;"><span>🛠️</span> SSM OpsCenter</a>
-            <a href="/events" class="btn small" style="display: inline-flex; align-items: center; gap: 6px;"><span>📜</span> CloudTrail Audit</a>
-            <a href="/snapshots" class="btn small" style="display: inline-flex; align-items: center; gap: 6px;"><span>💾</span> EBS Snapshots</a>
-            <a href="/signer" class="btn small" style="display: inline-flex; align-items: center; gap: 6px;"><span>🔒</span> KMS Key Management</a>
-            <a href="/settings/api-tokens" class="btn small" style="display: inline-flex; align-items: center; gap: 6px;"><span>🔑</span> IAM Credentials</a>
-        </div>
-    </div>"#;
-
-    let health_widgets = r#"<div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 16px;">
-            <div class="panel" style="padding: 14px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <strong style="font-size: 13px;">AWS Health Dashboard</strong>
-                    <span class="badge running" style="font-size: 10px;">● Operational</span>
-                </div>
-                <div class="muted" style="font-size: 12px; margin-bottom: 8px;">All blockchain subsystem services and supervisor daemons are operating normally.</div>
-                <div style="display: flex; gap: 16px; font-size: 12px;">
-                    <div><span class="muted">Open issues:</span> <strong style="color: var(--jade);">0</strong></div>
-                    <div><span class="muted">Scheduled changes:</span> <strong>0</strong></div>
-                    <div><span class="muted">Other notifications:</span> <strong>0</strong></div>
-                </div>
-            </div>
-            <div class="panel" style="padding: 14px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <strong style="font-size: 13px;">Alert routing</strong>
-                    <a href="/alerts" class="muted" style="font-size: 11px;">Routing and delivery ›</a>
-                </div>
-                <div class="muted" style="font-size: 12px;">Journal events above the configured severity are forwarded to one webhook. No alarm conditions are evaluated: block height, peer count and signer state are not watched, so a node that stops producing blocks raises nothing here.</div>
-            </div>
-        </div>"#.to_string();
+        .list_events(RuntimeEventFilter::new(None, "", 6))?;
 
     Ok(format!(
         r#"{breadcrumb}
 {head}
-{quick_services}
-{health_widgets}
 {stats}
-<div class="section-head"><h2>EC2 Instance Inventory</h2><div style="display: flex; gap: 8px;"><a class="btn small" href="/nodes">View All Instances</a><a class="btn small primary" href="/nodes/new">+ Launch Instance</a></div></div>
+{queue}
+<div class="section-head"><h2>Fleet</h2><div style="display: flex; gap: 8px;"><a class="btn small" href="/nodes">All nodes</a><a class="btn small primary" href="/nodes/new">+ Add node</a></div></div>
 {table}
 <div class="dashboard-grid">
   {readiness}
   {activity}
-</div>
-{resources}"#,
-        breadcrumb = breadcrumb,
+</div>"#,
+        breadcrumb = html::breadcrumb(&[("NeoNexus", "/"), ("Console Home", "/")]),
         head = html::page_head(
-            "AWS Management Console · Global Command Center",
-            "Fleet orchestration, real-time node supervision, automated self-healing, and hyperscaler telemetry.",
-            r#"<a class="btn" href="/api/fleet/iac?format=cloudformation" download="fleet-cloudformation.yaml" title="Export AWS CloudFormation stack">☁️ Export CloudFormation</a> <a class="btn primary" href="/nodes/new">+ Launch Instance</a>"#,
+            "Fleet overview",
+            "What every node in this workspace is doing on the chain it joined, \
+             and what needs someone.",
+            r#"<a class="btn" href="/monitor">Monitoring</a> <a class="btn primary" href="/nodes/new">+ Add node</a>"#,
         ),
-        quick_services = quick_services,
-        health_widgets = health_widgets,
-        stats = summary_stats(&fleet, &diagnostics),
+        stats = summary_stats(&nodes, &views, now),
+        queue = attention_queue(&nodes, &views, now),
+        table = fleet_table(&nodes, &views, now),
         readiness = readiness_panel(&diagnostics),
-        activity = activity_panel(&events),
-        resources = resource_strip(&snapshot),
+        activity = activity_panel(&events, now),
     ))
 }
 
-fn summary_stats(fleet: &Fleet, diagnostics: &FleetDiagnostics) -> String {
-    let counts = fleet.count_by_status();
-    let attention = diagnostics.warning_count + diagnostics.critical_count;
-    let attention_tone = if diagnostics.critical_count > 0 {
+/// Counts of what the workspace knows, with "not judged" kept separate from
+/// "judged and fine".
+///
+/// The tile this replaces read `2/2 checks passing` for every running node,
+/// including nodes whose RPC had never once answered. Here a node that has not
+/// been judged is counted as not judged, because it is.
+fn summary_stats(nodes: &[NodeConfig], views: &[NodeChainView], now: u64) -> String {
+    let running = nodes.iter().filter(|node| node.status.is_running()).count();
+    let mut healthy = 0;
+    let mut attention = 0;
+    let mut unjudged = 0;
+    let mut oldest_verdict: Option<u64> = None;
+    for view in views {
+        match view.health.as_ref() {
+            None => unjudged += 1,
+            Some(health) => {
+                if health.state == HealthState::Healthy {
+                    healthy += 1;
+                }
+                if health.state.needs_attention() {
+                    attention += 1;
+                }
+                let age = health.evaluated_seconds_ago(now);
+                oldest_verdict = Some(oldest_verdict.map_or(age, |worst: u64| worst.max(age)));
+            }
+        }
+    }
+    let tone = if attention > 0 {
         " danger"
-    } else if diagnostics.warning_count > 0 {
-        " warning"
     } else {
         " positive"
     };
+    let freshness = match oldest_verdict {
+        Some(age) => format!("oldest verdict {} old", chain_view::duration_label(age)),
+        None => "nothing judged yet".to_string(),
+    };
     format!(
         r#"<div class="stat-grid" aria-label="Fleet summary">
-<div class="stat"><div class="stat-value">{total}</div><div class="stat-label">Total instances</div><div class="stat-detail">registered in this VPC</div></div>
-<div class="stat positive"><div class="stat-value">{running}</div><div class="stat-label">Running</div><div class="stat-detail">{starting} pending</div></div>
-<div class="stat info"><div class="stat-value">{ready}</div><div class="stat-label">Health passed</div><div class="stat-detail">2/2 checks passing</div></div>
-<div class="stat{attention_tone}"><div class="stat-value">{attention}</div><div class="stat-label">OpsFindings</div><div class="stat-detail">{critical} critical · {warnings} warning</div></div>
+<div class="stat"><div class="stat-value">{total}</div><div class="stat-label">Nodes</div><div class="stat-detail">{running} with a process running</div></div>
+<div class="stat{tone}"><div class="stat-value">{attention}</div><div class="stat-label">Need attention</div><div class="stat-detail">unreachable, stalled, isolated or degraded</div></div>
+<div class="stat positive"><div class="stat-value">{healthy}</div><div class="stat-label">Healthy</div><div class="stat-detail">answering and keeping up</div></div>
+<div class="stat"><div class="stat-value">{unjudged}</div><div class="stat-label">Not yet judged</div><div class="stat-detail">{freshness}</div></div>
 </div>"#,
-        total = counts.total,
-        running = counts.running,
-        starting = counts.starting,
-        ready = diagnostics.ready_nodes,
-        critical = diagnostics.critical_count,
-        warnings = diagnostics.warning_count,
+        total = nodes.len(),
+        freshness = html::escape(&freshness),
+    )
+}
+
+/// The nodes that need someone, worst first.
+///
+/// Ordered by the state machine's own precedence, which is the order the guard
+/// chain evaluates: `Unreachable` before `Stalled` before `Isolated` before
+/// `Degraded`. Within a state, the node that has been there longest leads —
+/// it has been broken longest and is the one nobody has looked at.
+fn attention_queue(nodes: &[NodeConfig], views: &[NodeChainView], now: u64) -> String {
+    let namer = |node_id: &str| {
+        nodes
+            .iter()
+            .find(|node| node.id == node_id)
+            .map_or_else(|| node_id.to_string(), |node| node.name.clone())
+    };
+    // Paired rather than filtered, so the verdict a row renders is the one the
+    // filter matched on — there is no second lookup that could come back empty
+    // and no unwrap to stand in for the pairing.
+    let mut queue: Vec<(&NodeChainView, &NodeHealth)> = views
+        .iter()
+        .filter_map(|view| view.health.as_ref().map(|health| (view, health)))
+        .filter(|(_, health)| health.state.needs_attention())
+        .collect();
+    queue.sort_by_key(|(_, health)| (health.state, health.since_unix));
+
+    if queue.is_empty() {
+        return quiet_queue(views, now);
+    }
+
+    let rows = queue
+        .iter()
+        .map(|(view, health)| {
+            let id = html::urlencoding_lite(&view.node_id);
+            format!(
+                r#"<li>
+<div>
+  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">{badge}<a href="/nodes/{id}" style="font-weight: 650;">{name}</a><span class="muted" style="font-size: 11px;">for {held}</span></div>
+  <p>{reason}{cause}</p>
+</div>
+{next}
+</li>"#,
+                badge = chain_view::health_badge(health.state),
+                name = html::escape(&namer(&view.node_id)),
+                held = html::escape(&chain_view::duration_label(health.held_for_seconds(now))),
+                reason = html::escape(&health.reason),
+                cause = health
+                    .cause
+                    .as_deref()
+                    .map(|cause| format!(" {}", html::escape(cause)))
+                    .unwrap_or_default(),
+                next = next_action(health),
+            )
+        })
+        .collect::<String>();
+
+    format!(
+        r#"<section class="surface" style="margin-bottom: 16px;">
+<div class="section-head"><h2>Needs attention</h2><span class="muted" style="font-size: 11px;">{count} of {total} nodes</span></div>
+<ul class="activity-list">{rows}</ul>
+</section>"#,
+        count = queue.len(),
+        total = views.len(),
+    )
+}
+
+fn next_action(health: &NodeHealth) -> String {
+    match &health.next {
+        crate::observe::NextStep::Here { label, href } => format!(
+            r#"<a class="btn small primary" href="{href}">{label}</a>"#,
+            href = html::escape(href),
+            label = html::escape(label),
+        ),
+        crate::observe::NextStep::External { text } => format!(
+            r#"<span class="muted" style="font-size: 11px; max-width: 220px;">{}</span>"#,
+            html::escape(text)
+        ),
+    }
+}
+
+/// What an empty queue says.
+///
+/// Not "all systems operational". The workspace can state what it checked and
+/// when it last checked; it cannot state that nothing is wrong with something
+/// it has not looked at, and the difference is the whole reason this page was
+/// rewritten.
+fn quiet_queue(views: &[NodeChainView], now: u64) -> String {
+    if views.is_empty() {
+        return html::empty_state(
+            "No nodes registered",
+            "Add a node to bring its configuration, process supervision and chain state into this workspace.",
+            r#"<a class="btn primary" href="/nodes/new">+ Add node</a>"#,
+        );
+    }
+    let judged = views.iter().filter(|view| view.health.is_some()).count();
+    let newest = views
+        .iter()
+        .filter_map(|view| view.health.as_ref())
+        .map(|health| health.evaluated_at_unix)
+        .max();
+    let checked = match newest {
+        Some(at) => format!("last judged {}", time::relative(at, now)),
+        None => "nothing has been judged yet".to_string(),
+    };
+    format!(
+        r#"<section class="surface" style="margin-bottom: 16px;">
+<div class="section-head"><h2>Needs attention</h2><span class="muted" style="font-size: 11px;">{checked}</span></div>
+<p class="muted" style="margin: 0;">Nothing is queued. {judged} of {total} nodes have a current verdict; the rest have not been judged, which is not the same as being well.</p>
+</section>"#,
+        checked = html::escape(&checked),
+        total = views.len(),
+    )
+}
+
+/// Every node, on its two independent axes.
+///
+/// **Process** is what the supervisor sees; **chain** is what the node says
+/// when asked. `Running` and `Stalled` together is a legal, expensive state and
+/// the failure this workspace exists to catch, so the two are never fused into
+/// one badge.
+pub fn fleet_table(nodes: &[NodeConfig], views: &[NodeChainView], now: u64) -> String {
+    if nodes.is_empty() {
+        return html::empty_state(
+            "No nodes registered",
+            "Add a node to bring its configuration, process supervision and chain state into this workspace.",
+            r#"<a class="btn primary" href="/nodes/new">+ Add node</a>"#,
+        );
+    }
+    let rows = nodes
+        .iter()
+        .map(|node| {
+            let view = views.iter().find(|view| view.node_id == node.id);
+            let id = html::urlencoding_lite(&node.id);
+            format!(
+                r#"<tr data-node-id="{raw_id}">
+<td data-label="Node"><div><a class="node-name" href="/nodes/{id}" style="font-weight: 600;">{name}</a></div><div class="muted mono" style="font-size: 11px;">{client} · {network}</div></td>
+<td data-label="Process">{status}</td>
+<td data-label="Chain health">{health}</td>
+<td data-label="Height">{chain}</td>
+<td data-label="Actions"><div class="row-actions"><a class="btn small primary" href="/nodes/{id}">Open</a><a class="btn small" href="/logs?node={id}">Logs</a></div></td>
+</tr>"#,
+                raw_id = html::escape(&node.id),
+                name = html::escape(&node.name),
+                client = html::escape(&node.node_type.to_string()),
+                network = html::escape(&node.network.to_string()),
+                status = html::status_badge(node.status.label()),
+                health = view.map_or_else(chain_view::not_judged_badge, |view| {
+                    chain_view::health_cell(view, now)
+                }),
+                chain = view
+                    .map(chain_view::chain_cell)
+                    .unwrap_or_else(|| r#"<span class="muted">not checked yet</span>"#.to_string()),
+            )
+        })
+        .collect::<String>();
+    format!(
+        r#"<table class="dashboard-table">
+<thead><tr><th scope="col">Node</th><th scope="col">Process</th><th scope="col">Chain health</th><th scope="col">Height</th><th scope="col">Actions</th></tr></thead>
+<tbody>{rows}</tbody>
+</table>"#
     )
 }
 
@@ -225,7 +322,8 @@ fn readiness_panel(diagnostics: &FleetDiagnostics) -> String {
     };
     format!(
         r#"<section class="surface">
-<div class="section-head"><h2>Readiness</h2><a href="/operations">Full report</a></div>
+<div class="section-head"><h2>Configuration readiness</h2><a href="/operations">Full report</a></div>
+<p class="muted" style="margin: 0 0 8px; font-size: 12px;">Whether each node could start cleanly — ports, binaries, plugins. Separate from chain health, which is what a node says once it has started.</p>
 <div class="readiness-score"><strong>{score}/100</strong><span>{ready} nodes ready</span></div>
 <progress max="100" value="{score}">{score}%</progress>
 <ul class="issue-list">{issues}</ul>
@@ -235,17 +333,17 @@ fn readiness_panel(diagnostics: &FleetDiagnostics) -> String {
     )
 }
 
-fn activity_panel(events: &[RuntimeEvent]) -> String {
+fn activity_panel(events: &[RuntimeEvent], now: u64) -> String {
     let rows = events
         .iter()
         .map(|event| {
             let node = event.node_name.as_deref().unwrap_or("Workspace");
             format!(
-                r#"<li><div><strong>{kind}</strong><p>{node} · {message}</p></div>{time}</li>"#,
+                r#"<li><div><strong>{kind}</strong><p>{node} · {message}</p></div><span class="muted">{when}</span></li>"#,
                 kind = html::escape(event.kind.label()),
                 node = html::escape(node),
                 message = html::escape(&event.message),
-                time = time::time_cell(Some(event.occurred_at_unix)),
+                when = html::escape(&time::relative(event.occurred_at_unix, now)),
             )
         })
         .collect::<String>();
@@ -261,33 +359,4 @@ fn activity_panel(events: &[RuntimeEvent]) -> String {
 <ul class="activity-list">{rows}</ul>
 </section>"#
     )
-}
-
-fn resource_strip(snapshot: &MetricsSnapshot) -> String {
-    format!(
-        r#"<div class="resource-strip" aria-label="Host resources">
-<div class="resource"><strong>{cpu:.1}%</strong><span>Host CPU</span></div>
-<div class="resource"><strong>{memory:.1}%</strong><span>Host memory</span></div>
-<div class="resource"><strong>{used} / {total}</strong><span>Memory used</span></div>
-<div class="resource"><strong>{processes}</strong><span>Host processes</span></div>
-</div>"#,
-        cpu = snapshot.system.cpu_usage_percent,
-        memory = snapshot.system.memory_usage_percent,
-        used = format_bytes(snapshot.system.used_memory_bytes),
-        total = format_bytes(snapshot.system.total_memory_bytes),
-        processes = snapshot.system.process_count,
-    )
-}
-
-fn uptime_label(seconds: u64) -> String {
-    let days = seconds / 86_400;
-    let hours = (seconds % 86_400) / 3_600;
-    let minutes = (seconds % 3_600) / 60;
-    if days > 0 {
-        format!("{days}d {hours:02}h")
-    } else if hours > 0 {
-        format!("{hours}h {minutes:02}m")
-    } else {
-        format!("{minutes}m")
-    }
 }

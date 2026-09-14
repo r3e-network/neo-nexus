@@ -212,6 +212,13 @@ fn render_detail(state: &WebState, id: &str, new_token: Option<&str>) -> anyhow:
         .ok_or_else(|| anyhow::anyhow!("node {id} was not found"))?;
     let node = &row.node;
     let history = state.workspace.node_rpc_health_history(&node.id, 10)?;
+    let now_unix = crate::web::time::now_unix();
+    let chain = state
+        .workspace
+        .node_chain_view(&fleet_nodes(&fleet), &node.id, now_unix)?;
+    let timeline = state
+        .workspace
+        .node_health_timeline(&node.id, crate::core::node_health::TIMELINE_LENGTH)?;
     let signer = state.workspace.load_node_signer_key(&node.id)?;
     let encoded = html::urlencoding_lite(id);
 
@@ -233,15 +240,16 @@ fn render_detail(state: &WebState, id: &str, new_token: Option<&str>) -> anyhow:
 
     let summary = super::detail_tabs::summary_banner(node, role, signer.as_ref());
     let tab1 = super::detail_tabs::render_tab_details(node);
-    let tab2 = super::detail_tabs::render_tab_status_checks(
+    let tab2 = super::detail_tabs::render_tab_health(
         node,
         role,
         signer.as_ref(),
-        &history,
+        chain.as_ref(),
+        &timeline,
         &assoc,
         now,
     );
-    let tab3 = super::detail_tabs::render_tab_monitoring(state, node, &history);
+    let tab3 = super::detail_tabs::render_tab_monitoring(state, node, &history, chain.as_ref());
     let tab4 = super::detail_tabs::render_tab_networking(state, node);
     let tab5 = super::detail_tabs::render_tab_security(state, node, signer.as_ref(), new_token);
     let tab6 = super::detail_tabs::render_tab_storage(node);
@@ -253,7 +261,7 @@ fn render_detail(state: &WebState, id: &str, new_token: Option<&str>) -> anyhow:
         r#"<div class="aws-tab-container" style="margin-top: 16px;">
             <div class="aws-tab-bar" role="tablist">
                 <button type="button" class="aws-tab-btn active" data-tab-target="tab-details" role="tab" aria-selected="true">Details</button>
-                <button type="button" class="aws-tab-btn" data-tab-target="tab-status" role="tab" aria-selected="false">Status checks</button>
+                <button type="button" class="aws-tab-btn" data-tab-target="tab-status" role="tab" aria-selected="false">Health</button>
                 <button type="button" class="aws-tab-btn" data-tab-target="tab-monitoring" role="tab" aria-selected="false">Monitoring</button>
                 <button type="button" class="aws-tab-btn" data-tab-target="tab-networking" role="tab" aria-selected="false">Networking</button>
                 <button type="button" class="aws-tab-btn" data-tab-target="tab-security" role="tab" aria-selected="false">Security &amp; IAM</button>
@@ -613,4 +621,12 @@ pub(crate) fn endpoints_card(state: &WebState, node: &NodeConfig) -> String {
         p2p_multiaddr = html::escape(&p2p_multiaddr),
         peer_section = peer_section,
     )
+}
+
+/// The fleet as plain node configurations.
+///
+/// A node's lag is measured against the highest height among the nodes sharing
+/// its chain, so resolving one node's chain view needs the group it belongs to.
+fn fleet_nodes(fleet: &Fleet) -> Vec<crate::types::NodeConfig> {
+    fleet.rows.iter().map(|row| row.node.clone()).collect()
 }
