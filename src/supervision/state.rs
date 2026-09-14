@@ -16,6 +16,7 @@ use std::{
 use crate::{
     core::node::NodeConfig,
     events::{EventKind, EventSeverity, NewRuntimeEvent},
+    metrics::MetricsStore,
     repository::Repository,
     signing::SignerRegistry,
     supervisor::ProcessSupervisor,
@@ -29,6 +30,10 @@ pub struct EngineState {
     pub data_dir: PathBuf,
     pub supervisor: Arc<Mutex<ProcessSupervisor>>,
     pub signer_registry: SignerRegistry,
+    /// The same store the browser reads, so a page shows the reading the tick
+    /// took rather than one it takes for itself. Two collectors would sample
+    /// the host at unrelated moments and disagree about its load.
+    pub metrics: Arc<MetricsStore>,
 }
 
 impl EngineState {
@@ -101,6 +106,9 @@ impl LoopState {
         self.reconcile_exits(state);
         self.run_due_restarts(state);
         self.watch_external_processes(state);
+        // Cheap: the store decides whether a sample is due, and a reading that
+        // is not due costs one comparison.
+        state.metrics.refresh_if_due(&state.nodes());
         self.probe_federation(state);
         self.route_alerts(state);
         self.probe_runtime_upgrade(state);

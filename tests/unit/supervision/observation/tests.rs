@@ -20,6 +20,7 @@ fn workspace(directory: &std::path::Path) -> EngineState {
         data_dir: directory.to_path_buf(),
         supervisor: Arc::new(Mutex::new(ProcessSupervisor::default())),
         signer_registry: SignerRegistry::empty(),
+        metrics: Arc::new(crate::metrics::MetricsStore::default()),
     }
 }
 

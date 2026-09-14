@@ -3,7 +3,9 @@ mod model;
 mod render;
 mod writer;
 
-pub use filter::{event_export_filter, DEFAULT_EVENT_EXPORT_LIMIT, MAX_EVENT_EXPORT_LIMIT};
+pub use filter::{
+    event_export_filter, export_scope, DEFAULT_EVENT_EXPORT_LIMIT, MAX_EVENT_EXPORT_LIMIT,
+};
 pub use model::{
     EventJournalEventReport, EventJournalReport, EventJournalReportExport, EventJournalReportFilter,
 };

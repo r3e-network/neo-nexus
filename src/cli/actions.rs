@@ -3,7 +3,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
     str::FromStr,
-    time::{Duration, Instant, SystemTime},
+    time::{Duration, SystemTime},
 };
 
 use anyhow::{Context, Result};

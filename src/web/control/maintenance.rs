@@ -149,3 +149,86 @@ pub async fn clear_logs(State(state): State<WebState>) -> Response {
 
     Redirect::to(&format!("/logs?flash={}", html::urlencoding_lite(&message))).into_response()
 }
+
+/// Bring a workspace archive in, from a path on this server.
+///
+/// `WorkspaceBackupImporter::{validate_path, import_path}` were complete,
+/// tested and reachable only from the CLI, while the Backup page promised the
+/// round trip in prose. An operator who could reach the console but not a shell
+/// on the host could export nothing and restore nothing.
+///
+/// Deliberately a **path on the server**, not an upload. A workspace archive
+/// carries signer bindings, wallet profiles and the whole event journal;
+/// pushing one through a browser form would put all of it in the request body,
+/// in whatever proxy is between, for no gain — the operator already has to put
+/// the file somewhere the server can read.
+///
+/// Validated before it is applied, and the validation is reported either way:
+/// an import that silently drops what it could not read is worse than one that
+/// refuses.
+pub async fn handle_backup_import(
+    State(state): State<WebState>,
+    axum::Form(form): axum::Form<BackupImportForm>,
+) -> Response {
+    let outcome = (|| -> anyhow::Result<String> {
+        let path = form.archive_path.trim();
+        if path.is_empty() {
+            anyhow::bail!("no archive path was given");
+        }
+        let validation = crate::backup::WorkspaceBackupImporter::validate_path(path)?;
+        if form.validate_only() {
+            return Ok(format!(
+                "archive is readable — schema v{}, written by {}, holding {} nodes, {} signer bindings, {} events",
+                validation.schema_version,
+                validation.application_version,
+                validation.node_count,
+                validation.signer_binding_count,
+                validation.event_count,
+            ));
+        }
+        let imported = state.commands.import_backup(path)?;
+        let message = format!(
+            "workspace backup imported — {} nodes created, {} updated, {} duties, {} signer bindings, {} events",
+            imported.created_nodes,
+            imported.updated_nodes,
+            imported.role_count,
+            imported.signer_binding_count,
+            imported.event_count,
+        );
+        // `--import-backup` mutated the workspace with no audit entry at all,
+        // which made the one operation most worth recording invisible.
+        let _ = state.commands.record_event(NewRuntimeEvent {
+            node_id: None,
+            node_name: None,
+            kind: EventKind::BackupImported,
+            severity: EventSeverity::Warning,
+            message: message.clone(),
+        });
+        Ok(message)
+    })();
+
+    let message = match outcome {
+        Ok(message) => message,
+        Err(error) => format!("backup import failed: {error:#}"),
+    };
+    Redirect::to(&format!(
+        "/backup?flash={}",
+        html::urlencoding_lite(&message),
+    ))
+    .into_response()
+}
+
+#[derive(serde::Deserialize)]
+pub struct BackupImportForm {
+    #[serde(default)]
+    pub archive_path: String,
+    /// Present when the operator pressed "Check it first" rather than "Import".
+    #[serde(default)]
+    pub mode: String,
+}
+
+impl BackupImportForm {
+    fn validate_only(&self) -> bool {
+        self.mode.trim().eq_ignore_ascii_case("validate")
+    }
+}

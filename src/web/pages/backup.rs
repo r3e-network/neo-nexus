@@ -79,6 +79,33 @@ fn render_body(state: &WebState) -> anyhow::Result<String> {
         // Posts to the route that exists. This read "/backup/export", which is
         // registered nowhere, so the page's only button 404'd and a workspace
         // backup could not be taken from the console at all.
-        actions = html::control_form("/backup", &[], "Generate workspace backup"),
+        actions = restore_and_export(),
     ))
+}
+
+/// The two directions a workspace archive travels.
+///
+/// Export posted to `/backup/export`, which is registered nowhere, so the
+/// page's only button 404'd and no archive could be taken from the console at
+/// all. Import had no route whatsoever, while the page promised the round trip
+/// in prose.
+fn restore_and_export() -> String {
+    format!(
+        r#"{export}
+<div class="panel" style="margin-top: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 8px;">
+  <h3 style="margin-top: 0;">Restore from an archive</h3>
+  <p class="muted" style="font-size: 12px;">
+    Give the path to an archive <strong>on this host</strong>. An archive carries signer
+    bindings, wallet profiles and the whole journal, so it is read from disk rather than
+    pushed through the browser. Check it first if you are not sure what is in it — the check
+    reads the archive and changes nothing.
+  </p>
+  <form method="post" action="/backup/import" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;">
+    <label class="field" style="flex: 1 1 320px;"><span>Archive path</span><input name="archive_path" placeholder="/path/to/neonexus-backup-….json" required></label>
+    <button type="submit" name="mode" value="validate" class="btn">Check it first</button>
+    <button type="submit" name="mode" value="import" class="btn danger">Import and overwrite</button>
+  </form>
+</div>"#,
+        export = html::control_form("/backup", &[], "Generate workspace backup"),
+    )
 }

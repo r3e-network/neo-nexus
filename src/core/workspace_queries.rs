@@ -56,6 +56,31 @@ impl WorkspaceQueries {
         self.repository.list_events(filter)
     }
 
+    /// Nodes the watchdog stopped retrying and that have not come back.
+    ///
+    /// Read from the journal rather than from the engine's in-memory ledger: a
+    /// page is served by a different thread, and a surface that reports "the
+    /// watchdog is fine" needs to survive a restart of the process that knows
+    /// otherwise. A node that has since been started by hand is `Running` and
+    /// drops out, which is the question an operator is actually asking.
+    pub fn nodes_the_watchdog_gave_up_on(&self) -> Result<Vec<NodeConfig>> {
+        let exhausted: std::collections::BTreeSet<String> = self
+            .repository
+            .list_events(RuntimeEventFilter::of_kind(
+                crate::events::EventKind::WatchdogExhausted,
+                200,
+            ))?
+            .into_iter()
+            .filter_map(|event| event.node_id)
+            .collect();
+        Ok(self
+            .repository
+            .list_nodes()?
+            .into_iter()
+            .filter(|node| exhausted.contains(&node.id) && !node.status.is_active())
+            .collect())
+    }
+
     pub fn count_events(&self, filter: &RuntimeEventFilter) -> Result<usize> {
         self.repository.count_events(filter)
     }

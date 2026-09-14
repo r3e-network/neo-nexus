@@ -33,7 +33,12 @@ pub fn summary_banner(
         format!("http://127.0.0.1:{}", node.rpc_port)
     };
     let p2p_text = format!("127.0.0.1:{}", node.p2p_port);
-    let role_label = role.map(|r| r.label()).unwrap_or("Observer");
+    // `None` is not `Observer`. Observer is a real, separately selectable duty
+    // with real plugin effects, and substituting it for "no duty assigned"
+    // meant an operator who chose the "P2P Gossip Relay" preset — which
+    // resolves to no duty at all — saw a node described as an Observer, then
+    // found the editor pre-selecting a different duty again on reopen.
+    let role_label = role.map_or("No duty assigned", NodeRole::label);
     let instance_type = format!(
         "{}-{}",
         node.node_type,
@@ -51,6 +56,10 @@ pub fn summary_banner(
         crate::types::NodeStatus::Error => "danger",
     };
 
+    // The two badges beside the status pill named a zone and a VPC — the same
+    // strings for every node, on a product that runs every node as a local
+    // child process. There is no zone and no VPC; what there is, is a client
+    // and a chain, so that is what they carry.
     format!(
         r#"<div class="panel aws-summary-card" style="margin-bottom: 16px; padding: 16px 20px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid var(--line); padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
@@ -60,10 +69,6 @@ pub fn summary_banner(
                 </div>
                 <div style="display: flex; gap: 6px; align-items: center;">
                     <span class="badge {status_class}">● {status}</span>
-                    <!-- These read "AZ: nexus-az-1a" and "VPC: vpc-private" for
-                         every node on a product that runs every node as a local
-                         child process. There is no zone and no VPC; what there
-                         is, is a client and a chain. -->
                     <span class="badge" style="background: rgba(255,255,255,0.06);">{client}</span>
                     <span class="badge" style="background: rgba(255,255,255,0.06);">{network}</span>
                 </div>
@@ -154,13 +159,19 @@ pub fn render_tab_details(node: &NodeConfig) -> String {
             node.pid
                 .map_or_else(|| "Not running / Supervised".to_string(), |p| p.to_string()),
         ),
+        // These read "x86_64 Native Sandbox" and "NeoNexus Workbench Daemon"
+        // over a plain `Command::new(binary_path)`. There is no sandbox and no
+        // hypervisor — the client runs as a child process with this user's
+        // privileges — and on an arm64 host the architecture was also simply
+        // wrong. That combination materially changes an operator's threat model
+        // for an untrusted client binary, which is the one place a console must
+        // not flatter itself.
         (
-            "Virtualization Architecture",
-            "x86_64 Native Sandbox".to_string(),
-        ),
-        (
-            "Hypervisor / Orchestrator",
-            "NeoNexus Workbench Daemon".to_string(),
+            "How it runs",
+            format!(
+                "child process of NeoNexus on this host, {}, with this user's privileges",
+                std::env::consts::ARCH
+            ),
         ),
     ];
     let rows = facts
@@ -308,7 +319,7 @@ pub fn render_tab_monitoring(
     // the same three values, and an operator looking at a node that was
     // thrashing saw a healthy one. The real per-process figures were already
     // being collected and rendered honestly on the Health page.
-    let sample = crate::web::pages::metrics_page::collect_snapshot(&state.workspace).ok();
+    let sample = crate::web::pages::metrics_page::collect_snapshot(state).ok();
     let process = sample
         .as_ref()
         .and_then(|snapshot| snapshot.node_process(&node.id));
@@ -476,75 +487,127 @@ fn height_detail(view: Option<&NodeChainView>) -> String {
     }
 }
 
-/// Tab 4: Networking & Security Groups
+/// Tab 4: the ports, and what NeoNexus asks the client to do with them.
+///
+/// This was headed "Inbound Security Group Rules (Firewall Ruleset)" with a
+/// "Rule Status: Open" column, over a product that has no firewall capability
+/// whatsoever — `iptables`, `pfctl`, `ufw` and `nftables` appear in this
+/// repository only inside UI captions. The CIDRs were not arbitrary: they
+/// mirror the binds NeoNexus writes into the managed config. But they were
+/// rendered as literals, so they went stale the moment an operator's own
+/// arguments diverged — and a `--config` argument suppresses the managed
+/// config entirely.
+///
+/// What the table can state truthfully is what NeoNexus *asks for*, and where
+/// the client is free to ignore it.
 pub fn render_tab_networking(state: &WebState, node: &NodeConfig) -> String {
+    let overridden = node
+        .args
+        .iter()
+        .any(|arg| arg == "--config" || arg.starts_with("--config=") || arg == "--config-file");
+
+    let requested = |what: &str, port: Option<u16>, bind: &str, note: String| {
+        html::row(&[
+            html::cell(what),
+            html::cell(&port.map_or_else(|| "—".to_string(), |port| port.to_string())),
+            html::cell(bind),
+            html::cell(&note),
+        ])
+    };
+
     let rpc_row = if node.rpc_port == 0 {
-        html::row(&[
-            html::cell("JSON-RPC 2.0"),
-            html::cell("TCP"),
-            html::cell("—"),
-            html::cell("Disabled"),
-            html::raw_cell(r#"<span class="badge">Shielded</span>"#),
-        ])
+        requested(
+            "JSON-RPC",
+            None,
+            "not requested",
+            "this node exposes no RPC, so nothing in this workspace can ask it anything"
+                .to_string(),
+        )
     } else {
-        html::row(&[
-            html::cell("JSON-RPC 2.0"),
-            html::cell("TCP"),
-            html::cell(&node.rpc_port.to_string()),
-            html::cell("127.0.0.1/32"),
-            html::raw_cell(r#"<span class="badge running">Open</span>"#),
-        ])
+        requested(
+            "JSON-RPC",
+            Some(node.rpc_port),
+            "127.0.0.1",
+            "loopback only; reachable from this host".to_string(),
+        )
+    };
+    let p2p_row = requested(
+        "P2P",
+        Some(node.p2p_port),
+        "0.0.0.0",
+        "all interfaces; peers must be able to reach it".to_string(),
+    );
+    let ws_row = match node.ws_port {
+        // Honest about G23: a WS port is validated, reserved against other
+        // nodes and rendered as an endpoint — and for every client except
+        // neox-geth and the neo-cli sidecar, nothing ever opens it.
+        Some(ws) if ws_is_requested(node) => requested(
+            "WebSocket",
+            Some(ws),
+            "127.0.0.1",
+            "loopback only".to_string(),
+        ),
+        Some(ws) => requested(
+            "WebSocket",
+            Some(ws),
+            "not requested",
+            format!(
+                "reserved for this node, but NeoNexus emits no WebSocket setting for {}, so the port will not be listening",
+                node.node_type
+            ),
+        ),
+        None => requested("WebSocket", None, "not requested", "not configured".to_string()),
     };
 
-    let p2p_row = html::row(&[
-        html::cell("P2P Mesh Network"),
-        html::cell("TCP"),
-        html::cell(&node.p2p_port.to_string()),
-        html::cell("0.0.0.0/0"),
-        html::raw_cell(r#"<span class="badge running">Open</span>"#),
-    ]);
-
-    let ws_row = if let Some(ws) = node.ws_port {
-        html::row(&[
-            html::cell("WebSocket Feed"),
-            html::cell("TCP"),
-            html::cell(&ws.to_string()),
-            html::cell("127.0.0.1/32"),
-            html::raw_cell(r#"<span class="badge running">Open</span>"#),
-        ])
-    } else {
-        html::row(&[
-            html::cell("WebSocket Feed"),
-            html::cell("TCP"),
-            html::cell("—"),
-            html::cell("—"),
-            html::raw_cell(r#"<span class="badge stopped">Off</span>"#),
-        ])
-    };
-
-    let sec_table = html::table(
+    let table = html::table(
         &[
-            "Traffic Type",
-            "Protocol",
-            "Port Range",
-            "Source / CIDR",
-            "Rule Status",
+            "Service",
+            "Port",
+            "NeoNexus asks it to bind",
+            "What that means",
         ],
         &[rpc_row, p2p_row, ws_row],
     );
+
+    let caveat = if overridden {
+        html::notice(
+            "warn",
+            "This node's arguments include --config, which makes the client read a file \
+             NeoNexus did not write. The binds above are what NeoNexus would have asked for; \
+             what the node is actually doing is in that file.",
+        )
+    } else {
+        html::note(
+            "These are the binds NeoNexus writes into the managed config. Arguments you add \
+             pass to the client verbatim and can override any of them. NeoNexus opens no \
+             firewall and closes none: the host's own rules decide what is reachable.",
+        )
+    };
 
     let endpoints = super::detail::endpoints_card(state, node);
 
     format!(
         r#"<div style="margin-top: 12px;">
-            <h3>Inbound Security Group Rules (Firewall Ruleset)</h3>
-            {sec_table}
+            <h3>Ports</h3>
+            {table}
+            {caveat}
             <div style="margin-top: 16px;">
                 {endpoints}
             </div>
-        </div>"#,
-        sec_table = sec_table,
-        endpoints = endpoints,
+        </div>"#
+    )
+}
+
+/// Whether any launch path for this client emits a WebSocket setting.
+///
+/// neox-geth's generated config carries `ws_host`/`ws_port`, and the neo-cli
+/// sidecar derives one. Nothing else does, and no `--ws` flag exists anywhere
+/// in this repository — so for the remaining clients a configured WebSocket
+/// port is a reservation, not a listener.
+fn ws_is_requested(node: &NodeConfig) -> bool {
+    matches!(
+        node.node_type,
+        crate::types::NodeType::NeoXGeth | crate::types::NodeType::NeoCli
     )
 }
 
@@ -622,7 +685,7 @@ pub fn render_tab_tags(node: &NodeConfig, role: Option<NodeRole>) -> String {
         html::row(&[html::cell("Network"), html::cell(&node.network.to_string())]),
         html::row(&[
             html::cell("Role"),
-            html::cell(role.map(|r| r.label()).unwrap_or("Observer")),
+            html::cell(role.map_or("No duty assigned", NodeRole::label)),
         ]),
         html::row(&[
             html::cell("ClientEngine"),

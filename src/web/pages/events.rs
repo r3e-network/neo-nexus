@@ -1,5 +1,22 @@
-//! Searchable runtime event journal, separated from fleet readiness so each
-//! operations surface has one clear job.
+//! The journal: what happened, when, and to which node.
+//!
+//! Two things here were invented. A `User Identity` column derived an actor by
+//! **grepping the message text** — `if message.contains("Hermes") ||
+//! message.contains("probe")` → `arn:neo:agent::hermes-ai`, else
+//! `arn:neo:iam::nexus:operator` — over a `RuntimeEvent` that has no actor
+//! field at all, so a human action whose message happened to contain the word
+//! "probe" was attributed to the AI agent, and every agent action whose message
+//! did not was attributed to the operator. And the page called itself a
+//! "CloudTrail-grade immutable audit journal" over a plain table with no hash
+//! chain, no signature and no trigger — one that backup import can insert into
+//! arbitrarily.
+//!
+//! What the journal genuinely is: an append-only-by-convention record this
+//! workspace writes. It is useful and it is worth reading; it is not evidence.
+//!
+//! The filters have grown to match. There are 93 event kinds and the page
+//! offered no way to pick one, and no node scope at all — so the node page's
+//! "view the full journal" link dumped every event in the workspace.
 
 use std::str::FromStr;
 
@@ -8,14 +25,14 @@ use axum::{
     response::{Html, IntoResponse, Response},
 };
 
-use crate::events::{EventSeverity, RuntimeEvent, RuntimeEventFilter};
+use crate::events::{EventKind, EventSeverity, RuntimeEvent, RuntimeEventFilter};
 
 use super::super::{html, time, WebState};
 
 const DEFAULT_LIMIT: usize = 100;
 const MAX_LIMIT: usize = 500;
 
-#[derive(Default, serde::Deserialize)]
+#[derive(Default, serde::Deserialize, Clone)]
 pub struct EventsQuery {
     #[serde(default)]
     severity: String,
@@ -23,6 +40,40 @@ pub struct EventsQuery {
     query: String,
     #[serde(default)]
     limit: String,
+    #[serde(default)]
+    kind: String,
+    /// The node this view is scoped to. Named `node` to match every other
+    /// per-node link in the console (`/logs?node=`, `/plugins?node=`).
+    #[serde(default)]
+    node: String,
+    /// Accepted because the node activity card linked `?q=` against a field
+    /// named `query` — so "View the full journal" silently widened to the whole
+    /// workspace. The link is fixed; this keeps an old bookmark working.
+    #[serde(default)]
+    q: String,
+}
+
+impl EventsQuery {
+    fn search(&self) -> &str {
+        if self.query.trim().is_empty() {
+            self.q.trim()
+        } else {
+            self.query.trim()
+        }
+    }
+
+    fn to_filter(&self) -> anyhow::Result<RuntimeEventFilter> {
+        let mut filter = RuntimeEventFilter::new(
+            parse_severity(&self.severity)?,
+            self.search(),
+            parse_limit(&self.limit),
+        );
+        filter.kind = parse_kind(&self.kind)?;
+        if !self.node.trim().is_empty() {
+            filter.node_id = Some(self.node.trim().to_string());
+        }
+        Ok(filter)
+    }
 }
 
 pub async fn events(State(state): State<WebState>, Query(params): Query<EventsQuery>) -> Response {
@@ -38,13 +89,13 @@ pub async fn events(State(state): State<WebState>, Query(params): Query<EventsQu
 }
 
 fn render(state: &WebState, params: &EventsQuery) -> anyhow::Result<String> {
-    let severity = parse_severity(&params.severity)?;
-    let limit = parse_limit(&params.limit);
-    let filter = RuntimeEventFilter::new(severity, params.query.trim(), limit);
+    let filter = params.to_filter()?;
+    let limit = filter.limit;
     let total = state.workspace.count_events(&filter)?;
+    let scope = scope_label(state, &filter);
     let events = state.workspace.list_events(filter)?;
 
-    let breadcrumb = html::breadcrumb(&[("CloudTrail", "/events"), ("Event history", "")]);
+    let breadcrumb = html::breadcrumb(&[("NeoNexus", "/"), ("Journal", "")]);
 
     Ok(format!(
         r#"{breadcrumb}
@@ -55,31 +106,64 @@ fn render(state: &WebState, params: &EventsQuery) -> anyhow::Result<String> {
         breadcrumb = breadcrumb,
         head = page_header(),
         summary = html::cards(&[
-            ("Audit Events", total.to_string()),
-            ("Window Limit", limit.to_string()),
-            (
-                "Severity Filter",
-                severity.map_or_else(|| "All".to_string(), |value| value.label().to_string()),
-            ),
-            (
-                "Audit IAM Identity",
-                "arn:neo:iam::nexus:operator".to_string()
-            ),
+            ("Matching entries", total.to_string()),
+            ("Shown", events.len().to_string()),
+            ("Scope", scope),
         ]),
-        filters = filter_form(params, limit),
+        filters = filter_form(state, params, limit),
         journal = journal(&events),
     ))
 }
 
 fn page_header() -> String {
     html::page_head(
-        "CloudTrail Event History",
-        "AWS CloudTrail-grade immutable audit journal recording fleet lifecycle actions, security decisions, and operator activity.",
-        r#"<a class="btn" href="/operations">⚙️ SSM OpsCenter</a> <a class="btn" href="/alerts">🚨 CloudWatch Alarms</a>"#,
+        "Journal",
+        "What this workspace recorded itself doing. Append-only by convention, not by \
+         construction: there is no hash chain and no signature, so treat it as a log, not as \
+         evidence.",
+        r#"<a class="btn" href="/operations">Operations</a> <a class="btn" href="/alerts">Alert routing</a>"#,
     )
 }
 
-fn filter_form(params: &EventsQuery, limit: usize) -> String {
+/// What the current filter narrows to, said in one phrase.
+fn scope_label(state: &WebState, filter: &RuntimeEventFilter) -> String {
+    let mut parts = Vec::new();
+    if let Some(kind) = filter.kind {
+        parts.push(kind.label().to_string());
+    }
+    if let Some(node_id) = &filter.node_id {
+        let name = state
+            .workspace
+            .list_nodes()
+            .ok()
+            .and_then(|nodes| {
+                nodes
+                    .into_iter()
+                    .find(|node| &node.id == node_id)
+                    .map(|node| node.name)
+            })
+            .unwrap_or_else(|| node_id.clone());
+        parts.push(name);
+    }
+    if let Some(severity) = filter.severity {
+        parts.push(severity.label().to_string());
+    }
+    if parts.is_empty() {
+        "everything".to_string()
+    } else {
+        parts.join(" · ")
+    }
+}
+
+fn parse_kind(raw: &str) -> anyhow::Result<Option<EventKind>> {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return Ok(None);
+    }
+    EventKind::from_str(raw).map(Some)
+}
+
+fn filter_form(state: &WebState, params: &EventsQuery, limit: usize) -> String {
     let severities = [
         ("", "All severities"),
         ("info", "Info"),
@@ -103,80 +187,108 @@ fn filter_form(params: &EventsQuery, limit: usize) -> String {
             format!(r#"<option value="{value}"{selected}>{value}</option>"#)
         })
         .collect::<String>();
+    // Only the kinds that have actually occurred in this workspace. Offering
+    // all 93 would list 51 that no code path constructs, and an operator who
+    // picks one and gets nothing cannot tell "it never happened" from "that
+    // filter is broken".
+    let mut present: Vec<EventKind> = state
+        .workspace
+        .list_events(RuntimeEventFilter::new(None, "", 500))
+        .unwrap_or_default()
+        .into_iter()
+        .map(|event| event.kind)
+        .collect();
+    present.sort_by_key(|kind| kind.label());
+    present.dedup();
+    let kinds = std::iter::once(String::from(r#"<option value="">All kinds</option>"#))
+        .chain(present.into_iter().map(|kind| {
+            let selected = if kind.label() == params.kind.trim() {
+                " selected"
+            } else {
+                ""
+            };
+            format!(
+                r#"<option value="{value}"{selected}>{value}</option>"#,
+                value = html::escape(kind.label())
+            )
+        }))
+        .collect::<String>();
+
+    let nodes = std::iter::once(String::from(r#"<option value="">All nodes</option>"#))
+        .chain(
+            state
+                .workspace
+                .list_nodes()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|node| {
+                    let selected = if node.id == params.node.trim() {
+                        " selected"
+                    } else {
+                        ""
+                    };
+                    format!(
+                        r#"<option value="{id}"{selected}>{name}</option>"#,
+                        id = html::escape(&node.id),
+                        name = html::escape(&node.name),
+                    )
+                }),
+        )
+        .collect::<String>();
+
+    let export = format!(
+        r#"<form method="post" action="/events/export" style="display: inline;">
+<input type="hidden" name="severity" value="{severity}">
+<input type="hidden" name="query" value="{query}">
+<input type="hidden" name="limit" value="{limit}">
+<input type="hidden" name="kind" value="{kind}">
+<input type="hidden" name="node" value="{node}">
+<button type="submit" class="btn small" title="Download exactly the entries this filter selects">Export this view</button>
+</form>"#,
+        severity = html::escape(params.severity.trim()),
+        query = html::escape(params.search()),
+        kind = html::escape(params.kind.trim()),
+        node = html::escape(params.node.trim()),
+    );
+
     format!(
         r#"<form class="filters" method="get" action="/events">
 <label class="field"><span>Severity</span><select name="severity">{severities}</select></label>
+<label class="field"><span>Kind</span><select name="kind">{kinds}</select></label>
+<label class="field"><span>Node</span><select name="node">{nodes}</select></label>
 <label class="field"><span>Search</span><input name="query" value="{query}" placeholder="node, event kind, or message"></label>
 <label class="field"><span>Rows</span><select name="limit">{limits}</select></label>
 <button type="submit">Apply</button>
-</form>"#,
-        query = html::escape(&params.query),
+</form>
+<div style="margin: -6px 0 14px;">{export}</div>"#,
+        query = html::escape(params.search()),
     )
 }
 
 fn journal(events: &[RuntimeEvent]) -> String {
     if events.is_empty() {
         return html::empty_state(
-            "No matching events",
-            "The journal has no entries for this filter. Broaden the severity or search text.",
+            "No matching entries",
+            "Nothing in the journal matches this filter. Widen the kind, the node or the search text.",
             r#"<a class="btn" href="/events">Clear filters</a>"#,
         );
     }
     let rows = events
         .iter()
         .map(|event| {
-            let node = event.node_name.as_deref().unwrap_or("Workspace");
-            let event_source = aws_event_source(event.kind.label());
-            let identity = if event.message.contains("Hermes") || event.message.contains("probe") {
-                "arn:neo:agent::hermes-ai"
-            } else {
-                "arn:neo:iam::nexus:operator"
-            };
+            // `node_name` is `None` for workspace-wide events — a settings
+            // change, a backup — which is a real distinction and not a gap.
+            let scope = event.node_name.as_deref().unwrap_or("workspace");
             html::row(&[
                 html::raw_cell(&time::time_cell(Some(event.occurred_at_unix))),
                 html::raw_cell(&severity_badge(event.severity)),
-                html::raw_cell(&format!(
-                    r#"<span class="badge">{}</span>"#,
-                    html::escape(event_source)
-                )),
                 html::cell(event.kind.label()),
-                html::cell(node),
-                html::raw_cell(&format!(
-                    r#"<span class="mono muted" style="font-size: 11px;">{}</span>"#,
-                    html::escape(identity)
-                )),
+                html::cell(scope),
                 html::cell(&event.message),
             ])
         })
         .collect::<Vec<_>>();
-    html::table(
-        &[
-            "Event Time",
-            "Severity",
-            "Event Source",
-            "Event Name",
-            "Resource Scope",
-            "User Identity",
-            "Details / Request",
-        ],
-        &rows,
-    )
-}
-
-fn aws_event_source(kind: &str) -> &'static str {
-    if kind.starts_with("node-") {
-        "neo.ec2"
-    } else if kind.starts_with("signer-") || kind.contains("key") {
-        "neo.kms"
-    } else if kind.starts_with("snapshot-") {
-        "neo.ebs"
-    } else if kind.starts_with("plugin-") {
-        "neo.ssm"
-    } else if kind.starts_with("alert-") {
-        "neo.cloudwatch"
-    } else {
-        "neo.controlplane"
-    }
+    html::table(&["When", "Severity", "What", "Scope", "Detail"], &rows)
 }
 
 fn severity_badge(severity: EventSeverity) -> String {
@@ -209,3 +321,55 @@ fn parse_limit(raw: &str) -> usize {
 #[cfg(test)]
 #[path = "../../../tests/unit/web/events/tests.rs"]
 mod tests;
+
+/// Download exactly the entries the current filter selects.
+///
+/// `EventJournalReporter` has always been able to produce this — it accepts the
+/// very `RuntimeEventFilter` the page just applied — and was reachable only
+/// from `--export-event-journal`. The operator filing a ticket is the one least
+/// likely to have a shell on the host.
+///
+/// Messages are redacted on the way out by the reporter, the same way `/logs`
+/// redacts what it shows.
+pub async fn export_events(
+    State(state): State<WebState>,
+    axum::Form(params): axum::Form<EventsQuery>,
+) -> Response {
+    use axum::http::{header, HeaderValue, StatusCode};
+
+    let report = (|| -> anyhow::Result<String> {
+        let filter = crate::event_journal_report::export_scope(&params.to_filter()?);
+        let matched = state.workspace.count_events(&filter)?;
+        let events = state.workspace.list_events(filter.clone())?;
+        crate::event_journal_report::EventJournalReport::from_events(
+            state.workspace_child_dir(""),
+            events,
+            matched,
+            &filter,
+            env!("CARGO_PKG_VERSION"),
+            time::now_unix(),
+        )
+        .to_json_text()
+    })();
+
+    match report {
+        Ok(json) => {
+            let mut response = json.into_response();
+            let headers = response.headers_mut();
+            headers.insert(
+                header::CONTENT_TYPE,
+                HeaderValue::from_static("application/json"),
+            );
+            headers.insert(
+                header::CONTENT_DISPOSITION,
+                HeaderValue::from_static("attachment; filename=\"neonexus-journal.json\""),
+            );
+            response
+        }
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("failed to export the journal: {error:#}"),
+        )
+            .into_response(),
+    }
+}

@@ -8,7 +8,9 @@ mod maintenance;
 mod node;
 mod settings;
 
-pub use maintenance::{apply_snapshot, clear_logs, handle_backup_export};
+pub use maintenance::{
+    apply_snapshot, clear_logs, handle_backup_export, handle_backup_import, BackupImportForm,
+};
 pub use node::{batch_node_action, node_restart, node_start, node_stop, smoke_test_node};
 pub use settings::{
     save_alert_routing, save_density, save_federation_monitor, save_rpc_health_monitor,

@@ -11,7 +11,7 @@ use axum::{
 
 use crate::{
     catalog::PluginState,
-    config::WorkspaceConfigExporter,
+    config::{ConfigDriftDetector, ConfigDriftReport, ConfigDriftStatus, WorkspaceConfigExporter},
     core::operations::{EventKind, EventSeverity, NewRuntimeEvent},
     core::workspace::ConfigExporter,
     types::{node_workspace_path, NodeConfig},
@@ -38,6 +38,12 @@ struct ConfigRow {
     node: NodeConfig,
     plugins: Vec<PluginState>,
     managed_path: PathBuf,
+    /// What the real comparator found, not whether a file happens to exist.
+    ///
+    /// `Err` when the check itself could not run — a node whose config cannot
+    /// be rendered, most often because its runtime is unbound. That is its own
+    /// answer and must not be shown as "in sync".
+    drift: Result<ConfigDriftReport, String>,
 }
 
 fn collect_rows(state: &WebState, nodes: &[NodeConfig]) -> anyhow::Result<Vec<ConfigRow>> {
@@ -45,16 +51,55 @@ fn collect_rows(state: &WebState, nodes: &[NodeConfig]) -> anyhow::Result<Vec<Co
         .iter()
         .map(|node| {
             let plugins = state.workspace.list_plugin_states(&node.id)?;
+            let managed_path =
+                ConfigExporter::managed_target_path(node_work_dir(state, node)?, node);
+            // The page promised "configuration drift verification" and delivered
+            // `Path::is_file()`. The real comparator hashes the rendered config
+            // against the file and re-validates the file semantically; it was
+            // reachable only from `--check-config-drift`. It runs here now, so a
+            // node edited by hand since its last launch says so.
+            let drift = ConfigDriftDetector::check(node, &managed_path)
+                .map_err(|error| format!("{error:#}"));
             Ok(ConfigRow {
                 node: node.clone(),
                 plugins,
-                managed_path: ConfigExporter::managed_target_path(
-                    node_work_dir(state, node)?,
-                    node,
-                ),
+                managed_path,
+                drift,
             })
         })
         .collect()
+}
+
+/// What the comparator found, with the first difference an operator would act
+/// on.
+///
+/// Every outcome is its own badge. In particular a check that could not run is
+/// neither drift nor agreement — treating it as either is how a page ends an
+/// investigation early.
+fn drift_badge(row: &ConfigRow) -> String {
+    match &row.drift {
+        Ok(report) => match report.status {
+            ConfigDriftStatus::InSync => {
+                r#"<span class="badge running">Matches</span>"#.to_string()
+            }
+            ConfigDriftStatus::Drifted => format!(
+                r#"<span class="badge error">Drifted</span><div class="muted" style="font-size: 11px;">{}</div>"#,
+                html::escape(
+                    &report
+                        .differences
+                        .first()
+                        .map_or_else(|| "differs from what we would generate".to_string(), |difference| difference.detail.clone())
+                )
+            ),
+            ConfigDriftStatus::Missing => {
+                r#"<span class="badge stopped">Not written yet</span><div class="muted" style="font-size: 11px;">it will be written on the next start</div>"#.to_string()
+            }
+        },
+        Err(error) => format!(
+            r#"<span class="badge">Cannot check</span><div class="muted" style="font-size: 11px;">{}</div>"#,
+            html::escape(error)
+        ),
+    }
 }
 
 /// The directory a node owns inside the workspace — the same layout the
@@ -87,14 +132,30 @@ fn render_body(state: &WebState, nodes: &[NodeConfig]) -> String {
         Ok(rows) => rows,
         Err(error) => return html::note(&format!("failed to load plugin state: {error}")),
     };
-    let written = rows.iter().filter(|row| row.managed_path.is_file()).count();
+    let in_sync = rows
+        .iter()
+        .filter(|row| {
+            row.drift
+                .as_ref()
+                .is_ok_and(|report| report.status.is_in_sync())
+        })
+        .count();
+    let drifted = rows
+        .iter()
+        .filter(|row| {
+            row.drift
+                .as_ref()
+                .is_ok_and(|report| report.status == ConfigDriftStatus::Drifted)
+        })
+        .count();
+    let unknown = rows.len() - in_sync - drifted;
     format!(
         r#"{breadcrumb}
 {head}
 {tiles}
 <div class="section-head" style="margin-top: 20px;">
-    <h2>Systems Manager Parameter Store Inventory</h2>
-    <span class="muted" style="font-size: 12px;">Standard tier · SecureString encrypted via AWS KMS default key</span>
+    <h2>Managed configuration</h2>
+    <span class="muted" style="font-size: 12px;">Each file is hashed against what this workspace would generate now.</span>
 </div>
 {table}
 <div class="panel" style="margin-top: 24px; padding: 18px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;">
@@ -106,11 +167,16 @@ fn render_body(state: &WebState, nodes: &[NodeConfig]) -> String {
 </div>"#,
         breadcrumb = breadcrumb,
         head = head,
+        // "KMS Encryption: AWS-KMS (active)" asserted encryption that does not
+        // exist: there is no AWS SDK in this project and no encryption anywhere
+        // under src/config/. The files *are* written 0600, which is a real and
+        // different guarantee — and one worth stating, because the generated
+        // configs embed plaintext wallet unlock passwords.
         tiles = html::cards(&[
-            ("Managed Instances", rows.len().to_string()),
-            ("Config Manifests Synced", written.to_string()),
-            ("KMS Encryption", "AWS-KMS (active)".to_string()),
-            ("Drift Status", if written == rows.len() { "0 Drifted".to_string() } else { format!("{} Pending", rows.len().saturating_sub(written)) }),
+            ("Nodes", rows.len().to_string()),
+            ("Match what we would generate", in_sync.to_string()),
+            ("Drifted", drifted.to_string()),
+            ("Not checked", unknown.to_string()),
         ]),
         table = html::table(
             &[
@@ -139,17 +205,7 @@ fn config_row(row: &ConfigRow) -> String {
         .map(|plugin| format!(r#"<span class="badge">{}</span>"#, plugin.plugin_id))
         .collect::<Vec<_>>()
         .join(" ");
-    // `is_file()` answers "has a config been written", not "does it match what
-    // this workspace would generate". This badge used to read "● In Sync" from
-    // that check, under a page header promising drift verification — so a node
-    // whose config had been edited by hand since its last launch read as in
-    // sync. The real comparator is `ConfigDriftDetector::check`, which hashes
-    // and compares semantically; until it runs here, say only what was checked.
-    let sync_badge = if row.managed_path.is_file() {
-        r#"<span class="badge">Written</span>"#
-    } else {
-        r#"<span class="badge stopped">Not written yet</span>"#
-    };
+    let sync_badge = drift_badge(row);
     let param_key = format!(
         r#"<div><span class="mono" style="font-weight: 600; color: var(--jade);">/neo/fleet/{name}/config.json</span></div><div class="muted mono" style="font-size: 11px;">{path}</div>"#,
         name = html::escape(&row.node.name),
@@ -178,7 +234,7 @@ fn config_row(row: &ConfigRow) -> String {
         } else {
             &enabled
         }),
-        html::raw_cell(sync_badge),
+        html::raw_cell(&sync_badge),
     ])
 }
 

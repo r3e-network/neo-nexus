@@ -40,7 +40,7 @@ impl Repository {
              FROM runtime_events
              WHERE {EVENT_FILTER_WHERE_SQL}
              ORDER BY occurred_at_unix DESC, id DESC
-             LIMIT ?4"
+             LIMIT ?6"
         );
         let mut statement = connection.prepare(&sql)?;
         let rows = statement.query_map(
@@ -48,6 +48,8 @@ impl Repository {
                 binding.severity,
                 binding.query,
                 binding.pattern,
+                binding.kind,
+                binding.node_id,
                 binding.limit,
             ],
             event_from_row,
@@ -67,9 +69,19 @@ impl Repository {
         );
         let count = connection.query_row(
             &sql,
-            params![binding.severity, binding.query, binding.pattern],
+            params![
+                binding.severity,
+                binding.query,
+                binding.pattern,
+                binding.kind,
+                binding.node_id
+            ],
             |row| row.get::<_, usize>(0),
         )?;
         Ok(count)
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/repository/events_filter/tests.rs"]
+mod tests;

@@ -100,6 +100,5 @@ fn workspace_metrics_snapshot(db_path: PathBuf) -> Result<MetricsSnapshot> {
     let nodes = repository
         .list_nodes()
         .with_context(|| format!("failed to load nodes from {}", db_path.display()))?;
-    let mut collector = MetricsCollector::new(Duration::ZERO);
-    Ok(collector.refresh(&nodes, Instant::now()))
+    Ok(MetricsCollector::sample_settled(&nodes))
 }

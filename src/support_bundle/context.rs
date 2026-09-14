@@ -1,8 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    path::Path,
-    time::{Duration, Instant},
-};
+use std::{collections::BTreeMap, path::Path};
 
 use anyhow::{Context, Result};
 
@@ -76,8 +72,7 @@ impl SupportBundleContext {
         );
         let log_dir = default_log_dir(database);
         let log_diagnosis_report = log_diagnosis_report(&nodes, &log_dir)?;
-        let mut metrics_collector = MetricsCollector::new(Duration::ZERO);
-        let metrics_snapshot = metrics_collector.refresh(&nodes, Instant::now());
+        let metrics_snapshot = MetricsCollector::sample_settled(&nodes);
         let running_nodes = nodes
             .iter()
             .filter(|node| node.status == NodeStatus::Running)

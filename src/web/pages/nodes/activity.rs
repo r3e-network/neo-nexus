@@ -43,22 +43,26 @@ pub fn instance_activity_card(state: &WebState, node: &NodeConfig) -> String {
         html::table(&["Time", "Severity", "Action", "Audit Details"], &rows)
     };
 
-    let encoded_name = html::urlencoding_lite(&node.name);
+    // Was `/events?q={name}` against a field named `query`, so the link
+    // silently widened to the whole workspace journal. The journal takes a real
+    // node scope now.
+    let encoded_id = html::urlencoding_lite(&node.id);
     format!(
         r#"<div class="panel" style="margin-top: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 18px;">📜</span>
-                    <h3 style="margin: 0;">Instance Activity & Audit Trail</h3>
+                    <h3 style="margin: 0;">Recent activity</h3>
                 </div>
-                <a href="/events?q={encoded_name}" class="btn small">View Full Audit Journal →</a>
+                <a href="/events?node={encoded_id}" class="btn small">Everything recorded for this node →</a>
             </div>
             <p class="muted" style="font-size: 13px; margin-bottom: 12px;">
-                Cryptographically tracked lifecycle operations, Hermes copilot interventions, and supervisor state transitions for this virtual instance.
+                What this workspace recorded itself doing to this node. Nothing here is
+                cryptographically tracked; it is a log this process writes.
             </p>
             {content}
         </div>"#,
-        encoded_name = encoded_name,
+        encoded_id = encoded_id,
         content = content,
     )
 }

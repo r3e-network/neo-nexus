@@ -40,6 +40,18 @@ impl WorkspaceCommands {
         self.repository.upsert_runtime_catalog_profile(profile)
     }
 
+    /// Apply a workspace archive from a path on this host.
+    ///
+    /// Behind the facade like every other mutation, so the console and the CLI
+    /// restore a workspace through the same code rather than each having its
+    /// own idea of what a restore does.
+    pub fn import_backup(
+        &self,
+        archive_path: impl AsRef<std::path::Path>,
+    ) -> Result<crate::backup::WorkspaceBackupImport> {
+        crate::backup::WorkspaceBackupImporter::import_path(&self.repository, archive_path)
+    }
+
     pub fn record_event(&self, event: NewRuntimeEvent) -> Result<crate::events::RuntimeEvent> {
         self.repository.record_event(event)
     }

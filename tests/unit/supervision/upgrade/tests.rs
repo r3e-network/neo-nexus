@@ -47,6 +47,7 @@ fn test_probe_runtime_upgrade_disabled_by_default() {
         data_dir: directory.path().to_path_buf(),
         supervisor: Arc::new(Mutex::new(ProcessSupervisor::default())),
         signer_registry: SignerRegistry::empty(),
+        metrics: Arc::new(crate::metrics::MetricsStore::default()),
     };
 
     let mut loop_state = LoopState {
@@ -135,6 +136,7 @@ fn test_probe_runtime_upgrade_respects_interval() {
         data_dir: directory.path().to_path_buf(),
         supervisor: Arc::new(Mutex::new(ProcessSupervisor::default())),
         signer_registry: SignerRegistry::empty(),
+        metrics: Arc::new(crate::metrics::MetricsStore::default()),
     };
 
     let mut loop_state = LoopState {
@@ -240,6 +242,7 @@ fn test_probe_runtime_upgrade_respects_maintenance_window() {
         data_dir: directory.path().to_path_buf(),
         supervisor: Arc::new(Mutex::new(ProcessSupervisor::default())),
         signer_registry: SignerRegistry::empty(),
+        metrics: Arc::new(crate::metrics::MetricsStore::default()),
     };
 
     let mut loop_state = LoopState {
@@ -291,6 +294,7 @@ fn test_probe_runtime_upgrade_returns_early_without_catalog_config() {
         data_dir: directory.path().to_path_buf(),
         supervisor: Arc::new(Mutex::new(ProcessSupervisor::default())),
         signer_registry: SignerRegistry::empty(),
+        metrics: Arc::new(crate::metrics::MetricsStore::default()),
     };
 
     let mut loop_state = LoopState {

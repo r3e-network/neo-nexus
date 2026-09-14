@@ -12,6 +12,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 use crate::{
+    metrics::MetricsStore,
     repository::Repository,
     signer_client::{
         CallerToken, SignerClient, SignerConfig, CALLER_ID_ENV, TOKEN_FILE_ENV, URL_ENV,
@@ -43,6 +44,12 @@ pub struct WebState {
     pub auth: AuthStore,
     web_security: WebSecurity,
     processes: Arc<Mutex<ProcessSupervisor>>,
+    /// One host-metrics collector for the life of the server, shared with the
+    /// supervision engine. A per-request collector samples twice inside
+    /// `sysinfo`'s minimum CPU interval and therefore reports the constructor's
+    /// first reading forever — which is why every CPU figure in this product
+    /// used to be inert.
+    metrics: Arc<MetricsStore>,
     /// Long work that outlives the request which started it.
     pub jobs: Jobs,
     /// Concurrent named signing backends with explicit console, relay, and
@@ -95,6 +102,7 @@ impl WebState {
             auth,
             web_security,
             processes,
+            metrics: Arc::new(MetricsStore::default()),
             jobs: Jobs::default(),
             custody: Custody::from_env()?,
             signer_relay: Arc::new(Semaphore::new(SIGNER_RELAY_CONCURRENCY)),
@@ -141,6 +149,12 @@ impl WebState {
         self.data_dir.join(child)
     }
 
+    /// The shared host-metrics store, for handing to the supervision engine and
+    /// for reading on a page render.
+    pub fn metrics(&self) -> &Arc<MetricsStore> {
+        &self.metrics
+    }
+
     /// The shared supervisor handle, for handing to the supervision engine.
     ///
     /// One supervisor for the life of the server, shared as an `Arc` so every
@@ -161,6 +175,7 @@ impl WebState {
             data_dir: self.data_dir.clone(),
             supervisor: self.shared_supervisor(),
             signer_registry: self.custody.registry().clone(),
+            metrics: Arc::clone(&self.metrics),
         }
     }
 

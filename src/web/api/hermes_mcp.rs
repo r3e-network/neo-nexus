@@ -270,8 +270,12 @@ pub async fn mcp_endpoint(
                         "name": node.name,
                         "client": node.node_type.to_string(),
                         "network": node.network.to_string(),
-                        "role": role.map(|r| r.slug().to_string()).unwrap_or_else(|| "observer".to_string()),
-                        "role_label": role.map(|r| r.label().to_string()).unwrap_or_else(|| "Node".to_string()),
+                        // Null, not "observer". A consumer with restart
+                        // authority must be able to tell "this node has no duty"
+                        // from "this node is an Observer" — the second is a real
+                        // duty that enables real plugins.
+                        "role": role.map(|role| role.slug().to_string()),
+                        "role_label": role.map(|role| role.label().to_string()),
                         "runtime_version": node.runtime_version,
                         "storage_engine": node.storage_engine.to_string(),
                         "ports": {

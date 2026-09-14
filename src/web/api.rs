@@ -21,10 +21,8 @@ pub use iac::{fleet_iac, node_iac};
 
 /// Collect Prometheus-formatted metrics from all nodes.
 /// Shared by both authenticated (/api/metrics-prometheus) and public (/public-metrics) routes.
-pub fn collect_metrics_snapshot(
-    workspace: &crate::core::workspace_queries::WorkspaceQueries,
-) -> anyhow::Result<String> {
-    let snapshot = crate::web::pages::metrics_page::collect_snapshot(workspace)?;
+pub fn collect_metrics_snapshot(state: &crate::web::WebState) -> anyhow::Result<String> {
+    let snapshot = crate::web::pages::metrics_page::collect_snapshot(state)?;
     Ok(snapshot.to_prometheus_text())
 }
 
@@ -70,7 +68,12 @@ pub async fn fleet(State(state): State<WebState>) -> Response {
                         .load_node_role(&row.node.id)
                         .ok()
                         .flatten()
-                        .map_or_else(|| "standard".to_string(), |r| r.slug().to_string());
+                        // `None` is not a duty. It was reported as "standard"
+                        // here, "observer" in five IaC generators, "Node" over
+                        // MCP and "Observer" on the detail page — four
+                        // different inventions of the same absence, one of them
+                        // naming a real duty with real plugin effects.
+                        .map_or_else(String::new, |role| role.slug().to_string());
                     let flavor = match role.as_str() {
                         "rpc-api" => "8 vCPU · 32 GB RAM · 1 Gbps",
                         "relay" => "2 vCPU · 4 GB RAM · Low Latency",
@@ -140,7 +143,7 @@ pub async fn readiness(State(state): State<WebState>) -> Response {
 }
 
 pub async fn metrics_prometheus(State(state): State<WebState>) -> Response {
-    match collect_metrics_snapshot(&state.workspace) {
+    match collect_metrics_snapshot(&state) {
         Ok(snapshot) => (
             [(
                 axum::http::header::CONTENT_TYPE,

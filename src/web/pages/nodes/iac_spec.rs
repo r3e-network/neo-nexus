@@ -41,7 +41,9 @@ pub fn generate_cli_spec(
 ) -> String {
     let role_slug = role
         .map(|r| r.slug().to_string())
-        .unwrap_or_else(|| "observer".to_string());
+        // "none", not "observer": a generated manifest that names a real duty
+        // the node was never assigned would provision the wrong thing.
+        .unwrap_or_else(|| "none".to_string());
     let mut cmd = format!(
         "neo-nexus node add --name {} --type {} --network {} --p2p-port {} --rpc-port {} --storage {} --role {}",
         node.name,
@@ -75,10 +77,14 @@ pub fn generate_json_spec(
 ) -> String {
     let role_slug = role
         .map(|r| r.slug().to_string())
-        .unwrap_or_else(|| "observer".to_string());
+        // "none", not "observer": a generated manifest that names a real duty
+        // the node was never assigned would provision the wrong thing.
+        .unwrap_or_else(|| "none".to_string());
     let role_label = role
-        .map(|r| r.label().to_string())
-        .unwrap_or_else(|| "Node".to_string());
+        .map(|role| role.label().to_string())
+        // Not "Node": a manifest that labels an unassigned node with a duty
+        // name reads as an assignment nobody made.
+        .unwrap_or_else(|| "No duty assigned".to_string());
 
     let signer_val = signer.map(|k| {
         serde_json::json!({
@@ -153,7 +159,9 @@ pub fn generate_docker_spec(node: &NodeConfig) -> String {
 pub fn generate_k8s_spec(node: &NodeConfig, role: Option<NodeRole>) -> String {
     let role_slug = role
         .map(|r| r.slug().to_string())
-        .unwrap_or_else(|| "observer".to_string());
+        // "none", not "observer": a generated manifest that names a real duty
+        // the node was never assigned would provision the wrong thing.
+        .unwrap_or_else(|| "none".to_string());
     let client = node.node_type.to_string();
     let version = if node.runtime_version.is_empty() {
         "latest"
@@ -209,7 +217,9 @@ spec:
 pub fn generate_cloudformation_spec(node: &NodeConfig, role: Option<NodeRole>) -> String {
     let role_slug = role
         .map(|r| r.slug().to_string())
-        .unwrap_or_else(|| "observer".to_string());
+        // "none", not "observer": a generated manifest that names a real duty
+        // the node was never assigned would provision the wrong thing.
+        .unwrap_or_else(|| "none".to_string());
     let client = node.node_type.to_string();
     let version = if node.runtime_version.is_empty() {
         "latest"
@@ -283,7 +293,9 @@ Outputs:
 pub fn generate_terraform_spec(node: &NodeConfig, role: Option<NodeRole>) -> String {
     let role_slug = role
         .map(|r| r.slug().to_string())
-        .unwrap_or_else(|| "observer".to_string());
+        // "none", not "observer": a generated manifest that names a real duty
+        // the node was never assigned would provision the wrong thing.
+        .unwrap_or_else(|| "none".to_string());
     let client = node.node_type.to_string();
     let version = if node.runtime_version.is_empty() {
         "latest"

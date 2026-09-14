@@ -99,12 +99,12 @@ pub const PRESETS: &[PresetCard] = &[
 ];
 
 pub fn role_presets_picker(draft: &NodeDraft) -> String {
+    // Deliberately no substitution. This read the empty string as `rpc-api`, so
+    // reopening the editor on a node with no duty showed the RPC card selected
+    // — and saving the form then assigned that duty to a node the operator had
+    // never given one. An empty draft shows nothing selected, which is what it
+    // means.
     let current_role = draft.role.trim();
-    let current_role = if current_role.is_empty() {
-        "rpc-api"
-    } else {
-        current_role
-    };
 
     let cards = PRESETS
         .iter()

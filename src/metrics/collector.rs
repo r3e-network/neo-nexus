@@ -4,6 +4,12 @@ use sysinfo::{Pid, System};
 
 use crate::types::{NodeConfig, NodeStatus};
 
+/// How long a one-shot caller waits between its two readings.
+///
+/// Comfortably above `sysinfo`'s 200 ms `MINIMUM_CPU_UPDATE_INTERVAL`, below
+/// which a refresh is discarded and the CPU delta is never recomputed.
+const CPU_SETTLE: Duration = Duration::from_millis(250);
+
 use super::{
     formatter::{clean_usage_percent, percent},
     types::{MetricsSnapshot, MissingProcessMetric, NodeProcessMetrics, SystemMetrics},
@@ -16,9 +22,14 @@ pub struct MetricsCollector {
 }
 
 impl MetricsCollector {
+    /// `System::new_all` already takes a full reading, so this deliberately
+    /// does **not** refresh again. `sysinfo` refuses to recompute CPU inside its
+    /// 200 ms minimum interval, so a second refresh here would be discarded and
+    /// the first `refresh` call would return the constructor's sample — which is
+    /// the since-boot average on Linux and effectively zero on macOS, and is
+    /// exactly why every CPU figure in this product used to be inert.
     pub fn new(refresh_interval: Duration) -> Self {
-        let mut system = System::new_all();
-        system.refresh_all();
+        let system = System::new_all();
         Self {
             system,
             refresh_interval,
@@ -30,6 +41,21 @@ impl MetricsCollector {
         self.system.refresh_all();
         self.last_refresh = Some(now);
         snapshot_from_system(&self.system, nodes, unix_now())
+    }
+
+    /// Two readings, a real interval apart, for a caller with nowhere to keep a
+    /// collector.
+    ///
+    /// `sysinfo` computes CPU as a delta between refreshes and discards any
+    /// refresh inside its 200 ms minimum, so a single reading is not a CPU
+    /// measurement at all — it is the since-boot average on Linux and zero on
+    /// macOS. A one-shot CLI command or a support bundle pays a quarter of a
+    /// second here and gets a figure that means something; a long-running
+    /// server uses `MetricsStore` instead and pays nothing.
+    pub fn sample_settled(nodes: &[NodeConfig]) -> MetricsSnapshot {
+        let mut collector = Self::new(Duration::ZERO);
+        std::thread::sleep(CPU_SETTLE);
+        collector.refresh(nodes, Instant::now())
     }
 
     pub fn refresh_if_due(

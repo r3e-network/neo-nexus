@@ -71,6 +71,11 @@ impl EventJournalReport {
 pub struct EventJournalReportFilter {
     pub severity: Option<String>,
     pub query: String,
+    /// The kind and node the export was scoped to, when it was scoped at all.
+    /// An export that does not record its own scope cannot be read later
+    /// without guessing what it left out.
+    pub kind: Option<String>,
+    pub node_id: Option<String>,
 }
 
 impl EventJournalReportFilter {
@@ -78,6 +83,8 @@ impl EventJournalReportFilter {
         Self {
             severity: filter.severity.map(|severity| severity.to_string()),
             query: filter.query.trim().to_string(),
+            kind: filter.kind.map(|kind| kind.label().to_string()),
+            node_id: filter.node_id.clone(),
         }
     }
 }

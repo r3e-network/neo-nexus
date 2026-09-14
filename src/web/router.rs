@@ -119,6 +119,7 @@ pub fn build_router(state: WebState) -> Router {
         .route("/logs", get(pages::logs::logs).post(control::clear_logs))
         .route("/operations", get(pages::operations::operations))
         .route("/events", get(pages::events::events))
+        .route("/events/export", post(pages::events::export_events))
         .route("/alerts", get(pages::alerts::alerts))
         .route("/alerts/routing", post(control::save_alert_routing))
         .route("/federation", get(pages::federation::federation))
@@ -170,6 +171,7 @@ pub fn build_router(state: WebState) -> Router {
             "/backup",
             get(pages::backup::backup_page).post(control::handle_backup_export),
         )
+        .route("/backup/import", post(control::handle_backup_import))
         .route("/signer", get(pages::signer::signer))
         .route("/signer/keys/generate", post(signer_control::generate))
         .route("/signer/keys/{id}", get(pages::signer::key_detail))

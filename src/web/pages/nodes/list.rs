@@ -303,7 +303,10 @@ fn manager_table(state: &WebState, fleet: &Fleet, visible: &[NodeConfig]) -> Str
                 Some(crate::roles::NodeRole::Oracle) => "<span class=\"badge\">🔮 Oracle</span>".to_string(),
                 Some(crate::roles::NodeRole::Observer) => "<span class=\"badge\">👁️ Observer</span>".to_string(),
                 Some(other) => format!("<span class=\"badge\">{}</span>", html::escape(other.label())),
-                None => "<span class=\"badge\">Node</span>".to_string(),
+                // Not "Node", which reads as a duty. A node with no duty
+                // assigned is a fact, and the fleet list is where an operator
+                // notices it.
+                None => "<span class=\"muted\" style=\"font-size: 12px;\">no duty</span>".to_string(),
             };
 
             let signer_badge = match signer {

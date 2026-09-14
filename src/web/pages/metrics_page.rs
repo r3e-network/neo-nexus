@@ -1,19 +1,23 @@
 //! Metrics: the workspace metrics snapshot as text, plus the Prometheus
 //! exposition the release pipeline already consumes.
-
-use std::time::{Duration, Instant};
+//!
+//! Every reading comes from the server's one long-lived [`MetricsStore`]. This
+//! page used to build its own `MetricsCollector::new(Duration::ZERO)` and
+//! refresh it immediately, which is two `sysinfo` samples inside the 200 ms
+//! minimum CPU interval — so its CPU figure was the constructor's first
+//! reading, every time, on every surface that did the same.
 
 use axum::{
     extract::State,
     response::{Html, IntoResponse, Response},
 };
 
-use crate::metrics::{MetricsCollector, MetricsSnapshot};
+use crate::metrics::MetricsSnapshot;
 
 use super::super::{html, WebState};
 
 pub async fn metrics(State(state): State<WebState>) -> Response {
-    match render(&state.workspace) {
+    match render(&state) {
         Ok(body) => Html(html::layout("Metrics", "metrics", "", &body)).into_response(),
         Err(error) => Html(html::layout(
             "Metrics",
@@ -25,10 +29,8 @@ pub async fn metrics(State(state): State<WebState>) -> Response {
     }
 }
 
-fn render(workspace: &crate::core::workspace_queries::WorkspaceQueries) -> anyhow::Result<String> {
-    let nodes = workspace.list_nodes()?;
-    let mut collector = MetricsCollector::new(Duration::ZERO);
-    let snapshot = collector.refresh(&nodes, Instant::now());
+fn render(state: &WebState) -> anyhow::Result<String> {
+    let snapshot = collect_snapshot(state)?;
     Ok(format!(
         r#"<h1>Metrics</h1>
 <h2>Snapshot</h2>
@@ -41,11 +43,8 @@ fn render(workspace: &crate::core::workspace_queries::WorkspaceQueries) -> anyho
     ))
 }
 
-/// Snapshot builder shared with the JSON API.
-pub fn collect_snapshot(
-    workspace: &crate::core::workspace_queries::WorkspaceQueries,
-) -> anyhow::Result<MetricsSnapshot> {
-    let nodes = workspace.list_nodes()?;
-    let mut collector = MetricsCollector::new(Duration::ZERO);
-    Ok(collector.refresh(&nodes, Instant::now()))
+/// The server's current reading, shared with the JSON API and every page.
+pub fn collect_snapshot(state: &WebState) -> anyhow::Result<MetricsSnapshot> {
+    let nodes = state.workspace.list_nodes()?;
+    Ok(state.metrics().snapshot(&nodes))
 }

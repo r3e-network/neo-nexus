@@ -58,6 +58,7 @@ fn log_collection_state(directory: &std::path::Path) -> (EngineState, NodeConfig
             data_dir: directory.to_path_buf(),
             supervisor: Arc::new(Mutex::new(ProcessSupervisor::default())),
             signer_registry: SignerRegistry::empty(),
+            metrics: Arc::new(crate::metrics::MetricsStore::default()),
         },
         node,
     )
@@ -253,6 +254,7 @@ fn failed_watchdog_attempt_schedules_the_next_attempt() {
         data_dir: directory.path().to_path_buf(),
         supervisor: Arc::new(Mutex::new(ProcessSupervisor::default())),
         signer_registry: SignerRegistry::empty(),
+        metrics: Arc::new(crate::metrics::MetricsStore::default()),
     };
 
     loop_state.schedule_restart(&state, &node, "attempt one failed");
@@ -303,6 +305,7 @@ fn launch_refuses_ports_owned_by_another_active_node() {
         data_dir: directory.path().to_path_buf(),
         supervisor: Arc::new(Mutex::new(ProcessSupervisor::default())),
         signer_registry: SignerRegistry::empty(),
+        metrics: Arc::new(crate::metrics::MetricsStore::default()),
     };
 
     let error = launch_node(&state, &target, LaunchAction::Start)
