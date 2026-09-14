@@ -8,6 +8,12 @@ mod maintenance;
 mod node;
 mod settings;
 
+mod artifacts;
+
+pub use artifacts::{
+    check_workspace_integrity, export_readiness_report, export_support_bundle,
+    reconcile_node_config,
+};
 pub use maintenance::{
     apply_snapshot, clear_logs, handle_backup_export, handle_backup_import, BackupImportForm,
 };

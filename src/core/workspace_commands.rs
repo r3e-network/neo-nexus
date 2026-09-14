@@ -40,6 +40,95 @@ impl WorkspaceCommands {
         self.repository.upsert_runtime_catalog_profile(profile)
     }
 
+    /// Register a federation peer.
+    ///
+    /// `create_remote_server`, `update_remote_server` and `delete_remote_server`
+    /// were called only from tests; the sole production insert was backup
+    /// import. The page told the operator to "add one through the Rust API",
+    /// while every neighbouring entity had an in-page create form.
+    pub fn create_remote_server(
+        &self,
+        input: crate::federation::NewRemoteServerProfile,
+    ) -> Result<crate::federation::RemoteServerProfile> {
+        self.repository.create_remote_server(input)
+    }
+
+    pub fn update_remote_server(
+        &self,
+        id: &str,
+        input: crate::federation::NewRemoteServerProfile,
+    ) -> Result<crate::federation::RemoteServerProfile> {
+        self.repository.update_remote_server(id, input)
+    }
+
+    /// Forget a federation peer, and its probe history with it.
+    pub fn delete_remote_server(&self, id: &str) -> Result<()> {
+        self.repository.delete_remote_server(id)
+    }
+
+    /// Write a support bundle: readiness, integrity, metrics and a redacted log
+    /// diagnosis, checksummed.
+    ///
+    /// The exporter was complete and reachable only from `cli/actions/reports`.
+    /// The operator filing a ticket is the one least likely to have a shell on
+    /// the host, so a bundle they cannot produce is a second escalation rather
+    /// than a diagnosis.
+    pub fn export_support_bundle(
+        &self,
+        output_dir: impl AsRef<std::path::Path>,
+        application_version: &str,
+    ) -> Result<crate::support_bundle::WorkspaceSupportBundleExport> {
+        crate::support_bundle::WorkspaceSupportBundleExporter::write(
+            &self.repository,
+            self.repository.db_path(),
+            output_dir,
+            application_version,
+        )
+    }
+
+    /// Write the fleet readiness report.
+    pub fn export_readiness_report(
+        &self,
+        output_dir: impl AsRef<std::path::Path>,
+        diagnostics: &crate::diagnostics::FleetDiagnostics,
+        application_version: &str,
+    ) -> Result<crate::readiness_report::WorkspaceReadinessReportExport> {
+        crate::readiness_report::WorkspaceReadinessReporter::write(
+            output_dir,
+            self.repository.db_path(),
+            diagnostics,
+            application_version,
+        )
+    }
+
+    /// Check the workspace database against the schema this build expects.
+    ///
+    /// Computed for every support bundle and never shown live, so the one
+    /// moment an operator wants it — "is my workspace itself damaged" — was the
+    /// one moment they could not ask.
+    pub fn check_workspace_integrity(
+        &self,
+        application_version: &str,
+    ) -> Result<crate::workspace_integrity::WorkspaceIntegrityReport> {
+        crate::workspace_integrity::WorkspaceIntegrityChecker::check(
+            self.repository.db_path(),
+            application_version,
+        )
+    }
+
+    /// Rewrite a node's managed config from what this workspace would generate,
+    /// keeping a timestamped copy of whatever was there.
+    ///
+    /// The counterpart to the drift check: seeing that a file has drifted and
+    /// having no way to put it back is half a feature.
+    pub fn reconcile_node_config(
+        &self,
+        node: &NodeConfig,
+        config_path: &std::path::Path,
+    ) -> Result<crate::config::ConfigReconciliationReport> {
+        crate::config::ConfigReconciler::reconcile(node, config_path, true)
+    }
+
     /// Apply a workspace archive from a path on this host.
     ///
     /// Behind the facade like every other mutation, so the console and the CLI

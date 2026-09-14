@@ -122,3 +122,119 @@ fn every_literal_form_action_reaches_a_registered_route() {
         unreachable.join("\n")
     );
 }
+
+/// Every page the router serves must be reachable without typing a URL.
+///
+/// The workspace-backup page had no nav entry and no inbound link from any
+/// other page — its own handler passed the nav key `"backup"`, which matched
+/// nothing — so the only way to reach it was to know the path. A registered
+/// route nobody can navigate to is a feature that does not exist for anyone who
+/// did not read the source.
+///
+/// One exception, and it is a real one: `/login` is reached by redirect from the
+/// auth layer when a session is missing, never by a link — a console that linked
+/// to its own login page from inside the session would be odd.
+const REACHED_BY_REDIRECT: [&str; 1] = ["/login"];
+
+#[test]
+fn every_page_route_is_reachable_from_the_nav_or_from_another_page() {
+    let linked = linked_destinations();
+    let unreachable: Vec<String> = page_routes()
+        .into_iter()
+        .filter(|route| !linked.contains(route))
+        .filter(|route| !REACHED_BY_REDIRECT.contains(&route.as_str()))
+        .collect();
+
+    assert!(
+        unreachable.is_empty(),
+        "the router serves pages nothing links to, so they can only be reached by typing the \
+         URL. Add a nav entry or a link from a page that mentions them:\n  {}",
+        unreachable.join("\n  ")
+    );
+}
+
+/// GET routes that render a page, as opposed to an API or an asset.
+///
+/// Parameterised paths are excluded: `/nodes/{id}` is reached by clicking a row
+/// rather than by a fixed link, and asserting otherwise would demand a link
+/// nobody could write.
+fn page_routes() -> Vec<String> {
+    let source = fs::read_to_string(ROUTER).expect("the router source is readable");
+    let mut routes = Vec::new();
+    for (path, handler) in route_entries(&source) {
+        let is_page = handler.contains("pages::");
+        let is_get = handler.contains("get(");
+        if is_page
+            && is_get
+            && !path.contains('{')
+            && !path.starts_with("/api")
+            && !path.starts_with("/assets")
+        {
+            routes.push(path);
+        }
+    }
+    assert!(
+        routes.len() > 10,
+        "only {} page routes parsed; the parser has drifted from {ROUTER}",
+        routes.len()
+    );
+    routes
+}
+
+/// `(path, the rest of that route's registration)` for every `.route(` call.
+fn route_entries(source: &str) -> Vec<(String, String)> {
+    let mut entries = Vec::new();
+    let mut rest = source;
+    while let Some(start) = rest.find(".route(") {
+        rest = &rest[start + ".route(".len()..];
+        let Some(open) = rest.find('"') else { break };
+        let Some(len) = rest[open + 1..].find('"') else {
+            break;
+        };
+        let path = rest[open + 1..open + 1 + len].to_string();
+        let tail = &rest[open + 1 + len..];
+        let handler = tail.find(".route(").map_or(tail, |next| &tail[..next]);
+        if path.starts_with('/') {
+            entries.push((path, handler.to_string()));
+        }
+        rest = &rest[open + 1 + len..];
+    }
+    entries
+}
+
+/// Every destination an operator can actually get to: nav entries plus every
+/// `href` any page writes.
+fn linked_destinations() -> BTreeSet<String> {
+    let mut linked = BTreeSet::new();
+    let nav = fs::read_to_string("src/web/nav.rs").expect("the nav source is readable");
+    let layout = fs::read_to_string("src/web/html/page.rs").expect("the layout source is readable");
+
+    for text in [nav, layout] {
+        collect_hrefs(&text, &mut linked);
+        // Nav entries carry their path as a bare string literal.
+        for literal in text.split('"').skip(1).step_by(2) {
+            if literal.starts_with('/') && !literal.contains('{') {
+                linked.insert(literal.to_string());
+            }
+        }
+    }
+    for (_, text) in page_sources() {
+        collect_hrefs(&text, &mut linked);
+    }
+    linked
+}
+
+fn collect_hrefs(text: &str, into: &mut BTreeSet<String>) {
+    let mut rest = text;
+    while let Some(at) = rest.find(r#"href=""#) {
+        let after = &rest[at + r#"href=""#.len()..];
+        let Some(end) = after.find('"') else { break };
+        let target = &after[..end];
+        if target.starts_with('/') && !target.contains('{') {
+            // `/logs?node=…` links to `/logs`.
+            let path = target.split(['?', '#']).next().unwrap_or(target);
+            into.insert(path.to_string());
+        }
+        rest = &after[end..];
+    }
+}

@@ -118,6 +118,22 @@ pub fn build_router(state: WebState) -> Router {
         .route("/monitor", get(pages::monitor::monitor))
         .route("/logs", get(pages::logs::logs).post(control::clear_logs))
         .route("/operations", get(pages::operations::operations))
+        .route(
+            "/operations/support-bundle",
+            post(control::export_support_bundle),
+        )
+        .route(
+            "/operations/readiness-report",
+            post(control::export_readiness_report),
+        )
+        .route(
+            "/operations/integrity-check",
+            post(control::check_workspace_integrity),
+        )
+        .route(
+            "/nodes/{id}/config/reconcile",
+            post(control::reconcile_node_config),
+        )
         .route("/events", get(pages::events::events))
         .route("/events/export", post(pages::events::export_events))
         .route("/alerts", get(pages::alerts::alerts))
@@ -127,6 +143,9 @@ pub fn build_router(state: WebState) -> Router {
             post(control::preview_alert_routing),
         )
         .route("/federation", get(pages::federation::federation))
+        .route("/federation/new", post(pages::federation::create))
+        .route("/federation/{id}", post(pages::federation::update))
+        .route("/federation/{id}/delete", post(pages::federation::delete))
         .route("/federation/{id}/toggle", post(pages::federation::toggle))
         .route("/federation/{id}/probes", get(pages::federation::probes))
         .route("/roles", get(pages::roles::roles))

@@ -52,7 +52,9 @@ fn render_body(state: &WebState, params: &FederationQuery) -> anyhow::Result<Str
         r#"<h1>Federation</h1>
 {tiles}
 {filters}
-{table}"#,
+{table}
+{add_form}"#,
+        add_form = add_form(),
         tiles = html::cards(&[
             ("Servers", profiles.len().to_string()),
             (
@@ -112,8 +114,11 @@ fn count_status(
 
 fn profile_table(state: &WebState, profiles: &[RemoteServerProfile]) -> anyhow::Result<String> {
     if profiles.is_empty() {
-        return Ok(html::note(
-            "No federation servers are configured. Add one through the Rust API or restore a backup that carries them.",
+        return Ok(html::empty_state(
+            "No federation servers",
+            "A federation server is another NeoNexus workspace whose fleet summary this one \
+             polls. Add its base URL below.",
+            "",
         ));
     }
     let mut rows = Vec::new();
@@ -154,8 +159,8 @@ fn profile_table(state: &WebState, profiles: &[RemoteServerProfile]) -> anyhow::
             ),
             html::raw_cell(&toggle_form(profile)),
             html::raw_cell(&format!(
-                r#"<a class="btn" href="/federation/{}/probes">History</a>"#,
-                html::escape(&profile.id)
+                r#"<a class="btn small" href="/federation/{id}/probes">History</a><form method="post" action="/federation/{id}/delete" style="display:inline; margin-left:4px;"><button type="submit" class="btn small danger" title="Remove this server and its probe history">Remove</button></form>"#,
+                id = html::escape(&profile.id)
             )),
         ]));
     }
@@ -174,6 +179,29 @@ fn profile_table(state: &WebState, profiles: &[RemoteServerProfile]) -> anyhow::
         ],
         &rows,
     ))
+}
+
+/// The form that was missing.
+///
+/// Every neighbouring entity in this console has an in-page create form; this
+/// page had a list, a toggle, and a sentence telling the operator to use the
+/// Rust API.
+fn add_form() -> String {
+    r#"<div class="panel" style="margin-top: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 8px;">
+  <h3 style="margin-top: 0;">Add a federation server</h3>
+  <p class="muted" style="font-size: 12px;">
+    Another NeoNexus workspace whose fleet summary this one polls. It publishes counts only —
+    node names, heights and peers stay behind its own session.
+  </p>
+  <form method="post" action="/federation/new" class="filters">
+    <label class="field"><span>Name</span><input name="name" placeholder="frankfurt" required></label>
+    <label class="field"><span>Base URL</span><input name="base_url" placeholder="https://neonexus.example.com" required></label>
+    <label class="field"><span>Description</span><input name="description" placeholder="optional"></label>
+    <label class="field"><span>Poll it</span><input type="checkbox" name="enabled" value="on" checked></label>
+    <button type="submit">Add</button>
+  </form>
+</div>"#
+    .to_string()
 }
 
 fn toggle_form(profile: &RemoteServerProfile) -> String {
@@ -303,4 +331,121 @@ fn tri_state(raw: &str) -> Option<bool> {
         "no" | "false" => Some(false),
         _ => None,
     }
+}
+
+/// Register, edit or forget a federation peer.
+///
+/// `create_remote_server` / `update_remote_server` / `delete_remote_server`
+/// were complete and called only from tests; the only production insert was
+/// backup import. So the page listed peers, let an operator toggle them, and
+/// told them to "add one through the Rust API" — while every neighbouring
+/// entity in this console has an in-page create form.
+#[derive(serde::Deserialize)]
+pub struct RemoteServerForm {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub base_url: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub enabled: String,
+}
+
+impl RemoteServerForm {
+    fn to_input(&self) -> crate::federation::NewRemoteServerProfile {
+        crate::federation::NewRemoteServerProfile {
+            name: self.name.trim().to_string(),
+            base_url: self.base_url.trim().to_string(),
+            description: self.description.trim().to_string(),
+            // Absent checkbox means unchecked; a browser posts nothing for one.
+            enabled: matches!(
+                self.enabled.trim().to_ascii_lowercase().as_str(),
+                "on" | "1" | "true" | "yes"
+            ),
+        }
+    }
+}
+
+pub async fn create(
+    State(state): State<WebState>,
+    axum::Form(form): axum::Form<RemoteServerForm>,
+) -> Response {
+    let outcome = (|| -> anyhow::Result<String> {
+        let profile = state.commands.create_remote_server(form.to_input())?;
+        journal(
+            &state,
+            crate::events::EventKind::RemoteServerCreated,
+            format!(
+                "federation server {} added ({})",
+                profile.name, profile.base_url
+            ),
+        );
+        Ok(format!("added {}", profile.name))
+    })();
+    redirect(outcome)
+}
+
+pub async fn update(
+    State(state): State<WebState>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+    axum::Form(form): axum::Form<RemoteServerForm>,
+) -> Response {
+    let outcome = (|| -> anyhow::Result<String> {
+        let profile = state.commands.update_remote_server(&id, form.to_input())?;
+        journal(
+            &state,
+            crate::events::EventKind::RemoteServerUpdated,
+            format!(
+                "federation server {} updated ({})",
+                profile.name, profile.base_url
+            ),
+        );
+        Ok(format!("updated {}", profile.name))
+    })();
+    redirect(outcome)
+}
+
+pub async fn delete(
+    State(state): State<WebState>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Response {
+    let outcome = (|| -> anyhow::Result<String> {
+        let name = state
+            .workspace
+            .list_remote_servers()?
+            .into_iter()
+            .find(|profile| profile.id == id)
+            .map_or_else(|| id.clone(), |profile| profile.name);
+        state.commands.delete_remote_server(&id)?;
+        journal(
+            &state,
+            crate::events::EventKind::RemoteServerDeleted,
+            format!("federation server {name} removed, with its probe history"),
+        );
+        Ok(format!("removed {name}"))
+    })();
+    redirect(outcome)
+}
+
+fn journal(state: &WebState, kind: crate::events::EventKind, message: String) {
+    let _ = state.commands.record_event(crate::events::NewRuntimeEvent {
+        node_id: None,
+        node_name: None,
+        kind,
+        severity: crate::events::EventSeverity::Info,
+        message,
+    });
+}
+
+fn redirect(outcome: anyhow::Result<String>) -> Response {
+    let message = match outcome {
+        Ok(message) => message,
+        Err(error) => format!("federation change failed: {error:#}"),
+    };
+    axum::response::Redirect::to(&format!(
+        "/federation?flash={}",
+        html::urlencoding_lite(&message)
+    ))
+    .into_response()
 }

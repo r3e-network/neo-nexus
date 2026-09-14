@@ -10,11 +10,15 @@ use crate::core::workspace_queries::WorkspaceQueries;
 
 use super::super::{html, WebState};
 
-pub async fn operations(State(state): State<WebState>) -> Response {
+pub async fn operations(
+    State(state): State<WebState>,
+    axum::extract::RawQuery(flash): axum::extract::RawQuery,
+) -> Response {
+    let flash = html::flash(flash.as_deref());
     match render(&state.workspace) {
-        Ok(body) => Html(html::layout("Readiness", "operations", "", &body)).into_response(),
+        Ok(body) => Html(html::layout("Operations", "operations", &flash, &body)).into_response(),
         Err(error) => Html(html::layout(
-            "Readiness",
+            "Operations",
             "operations",
             &format!("failed to load operations data: {error}"),
             "",
@@ -42,26 +46,35 @@ fn render(workspace: &WorkspaceQueries) -> anyhow::Result<String> {
         ("Operational findings", ""),
     ]);
     let head = html::page_head(
-        "Systems Manager OpsCenter",
-        "AWS Systems Manager OpsCenter: aggregate fleet readiness, operational findings (OpsItems), and SRE remediation automation.",
-        r#"<a class="btn" href="/events">📜 CloudTrail Events</a> <a class="btn" href="/monitor">📊 CloudWatch Metrics</a> <a class="btn primary" href="/nodes">⬡ EC2 Instances</a>"#,
+        "Operations",
+        "Whether each node could start cleanly, and the artifacts to hand someone when one did not.",
+        r#"<a class="btn" href="/events">Journal</a> <a class="btn" href="/monitor">Host health</a> <a class="btn primary" href="/nodes">Nodes</a>"#,
     );
 
+    // Every artifact below was implemented, tested and reachable only from the
+    // CLI — including the support bundle, whose whole purpose is to be handed
+    // to someone else by the operator who is least likely to have a shell.
     let ssm_bar = r#"<div class="aws-action-bar" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding: 10px 14px; flex-wrap: wrap; gap: 8px;">
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-            <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted);">SSM Run Command:</span>
+            <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted);">Produce:</span>
+            <form method="post" action="/operations/support-bundle" style="display: inline; margin: 0;">
+                <button class="btn small primary" type="submit" title="Readiness, integrity, metrics and a redacted log diagnosis, checksummed — the thing to attach to a ticket">Support bundle</button>
+            </form>
+            <form method="post" action="/operations/readiness-report" style="display: inline; margin: 0;">
+                <button class="btn small" type="submit" title="Write the readiness findings below to a file, as text and JSON">Readiness report</button>
+            </form>
+            <form method="post" action="/operations/integrity-check" style="display: inline; margin: 0;">
+                <button class="btn small" type="submit" title="Check the workspace database itself: schema, indexes, foreign keys">Check the workspace database</button>
+            </form>
+            <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted); margin-left: 6px;">Fleet:</span>
             <form method="post" action="/nodes/batch-action" style="display: inline; margin: 0;">
                 <input type="hidden" name="action" value="smoke">
-                <button class="btn small primary" type="submit" title="Run diagnostic sweep across all managed nodes">🩺 AWS-RunDiagnosticsSweep</button>
+                <button class="btn small" type="submit" title="Check every node's binary and RPC socket now">Check every node</button>
             </form>
-            <form method="post" action="/nodes/batch-action" style="display: inline; margin: 0;">
-                <input type="hidden" name="action" value="restart">
-                <button class="btn small" type="submit" title="Supervised rolling restart of fleet">🔄 AWS-RestartNodes</button>
-            </form>
-            <a class="btn small" href="/api/fleet" download="fleet-inventory.json" title="Export complete fleet inventory">📥 AWS-InventoryExport</a>
+            <a class="btn small" href="/api/fleet" download="fleet-inventory.json" title="Download the fleet inventory as JSON">Inventory (JSON)</a>
         </div>
-        <div class="muted mono" style="font-size: 11px;">
-            Document: AWS-RunShellScript/NeoNexus-SREProbe
+        <div class="muted" style="font-size: 11px;">
+            Artifacts are written beside the workspace and recorded in the journal.
         </div>
     </div>"#;
 

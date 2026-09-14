@@ -352,6 +352,19 @@ pub async fn export_events(
         .to_json_text()
     })();
 
+    // `--export-event-journal` never journalled either, so the one operation
+    // that takes a copy of the audit trail left no mark in it.
+    let _ = state.commands.record_event(crate::events::NewRuntimeEvent {
+        node_id: None,
+        node_name: None,
+        kind: EventKind::EventJournalExported,
+        severity: EventSeverity::Info,
+        message: match &report {
+            Ok(json) => format!("journal exported ({} bytes)", json.len()),
+            Err(error) => format!("journal export failed: {error:#}"),
+        },
+    });
+
     match report {
         Ok(json) => {
             let mut response = json.into_response();

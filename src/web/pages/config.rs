@@ -180,13 +180,14 @@ fn render_body(state: &WebState, nodes: &[NodeConfig]) -> String {
         ]),
         table = html::table(
             &[
-                "Parameter Key Path",
-                "Instance Engine",
-                "Cluster Network",
-                "Storage Driver",
-                "Port Bindings",
-                "Active Sidecars",
-                "Sync State",
+                "Config file",
+                "Client",
+                "Network",
+                "Storage",
+                "Ports (P2P / RPC)",
+                "Sidecars",
+                "Matches what we would generate",
+                "",
             ],
             &rows.iter().map(config_row).collect::<Vec<_>>(),
         ),
@@ -206,6 +207,21 @@ fn config_row(row: &ConfigRow) -> String {
         .collect::<Vec<_>>()
         .join(" ");
     let sync_badge = drift_badge(row);
+    // Seeing that a file has drifted and having no way to put it back is half a
+    // feature. `ConfigReconciler` keeps a timestamped copy of whatever was
+    // there before it writes.
+    let action = if row
+        .drift
+        .as_ref()
+        .is_ok_and(|report| report.status == ConfigDriftStatus::Drifted)
+    {
+        format!(
+            r#"<form method="post" action="/nodes/{id}/config/reconcile" style="display:inline;"><button type="submit" class="btn small" title="Rewrite this file from what NeoNexus would generate, keeping a copy of the current one">Put it back</button></form>"#,
+            id = html::urlencoding_lite(&row.node.id),
+        )
+    } else {
+        String::new()
+    };
     let param_key = format!(
         r#"<div><span class="mono" style="font-weight: 600; color: var(--jade);">/neo/fleet/{name}/config.json</span></div><div class="muted mono" style="font-size: 11px;">{path}</div>"#,
         name = html::escape(&row.node.name),
@@ -235,6 +251,7 @@ fn config_row(row: &ConfigRow) -> String {
             &enabled
         }),
         html::raw_cell(&sync_badge),
+        html::raw_cell(&action),
     ])
 }
 

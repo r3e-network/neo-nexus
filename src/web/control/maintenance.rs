@@ -177,6 +177,19 @@ pub async fn handle_backup_import(
         }
         let validation = crate::backup::WorkspaceBackupImporter::validate_path(path)?;
         if form.validate_only() {
+            // Validation is the one step that changes nothing, and it is
+            // exactly the step worth recording: it says what an operator was
+            // about to restore over.
+            let _ = state.commands.record_event(NewRuntimeEvent {
+                node_id: None,
+                node_name: None,
+                kind: EventKind::BackupValidated,
+                severity: EventSeverity::Info,
+                message: format!(
+                    "archive at {path} checked — schema v{}, {} nodes, {} events",
+                    validation.schema_version, validation.node_count, validation.event_count,
+                ),
+            });
             return Ok(format!(
                 "archive is readable — schema v{}, written by {}, holding {} nodes, {} signer bindings, {} events",
                 validation.schema_version,
