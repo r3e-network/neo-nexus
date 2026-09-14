@@ -164,7 +164,7 @@ fn ec2_instance_drawer(state: &WebState, visible: &[NodeConfig]) -> String {
     };
     let id = html::urlencoding_lite(&first.id);
     let role = state.workspace.load_node_role(&first.id).ok().flatten();
-    let role_label = role.map_or("Node", |r| r.label());
+    let role_label = role.map_or("No duty assigned", crate::roles::NodeRole::label);
     let state_badge = html::status_badge(first.status.label());
     let signer = state
         .workspace
@@ -428,6 +428,10 @@ fn manager_table_compact(state: &WebState, fleet: &Fleet, visible: &[NodeConfig]
         .unwrap_or_default()
         .as_secs() as i64;
     let all_hermes = state.workspace.list_hermes_agents().unwrap_or_default();
+    let all_signers = state
+        .workspace
+        .list_all_signer_bindings()
+        .unwrap_or_default();
 
     let rows = visible
         .iter()
@@ -467,7 +471,40 @@ fn manager_table_compact(state: &WebState, fleet: &Fleet, visible: &[NodeConfig]
                 hermes = hermes_badge,
                 pill = html::status_badge(row.node.status.label()),
             );
-            html::row(&[html::raw_cell(&line), html::raw_cell(&actions)])
+            // The drawer is populated by script from `tr[data-node-id]`, which
+            // only the comfortable table emitted — so on the density setting
+            // intended for large fleets the drawer stayed pinned to the first
+            // node while the operator believed they had clicked another. The
+            // attributes travel with both tables now.
+            format!(
+                r#"<tr data-node-id="{raw_id}" data-node-name="{name}" data-node-type="{node_type}" data-node-net="{net}" data-node-ver="{ver}" data-node-rpc-port="{rpc}" data-node-p2p-port="{p2p}" data-node-role="{role}" data-node-signer="{signer}" data-node-status="{status}">{cells}</tr>"#,
+                cells = [html::raw_cell(&line), html::raw_cell(&actions)].concat(),
+                raw_id = html::escape(&row.node.id),
+                name = html::escape(&row.node.name),
+                node_type = html::escape(&row.node.node_type.to_string()),
+                net = html::escape(&row.node.network.to_string()),
+                ver = html::escape(&row.node.runtime_version),
+                rpc = row.node.rpc_port,
+                p2p = row.node.p2p_port,
+                role = html::escape(
+                    state
+                        .workspace
+                        .load_node_role(&row.node.id)
+                        .ok()
+                        .flatten()
+                        .map_or("No duty assigned", crate::roles::NodeRole::label)
+                ),
+                signer = html::escape(
+                    &all_signers
+                        .iter()
+                        .find(|(node_id, _)| node_id == &row.node.id)
+                        .map_or_else(
+                            || "none".to_string(),
+                            |(_, key)| format!("{}/{}", key.backend_id, key.key_id)
+                        )
+                ),
+                status = html::escape(row.node.status.label()),
+            )
         })
         .collect::<Vec<_>>();
     html::table(&["Node", "Actions"], &rows)

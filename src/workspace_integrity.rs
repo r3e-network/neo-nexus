@@ -1,4 +1,4 @@
-mod checker;
+pub(crate) mod checker;
 mod report;
 mod schema;
 

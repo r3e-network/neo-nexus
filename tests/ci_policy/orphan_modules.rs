@@ -128,6 +128,30 @@ fn traverse_modules(file_path: &Path, reachable: &mut HashSet<PathBuf>) -> anyho
     Ok(())
 }
 
+/// Remove a leading visibility, whatever its scope.
+///
+/// This handled `pub`, `pub(crate)` and `pub(super)` by name and nothing else,
+/// so a module declared `pub(in crate::some::path) mod x;` — valid Rust, and the
+/// tightest visibility that works for a helper shared between two sibling
+/// modules — was invisible to the traversal and its file was reported as an
+/// orphan. A gate that cannot read the language it guards pushes authors toward
+/// wider visibility than they need.
+fn strip_visibility(line: &str) -> &str {
+    let Some(rest) = line.strip_prefix("pub") else {
+        return line;
+    };
+    match rest.strip_prefix('(') {
+        // `pub(...)`: skip to the matching parenthesis. Visibility scopes do not
+        // nest, so the first `)` closes it.
+        Some(scoped) => scoped
+            .find(')')
+            .map_or(line, |end| scoped[end + 1..].trim_start()),
+        // `pub mod`, and not `public_thing`.
+        None if rest.starts_with(char::is_whitespace) => rest.trim_start(),
+        None => line,
+    }
+}
+
 fn parse_path_attribute(line: &str) -> Option<String> {
     if !line.starts_with("#[path") {
         return None;
@@ -138,15 +162,7 @@ fn parse_path_attribute(line: &str) -> Option<String> {
 }
 
 fn parse_mod_declaration(line: &str) -> Option<&str> {
-    let without_pub = if let Some(stripped) = line.strip_prefix("pub ") {
-        stripped.trim_start()
-    } else if let Some(stripped) = line.strip_prefix("pub(crate) ") {
-        stripped.trim_start()
-    } else if let Some(stripped) = line.strip_prefix("pub(super) ") {
-        stripped.trim_start()
-    } else {
-        line
-    };
+    let without_pub = strip_visibility(line);
 
     let without_mod = without_pub.strip_prefix("mod ")?;
     let trimmed = without_mod.trim_start();

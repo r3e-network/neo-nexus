@@ -55,6 +55,7 @@ pub(crate) use self::helpers::{validate_backup_setting_key, validate_node_config
 pub use self::model::QuarantinedRuntimeSpec;
 pub use self::model::{RestoreNodeOutcome, RestoredRuntimeEvent, WorkspaceSetting};
 use self::rows::*;
+pub(crate) use self::schema::create_schema;
 use self::settings_keys::*;
 
 #[derive(Debug, Clone)]

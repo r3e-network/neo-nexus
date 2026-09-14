@@ -28,8 +28,22 @@ fn workspace_integrity_cli_reports_healthy_database() -> Result<()> {
     assert_eq!(exit_code, 0);
     assert!(text.contains("workspace-integrity: ok"));
     assert!(text.contains("integrity-check: ok"));
-    assert!(text.contains("tables: 16/16"));
-    assert!(text.contains("indexes: 5/5"));
+    // The expectation is derived from a workspace this build creates, so the
+    // counts move with the schema. What is asserted is that every expected
+    // object was found — pinning the number would mean editing this test every
+    // time a table is added, which is how the list it replaced drifted.
+    let (checked, total) = counted(&text, "tables: ");
+    assert_eq!(
+        checked, total,
+        "a table this build creates was not found: {text}"
+    );
+    assert!(total >= 24, "only {total} tables checked: {text}");
+    let (checked, total) = counted(&text, "indexes: ");
+    assert_eq!(
+        checked, total,
+        "an index this build creates was not found: {text}"
+    );
+    assert!(total >= 10, "only {total} indexes checked: {text}");
     assert!(text.contains("foreign-key-violations: 0"));
     assert!(text.contains("rows: nodes | 1"));
     assert!(text.contains("rows: neo_wallet_profiles | 0"));
@@ -64,7 +78,49 @@ fn workspace_integrity_json_cli_reports_foreign_key_failure() -> Result<()> {
     assert_eq!(value["integrity_check"][0], "ok");
     assert_eq!(value["foreign_key_violations"][0]["table"], "plugin_states");
     assert_eq!(value["foreign_key_violations"][0]["parent_table"], "nodes");
-    assert_eq!(value["required_tables"].as_array().map(Vec::len), Some(16));
-    assert_eq!(value["required_indexes"].as_array().map(Vec::len), Some(5));
+    assert!(value["required_tables"]
+        .as_array()
+        .is_some_and(|t| t.len() >= 24));
+    assert!(value["required_indexes"]
+        .as_array()
+        .is_some_and(|i| i.len() >= 10));
+
+    // The hand-maintained list had already drifted, and these four were the
+    // drift. `node_signer_bindings` matters most: its unique index is the
+    // constraint that stops two nodes signing with one key, and a workspace
+    // missing it passed the integrity check.
+    let checked: Vec<&str> = value["required_tables"]
+        .as_array()
+        .map(|tables| {
+            tables
+                .iter()
+                .filter_map(|table| table["table"].as_str())
+                .collect()
+        })
+        .unwrap_or_default();
+    for table in [
+        "node_signer_bindings",
+        "node_hermes_agents",
+        "node_runtime_quarantine",
+        "api_tokens",
+    ] {
+        assert!(
+            checked.contains(&table),
+            "{table} is not checked; the expected schema has drifted again: {checked:?}"
+        );
+    }
     Ok(())
+}
+
+/// `tables: 24/24` → `(24, 24)`.
+fn counted(text: &str, prefix: &str) -> (usize, usize) {
+    let line = text
+        .lines()
+        .find(|line| line.starts_with(prefix))
+        .unwrap_or_default();
+    let counts = line.trim_start_matches(prefix);
+    let mut parts = counts
+        .split('/')
+        .map(|part| part.trim().parse().unwrap_or(0));
+    (parts.next().unwrap_or(0), parts.next().unwrap_or(0))
 }

@@ -1,3 +1,11 @@
+//! Comparing a workspace against one this build would create.
+//!
+//! Not against a list. Two declarations of one schema drift, because only one
+//! of them is exercised — and this one already had: the required-table list
+//! omitted `node_signer_bindings`, whose unique index is the anti-double-signing
+//! constraint, along with `node_hermes_agents`, `node_runtime_quarantine` and
+//! `api_tokens`.
+
 use std::collections::BTreeSet;
 
 use anyhow::{Context, Result};
@@ -5,26 +13,28 @@ use rusqlite::Connection;
 
 use crate::workspace_integrity::{RequiredIndexCheck, RequiredTableCheck};
 
-use super::super::schema::{required_tables, REQUIRED_INDEXES};
+use super::super::schema::ReferenceSchema;
 use super::sqlite;
 
 pub(in crate::workspace_integrity) fn required_table_checks(
     connection: &Connection,
+    reference: &ReferenceSchema,
 ) -> Result<Vec<RequiredTableCheck>> {
-    required_tables()
-        .map(|required| {
-            let columns = table_columns(connection, required.name)?;
-            let missing_columns = required
-                .columns
+    reference
+        .tables
+        .iter()
+        .map(|(table, expected)| {
+            let columns = table_columns(connection, table)?;
+            let missing_columns = expected
                 .iter()
-                .filter(|column| !columns.contains(**column))
-                .map(|column| (*column).to_string())
+                .filter(|column| !columns.contains(*column))
+                .cloned()
                 .collect::<Vec<_>>();
             Ok(RequiredTableCheck {
-                table: required.name.to_string(),
+                table: table.clone(),
                 present: !columns.is_empty(),
                 column_count: columns.len(),
-                expected_column_count: required.columns.len(),
+                expected_column_count: expected.len(),
                 missing_columns,
             })
         })
@@ -33,18 +43,20 @@ pub(in crate::workspace_integrity) fn required_table_checks(
 
 pub(in crate::workspace_integrity) fn required_index_checks(
     connection: &Connection,
+    reference: &ReferenceSchema,
 ) -> Result<Vec<RequiredIndexCheck>> {
-    REQUIRED_INDEXES
-        .iter()
-        .map(|required| {
-            let indexes = table_indexes(connection, required.table)?;
-            Ok(RequiredIndexCheck {
-                table: required.table.to_string(),
-                index: required.name.to_string(),
-                present: indexes.contains(required.name),
-            })
-        })
-        .collect()
+    let mut checks = Vec::new();
+    for (table, expected) in &reference.indexes {
+        let present = table_indexes(connection, table)?;
+        for index in expected {
+            checks.push(RequiredIndexCheck {
+                table: table.clone(),
+                index: index.clone(),
+                present: present.contains(index),
+            });
+        }
+    }
+    Ok(checks)
 }
 
 fn table_columns(connection: &Connection, table: &str) -> Result<BTreeSet<String>> {

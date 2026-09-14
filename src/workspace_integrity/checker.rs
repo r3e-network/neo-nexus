@@ -3,7 +3,7 @@ mod connection;
 mod pragmas;
 mod row_counts;
 mod schema_checks;
-mod sqlite;
+pub(in crate::workspace_integrity) mod sqlite;
 
 use anyhow::{Context, Result};
 use std::{fs, path::Path};
@@ -48,8 +48,11 @@ impl WorkspaceIntegrityChecker {
             .unwrap_or_else(|error| vec![format!("integrity_check failed: {error}")]);
         let foreign_key_violations = foreign_key_violations(&connection)
             .unwrap_or_else(|error| vec![foreign_key_check_error(error)]);
-        let required_tables = required_table_checks(&connection)?;
-        let required_indexes = required_index_checks(&connection)?;
+        // Compared against a workspace this build creates, rather than against
+        // a hand-maintained list that had already drifted.
+        let reference = super::schema::ReferenceSchema::build()?;
+        let required_tables = required_table_checks(&connection, &reference)?;
+        let required_indexes = required_index_checks(&connection, &reference)?;
         let row_counts = row_counts(&connection, &required_tables)?;
 
         let mut report = WorkspaceIntegrityReport {
