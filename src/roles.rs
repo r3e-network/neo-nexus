@@ -6,6 +6,6 @@ pub use self::private_network::{
     PrivateNetworkTemplate,
 };
 pub use self::role::{
-    role_availability, ChainRole, NodeRole, RoleAvailability, RolePlan, RolePlanner,
-    RolePluginChange,
+    launch_support, role_availability, ChainRole, LaunchSupport, NodeRole, RoleAvailability,
+    RolePlan, RolePlanner, RolePluginChange,
 };

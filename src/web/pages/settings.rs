@@ -240,9 +240,14 @@ fn upgrade_form(policy: &RuntimeUpgradePolicy) -> String {
             RuntimeUpgradePolicy::MIN_INTERVAL_MINUTES,
             RuntimeUpgradePolicy::MAX_INTERVAL_MINUTES,
         ),
+        // Named for what it does. This build verifies a release's SHA-256 and
+        // cannot verify a publisher signature — the catalogue schema carries
+        // none — so requiring one means no automatic upgrade runs at all. The
+        // setting had no reader in the upgrade engine whatsoever before; its
+        // only consumer was a display string.
         signed = upgrade_checkbox(
             "upgrade-signed",
-            "Require signed catalog",
+            "Require a signed catalogue (stops automatic upgrades: signatures are not verifiable in this build)",
             "require_signed_catalog",
             policy.require_signed_catalog,
         ),

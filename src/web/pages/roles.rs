@@ -12,6 +12,7 @@ use serde::Deserialize;
 use crate::{
     core::workspace::role_availability,
     events::{EventKind, EventSeverity, NewRuntimeEvent},
+    roles::{launch_support, LaunchSupport},
     roles::{NodeRole, RoleAvailability, RolePlanner},
     types::{NodeConfig, NodeType},
 };
@@ -67,7 +68,10 @@ fn support_matrix() -> String {
             html::row(
                 &std::iter::once(html::cell(role.label()))
                     .chain(NodeType::ALL.iter().map(|node_type| {
-                        html::raw_cell(&availability_cell(role_availability(*node_type, *role)))
+                        html::raw_cell(&availability_cell(
+                            role_availability(*node_type, *role),
+                            launch_support(*node_type, *role),
+                        ))
                     }))
                     .collect::<Vec<_>>(),
             )
@@ -77,7 +81,21 @@ fn support_matrix() -> String {
     html::table(&headers, &rows)
 }
 
-fn availability_cell(availability: RoleAvailability) -> String {
+/// Two questions, answered separately, because they lead an operator to
+/// different places.
+///
+/// "Can this client do it" is about the client. "Can NeoNexus set it up" is
+/// about this product — and the matrix only ever answered the first, while
+/// `/roles` let the operator apply a duty the launch path would refuse every
+/// way it could be reached.
+fn availability_cell(availability: RoleAvailability, launch: LaunchSupport) -> String {
+    if availability.is_supported() && !launch.is_launchable() {
+        let reason = launch.reason().unwrap_or("not set up by NeoNexus");
+        return format!(
+            r#"<span class="badge starting" title="{}">the client can, we cannot</span>"#,
+            html::escape(reason),
+        );
+    }
     if availability.is_supported() {
         return r#"<span class="badge running">supported</span>"#.to_string();
     }
@@ -112,6 +130,7 @@ fn role_planner(nodes: &[NodeConfig], params: &RoleQuery) -> String {
     };
     let plan = RolePlanner::plan(node, role);
     let availability = role_availability(node.node_type, role);
+    let launch = launch_support(node.node_type, role);
     let changes = plan
         .plugin_changes
         .iter()
@@ -128,7 +147,19 @@ fn role_planner(nodes: &[NodeConfig], params: &RoleQuery) -> String {
         .iter()
         .map(|note| format!("<li>{}</li>", html::escape(note)))
         .collect::<String>();
-    let apply = if availability.is_supported() {
+    let apply = if availability.is_supported() && !launch.is_launchable() {
+        html::notice(
+            "warn",
+            &format!(
+                "{} can perform {}, but NeoNexus cannot set it up: {}",
+                node.node_type,
+                role.label(),
+                launch
+                    .reason()
+                    .unwrap_or("the launch path has no route for it"),
+            ),
+        )
+    } else if availability.is_supported() {
         if node.status.is_active() || node.pid.is_some() {
             super::nodes::stop_first(
                 node,
@@ -204,6 +235,21 @@ pub async fn apply_role(
                 node.node_type,
                 role.label(),
                 availability.reason().unwrap_or("duty is unavailable")
+            );
+        }
+        // The second gate. `role_availability` is consulted by nothing on the
+        // launch path despite this module claiming it is, so a duty the client
+        // supports but this product cannot configure was silently accepted and
+        // simply never took effect.
+        let launch = launch_support(node.node_type, role);
+        if !launch.is_launchable() {
+            anyhow::bail!(
+                "{} can perform {}, but NeoNexus cannot set it up: {}",
+                node.node_type,
+                role.label(),
+                launch
+                    .reason()
+                    .unwrap_or("the launch path has no route for it")
             );
         }
         let plan = RolePlanner::plan(&node, role);

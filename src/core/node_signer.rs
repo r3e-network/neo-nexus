@@ -279,6 +279,16 @@ pub fn prepare_node_signer_launch(
 }
 
 fn ensure_local_wallet_runtime(node: &NodeConfig, role: NodeRole) -> Result<()> {
+    // One table, consulted here and by the duty picker, so a duty the picker
+    // offers is one this path can reach. The picker used to claim Neo X
+    // Consensus was supported while every branch below refused it.
+    if let Some(reason) = crate::roles::launch_support(node.node_type, role).reason() {
+        anyhow::bail!(
+            "{} cannot perform {} in NeoNexus: {reason}",
+            node.node_type,
+            role.label()
+        );
+    }
     match node.node_type {
         NodeType::NeoCli
             if matches!(

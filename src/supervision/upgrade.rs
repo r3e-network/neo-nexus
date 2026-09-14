@@ -104,6 +104,35 @@ impl LoopState {
 
         let catalog = &load_result.catalog;
 
+        // The checkbox the Settings page saves had no reader here at all: its
+        // only consumer was a display string. A policy a product offers and
+        // does not enforce is worse than one it does not offer, because an
+        // operator ticks it and believes something.
+        //
+        // This build cannot verify a publisher signature on a catalogue
+        // release — the schema carries no signature and nothing fetches one —
+        // so honouring the setting means refusing to upgrade at all. That is
+        // the safe direction and it is what the setting now says it does.
+        if policy.require_signed_catalog {
+            let _ = state.repository.record_event(NewRuntimeEvent {
+                node_id: None,
+                node_name: None,
+                kind: EventKind::RuntimeUpgradePolicyRun,
+                severity: EventSeverity::Warning,
+                message:
+                    "No automatic upgrade ran: this policy requires a signed catalogue, and this \
+                     build cannot verify a publisher signature on a release. Install runtimes \
+                     from the Runtimes page, or turn the requirement off to accept \
+                     checksum-only verification."
+                        .to_string(),
+            });
+            let updated_policy = policy.with_checked_at(now_unix);
+            let _ = state
+                .repository
+                .save_runtime_upgrade_policy(&updated_policy);
+            return;
+        }
+
         // 7. 使用当前平台
         let platform = RuntimePlatform::current();
 
@@ -163,6 +192,22 @@ impl LoopState {
                 }
             };
 
+            // Every failure below used to be `warn!` only, and the two
+            // fleet-level `record_event` calls carried `node_id: None` — so an
+            // operator saw "batch completed: 0/3 successful" in the journal with
+            // no reason for any of the three anywhere in the browser. An
+            // automatic upgrade that replaces a node's binary and cannot say
+            // why it failed is worse than one that does not run.
+            let failed = |state: &EngineState, message: String| {
+                let _ = state.repository.record_event(NewRuntimeEvent {
+                    node_id: Some(node.id.clone()),
+                    node_name: Some(node.name.clone()),
+                    kind: EventKind::RuntimeApplied,
+                    severity: EventSeverity::Warning,
+                    message,
+                });
+            };
+
             // Track if node was running before upgrade
             let was_running_before_upgrade = node.status.is_running();
 
@@ -177,6 +222,12 @@ impl LoopState {
                         warn!(
                             "neo-nexus: failed to stop {} before upgrade: {e}",
                             node_name
+                        );
+                        failed(
+                            state,
+                            format!(
+                                "not upgraded to {to_ver}: it could not be stopped first — {e}"
+                            ),
                         );
                         continue;
                     }
@@ -203,12 +254,28 @@ impl LoopState {
                                 "neo-nexus: failed to create install path for {}: {e}",
                                 node_name
                             );
+                            failed(
+                                state,
+                                format!("not upgraded to {to_ver}: no install directory — {e}"),
+                            );
                             continue;
                         }
                     };
 
                     match RuntimePackageManager::install(&manifest, &install_root) {
                         Ok(installation) => {
+                            // `/runtimes` reads `runtime_installations`, and
+                            // this never wrote one — so the page kept listing
+                            // the version the node had *before* an upgrade that
+                            // had already replaced its binary.
+                            if let Err(error) =
+                                state.repository.upsert_runtime_installation(&installation)
+                            {
+                                warn!(
+                                    "neo-nexus: failed to record the installed runtime for {}: {error}",
+                                    node_name
+                                );
+                            }
                             // Update node with new binary
                             let new_node = NewNode {
                                 name: node.name.clone(),
@@ -230,14 +297,44 @@ impl LoopState {
                                         match launch_node(state, node, LaunchAction::Start) {
                                             Ok(msg) => {
                                                 info!("neo-nexus: {} upgraded from {from_ver} to {to_ver}: {msg}", node_name);
+                                                let _ = state.repository.record_event(NewRuntimeEvent {
+                                                    node_id: Some(node.id.clone()),
+                                                    node_name: Some(node.name.clone()),
+                                                    kind: EventKind::RuntimeApplied,
+                                                    severity: EventSeverity::Info,
+                                                    message: format!(
+                                                        "upgraded from {from_ver} to {to_ver} and restarted"
+                                                    ),
+                                                });
                                                 success_count += 1;
                                             }
                                             Err(e) => {
                                                 warn!("neo-nexus: failed to start {} after upgrade: {e}", node_name);
+                                                // The dangerous outcome: the
+                                                // binary was replaced and the
+                                                // node is now down.
+                                                let _ = state.repository.record_event(NewRuntimeEvent {
+                                                    node_id: Some(node.id.clone()),
+                                                    node_name: Some(node.name.clone()),
+                                                    kind: EventKind::RuntimeApplied,
+                                                    severity: EventSeverity::Critical,
+                                                    message: format!(
+                                                        "upgraded from {from_ver} to {to_ver}, but it did not start again — {e}. Its binary is the new one."
+                                                    ),
+                                                });
                                             }
                                         }
                                     } else {
                                         info!("neo-nexus: {} upgraded from {from_ver} to {to_ver} (not restarting)", node_name);
+                                        let _ = state.repository.record_event(NewRuntimeEvent {
+                                            node_id: Some(node.id.clone()),
+                                            node_name: Some(node.name.clone()),
+                                            kind: EventKind::RuntimeApplied,
+                                            severity: EventSeverity::Info,
+                                            message: format!(
+                                                "upgraded from {from_ver} to {to_ver}; it was not running, so it was left stopped"
+                                            ),
+                                        });
                                         success_count += 1;
                                     }
                                 }
@@ -245,6 +342,10 @@ impl LoopState {
                                     warn!(
                                         "neo-nexus: failed to update node {} binary: {e}",
                                         node_name
+                                    );
+                                    failed(
+                                        state,
+                                        format!("not upgraded to {to_ver}: the new binary was installed but the node still points at the old one — {e}"),
                                     );
                                 }
                             }
@@ -254,6 +355,10 @@ impl LoopState {
                                 "neo-nexus: failed to install runtime for {}: {e}",
                                 node_name
                             );
+                            failed(
+                                state,
+                                format!("not upgraded to {to_ver}: the download would not install — {e}"),
+                            );
                         }
                     }
                 }
@@ -261,6 +366,10 @@ impl LoopState {
                     warn!(
                         "neo-nexus: failed to download runtime for {}: {e}",
                         node_name
+                    );
+                    failed(
+                        state,
+                        format!("not upgraded to {to_ver}: the release would not download — {e}"),
                     );
                 }
             }
