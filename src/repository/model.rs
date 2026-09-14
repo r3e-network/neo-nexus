@@ -12,9 +12,17 @@ pub enum RestoreNodeOutcome {
 /// unbound. It can be exported again for fidelity, but it never reaches a
 /// process command until an operator supplies a local replacement.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct QuarantinedRuntimeSpec {
-    pub(crate) binary_path: PathBuf,
-    pub(crate) args: Vec<String>,
+/// The launch material a restored node arrived with, held back until an
+/// operator confirms it.
+///
+/// A restore writes an empty binary path and stashes the real one here, so a
+/// backup cannot make this host execute a path chosen on another. The operator
+/// then has to retype argv the database is already holding — because nothing
+/// showed it to them: this was `pub(crate)`, absent from `WorkspaceQueries`,
+/// and read only by the backup exporter.
+pub struct QuarantinedRuntimeSpec {
+    pub binary_path: PathBuf,
+    pub args: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

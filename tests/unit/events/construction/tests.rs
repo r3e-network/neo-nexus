@@ -75,12 +75,6 @@ const RESERVED: &[(&str, &str)] = &[
         "runtime-state-reconciled",
         "the upgrade engine records only a batch summary (G31)",
     ),
-    // The watchdog decides not to restart in several places and says so only
-    // through `warn!`.
-    (
-        "watchdog-skipped",
-        "the watchdog logs its skips rather than journalling them",
-    ),
     // Release packaging runs in CI against a checkout, not against a workspace,
     // so there is no journal to write to.
     (

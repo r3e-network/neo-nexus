@@ -2,6 +2,7 @@
 
 use crate::{
     agents::HermesAgentAssociation,
+    config::ConfigGenerator,
     core::{node::NodeConfig, node_health::NodeChainView},
     logs::LogReader,
     observe::HealthTransition,
@@ -205,15 +206,32 @@ pub fn render_tab_details(node: &NodeConfig) -> String {
 /// needs each of them: a **process** can be up while the **chain** is stalled,
 /// and a stalled node holding a **signer** lease for an **elected** role is the
 /// expensive case this workspace exists to catch. One badge cannot say that.
+///
+/// They travel as a struct rather than six positional arguments, because six
+/// `Option`s in a row is a call site nobody can read and two of them are
+/// interchangeable by type.
+#[derive(Clone, Copy)]
+pub struct HealthTabFacts<'a> {
+    pub role: Option<NodeRole>,
+    pub signer: Option<&'a SignerKeyRef>,
+    pub view: Option<&'a NodeChainView>,
+    pub timeline: &'a [HealthTransition],
+    pub assoc: &'a HermesAgentAssociation,
+    pub now: i64,
+}
 pub fn render_tab_health(
+    state: &WebState,
     node: &NodeConfig,
-    role: Option<NodeRole>,
-    signer: Option<&SignerKeyRef>,
-    view: Option<&NodeChainView>,
-    timeline: &[HealthTransition],
-    assoc: &HermesAgentAssociation,
-    now: i64,
+    facts: &HealthTabFacts<'_>,
 ) -> String {
+    let HealthTabFacts {
+        role,
+        signer,
+        view,
+        timeline,
+        assoc,
+        now,
+    } = *facts;
     let now_unix = now.max(0) as u64;
     let verdict = view
         .map(|view| chain_view::verdict_panel(view, now_unix))
@@ -267,16 +285,87 @@ pub fn render_tab_health(
 <h3 style="margin-top: 20px;">How it got here</h3>
 <p class="muted" style="font-size: 12px; margin-top: 0;">Every change of state, newest first. A quiet timeline means the node has held one state since this workspace started watching it.</p>
 {timeline}
+{quarantine}
+{restart_hold}
 <div style="margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
   <form method="post" action="/nodes/{enc_id}/smoke" style="display: inline;"><button type="submit" class="btn small primary" title="Check the binary and the RPC socket now, without waiting for the next pass">Check now</button></form>
   <form method="post" action="/nodes/{enc_id}/restart" style="display: inline;"><button type="submit" class="btn small">Restart</button></form>
   <a href="/logs?node={enc_id}" class="btn small">Read the log</a>
 </div>
 </div>"#,
+        quarantine = quarantine_panel(state, node),
+        restart_hold = restart_hold_panel(state, node),
         process_badge = html::status_badge(node.status.label()),
         process_line = html::escape(&process_line(node)),
         timeline = chain_view::timeline(timeline, now_unix),
     )
+}
+
+/// The launch material a restored node arrived with, and what to do about it.
+///
+/// A restore writes an empty binary path deliberately — a backup must not make
+/// this host execute a path chosen on another — and stashes the original in
+/// `node_runtime_quarantine`. But the stash was `pub(crate)`, absent from
+/// `WorkspaceQueries`, and read only by the backup exporter, so the operator
+/// retyped argv the database was already holding. The word "quarantine"
+/// appeared nowhere in `src/web/`, and the preflight message named a CLI flag.
+fn quarantine_panel(state: &WebState, node: &NodeConfig) -> String {
+    let Ok(Some(held)) = state.workspace.quarantined_runtime_spec(&node.id) else {
+        return String::new();
+    };
+    let enc_id = html::urlencoding_lite(&node.id);
+    format!(
+        r#"<div class="notice warn" style="margin-top: 16px;">
+  <strong>This node was restored from a backup and cannot start yet.</strong>
+  Its launch command was deliberately not trusted: a backup names a path on
+  whatever host produced it, and running that here without a decision would let
+  an archive choose what this machine executes. This is what the backup
+  recorded — check it, then save it on the edit page to accept it.
+  <div class="mono" style="margin-top: 8px; font-size: 12px;">{binary}{args}</div>
+  <div style="margin-top: 8px;"><a class="btn small primary" href="/nodes/{enc_id}/edit">Review and accept it</a></div>
+</div>"#,
+        binary = html::escape(&held.binary_path.display().to_string()),
+        args = if held.args.is_empty() {
+            String::new()
+        } else {
+            format!(" {}", html::escape(&held.args.join(" ")))
+        },
+    )
+}
+
+/// Whether the watchdog has been told to leave this node alone.
+///
+/// There is one workspace watchdog policy, read for every node, so stopping the
+/// watchdog relaunching *this* node meant disabling automatic restart for the
+/// whole fleet — on a page this one does not link to, and with every other node
+/// left unsupervised until someone remembered to undo it.
+fn restart_hold_panel(state: &WebState, node: &NodeConfig) -> String {
+    let held = state.workspace.node_restart_hold(&node.id).ok().flatten();
+    let enc_id = html::urlencoding_lite(&node.id);
+    match held {
+        Some((at, reason)) => format!(
+            r#"<div class="notice warn" style="margin-top: 16px;">
+  <strong>Automatic restart is held for this node.</strong>
+  If it exits, NeoNexus will mark it stopped and leave it alone. The rest of the fleet is
+  unaffected. Held {when}{because}.
+  <form method="post" action="/nodes/{enc_id}/restart-hold" style="margin-top: 8px;"><button type="submit" class="btn small">Let the watchdog manage it again</button></form>
+</div>"#,
+            when = html::escape(&crate::web::time::relative(
+                at,
+                crate::web::time::now_unix()
+            )),
+            because = if reason.trim().is_empty() {
+                String::new()
+            } else {
+                format!(" — {}", html::escape(reason.trim()))
+            },
+        ),
+        None => format!(
+            r#"<div style="margin-top: 16px;">
+  <form method="post" action="/nodes/{enc_id}/restart-hold" style="display: inline;"><button type="submit" class="btn small" title="Stop the watchdog relaunching this node while you work on it. The rest of the fleet keeps its policy.">Hold automatic restart for this node</button></form>
+</div>"#
+        ),
+    }
 }
 
 /// What the supervisor sees, said plainly.
@@ -487,6 +576,38 @@ fn height_detail(view: Option<&NodeChainView>) -> String {
     }
 }
 
+/// The managed config, as text, redacted.
+///
+/// `/config` rendered a **path**. `ConfigGenerator::render_for_node` was never
+/// called from `src/web/` at all — only drift, export and diagnostics used it —
+/// so the file an operator needs to read while diagnosing a crash loop was the
+/// one thing the console would not show them. The log-diagnosis remediation
+/// button even routed back to `/config`, which showed the path again.
+///
+/// Redacted through the same helper `/logs` uses, because these configs embed
+/// plaintext wallet unlock passwords.
+pub fn render_tab_config(node: &NodeConfig, plugins: &[crate::catalog::PluginState]) -> String {
+    let rendered = ConfigGenerator::render_for_node(node, plugins);
+    let body = match rendered {
+        Ok(rendered) => format!(
+            r#"<p class="muted" style="font-size: 12px;">This is what NeoNexus writes for {name} — {format} — with secrets masked. It is written on every start, so an edit made by hand here is replaced the next time this node launches.</p>
+{text}"#,
+            name = html::escape(&node.name),
+            format = html::escape(rendered.format.label()),
+            text = html::text_block(&crate::redaction::redact_sensitive_text(&rendered.text)),
+        ),
+        Err(error) => html::notice(
+            "warn",
+            &format!(
+                "This node's config cannot be rendered, which is also why it cannot start: {error:#}"
+            ),
+        ),
+    };
+    format!(
+        r#"<div style="margin-top: 12px;"><h3>Managed configuration</h3>{body}<div style="margin-top: 12px;"><a class="btn small" href="/config">Every node's config</a></div></div>"#
+    )
+}
+
 /// Tab 4: the ports, and what NeoNexus asks the client to do with them.
 ///
 /// This was headed "Inbound Security Group Rules (Firewall Ruleset)" with a
@@ -634,46 +755,6 @@ pub fn render_tab_security(
         hermes_html = hermes_html,
     )
 }
-
-/// Tab 6: Storage & EBS Block Devices View
-pub fn render_tab_storage(node: &NodeConfig) -> String {
-    // This table described a block device that does not exist: a synthetic
-    // `vol-xxxxxxxx` id, `/dev/xvda (Root)`, a `/var/lib/neonexus/data` mount
-    // point that is not where the data goes, and a flat `3000 IOPS (gp3)`
-    // provisioned-throughput figure for a node running as a local process on
-    // whatever disk the workspace sits on. Only the storage engine was real.
-    let rows = vec![html::row(&[
-        html::cell("Chain data"),
-        html::cell(&node.storage_engine.to_string()),
-        html::cell(NOT_MEASURED),
-    ])];
-    let vol_table = html::table(&["Contents", "Storage engine", "Size on disk"], &rows);
-
-    format!(
-        r#"<div style="margin-top: 12px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-                <div>
-                    <h3 style="margin: 0 0 2px 0;">Storage</h3>
-                    <div class="muted" style="font-size: 12px;">Where {name} keeps its chain data.</div>
-                </div>
-                <div>
-                    <a href="/snapshots?node={enc_id}" class="btn small" style="text-decoration: none;">Fast-sync snapshots</a>
-                </div>
-            </div>
-            {vol_table}
-            <div class="panel" style="margin-top: 14px; padding: 12px 14px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--line);">
-                <div class="muted" style="font-size: 12px;">
-                    Data directory: <span class="mono">{data_dir}</span>. NeoNexus does not measure its size, and the durability of the chain data is a property of the client's own storage engine, not of this manager.
-                </div>
-            </div>
-        </div>"#,
-        name = html::escape(&node.name),
-        enc_id = html::urlencoding_lite(&node.id),
-        data_dir = html::escape(&format!("<workspace>/nodes/{}/", node.id)),
-        vol_table = vol_table,
-    )
-}
-
 /// Tab 7: AWS Resource Tags
 pub fn render_tab_tags(node: &NodeConfig, role: Option<NodeRole>) -> String {
     let rows = vec![

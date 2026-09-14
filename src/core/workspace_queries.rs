@@ -115,6 +115,24 @@ impl WorkspaceQueries {
         self.repository.list_node_health()
     }
 
+    /// The launch material a restored node arrived with, if it is still held.
+    ///
+    /// A restore deliberately blanks `binary_path` so a backup cannot make this
+    /// host run a path chosen on another — and then stashed the original where
+    /// nothing could show it, so the operator retyped argv the database was
+    /// holding. The word "quarantine" appeared nowhere in `src/web/`.
+    pub fn quarantined_runtime_spec(
+        &self,
+        node_id: &str,
+    ) -> Result<Option<crate::repository::QuarantinedRuntimeSpec>> {
+        self.repository.quarantined_runtime_spec(node_id)
+    }
+
+    /// Whether the watchdog has been told to leave this node alone, and why.
+    pub fn node_restart_hold(&self, node_id: &str) -> Result<Option<(u64, String)>> {
+        self.repository.node_restart_hold(node_id)
+    }
+
     pub fn node_health_timeline(
         &self,
         node_id: &str,

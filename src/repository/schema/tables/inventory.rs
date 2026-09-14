@@ -24,6 +24,20 @@ pub(super) fn create_inventory_tables(connection: &Connection) -> Result<()> {
             imported_args TEXT NOT NULL DEFAULT '',
             FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
         );
+        -- One node's exemption from automatic restart.
+        --
+        -- There is exactly one workspace watchdog policy, read for every node,
+        -- so the only way to stop the watchdog relaunching the node you are
+        -- trying to edit was to disable automatic restart for the whole fleet —
+        -- and then remember to turn it back on. An absent row means the node
+        -- follows the workspace policy, which is what every node does until an
+        -- operator says otherwise about one of them.
+        CREATE TABLE IF NOT EXISTS node_restart_holds (
+            node_id TEXT PRIMARY KEY,
+            held_at_unix INTEGER NOT NULL,
+            reason TEXT NOT NULL DEFAULT '',
+            FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+        );
         CREATE TABLE IF NOT EXISTS node_roles (
             node_id TEXT PRIMARY KEY,
             role TEXT NOT NULL,

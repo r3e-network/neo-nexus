@@ -134,6 +134,10 @@ pub fn build_router(state: WebState) -> Router {
             "/nodes/{id}/config/reconcile",
             post(control::reconcile_node_config),
         )
+        .route(
+            "/nodes/{id}/restart-hold",
+            post(control::toggle_restart_hold),
+        )
         .route("/events", get(pages::events::events))
         .route("/events/export", post(pages::events::export_events))
         .route("/alerts", get(pages::alerts::alerts))

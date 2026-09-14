@@ -95,7 +95,7 @@ impl Repository {
         })
     }
 
-    pub(crate) fn quarantined_runtime_spec(
+    pub fn quarantined_runtime_spec(
         &self,
         node_id: &str,
     ) -> Result<Option<QuarantinedRuntimeSpec>> {

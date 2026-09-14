@@ -40,6 +40,16 @@ impl WorkspaceCommands {
         self.repository.upsert_runtime_catalog_profile(profile)
     }
 
+    /// Stop the watchdog restarting one node, without touching the fleet.
+    pub fn hold_node_restarts(&self, node_id: &str, reason: &str, at_unix: u64) -> Result<()> {
+        self.repository.hold_node_restarts(node_id, reason, at_unix)
+    }
+
+    /// Let the watchdog manage this node again.
+    pub fn release_node_restarts(&self, node_id: &str) -> Result<()> {
+        self.repository.release_node_restarts(node_id)
+    }
+
     /// Register a federation peer.
     ///
     /// `create_remote_server`, `update_remote_server` and `delete_remote_server`

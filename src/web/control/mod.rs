@@ -17,7 +17,9 @@ pub use artifacts::{
 pub use maintenance::{
     apply_snapshot, clear_logs, handle_backup_export, handle_backup_import, BackupImportForm,
 };
-pub use node::{batch_node_action, node_restart, node_start, node_stop, smoke_test_node};
+pub use node::{
+    batch_node_action, node_restart, node_start, node_stop, smoke_test_node, toggle_restart_hold,
+};
 pub use settings::{
     preview_alert_routing, save_alert_routing, save_density, save_federation_monitor,
     save_rpc_health_monitor, save_runtime_upgrade_policy, save_watchdog, AlertRoutingForm,

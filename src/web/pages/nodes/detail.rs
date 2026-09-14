@@ -241,18 +241,25 @@ fn render_detail(state: &WebState, id: &str, new_token: Option<&str>) -> anyhow:
     let summary = super::detail_tabs::summary_banner(node, role, signer.as_ref());
     let tab1 = super::detail_tabs::render_tab_details(node);
     let tab2 = super::detail_tabs::render_tab_health(
+        state,
         node,
-        role,
-        signer.as_ref(),
-        chain.as_ref(),
-        &timeline,
-        &assoc,
-        now,
+        &super::detail_tabs::HealthTabFacts {
+            role,
+            signer: signer.as_ref(),
+            view: chain.as_ref(),
+            timeline: &timeline,
+            assoc: &assoc,
+            now,
+        },
     );
     let tab3 = super::detail_tabs::render_tab_monitoring(state, node, &history, chain.as_ref());
     let tab4 = super::detail_tabs::render_tab_networking(state, node);
     let tab5 = super::detail_tabs::render_tab_security(state, node, signer.as_ref(), new_token);
-    let tab6 = super::detail_tabs::render_tab_storage(node);
+    let plugins = state
+        .workspace
+        .list_plugin_states(&node.id)
+        .unwrap_or_default();
+    let tab6 = super::detail_tabs::render_tab_config(node, &plugins);
     let tab7 = super::detail_tabs::render_tab_tags(node, role);
     let tab8 = super::detail_tabs::render_tab_iac(node, role, signer.as_ref(), &assoc);
     let activity = super::activity::instance_activity_card(state, node);
@@ -265,7 +272,7 @@ fn render_detail(state: &WebState, id: &str, new_token: Option<&str>) -> anyhow:
                 <button type="button" class="aws-tab-btn" data-tab-target="tab-monitoring" role="tab" aria-selected="false">Monitoring</button>
                 <button type="button" class="aws-tab-btn" data-tab-target="tab-networking" role="tab" aria-selected="false">Networking</button>
                 <button type="button" class="aws-tab-btn" data-tab-target="tab-security" role="tab" aria-selected="false">Security &amp; IAM</button>
-                <button type="button" class="aws-tab-btn" data-tab-target="tab-storage" role="tab" aria-selected="false">Storage</button>
+                <button type="button" class="aws-tab-btn" data-tab-target="tab-storage" role="tab" aria-selected="false">Config file</button>
                 <button type="button" class="aws-tab-btn" data-tab-target="tab-tags" role="tab" aria-selected="false">Tags</button>
                 <button type="button" class="aws-tab-btn" data-tab-target="tab-iac" role="tab" aria-selected="false">Launch Template &amp; IaC</button>
             </div>

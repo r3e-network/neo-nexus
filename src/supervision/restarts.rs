@@ -121,6 +121,31 @@ impl LoopState {
         node: &NodeConfig,
         reason: &str,
     ) {
+        // A held node is marked `Error` and left alone. Without this, the only
+        // way to stop the watchdog relaunching the node an operator was editing
+        // was to disable automatic restart for the entire fleet — leaving every
+        // other node unsupervised for the duration.
+        if let Ok(Some((_, hold_reason))) = state.repository.node_restart_hold(&node.id) {
+            self.watchdog.clear(&node.id);
+            let _ = state.repository.transition_node_status(
+                &node.id,
+                node.status,
+                node.pid,
+                NodeStatus::Error,
+                None,
+            );
+            state.journal(
+                node,
+                EventKind::WatchdogSkipped,
+                EventSeverity::Warning,
+                if hold_reason.trim().is_empty() {
+                    format!("{reason}; automatic restart is held for this node")
+                } else {
+                    format!("{reason}; automatic restart is held for this node: {hold_reason}")
+                },
+            );
+            return;
+        }
         let claimed = state.repository.transition_node_status(
             &node.id,
             node.status,

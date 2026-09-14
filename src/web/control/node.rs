@@ -252,3 +252,62 @@ pub async fn batch_node_action(State(state): State<WebState>, RawForm(body): Raw
     );
     Redirect::to(&format!("/nodes?flash={}", html::urlencoding_lite(&msg))).into_response()
 }
+
+/// Stop — or resume — automatic restart for one node.
+///
+/// There is one workspace watchdog policy, read for every node, so the only way
+/// to stop the watchdog relaunching the node an operator was editing was to
+/// disable automatic restart for the whole fleet. That leaves every other node
+/// unsupervised, and it has to be remembered and undone on a page the node does
+/// not link to.
+pub async fn toggle_restart_hold(
+    State(state): State<WebState>,
+    Path(node_id): Path<String>,
+) -> Response {
+    let outcome = (|| -> anyhow::Result<String> {
+        let node = load_node(&state.workspace, &node_id)?;
+        let held = state.workspace.node_restart_hold(&node.id)?.is_some();
+        if held {
+            state.commands.release_node_restarts(&node.id)?;
+            journal_hold(
+                &state,
+                &node,
+                format!("automatic restart resumed for {}", node.name),
+            );
+            Ok(format!(
+                "{} follows the workspace restart policy again",
+                node.name
+            ))
+        } else {
+            state.commands.hold_node_restarts(
+                &node.id,
+                "held from the node page",
+                crate::web::time::now_unix(),
+            )?;
+            journal_hold(
+                &state,
+                &node,
+                format!(
+                    "automatic restart held for {}; the rest of the fleet is unaffected",
+                    node.name
+                ),
+            );
+            Ok(format!("{} will not be restarted automatically", node.name))
+        }
+    })();
+    let message = match outcome {
+        Ok(message) => message,
+        Err(error) => format!("restart hold not changed: {error:#}"),
+    };
+    back_to_node(&node_id, &message)
+}
+
+fn journal_hold(state: &WebState, node: &crate::types::NodeConfig, message: String) {
+    let _ = state.commands.record_event(crate::events::NewRuntimeEvent {
+        node_id: Some(node.id.clone()),
+        node_name: Some(node.name.clone()),
+        kind: crate::events::EventKind::WatchdogPolicyUpdated,
+        severity: crate::events::EventSeverity::Info,
+        message,
+    });
+}
