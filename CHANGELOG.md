@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Dependency advisory cleanup**: upgrade `rustls` to 0.23.45 (RUSTSEC-2026-0285,
+  TLS 1.3 handshake message boundary) and `anyhow` to 1.0.104 (unsound
+  `Error::downcast_mut`). Both are now absent from `cargo audit`.
+- **Dependency gate in CI**: add a RustSec advisory sweep (`cargo audit`) and a
+  `cargo deny` license/bans/sources check (`deny.toml`) to the verification
+  pipeline, and to `make verify`.
+
+### Changed
+
+- **Close the test-coverage gap in CI**: `tests/integration.rs`,
+  `tests/ui_density_metrics.rs`, and `tests/ui_operator_walkthrough.rs` now run
+  in the CI `Test` step and in `make test`/`make verify`, instead of being left
+  to smoke only.
+
+### Fixed
+
+- **UI density walkthrough**: the comfortable-mode assertion now checks the
+  node's genuine independent axes (`Process`, `Chain health`, `Height`) rather
+  than the retired fused "Status Check" column, matching `tests/web.rs`.
+
+### Docs
+
+- Mark the root `NODE_MANAGER_*`, `PHASE*`, and `BENCHMARKS_STATUS.md`
+  files as historical snapshots superseded by the custody/observation
+  refactor, pointing to `claudedocs/NEONEXUS_GAP_REGISTER.md` as the live
+  TODO/gap register.
+
 ## [v4.3.1] - 2026-09-10
 
 ### Fixed

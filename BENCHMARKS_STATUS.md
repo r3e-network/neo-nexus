@@ -1,5 +1,13 @@
 # Benchmark Infrastructure Status
 
+> **HISTORICAL SNAPSHOT** — This file, and the other `NODE_MANAGER_*` / `PHASE*` /
+> `BENCHMARKS_STATUS.md` files alongside it, is a frozen snapshot of an earlier
+> "NodeManager adapter" direction. That direction was superseded: custody goes
+> through `src/signing/` + `src/signer_client/`, chain observation through
+> `src/observe/`, and there is no longer a `NodeManager` facade. Treat any
+> claim of completion or progress in these files as stale. The current TODO /
+> gap register is **`claudedocs/NEONEXUS_GAP_REGISTER.md`**.
+
 ## Current State: Fake NodeManager Facade
 
 The benchmark suite at `benches/node_manager_startup.rs` contains deprecated benchmarks that measure nothing meaningful because `NodeManager.start_node()` returns fake PID 12345 without any actual process spawning or I/O operations.

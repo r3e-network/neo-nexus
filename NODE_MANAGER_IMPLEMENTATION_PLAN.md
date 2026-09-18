@@ -1,5 +1,13 @@
 # NeoNexus Node Manager Architecture - Implementation Plan
 
+> **HISTORICAL SNAPSHOT** — This file, and the other `NODE_MANAGER_*` / `PHASE*` /
+> `BENCHMARKS_STATUS.md` files alongside it, is a frozen snapshot of an earlier
+> "NodeManager adapter" direction. That direction was superseded: custody goes
+> through `src/signing/` + `src/signer_client/`, chain observation through
+> `src/observe/`, and there is no longer a `NodeManager` facade. Treat any
+> claim of completion or progress in these files as stale. The current TODO /
+> gap register is **`claudedocs/NEONEXUS_GAP_REGISTER.md`**.
+
 ## Overview
 
 This document consolidates the complete architecture design from Alex's research and breaks down the 8-week implementation roadmap into actionable, tracked tasks.
