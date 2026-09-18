@@ -238,3 +238,102 @@ fn collect_hrefs(text: &str, into: &mut BTreeSet<String>) {
         rest = &after[end..];
     }
 }
+
+// ── 4th gate: every declared surface has an implementation ──────────────────
+//
+// A feature that lives in the docs but nowhere in the code is the quietest way
+// to lose a capability: an operator reads the protocol reference, wires an
+// alert or a script to a route that does not exist, and nothing answers. The
+// three earlier gates hold each surface the code itself names to its pair; this
+// one anchors the automation protocol reference — `docs/AGENT_API.md` — to the
+// router, so the two cannot part company without this test saying so.
+
+/// An HTTP surface the protocol reference declares, as `METHOD /path`.
+///
+/// Path parameters are normalised so the doc's `{id}` and the router's
+/// `{node_id}` are the same shape: a parameter is a parameter, whatever it is
+/// called, and the point of the gate is that the path exists, not that the two
+/// spellings of the slot agree.
+fn normalize_path(path: &str) -> String {
+    let mut out = String::with_capacity(path.len());
+    let mut in_param = false;
+    for ch in path.chars() {
+        match ch {
+            '{' => {
+                in_param = true;
+                out.push('{');
+            }
+            '}' => {
+                in_param = false;
+                out.push('}');
+            }
+            _ => {
+                if !in_param {
+                    out.push(ch);
+                }
+            }
+        }
+    }
+    out
+}
+
+/// `(method, normalized path)` for every endpoint the protocol reference
+/// declares as an `### METHOD /path` section heading.
+fn declared_surfaces() -> Vec<(String, String)> {
+    const DOC: &str = "docs/AGENT_API.md";
+    let text = fs::read_to_string(DOC).expect("the agent API reference is readable");
+    let mut surfaces = Vec::new();
+    for line in text.lines() {
+        let line = line.trim();
+        let Some(rest) = line.strip_prefix("### ") else {
+            continue;
+        };
+        let mut parts = rest.split_whitespace();
+        let method = parts.next();
+        let path = parts.next();
+        let (Some(method), Some(path)) = (method, path) else {
+            continue;
+        };
+        let method = method.to_ascii_uppercase();
+        if matches!(method.as_str(), "GET" | "POST" | "PUT" | "PATCH" | "DELETE")
+            && path.starts_with('/')
+        {
+            surfaces.push((method, normalize_path(path)));
+        }
+    }
+    assert!(
+        surfaces.len() >= 8,
+        "only {} HTTP surfaces parsed out of {DOC}; the parser has drifted from the reference",
+        surfaces.len()
+    );
+    surfaces
+}
+
+/// Router paths in the same normalised shape the reference uses.
+fn normalized_routes() -> BTreeSet<String> {
+    registered_routes()
+        .into_iter()
+        .map(|path| normalize_path(&path))
+        .collect()
+}
+
+/// Every endpoint the agent protocol reference declares must be served by the
+/// router. The doc is the contract an external caller wires against; a declared
+/// route the router does not serve is a silent dead end.
+#[test]
+fn every_declared_http_surface_is_served_by_the_router() {
+    let routes = normalized_routes();
+    let declared = declared_surfaces();
+    let missing: Vec<String> = declared
+        .iter()
+        .filter(|(_, path)| !routes.contains(path))
+        .map(|(method, path)| format!("{method} {path}"))
+        .collect();
+
+    assert!(
+        missing.is_empty(),
+        "docs/AGENT_API.md declares HTTP surfaces the router does not serve. Serve them, \
+         or stop declaring them:\n  {}",
+        missing.join("\n  ")
+    );
+}

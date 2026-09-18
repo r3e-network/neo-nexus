@@ -28,6 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **UI density walkthrough**: the comfortable-mode assertion now checks the
   node's genuine independent axes (`Process`, `Chain health`, `Height`) rather
   than the retired fused "Status Check" column, matching `tests/web.rs`.
+- **4th parity gate**: every HTTP surface declared in `docs/AGENT_API.md`
+  (as `### METHOD /path`) must be served by the router, with path parameters
+  normalised so `{id}` and `{node_id}` match. The three earlier gates pin each
+  surface the code names to its pair; this one anchors the automation protocol
+  reference to the implementation, so a declared route the router does not
+  serve fails the build. Verified by injecting a bogus endpoint.
 
 ### Docs
 
