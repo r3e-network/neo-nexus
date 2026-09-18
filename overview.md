@@ -41,7 +41,7 @@
 
 ## 仍需关注
 
-- `/public-metrics` 的匿名暴露、限流和 metrics token 契约仍需单独确认，并与 `docs/AGENT_API.md` 对齐。
+- `/public-metrics` 的认证契约已收敛并固化：代码用 `ReadFleet` 强制关闭匿名（`src/web/router.rs`），`docs/AGENT_API.md` 已同步，`tests/web.rs` 有断言（匿名 401、`read_fleet` token 200）。遗留待办其余几项见下。
 - 工作树现有 117 项变更，发布前应按主题拆分为独立提交并进行 release build/package 验证。
 - Web 层仍有 4 个 600+ 行文件（`web/html.rs`、`pages/signer/overview.rs`、`signer_control.rs`、`pages/nodes.rs`）待拆。
 - 建议把孤儿源文件检测固化进 `ci_policy` 测试，避免死代码再次累积。
