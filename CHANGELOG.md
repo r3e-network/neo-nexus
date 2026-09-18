@@ -42,6 +42,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refactor, pointing to `claudedocs/NEONEXUS_GAP_REGISTER.md` as the live
   TODO/gap register.
 
+### Refactor
+
+- Split `src/web/node_form.rs` (760 lines) into `src/web/node_form.rs`
+  (the `NodeDraft` model and its constructors/queries) plus
+  `src/web/node_form/validate.rs` (the port/name/version rules that turn a
+  parsed draft into a `NewNode`). The rules are a self-contained, purely
+  internal concern and now read beside nothing else; the two modules keep
+  their behaviour under the existing 26 node-form unit tests.
+
 ## [v4.3.1] - 2026-09-10
 
 ### Fixed
