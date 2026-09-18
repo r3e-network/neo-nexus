@@ -50,6 +50,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   parsed draft into a `NewNode`). The rules are a self-contained, purely
   internal concern and now read beside nothing else; the two modules keep
   their behaviour under the existing 26 node-form unit tests.
+- Split `src/web/pages/nodes/iac_spec.rs` (703 lines) into
+  `src/web/pages/nodes/iac_spec.rs` (the `IacFormat` dispatch and the in-page
+  card) plus `src/web/pages/nodes/iac_spec/formats.rs` (the per-target IaC
+  string builders). The format renderers are pure functions that produce
+  Docker, K8s, CloudFormation, Terraform, CLI and JSON text; they now live
+  apart from the table that dispatches to them. Behaviour is unchanged under
+  the two existing iac_spec unit tests.
 
 ## [v4.3.1] - 2026-09-10
 
