@@ -1,0 +1,32 @@
+[advisories]
+# Fail the build on any advisory the project has not explicitly vouched for.
+yanked = "deny"
+ignore = []
+
+[licenses]
+version = 2
+# The project is MIT-licensed and uses the usual permissive ecosystem licenses.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "BSL-1.0",
+    "MPL-2.0",
+    "0BSD",
+    "CDLA-Permissive-2.0",
+]
+# Multiple explicit licenses in the metadata are fine; warn on them.
+confidence-threshold = 0.8
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-git = []
