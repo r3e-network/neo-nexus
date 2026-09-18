@@ -222,10 +222,16 @@ fn density_comfortable_rendering() {
         !nodes.contains(r#"class="node-line""#),
         "comfortable renders the wide table, not the single-line row"
     );
+    // The comfortable fleet is the wide inventory table. These are the node's
+    // genuinely independent axes — the process and what the chain says — the
+    // same columns `tests/web.rs` asserts, not the old fused "Status Check"
+    // badge this console retired.
     assert!(
-        nodes.contains(">Status Check</th>"),
+        nodes.contains(">Process</th>"),
         "the comfortable table keeps its own columns"
     );
+    assert!(nodes.contains(">Chain health</th>"));
+    assert!(nodes.contains(">Height</th>"));
 
     // The home page shares the shell and also renders comfortable by default.
     let home = get_page(&http, &session, &format!("{base}/"));

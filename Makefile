@@ -1,4 +1,4 @@
-.PHONY: check fmt test clippy build release dist smoke web-smoke signer-compat purity-smoke quality-smoke ci-policy-smoke alert-smoke runtime-smoke json-smoke wallet-smoke launch-pack-smoke readiness-smoke metrics-smoke integrity-smoke report-smoke support-smoke event-smoke config-smoke backup-smoke verify clean
+.PHONY: check fmt test clippy build release dist smoke web-smoke signer-compat purity-smoke quality-smoke ci-policy-smoke alert-smoke runtime-smoke json-smoke wallet-smoke launch-pack-smoke readiness-smoke metrics-smoke integrity-smoke report-smoke support-smoke event-smoke config-smoke backup-smoke verify clean audit deny
 
 fmt:
 	cargo fmt --all
@@ -15,6 +15,12 @@ test:
 	cargo test --test domain
 	cargo test --test repository
 	cargo test --test web
+	# Every test crate, not only the four the CI test step has always run.
+	# integration / ui_density_metrics / ui_operator_walkthrough used to be
+	# exercised only by `make smoke`; keep them under the same gate as the rest.
+	cargo test --test integration
+	cargo test --test ui_density_metrics
+	cargo test --test ui_operator_walkthrough
 
 build:
 	cargo build
@@ -175,6 +181,8 @@ verify:
 	cargo fmt --all --check
 	cargo check
 	cargo clippy --all-targets -- -D warnings
+	$(MAKE) audit
+	$(MAKE) deny
 	cargo test --lib
 	cargo test --test ci_policy
 	cargo test --test domain
@@ -205,3 +213,13 @@ verify:
 
 clean:
 	cargo clean
+
+# RustSec advisory database sweep against the locked dependency graph. Catches
+# disclosed vulnerabilities and unsoundness in Cargo.lock, not just typos.
+audit:
+	cargo audit
+
+# Consensus policy on the locked graph: allowed licenses, duplicate versions,
+# and registry/git sources. Reads deny.toml.
+deny:
+	cargo deny check

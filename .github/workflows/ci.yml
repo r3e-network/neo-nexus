@@ -40,6 +40,14 @@ jobs:
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
 
+      - name: RustSec advisory audit
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cargo deny (licenses, bans, sources)
+        uses: EmbarkStudios/cargo-deny-action@v2
+
       - name: Test
         run: |
           cargo test --lib
@@ -47,6 +55,11 @@ jobs:
           cargo test --test domain
           cargo test --test repository
           cargo test --test web
+          # The remaining test crates are as much a part of the product as the
+          # four above; run them here too instead of leaving them to smoke only.
+          cargo test --test integration
+          cargo test --test ui_density_metrics
+          cargo test --test ui_operator_walkthrough
 
 
       - name: Debug binary smoke
