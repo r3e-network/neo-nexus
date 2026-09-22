@@ -9,6 +9,3 @@ pub mod mocks;
 
 // Main integration test file with full test coverage
 pub mod node_manager_full;
-
-/// Re-export key components for external test modules
-pub use self::node_manager_full::*;

@@ -139,7 +139,7 @@ mod tests {
         let lines: Vec<&str> = logs.lines().collect();
 
         assert!(!lines.is_empty());
-        assert!(lines.iter().any(|l| l.contains("Starting")));
+        assert!(lines.iter().any(|l| l.contains("starting")));
         assert!(lines.iter().any(|l| l.contains("Syncing")));
         assert!(lines.iter().any(|l| l.contains("Synchronized")));
     }
@@ -148,7 +148,9 @@ mod tests {
     fn test_neo_go_logs_format() {
         let logs = neo_go_logs();
 
-        assert!(logs.contains("[INFO"));
+        // Go log format is `[MM/DD/YY HH:MM:SS] LEVEL component:line message`,
+        // so the level sits outside the bracketed timestamp.
+        assert!(logs.contains("INFO  node.go:123"));
         assert!(logs.contains("Syncing block"));
         assert!(logs.contains("node is fully synchronized"));
     }

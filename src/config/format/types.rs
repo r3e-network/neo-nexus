@@ -34,7 +34,8 @@ impl ConfigFormat {
         config_format(node_type)
     }
 
-    pub(super) fn extension(self) -> &'static str {
+    /// Filename extension for this format, as used by [`crate::types::NodeTypeTraits::config_path`].
+    pub fn extension(self) -> &'static str {
         match self {
             Self::Json => "json",
             Self::Yaml => "yml",

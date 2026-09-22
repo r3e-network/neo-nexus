@@ -490,19 +490,20 @@ cargo run -- --reconcile-node-config-json /path/to/neonexus.db "node-01" /path/t
 
 ### State Checkpoints, Quarantined Backup & Restore
 
-#### Export Encrypted Backup Archive
+#### Export Workspace Backup
+`--export-backup` / `--export-backup-json` write a 0600 plaintext JSON workspace export, NOT encrypted — one pretty-printed `neonexus-backup-<unix>.json` file (not tar.gz, no passphrase).
 ```bash
 cargo run -- --export-backup-json /path/to/neonexus.db /path/to/backups
 ```
 
 #### Validate Backup Integrity & Manifest
 ```bash
-cargo run -- --validate-backup-json /path/to/backups/backup.tar.gz
+cargo run -- --validate-backup-json /path/to/backups/neonexus-backup-1700000000.json
 ```
 
 #### Restore Backup (Zero-Trust Quarantined)
 ```bash
-cargo run -- --import-backup-json /path/to/target.db /path/to/backups/backup.tar.gz
+cargo run -- --import-backup-json /path/to/target.db /path/to/backups/neonexus-backup-1700000000.json
 ```
 
 > 🛡️ **Quarantine Contract**: Restored nodes have their binary and execution arguments quarantined until explicitly rebound with `--node-rebind-runtime` to prevent unauthorized execution of untrusted paths.

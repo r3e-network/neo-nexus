@@ -6,6 +6,10 @@ mod validation;
 pub mod workspace_exporter;
 mod workspace_importer;
 
+#[cfg(test)]
+#[path = "../tests/unit/backup/documented/tests.rs"]
+mod documented_tests;
+
 pub use self::restore::restored_workspace_setting;
 pub use self::schema::{
     EventBackup, FastSyncSnapshotBackup, NeoWalletProfileBackup, NodeBackup, PluginBackup,

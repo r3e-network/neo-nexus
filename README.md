@@ -20,7 +20,8 @@ inside the binary — no Node toolchain, no external services, one executable.
   RPC, Prometheus, and sidecar endpoints; real-time configuration drift detection with
   automated timestamped backup and zero-loss reconciliation.
 - **State Checkpoints & Fast-Sync Snapshots**: Snapshot catalog integration, validated
-  backup archives (AES-GCM encrypted, tar.gz), and zero-trust quarantined imports.
+  backup archives (a 0600 plaintext JSON workspace export, NOT encrypted), and zero-trust
+  quarantined imports.
 - **Neo-CLI Plugin Lifecycle & Sidecars**: Plugin catalog dependency management,
   conflict prevention, and automated sidecar configuration injection (`ApplicationLogs`,
   `StateService`, `RpcServer`, `TokensTracker`).
@@ -193,20 +194,20 @@ cargo run -- --launch-pack-sidecars /path/to/private-network/manifest.json
 ```
 
 ### 4. State Checkpoints, Snapshots & Disaster Recovery
-Manage state snapshots, export encrypted workspace backups, and restore with zero-trust execution quarantine:
+Manage state snapshots, export workspace backups (a 0600 plaintext JSON workspace export, NOT encrypted), and restore with zero-trust execution quarantine:
 
 ```bash
-# Export encrypted workspace backup archive (AES-GCM / tar.gz)
+# --export-backup writes a 0600 plaintext JSON workspace export, NOT encrypted (one pretty-printed JSON file, not tar.gz)
 cargo run -- --export-backup /path/to/neonexus.db /path/to/backups
 cargo run -- --export-backup-json /path/to/neonexus.db /path/to/backups
 
-# Validate backup archive integrity, manifest, and database schema without applying
-cargo run -- --validate-backup /path/to/backups/backup.tar.gz
-cargo run -- --validate-backup-json /path/to/backups/backup.tar.gz
+# Validate backup integrity, manifest, and database schema without applying
+cargo run -- --validate-backup /path/to/backups/neonexus-backup-1700000000.json
+cargo run -- --validate-backup-json /path/to/backups/neonexus-backup-1700000000.json
 
 # Restore workspace backup into database (quarantines node runtimes until explicitly rebound)
-cargo run -- --import-backup /path/to/target.db /path/to/backups/backup.tar.gz
-cargo run -- --import-backup-json /path/to/target.db /path/to/backups/backup.tar.gz
+cargo run -- --import-backup /path/to/target.db /path/to/backups/neonexus-backup-1700000000.json
+cargo run -- --import-backup-json /path/to/target.db /path/to/backups/neonexus-backup-1700000000.json
 
 # Export comprehensive support diagnostic bundle (logs, metrics, events, readiness)
 cargo run -- --export-support-bundle /path/to/neonexus.db /path/to/support_dir

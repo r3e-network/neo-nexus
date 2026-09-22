@@ -257,19 +257,19 @@ cargo run -- --runtime-smoke neo-rs /usr/local/bin/neo-node
 ## Runbook: Disaster Recovery & Quarantined Restore
 
 ### Problem Description
-Server migration, disk corruption, or catastrophic host loss requires restoring the workspace from an encrypted backup archive.
+Server migration, disk corruption, or catastrophic host loss requires restoring the workspace from a 0600 plaintext JSON workspace export, NOT encrypted.
 
-### Step 1: Validate Backup Archive Integrity
-Verify the archive hash, manifest structure, and database schema before importing:
+### Step 1: Validate Backup Integrity
+Verify the backup hash, manifest structure, and database schema before importing:
 ```bash
-cargo run -- --validate-backup /path/to/backups/neonexus-backup.tar.gz
-cargo run -- --validate-backup-json /path/to/backups/neonexus-backup.tar.gz
+cargo run -- --validate-backup /path/to/backups/neonexus-backup-1700000000.json
+cargo run -- --validate-backup-json /path/to/backups/neonexus-backup-1700000000.json
 ```
 
 ### Step 2: Import Backup with Execution Quarantine
 Restore the workspace into a fresh target database:
 ```bash
-cargo run -- --import-backup /path/to/target.db /path/to/backups/neonexus-backup.tar.gz
+cargo run -- --import-backup /path/to/target.db /path/to/backups/neonexus-backup-1700000000.json
 ```
 
 > 🛡️ **Zero-Trust Quarantine Protection**: Imported nodes are marked `Quarantined`. Their execution paths and launch arguments are deactivated until an operator explicitly verifies the local environment.

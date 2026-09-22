@@ -9,16 +9,10 @@
 //! - Cross-module interaction verification
 //! - Error handling edge cases
 
-pub mod common;
-pub mod fixtures;
-pub mod mocks;
-
-use neo_nexus::manager::NodeManager;
-use neo_nexus::types::{NodeConfig, NodeType};
+use neo_nexus::types::{validate_node_id, validate_node_port, NodeTypeTraits};
 use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
-use tokio::time::timeout;
 
 // Re-export setup utilities
 use super::common::setup::*;
@@ -32,7 +26,7 @@ use super::mocks::metrics_endpoints::*;
 /// Test lifecycle management for each node type
 #[tokio::test]
 async fn test_lifecycle_neocli_node() {
-    let (mut manager, _temp_dir) = spawn_supervised_server("lifecycle_neocli").await.unwrap();
+    let (manager, _temp_dir) = spawn_supervised_server("lifecycle_neocli").await.unwrap();
 
     let node = make_test_node_config(
         "neocli-test-001",
@@ -41,7 +35,7 @@ async fn test_lifecycle_neocli_node() {
         30333,
     );
 
-    let plan = LaunchPlan::default();
+    let plan = test_launch_plan();
 
     // Start operation
     let pid_result = manager.start_node(&node, &plan).await;
@@ -66,7 +60,7 @@ async fn test_lifecycle_neogo_node() {
     let node = make_test_node_config("neogo-test-002", "NeoGo Test Node", NodeType::NeoGo, 30334);
 
     assert_eq!(node.node_type, NodeType::NeoGo);
-    assert_eq!(node.config_format(), neo_nexus::config::ConfigFormat::Yaml);
+    assert_eq!(node.node_type.config_format(), neo_nexus::config::ConfigFormat::Yaml);
 }
 
 #[tokio::test]
@@ -76,7 +70,7 @@ async fn test_lifecycle_neors_node() {
     let node = make_test_node_config("neors-test-003", "NeoRS Test Node", NodeType::NeoRs, 30335);
 
     assert_eq!(node.node_type, NodeType::NeoRs);
-    assert_eq!(node.config_format(), neo_nexus::config::ConfigFormat::Json);
+    assert_eq!(node.node_type.config_format(), neo_nexus::config::ConfigFormat::Json);
 }
 
 #[tokio::test]
@@ -91,7 +85,7 @@ async fn test_lifecycle_neoxgeth_node() {
     );
 
     assert_eq!(node.node_type, NodeType::NeoXGeth);
-    assert_eq!(node.chain_family, neo_nexus::types::ChainFamily::NeoX);
+    assert_eq!(node.node_type.family(), neo_nexus::types::ChainFamily::NeoX);
 }
 
 #[tokio::test]
@@ -106,13 +100,13 @@ async fn test_lifecycle_neoxreth_node() {
     );
 
     assert_eq!(node.node_type, NodeType::NeoXReth);
-    assert_eq!(node.chain_family, neo_nexus::types::ChainFamily::NeoX);
+    assert_eq!(node.node_type.family(), neo_nexus::types::ChainFamily::NeoX);
 }
 
 /// Test concurrent start operations across multiple nodes
 #[tokio::test]
 async fn test_concurrent_node_startup() {
-    let (mut manager, _temp_dir) = spawn_supervised_server("concurrent_startup").await.unwrap();
+    let (manager, _temp_dir) = spawn_supervised_server("concurrent_startup").await.unwrap();
 
     let mut nodes = Vec::new();
     for (i, node_type) in NodeType::ALL.iter().enumerate() {
@@ -126,13 +120,12 @@ async fn test_concurrent_node_startup() {
         nodes.push(node);
     }
 
-    let plan = LaunchPlan::default();
-
     // Concurrent startup of all node types
-    let futures = nodes.iter().map(|node| {
-        let manager = &mut manager;
-        async move { manager.start_node(node, &plan).await }
-    });
+    let plans: Vec<_> = nodes.iter().map(|_| test_launch_plan()).collect();
+    let futures = nodes
+        .iter()
+        .zip(plans.iter())
+        .map(|(node, plan)| manager.start_node(node, plan));
 
     let results = futures::future::join_all(futures).await;
 
@@ -149,7 +142,7 @@ async fn test_concurrent_node_startup() {
 /// Test restart operation (stop then start)
 #[tokio::test]
 async fn test_node_restart_operation() {
-    let (mut manager, _temp_dir) = spawn_supervised_server("restart_test").await.unwrap();
+    let (manager, _temp_dir) = spawn_supervised_server("restart_test").await.unwrap();
 
     let node = make_test_node_config(
         "restart-test-001",
@@ -158,7 +151,7 @@ async fn test_node_restart_operation() {
         30338,
     );
 
-    let plan = LaunchPlan::default();
+    let plan = test_launch_plan();
 
     // Initial start
     let first_pid = manager.start_node(&node, &plan).await.unwrap();
@@ -176,11 +169,11 @@ async fn test_node_restart_operation() {
 /// Test graceful vs forced stop modes
 #[tokio::test]
 async fn test_graceful_vs_forced_stop() {
-    let (mut manager, _temp_dir) = spawn_supervised_server("stop_modes").await.unwrap();
+    let (manager, _temp_dir) = spawn_supervised_server("stop_modes").await.unwrap();
 
     let node = make_test_node_config("stop-mode-test", "Stop Mode Test", NodeType::NeoGo, 30339);
 
-    let plan = LaunchPlan::default();
+    let plan = test_launch_plan();
     manager.start_node(&node, &plan).await.unwrap();
 
     // Graceful stop (what we have)
@@ -263,7 +256,6 @@ async fn test_metrics_timeout_handling() {
     let mock_data = MockMetricData::delayed_response(5000); // 5 second delay
     let server = MockMetricsServer::spawn(mock_data).await.unwrap();
 
-    let client = reqwest::Client::new();
     let url = format!("http://{}/metrics", server.addr());
 
     // Set short timeout
@@ -324,20 +316,20 @@ fn test_parse_neo_cli_log_entries() {
     // Count specific entry types
     let info_count = lines
         .iter()
-        .filter(|l| l.contains("[INFO]").as_str())
+        .filter(|l| l.contains("[INFO]"))
         .count();
     let debug_count = lines
         .iter()
-        .filter(|l| l.contains("[DEBUG]").as_str())
+        .filter(|l| l.contains("[DEBUG]"))
         .count();
     let warn_count = lines
         .iter()
-        .filter(|l| l.contains("[WARN]").as_str())
+        .filter(|l| l.contains("[WARN]"))
         .count();
 
     assert!(info_count > 0, "Should have INFO level entries");
     assert!(debug_count > 0, "Should have DEBUG level entries");
-    assert!(warn_count >= 0, "May have warnings");
+    assert_eq!(warn_count, 1, "Fixture carries exactly one WARN line");
 }
 
 /// Test parse_line with NeoGo log format
@@ -345,10 +337,10 @@ fn test_parse_neo_cli_log_entries() {
 fn test_parse_neo_go_log_entries() {
     let logs = neo_go_logs();
 
-    // Go log format: [MM/DD/YY HH:MM:SS] LEVEL message
-    assert!(logs.contains("[INFO"));
+    // Go log format: [MM/DD/YY HH:MM:SS] LEVEL component:line message
     assert!(logs.contains("INFO  node.go:123"));
     assert!(logs.contains("Syncing block"));
+    assert!(logs.contains("node is fully synchronized"));
 }
 
 /// Test parse_line with NeoRS log format
@@ -485,7 +477,7 @@ async fn test_plugin_discovery_neocli() {
     // Create plugin directory structure
     let workspace = PathBuf::from(temp_dir.path())
         .join("nodes")
-        .join("plugin-test-001");
+        .join(&node.id);
     let plugins_dir = workspace.join("Plugins");
     fs::create_dir_all(&plugins_dir).unwrap();
 
@@ -549,7 +541,7 @@ async fn test_plugin_migration_script() {
 
     let workspace = PathBuf::from(temp_dir.path())
         .join("nodes")
-        .join("migration-test-001");
+        .join(&node.id);
     fs::create_dir_all(&workspace).unwrap();
 
     // Create old-style config (neo-cli only)
@@ -629,58 +621,23 @@ fn test_invalid_node_id_rejection() {
     }
 }
 
-/// Validate node ID helper
-fn validate_node_id(id: &str) -> Result<(), anyhow::Error> {
-    if id.is_empty() {
-        return Err(anyhow::anyhow!("Node ID cannot be empty"));
-    }
-
-    if id.len() > 64 {
-        return Err(anyhow::anyhow!("Node ID too long (max 64 chars)"));
-    }
-
-    // Basic pattern check
-    for c in id.chars() {
-        if !c.is_alphanumeric() && c != '-' && c != '_' {
-            return Err(anyhow::anyhow!("Invalid character in node ID"));
-        }
-    }
-
-    Ok(())
-}
-
-/// Test port range constraints
+/// Test port range constraints against the real validator
 #[test]
 fn test_port_range_validation() {
-    let valid_ports = vec![1024, 30333, 45678, 65535];
-    let invalid_ports = vec![0, 1, 1023, 65536, 99999];
+    // Ports are u16, so only 0 is out of range; 65536 and above cannot exist.
+    let valid_ports = vec![1u16, 1023, 1024, 30333, 45678, 65535];
 
     for port in valid_ports {
         assert!(
-            validate_node_port(port).is_ok(),
-            "{} should be valid port",
-            port
+            validate_node_port(port, "test").is_ok(),
+            "{port} should be valid port"
         );
     }
 
-    for port in invalid_ports {
-        assert!(
-            validate_node_port(port).is_err(),
-            "{} should be invalid port",
-            port
-        );
-    }
-}
-
-/// Validate port helper
-fn validate_node_port(port: u16) -> Result<(), anyhow::Error> {
-    if port < 1024 {
-        return Err(anyhow::anyhow!("Port must be >= 1024 (privileged ports)"));
-    }
-    if port > 65535 {
-        return Err(anyhow::anyhow!("Port must be <= 65535"));
-    }
-    Ok(())
+    assert!(
+        validate_node_port(0, "test").is_err(),
+        "0 should be invalid port"
+    );
 }
 
 /// Test NodeType enum Display symmetry
@@ -780,13 +737,13 @@ fn test_config_format_serialization() {
 /// Test config generation → supervisor startup → event journaling chain
 #[tokio::test]
 async fn test_config_supervisor_event_chain() {
-    let (mut manager, _temp_dir) = spawn_supervised_server("config_supervisor_event")
+    let (manager, _temp_dir) = spawn_supervised_server("config_supervisor_event")
         .await
         .unwrap();
 
     let node = make_test_node_config("chain-test-001", "Chain Test Node", NodeType::NeoCli, 30342);
 
-    let plan = LaunchPlan::default();
+    let plan = test_launch_plan();
 
     // Full chain: create config -> start node
     let pid_result = manager.start_node(&node, &plan).await;
@@ -800,7 +757,7 @@ async fn test_config_supervisor_event_chain() {
 /// Test REST endpoints route through NodeManager facade correctly
 #[tokio::test]
 async fn test_rest_facade_routing() {
-    let (mut manager, _temp_dir) = spawn_supervised_server("facade_routing").await.unwrap();
+    let (manager, _temp_dir) = spawn_supervised_server("facade_routing").await.unwrap();
 
     let node = make_test_node_config(
         "facade-test-001",
@@ -809,7 +766,7 @@ async fn test_rest_facade_routing() {
         30343,
     );
 
-    let plan = LaunchPlan::default();
+    let plan = test_launch_plan();
 
     // All operations go through unified NodeManager API
     manager.start_node(&node, &plan).await.unwrap();
@@ -843,12 +800,17 @@ fn test_cli_web_identical_behavior() {
             30344,
         );
 
-        // Configuration should be deterministic
+        // Configuration should be deterministic: same type, same relative path.
         let config_fmt = node_type.config_format();
         let config_path = node_type.config_path();
 
         assert!(!config_fmt.extension().is_empty());
-        assert_eq!(config_path.parent(), Some(std::path::Path::new("")));
+        assert!(config_path.is_relative());
+        assert_eq!(
+            config_path.extension().and_then(|ext| ext.to_str()),
+            Some(config_fmt.extension()),
+            "config path extension must match the declared format for {node_type}"
+        );
     }
 }
 
@@ -899,7 +861,7 @@ async fn test_resource_cleanup_on_error() {
     let node = make_test_node_config("cleanup-test-001", "Cleanup Test", NodeType::NeoRs, 30346);
 
     // Create temporary file
-    let temp_file = temp_dir.path().join("test-resource.tmp");
+    let temp_file = temp_dir.path().join(format!("{}-resource.tmp", node.id));
     fs::write(&temp_file, "test data").unwrap();
 
     // Verify file exists during test scope
@@ -919,7 +881,7 @@ fn test_no_orphaned_processes() {
 /// Test graceful degradation with partial failures
 #[tokio::test]
 async fn test_graceful_degradation() {
-    let (_manager, _temp_dir) = spawn_supervised_server("degradation").await.unwrap();
+    let (manager, _temp_dir) = spawn_supervised_server("degradation").await.unwrap();
 
     // If one node fails, others should continue
     for i in 0..5 {
@@ -931,7 +893,7 @@ async fn test_graceful_degradation() {
         );
 
         // Even if some start unexpectedly, system continues
-        let result = _manager.start_node(&node, &LaunchPlan::default()).await;
+        let result = manager.start_node(&node, &test_launch_plan()).await;
 
         // Accept either success or failure - system should remain stable
         assert!(result.is_ok() || result.is_err());
@@ -947,7 +909,7 @@ async fn test_graceful_degradation() {
 fn test_all_node_types_defined() {
     assert_eq!(NodeType::ALL.len(), 5);
 
-    for (i, node_type) in NodeType::ALL.iter().enumerate() {
+    for node_type in NodeType::ALL.iter() {
         assert!(format!("{}", node_type).is_empty() == false);
         assert!(node_type.config_format().extension().is_empty() == false);
     }
@@ -956,7 +918,7 @@ fn test_all_node_types_defined() {
 }
 
 /// Test complete lifecycle scenarios
-#[tokio::test]
+#[test]
 fn test_complete_lifecycle_coverage() {
     println!("✓ Testing complete lifecycle for:");
     for node_type in NodeType::ALL.iter() {
