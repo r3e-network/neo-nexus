@@ -61,7 +61,7 @@ pub(super) fn decrypt_nep2(
     // open a wallet produced by neo-cli.
     let cipher = aes::Aes256::new_from_slice(&derived[32..])
         .map_err(|_| anyhow::anyhow!("NEP-2 AES parameters are invalid"))?;
-    for block in encrypted_key.chunks_exact_mut(16) {
+    for block in encrypted_key.as_chunks_mut::<16>().0 {
         cipher.decrypt_block(block.into());
     }
     let mut private_key = Zeroizing::new([0_u8; 32]);

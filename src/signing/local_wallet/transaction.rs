@@ -130,7 +130,7 @@ fn decode_display_script_hash(value: &str) -> Result<[u8; HASH160_LEN]> {
         bail!("local wallet script hash is not a 20-byte display hash");
     }
     let mut wire = [0_u8; HASH160_LEN];
-    for (index, pair) in encoded.as_bytes().chunks_exact(2).enumerate() {
+    for (index, pair) in encoded.as_bytes().as_chunks::<2>().0.iter().enumerate() {
         let text = std::str::from_utf8(pair).context("script hash is not ASCII")?;
         wire[HASH160_LEN - 1 - index] =
             u8::from_str_radix(text, 16).context("script hash is not hexadecimal")?;

@@ -7,8 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Erratum for 1c4114c
+
+Commit 1c4114c ("mount the integration suite, and stop calling plaintext
+encrypted") overstated what it did, and it left CI red.
+
+- It said 68 previously invisible tests were now running. Of those 68, 18 made
+  real assertions about the product. The other 50 asserted nothing about it:
+  they ran against a test-local `NodeManager` with a fixed PID 12345 (the real
+  `neo_nexus::node_manager::NodeManager` never existed), exercised fixtures,
+  helpers and a mock metrics server, only printed "coverage", or used asserts
+  such as `result.is_ok() || result.is_err()` that cannot fail. Those 50 are
+  gone. The 18 real ones are kept in `tests/integration/node_types.rs` or moved
+  to library unit tests.
+- It said the repository has no crypto dependency. `Cargo.toml` lists aes,
+  scrypt, p256, ed25519-dalek and sha2.
+- It failed CI's `Format` step and had 6 Clippy errors, all in code it added.
+- The binary's own `--help` still called the backup encrypted.
+
+`cargo test --test integration` now runs 17 tests, all through the public
+`neo_nexus` API with no test-local stand-ins for product code. Nine drive the
+lifecycle core shared by the web workbench and
+`--node-start`/`--node-stop`/`--node-restart` (`execute_node_launch`,
+`stop_node_runtime`) over a real SQLite workspace, with the real
+`LaunchPlanner`, `ConfigExporter` and `ProcessSupervisor` spawning a real child
+process. For each of neo-cli, neo-go, neo-rs, neox-geth and neox-rs, a start
+writes a parseable managed config at the path the launch command names, records
+`Running` with the pid of a live process and logs the launch; a stop ends that
+process, records `Stopped` with no pid and logs the stop. Restart replaces the
+process. All five run side by side under one supervisor while a node with a
+missing runtime fails alone in `Error`. The other eight check node-id and port
+validation, node-type round-trips, chain family, default storage engine,
+plugin support and config-path extensions. The runtime is a compiled stand-in
+that ignores its arguments and sleeps, so no real Neo client, sync, RPC,
+readiness check, signer duty or plugin is exercised.
+
+
 ### Security
 
+- **Backup is described as what it is everywhere**: `--help` now reads "Write a
+  0600 plaintext JSON workspace export, NOT encrypted", and the documented-claims
+  gate reads the rendered `--help` and whole statements rather than single lines,
+  so reworded, wrapped or ambiguous encryption claims about the backup fail it.
+  `docs/MIGRATION-v4.3.md` no longer tells operators to run a
+  `make backup-export FORMAT=tar.gz` target that does not exist.
 - **Dependency advisory cleanup**: upgrade `rustls` to 0.23.45 (RUSTSEC-2026-0285,
   TLS 1.3 handshake message boundary) and `anyhow` to 1.0.104 (unsound
   `Error::downcast_mut`). Both are now absent from `cargo audit`.

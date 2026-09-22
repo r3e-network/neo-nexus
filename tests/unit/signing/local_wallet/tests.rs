@@ -296,7 +296,7 @@ fn encrypt_nep2(
         block[index] = private_key[index] ^ derived[index];
     }
     let cipher = aes::Aes256::new_from_slice(&derived[32..]).expect("AES parameters");
-    for chunk in block.chunks_exact_mut(16) {
+    for chunk in block.as_chunks_mut::<16>().0 {
         cipher.encrypt_block(chunk.into());
     }
     let mut payload = vec![0x01, 0x42, 0xe0];

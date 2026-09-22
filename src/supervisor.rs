@@ -1,5 +1,5 @@
 mod logging;
-pub mod model;
+pub(super) mod model;
 mod process;
 mod termination;
 

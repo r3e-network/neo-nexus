@@ -29,29 +29,29 @@ v4.3 introduces **Node Manager**, a trait-based abstraction layer supporting 5 n
 **Critical Data to Preserve:**
 
 ```bash
-# Full workspace backup (recommended)
-make backup-export FORMAT=tar.gz DESTINATION=./pre-migration-backup
+# Full workspace backup (recommended): --export-backup writes a 0600 plaintext JSON workspace export, NOT encrypted
+neo-nexus --export-backup /path/to/neonexus.db ./pre-migration-backup
 
-# If tar.gz not available, manually archive:
-tar -czf pre-migration-workspace.tar.gz workspaces/ .neonex/
+# Export the generated node configuration files beside it
+neo-nexus --export-node-configs /path/to/neonexus.db ./pre-migration-backup/configs
 
-# Export node configurations as JSON snapshots
-for NODE in $(cat workspaces/.fleet.json | jq -r '.nodes[].name'); do
-    neo-cli config export --node "$NODE" --format json > "backup_${NODE}_config.json"
-done
-
-# Document current versions
-neo-cli fleet report --output=current_versions.json
+# Record the current node inventory
+neo-nexus --node-list-json /path/to/neonexus.db > ./pre-migration-backup/node-list.json
 ```
+
+The backup is a single `neonexus-backup-<unix>.json` file holding the workspace
+records (nodes, settings, runtime and signer profiles, snapshot catalog entries,
+events). It does not contain node chain data, and anyone who can read the file
+can read the workspace, so keep it where only the operator account can open it.
+There is no `make` target for backups.
 
 **Verification:**
 ```bash
-# Ensure backup is restorable
-tar -tzf pre-migration-workspace.tar.gz | head -20
+# Ensure backup is restorable: checks the manifest and schema without importing
+neo-nexus --validate-backup ./pre-migration-backup/neonexus-backup-1700000000.json
 
-# Confirm all nodes accounted for
-jq '.nodes[].name' workspaces/.fleet.json > prior_node_list.txt
-wc -l prior_node_list.txt  # Should match node count
+# Confirm all nodes accounted for: the "nodes:" count printed above must match
+jq length ./pre-migration-backup/node-list.json
 ```
 
 ### 2. Environment Prerequisites
@@ -578,9 +578,9 @@ Remove-Item "workspaces\*\.migrated" -Recurse -ErrorAction SilentlyContinue
 # Stop ALL nodes immediately
 neo-cli node stop --all
 
-# Restore from pre-migration backup
-Remove-Item "workspaces\*" -Recurse -Force
-Expand-Archive "pre-migration-workspace.tar.gz" -DestinationPath "."
+# Restore the pre-migration backup into a fresh workspace database; imported
+# node runtimes stay quarantined until --node-rebind-runtime
+neo-nexus --import-backup C:\neonexus\restored\neonexus.db .\pre-migration-backup\neonexus-backup-1700000000.json
 
 # Swap back to old binary
 Move-Item "neo-nexus-v4.2.0.exe.bak" "neo-nexus.exe"
@@ -597,7 +597,7 @@ neo-cli fleet report  # Should match pre-upgrade snapshot
 | Metrics endpoints timeout | Low | Temporary disable (Section 2) | 1 min |
 | High CPU/memory usage | Medium | Reduce adapter concurrency | 3 min |
 | Configuration corruption | High | Full restore (Section 3) | 10 min |
-| Data loss detected | Critical | From backup vault | 30+ min |
+| Data loss detected | Critical | Import the pre-migration backup (Section 3) | 30+ min |
 
 ---
 

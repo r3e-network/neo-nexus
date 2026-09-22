@@ -173,3 +173,7 @@ impl Default for NodeAdapters {
         Self::new()
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/supervisor/adapters.rs"]
+mod tests;

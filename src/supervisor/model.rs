@@ -7,15 +7,12 @@
 use std::time::Duration;
 
 pub(crate) mod adapters;
-pub mod log_parsers;
+pub(crate) mod log_parsers;
 pub(crate) mod metrics;
 pub(crate) mod process;
 
 pub use adapters::NodeAdapters;
-pub use log_parsers::{
-    FatalError, LogEntry, LogParserAdapter, NeoCliLogParser, NeoGoLogParser, NeoRsLogParser,
-    NeoXGethLogParser, NeoXRethLogParser, SyncProgress,
-};
+pub use log_parsers::{FatalError, LogEntry, LogParserAdapter, SyncProgress};
 pub use metrics::MetricsExporterAdapter;
 pub use process::{
     unix_timestamp, LaunchConfirmation, ManagedProcessKind, ManagedProcessSpec, PluginMetadata,

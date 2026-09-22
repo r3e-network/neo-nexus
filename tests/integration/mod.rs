@@ -1,11 +1,7 @@
-//! Integration Test Suite Module
-//! 
-//! Comprehensive testing infrastructure for Node Manager covering all 5 node types,
-//! metrics collection, log parsing, plugin workflows, and cross-module interactions.
+//! The integration suite drives the library through its public API only: a
+//! real SQLite workspace, the real launch planner, config exporter and process
+//! supervisor, and a real child process standing in for a node runtime.
 
-pub mod common;
-pub mod fixtures;
-pub mod mocks;
-
-// Main integration test file with full test coverage
-pub mod node_manager_full;
+mod common;
+mod lifecycle;
+mod node_types;

@@ -66,7 +66,7 @@ pub(super) fn read_workload_seed(path: &Path) -> Result<Zeroizing<[u8; 32]>> {
         );
     }
     let mut seed = Zeroizing::new([0_u8; 32]);
-    for (index, pair) in encoded.as_bytes().chunks_exact(2).enumerate() {
+    for (index, pair) in encoded.as_bytes().as_chunks::<2>().0.iter().enumerate() {
         let (Some(high), Some(low)) = (hex_nibble(pair[0]), hex_nibble(pair[1])) else {
             bail!("signer workload key failed validated hexadecimal decoding");
         };

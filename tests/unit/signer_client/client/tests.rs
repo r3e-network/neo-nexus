@@ -1278,7 +1278,7 @@ fn live_consensus_payload(script_hash: &str) -> Result<String> {
         bail!("signer returned a non-UInt160 script hash: {script_hash}");
     }
     let mut sender = Vec::with_capacity(20);
-    for pair in display.as_bytes().chunks_exact(2) {
+    for pair in display.as_bytes().as_chunks::<2>().0 {
         let high = hex_nibble(pair[0]).context("script hash contains non-hexadecimal data")?;
         let low = hex_nibble(pair[1]).context("script hash contains non-hexadecimal data")?;
         sender.push((high << 4) | low);
@@ -1335,7 +1335,7 @@ fn decode_hex_signature(encoded: &str) -> Result<[u8; 64]> {
         bail!("workload signature is not 64 bytes");
     }
     let mut decoded = [0_u8; 64];
-    for (index, pair) in encoded.as_bytes().chunks_exact(2).enumerate() {
+    for (index, pair) in encoded.as_bytes().as_chunks::<2>().0.iter().enumerate() {
         let high = hex_nibble(pair[0]).context("signature contains non-hexadecimal data")?;
         let low = hex_nibble(pair[1]).context("signature contains non-hexadecimal data")?;
         decoded[index] = (high << 4) | low;
