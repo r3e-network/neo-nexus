@@ -18,9 +18,8 @@ Data_LevelDB_*/
 /nodes/
 
 # Environment
-.env
-.env.local
-.env.*.local
+.env*
+!.env.example
 
 # Logs and temporary files
 logs/
