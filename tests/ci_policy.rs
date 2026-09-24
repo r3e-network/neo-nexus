@@ -7,3 +7,5 @@ mod orphan_modules;
 mod rejections;
 #[path = "ci_policy/source_quality.rs"]
 mod source_quality;
+#[path = "ci_policy/workflow_shells.rs"]
+mod workflow_shells;

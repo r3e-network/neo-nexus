@@ -65,16 +65,19 @@ jobs:
       
       - name: Generate performance summary
         if: success() || failure()
+        shell: bash
         run: |
-          echo "### 📊 Daily Benchmark Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**OS:** ${{ runner.os }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Timestamp:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### 📊 Daily Benchmark Results"
+            echo ""
+            echo "**OS:** ${{ runner.os }}"
+            echo "**Timestamp:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
           
           # Check for any benchmark failures
           if [[ -f "target/criterion/report/benchmark_summary.txt" ]]; then
-            cat target/criterion/report/benchmark_summary.txt >> $GITHUB_STEP_SUMMARY
+            cat target/criterion/report/benchmark_summary.txt >> "$GITHUB_STEP_SUMMARY"
           fi
 
   benchmark-pr-check:
@@ -146,15 +149,23 @@ jobs:
       
       - name: Generate trend report
         run: |
-          echo "# 📈 Performance Trends" > performance-trends.md
-          echo "" >> performance-trends.md
-          echo "This report summarizes daily benchmark performance across all platforms." >> performance-trends.md
-          echo "" >> performance-trends.md
+          {
+            echo "# 📈 Performance Trends"
+            echo ""
+            echo "This report summarizes daily benchmark performance across all platforms."
+            echo ""
+          } > performance-trends.md
           
           # Count days analyzed
-          DAYS_COUNT=$(ls -1 | grep -E "^benchmark-data-" | wc -l)
-          echo "**Days Analyzed:** ${DAYS_COUNT}" >> performance-trends.md
-          echo "" >> performance-trends.md
+          DAYS_COUNT=0
+          for entry in benchmark-data-*; do
+            [[ -e "$entry" ]] || continue
+            DAYS_COUNT=$((DAYS_COUNT + 1))
+          done
+          {
+            echo "**Days Analyzed:** ${DAYS_COUNT}"
+            echo ""
+          } >> performance-trends.md
       
       - name: Upload trend report
         uses: actions/upload-artifact@v4

@@ -111,6 +111,7 @@ jobs:
 
       - name: Alert preview CLI (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           $secret = "dd123"
           $target = "https://event-management-intake.datadoghq.com/api/v2/events?api_key=$secret"
@@ -153,6 +154,7 @@ jobs:
 
       - name: Runtime smoke JSON CLI (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           $runtime = Join-Path $env:RUNNER_TEMP "neo-node.cmd"
           Set-Content -Path $runtime -Value "@echo off`necho neo-rs neo-node version smoke`nexit /b 0" -NoNewline
@@ -187,6 +189,7 @@ jobs:
 
       - name: RPC health JSON CLI (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           cargo run -- --rpc-health-json 127.0.0.1:1
           $exitCode = $LASTEXITCODE
@@ -236,6 +239,7 @@ jobs:
 
       - name: Workspace readiness CLI (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           $db = Join-Path $env:RUNNER_TEMP "neonexus-ci.db"
           $reportDir = Join-Path $env:RUNNER_TEMP "neonexus-readiness-reports"
@@ -299,6 +303,7 @@ jobs:
 
       - name: Neo-rs standalone config CLI (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           $configPath = Join-Path $env:RUNNER_TEMP "generated-neo-rs.toml"
           $jsonConfigPath = Join-Path $env:RUNNER_TEMP "generated-neo-rs-json.toml"
@@ -350,6 +355,7 @@ jobs:
 
       - name: Backup validation CLI (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           $db = Join-Path $env:RUNNER_TEMP "neonexus-backup-export.db"
           $jsonDb = Join-Path $env:RUNNER_TEMP "neonexus-backup-export-json.db"
@@ -446,6 +452,7 @@ jobs:
 
       - name: Wallet validation CLI (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           $wallet = Join-Path $env:RUNNER_TEMP "validator.wallet.json"
           $walletKey = "036dc4bf8f0405dcf5d12a38487b359cb4bd693357a387d74fc438ffc7757948b0"
@@ -504,6 +511,7 @@ jobs:
 
       - name: Release binary smoke (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: .\target\release\neo-nexus.exe --self-check
 
       - name: Package release artifacts (Unix)
@@ -512,6 +520,7 @@ jobs:
 
       - name: Package release artifacts (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: .\target\release\neo-nexus.exe --package-release dist
 
       - name: Verify release package integrity only (Unix)
@@ -522,6 +531,7 @@ jobs:
 
       - name: Verify release package integrity only (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           .\target\release\neo-nexus.exe --verify-release-package-integrity dist
           .\target\release\neo-nexus.exe --verify-release-package-integrity-json dist
