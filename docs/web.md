@@ -255,8 +255,20 @@ or not anyone remembers to write a test for it.
 
 Controls that change state, all plain form posts: `POST /nodes/new` and
 `POST /nodes/{id}/edit` register or update a node, `POST /nodes/{id}/delete`
-removes it; `POST /nodes/{id}/start`, `/stop`, `/restart` drive the lifecycle;
+removes it; `POST /nodes/{id}/start`, `/stop`, `/restart` drive the lifecycle, and
+`POST /nodes/batch-action` applies one of those three to the instances a
+selection names — an empty selection is refused with a message rather than read
+as "all of them";
+`POST /nodes/{id}/smoke` probes the binary and the RPC socket now instead of
+waiting for the next observation pass, and journals the result as an event whose
+severity is Critical when the probe fails, because a failed probe means the
+binary is wrong rather than the node being quiet;
+`POST /nodes/{id}/role` assigns a duty and the plugin states that duty requires in
+one transaction, so a crash cannot leave a Consensus role on a node still carrying
+the old relay plugin set, and a duty the instance's client cannot carry is
+refused with the reason;
 `POST /plugins/{id}/toggle` and `POST /federation/{id}/toggle` flip a flag;
+`POST /federation/new` adds a peer, and
 `POST /federation/{id}` updates a peer's name, address, description, or enabled
 state (a rejected edit comes back on the same page with the typed values kept
 and the reason beside the field);
@@ -271,6 +283,13 @@ console or the service refuses comes back on the same page with what was typed
 still in the form and the refusal beside the field it belongs to — a refusal
 that belongs to no single field, such as the service's own denial, is quoted
 above the form in the service's words;
+`POST /signer/keys/generate` mints a signing key in the custody service, and
+`POST /signer/callers` registers a caller allowed to reach the signing API; both
+hand the operator a value exactly once, on the page that minted it, rather than
+reading it back from a URL;
+`POST /events/export` downloads exactly the entries the current filter selects,
+in the journal's own format — the operator filing a ticket is the one least
+likely to have a shell on the host;
 `POST /config/export` writes the workspace config set;
 `POST /runtimes/catalog` registers a catalogue source, and one this console or the
 workspace refuses comes back on the same page with all six fields as typed — the
@@ -291,8 +310,18 @@ because by then every field the form can judge has already been judged;
 same way as the boundary above: the posted values stay in the form, the reason
 sits beside the field it is about, and a failure that belongs to no field is
 shown above the form rather than counted as one);
+`POST /settings/density` stores the row density the operator prefers. It is a
+display preference and nothing else, so it is one control rather than part of the
+policy forms above;
 `POST /runtimes/install` queues a runtime install as a background job;
 `POST /logout` ends the session.
+
+`/nodes/{id}/smoke-test` answers to the same handler as `/nodes/{id}/smoke`; it is
+a second name for one control, not a second control. Two more routes accept a
+`POST` but are not form posts and are not in the list above:
+`POST /signer/api/v1/sign/raw` and `POST /api/nodes/{id}/mcp` are programmatic
+endpoints, reached with a signer caller's proof and a node's MCP token
+respectively, and each is described where it belongs rather than here.
 
 Authenticated API: `GET /api/fleet`, `GET /api/readiness`, `GET /api/jobs`, and
 `GET /api/metrics-prometheus`. Public endpoints are `/healthz` (liveness),
