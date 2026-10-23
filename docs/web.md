@@ -316,12 +316,33 @@ policy forms above;
 `POST /runtimes/install` queues a runtime install as a background job;
 `POST /logout` ends the session.
 
+The remaining form posts are listed here rather than described, because each is
+covered where its feature is: the lifecycle pair `POST /nodes/{id}/stop` and
+`POST /nodes/{id}/restart` named in short form above; `POST /nodes/{id}/restart-hold`,
+which holds the watchdog off a node or lets it manage the node again;
+`POST /nodes/{id}/signer`, `POST /nodes/{id}/config/reconcile`,
+`POST /nodes/{id}/agent/token`, `POST /nodes/{id}/agent/test-ping` and
+`POST /nodes/{id}/agent/toggle-healing`; `POST /plugins/install`;
+`POST /snapshots/{snapshot_id}/download`, `POST /snapshots/{snapshot_id}/verify`,
+`POST /snapshots/{snapshot_id}/cache` and
+`POST /snapshots/{snapshot_id}/apply/{node_id}`;
+`POST /operations/integrity-check`, `POST /operations/readiness-report` and
+`POST /operations/support-bundle`; `POST /wallets/{id}/delete`;
+`POST /settings/api-tokens/create` and `POST /settings/runtime-upgrade`;
+`POST /alerts/routing/preview`; and the signing service's own controls,
+`POST /signer/keys/{id}/state`, `POST /signer/keys/{id}/delete`,
+`POST /signer/callers/workload`, `POST /signer/callers/{id}/rotate`,
+`POST /signer/callers/{id}/state` and `POST /signer/callers/{id}/delete`.
+
 `/nodes/{id}/smoke-test` answers to the same handler as `/nodes/{id}/smoke`; it is
-a second name for one control, not a second control. Two more routes accept a
-`POST` but are not form posts and are not in the list above:
-`POST /signer/api/v1/sign/raw` and `POST /api/nodes/{id}/mcp` are programmatic
-endpoints, reached with a signer caller's proof and a node's MCP token
-respectively, and each is described where it belongs rather than here.
+a second name for one control, not a second control. Six routes accept a `POST`
+without being form posts, and are not in the lists above:
+`/signer/api/v1/sign/raw`, `/signer/api/v1/sign/transaction`,
+`/signer/api/v1/sign/consensus` and `/signer/api/v1/sign/eip191-fulfillment`
+are reached with a signer caller's proof, `POST /api/nodes/{id}/mcp` with the
+node's MCP token, and `POST /api/nodes/{id}/agent/heartbeat` carries an agent's
+liveness report for one node. Each is described where it belongs rather than
+here.
 
 Authenticated API: `GET /api/fleet`, `GET /api/readiness`, `GET /api/jobs`, and
 `GET /api/metrics-prometheus`. Public endpoints are `/healthz` (liveness),

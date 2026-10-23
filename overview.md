@@ -250,7 +250,26 @@ secret 只存哈希因而无法补发；peer 页说明探测历史一并删除�
 表单原语本身就带 `<label for>`、`aria-invalid` 与 `aria-describedby`，权限复选框
 与告警页的多选也都包在 `<label>` 里——扫一遍原语之外的裸 `<input>`，只找到这一处。
 
-门禁：**1399** 项（上一轮 1394），fmt / clippy / source-quality / source-purity /
+地址不存在时的回答也换了。此前 axum 用一行纯文本 `404 Not Found` 应答打错的
+URL：没有导航、没有回去的路，那种观感也不属于这个控制台的任何一页；跟着过期
+书签进来的操作员只能去改地址栏。现在是 `pages/not_found.rs` 一页：说明这个
+workspace 里没有该地址，把地址原样回显（打错字是最常见的原因，看见才找得到
+错），并给出 `/`、`/nodes`、`/events` 三个出口。它以 `Router::fallback` 挂在
+会话层之外，登录与否都是同一个答案，但仍经过 `security_headers`，所以这一页
+与其他页面带同一套 CSP（有断言）。回显的地址走 `html::empty_state`，正文被
+转义——路径是调用方给的任何东西，测试把 `<img src=x onerror=…>` 当路径发过去，
+断言标记里不出现 `onerror`。以 `/api/` 或 `/signer/api/` 开头的地址改答 JSON：
+程序解析正文，把 HTML 错误页交给它，「地址错了」会读成「服务坏了」，而这两者
+要改的地方不同。四条测试。同一轮把 `docs/web.md` 里那句「所有改状态的表单」
+之后的清单补齐了。路由一共绑了 65 条 POST——59 条 UI 表单、6 条程序化端点——
+文档此前逐字写出的只有 35 条。主要的八条补充了「为什么存在」（批量动作拒绝空
+选择而不是读成「全部」；探针失败记 Critical，因为坏二进制不是安静的节点；改
+职责把职责与它要求的插件状态写在一个事务里），其余按功能分组列成清单，六条
+程序化端点单独点明，并注明 `/nodes/{id}/smoke-test` 与 `/nodes/{id}/smoke` 是
+同一个 handler 的两个名字。数字是按括号配平扫出来的：先前用两种正则数，给出
+27 与 59 两个答案，少配一截就是另一个结论。
+
+门禁：**1403** 项（上一轮 1399），fmt / clippy / source-quality / source-purity /
 ci-policy 全绿。详见 `docs/ITERATION_2026-10-forms.md` 第十一至十四节。
 
 ## 仍需关注
