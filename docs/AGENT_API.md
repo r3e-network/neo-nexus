@@ -16,9 +16,11 @@
 3. [Security & Rate Limiting Boundaries](#security--rate-limiting-boundaries)
 4. [HTTP REST Endpoints](#http-rest-endpoints)
    - [Public Liveness: GET /healthz](#get-healthz)
+   - [Public Readiness: GET /ready](#get-ready)
    - [Public Status: GET /api/public/status](#get-apipublicstatus)
    - [Fleet Inventory: GET /api/fleet](#get-apifleet)
    - [Readiness Diagnostics: GET /api/readiness](#get-apireadiness)
+   - [Background Jobs: GET /api/jobs](#get-apijobs)
    - [Prometheus Metrics: GET /api/metrics-prometheus](#get-apimetrics-prometheus)
    - [Cloud Node IaC: GET /api/nodes/{id}/iac](#get-apinodesidiac)
    - [Cloud Fleet Manifest: GET /api/fleet/iac](#get-apifleetiac)
@@ -49,9 +51,11 @@ NeoNexus provides two complementary, production-grade automation surfaces design
 │         HTTP Web & REST API        │        Headless CLI Engine         │
 │  - /api/fleet                      │  - --peer-health-json              │
 │  - /api/readiness                  │  - --mempool-status-json           │
-│  - /api/metrics-prometheus         │  - --check-config-drift-json       │
-│  - /signer/api/v1/...              │  - --reconcile-node-config-json    │
-│  - Bearer Token RBAC Middleware    │  - --workspace-readiness-json      │
+│  - /api/jobs                       │  - --check-config-drift-json       │
+│  - /api/metrics-prometheus         │  - --reconcile-node-config-json    │
+│  - /signer/api/v1/...              │  - --workspace-readiness-json      │
+│  - Bearer Token RBAC Middleware    │                                 │
+│  - /healthz  /ready  (public)      │                                 │
 └────────────────────────────────────┴────────────────────────────────────┘
 ```
 
@@ -82,7 +86,7 @@ Authorization: Bearer <HEX_ENCODED_32_BYTE_SECRET>
 
 | Scope | Allowed Operations | Typical Use Case |
 |---|---|---|
-| `read_fleet` | `/api/fleet`, `/api/logs`, `/api/plugins`, `/api/metrics-prometheus`, `/public-metrics`, `/api/nodes/{id}/{metrics,iac}`, `/api/fleet/iac` | Prometheus scrapers, Grafana dashboards |
+| `read_fleet` | `/api/fleet`, `/api/jobs`, `/api/logs`, `/api/plugins`, `/api/metrics-prometheus`, `/public-metrics`, `/api/nodes/{id}/{metrics,iac}`, `/api/fleet/iac` | Prometheus scrapers, Grafana dashboards |
 | `read_readiness` | `/api/readiness` | Deployment gates, pre-flight sanity checks |
 | `admin_all` | All API endpoints and headless token operations | Orchestration systems, automated operators |
 | `hermes_agent:<node-id>` | **Only** `/api/nodes/<node-id>/*` | One instance's guest copilot |
@@ -167,10 +171,46 @@ NeoNexus rejects external tampering and resource exhaustion through kernel-level
 ### GET /healthz
 
 Public endpoint verifying process liveness and basic server responsiveness.
+It says nothing about the workspace: a live process with a broken workspace
+still answers `200` here.
 
 - **Auth**: None (Public)
 - **Response Code**: `200 OK`
-- **Response Body**: `ok`
+- **Response Format**:
+```json
+{
+  "status": "ok",
+  "application": "NeoNexus",
+  "version": "4.3.1"
+}
+```
+
+---
+
+### GET /ready
+
+Public readiness probe. It answers the question a load balancer asks — *should
+work come here* — and, unlike `/healthz`, it is about the workspace rather than
+the process.
+
+- **Auth**: None (Public)
+- **Response Code**: `200 OK` when the workspace can serve, `503 Service
+  Unavailable` when it is blocked or cannot be judged
+- **Response Format**:
+```json
+{
+  "status": "ready",
+  "score": 100,
+  "node_count": 2,
+  "ready_nodes": 2,
+  "warning_count": 0,
+  "critical_count": 0
+}
+```
+
+`status` is one of `ready`, `review` (warnings only) or `blocked` (a critical
+finding). The probe publishes counts only — which node is blocked, and where
+its configuration lives, stay behind the session and `/api/readiness`.
 
 ---
 
@@ -183,11 +223,21 @@ Inventory-minimized public status endpoint for load balancers.
 - **Response Format**:
 ```json
 {
-  "service": "neonexus",
-  "status": "operational",
-  "version": "4.3.1"
+  "status": {
+    "total_nodes": 2,
+    "running_nodes": 1,
+    "syncing_nodes": 1,
+    "error_nodes": 0,
+    "total_blocks": null,
+    "total_peers": null,
+    "nodes_needing_attention": 0,
+    "timestamp": 1760000000000
+  }
 }
 ```
+
+`total_blocks` and `total_peers` are always `null`: detailed chain state is not
+published here, and a `0` would be a different statement from "not published".
 
 ---
 
@@ -235,22 +285,96 @@ Returns real-time inventory and status of all configured nodes across Neo N3 and
 
 ### GET /api/readiness
 
-Aggregated fleet diagnostic score, configuration status, and operational blockers.
+The workspace's readiness report: the verdict, the findings, and where each
+finding is resolved. A score tells you something is wrong; a finding with a
+destination tells you what to do.
 
 - **Auth**: Bearer token with `read_readiness` or active session
 - **Response Code**: `200 OK`
 - **Response Format**:
 ```json
 {
-  "readiness_score": 100,
-  "ready_nodes": 2,
-  "total_nodes": 2,
-  "warning_count": 0,
-  "blocker_count": 0,
-  "port_conflicts": 0,
-  "findings": []
+  "status": "blocked",
+  "score": 60,
+  "node_count": 2,
+  "ready_nodes": 1,
+  "warning_count": 1,
+  "critical_count": 1,
+  "findings": [
+    {
+      "severity": "critical",
+      "node_id": "node-1a2b",
+      "node_name": "rpc-1",
+      "title": "Runtime binary",
+      "detail": "Binary path: /opt/neo/neo-node was not found.",
+      "resolution": "runtime-manager",
+      "resolution_label": "Runtimes",
+      "resolution_action": "Open Runtimes",
+      "resolution_hint": "Install, verify, or apply node runtime binaries.",
+      "resolution_href": "/runtimes"
+    }
+  ],
+  "nodes": [
+    {
+      "node_id": "node-1a2b",
+      "node_name": "rpc-1",
+      "score": 40,
+      "status": "blocked",
+      "critical_count": 1,
+      "warning_count": 0,
+      "checks": [
+        {
+          "severity": "critical",
+          "title": "Runtime binary",
+          "detail": "Binary path: /opt/neo/neo-node was not found.",
+          "resolution": "runtime-manager",
+          "resolution_action": "Open Runtimes",
+          "resolution_hint": "Install, verify, or apply node runtime binaries."
+        }
+      ]
+    }
+  ]
 }
 ```
+
+`status` is `ready`, `review` or `blocked`. `resolution_href` is ready to
+follow: it points at the surface that resolves the finding.
+
+---
+
+### GET /api/jobs
+
+The background jobs, newest first, with the progress of the running ones. A
+long install that only says "running" cannot be waited on.
+
+- **Auth**: Bearer token with `read_fleet` or active session
+- **Response Code**: `200 OK`
+- **Response Format**:
+```json
+{
+  "jobs": [
+    {
+      "id": "6f1c...",
+      "lane": "runtime",
+      "description": "install runtime neo-go/v0.104.0",
+      "status": "running",
+      "detail": "",
+      "progress": {
+        "stage": "downloading the package",
+        "completed": null,
+        "total": null,
+        "percent": null,
+        "summary": "downloading the package"
+      },
+      "started_at_unix": 1760000000,
+      "finished_at_unix": null
+    }
+  ]
+}
+```
+
+`status` is `running`, `done` or `failed`. `progress` is present only while the
+job is running, and `progress.percent` only when the work can be counted.
 
 ---
 

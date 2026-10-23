@@ -103,14 +103,14 @@ paths:
     get:
       tags:
         - Readiness Monitoring
-      summary: Check workspace readiness score
+      summary: Read the workspace readiness report
       description: |
-        Returns aggregated diagnostics across all nodes and plugins, including 
-        overall readiness score, ready node count, and issue tallies.
-      
+        Returns the workspace verdict, the findings that need a person, and the
+        surface that resolves each one. The status vocabulary is the same as the
+        public /ready probe: ready, review, blocked.
+
       operationId: getReadinessDiagnostics
       security:
-        - {}  # Anonymous access allowed
         - bearerAuth:
             - read_readiness
           sessionAuth: []
@@ -122,14 +122,87 @@ paths:
               schema:
                 $ref: "#/components/schemas/ReadinessPayload"
               example:
+                status: blocked
                 score: 85
+                node_count: 3
                 ready_nodes: 3
                 warning_count: 2
                 critical_count: 0
-                events: 127
-        
+                findings: []
+                nodes: []
+
         "500":
           description: Internal server error during diagnostics collection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /ready:
+    get:
+      tags:
+        - Readiness Monitoring
+      summary: Public readiness probe
+      description: |
+        Answers whether this instance should receive work. It publishes the
+        verdict and counts only — which node is blocked stays behind the
+        session. A blocked workspace answers 503 so a load balancer stops
+        routing here.
+      operationId: getReadinessProbe
+      security: []
+      responses:
+        "200":
+          description: The workspace can serve
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessProbe"
+              example:
+                status: ready
+                score: 100
+                node_count: 2
+                ready_nodes: 2
+                warning_count: 0
+                critical_count: 0
+        "503":
+          description: The workspace is blocked or cannot be judged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessProbe"
+              example:
+                status: blocked
+                score: 40
+                node_count: 2
+                ready_nodes: 1
+                warning_count: 0
+                critical_count: 1
+
+  /api/jobs:
+    get:
+      tags:
+        - Readiness Monitoring
+      summary: List the background jobs
+      description: |
+        Returns the background jobs, newest first, with the progress of the
+        running ones. A long install that only says "running" cannot be waited
+        on, so a running job carries the step it is on.
+      operationId: getJobs
+      security:
+        - bearerAuth:
+            - read_fleet
+          sessionAuth: []
+      responses:
+        "200":
+          description: The job list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobListPayload"
+              example:
+                jobs: []
+        "401":
+          description: No session and no bearer token
           content:
             application/json:
               schema:
@@ -512,43 +585,307 @@ components:
       type: object
       description: Workspace readiness diagnostics
       required:
+        - status
         - score
+        - node_count
         - ready_nodes
         - warning_count
         - critical_count
-        - events
+        - findings
+        - nodes
       properties:
+        status:
+          type: string
+          enum: [ready, review, blocked]
+          description: The workspace verdict
+          example: blocked
+
         score:
           type: integer
           minimum: 0
           maximum: 100
           description: Overall readiness score
           example: 85
-        
+
+        node_count:
+          type: integer
+          minimum: 0
+          description: Number of nodes in the workspace
+          example: 3
+
         ready_nodes:
           type: integer
           minimum: 0
           description: Number of fully-ready nodes
           example: 3
-        
+
         warning_count:
           type: integer
           minimum: 0
           description: Total warnings across fleet
           example: 2
-        
+
         critical_count:
           type: integer
           minimum: 0
           description: Critical issues requiring attention
           example: 0
-        
-        events:
+
+        findings:
+          type: array
+          description: Everything that needs a person, and where to resolve it
+          items:
+            $ref: "#/components/schemas/ReadinessFinding"
+
+        nodes:
+          type: array
+          description: Per-node verdict and the checks behind it
+          items:
+            $ref: "#/components/schemas/ReadinessNode"
+
+    ReadinessFinding:
+      type: object
+      description: One thing that needs a person
+      required:
+        - severity
+        - node_id
+        - node_name
+        - title
+        - detail
+        - resolution
+        - resolution_label
+        - resolution_action
+        - resolution_hint
+        - resolution_href
+      properties:
+        severity:
+          type: string
+          enum: [critical, warning]
+          example: critical
+        node_id:
+          type: string
+          example: node-1a2b
+        node_name:
+          type: string
+          example: rpc-1
+        title:
+          type: string
+          example: Runtime binary
+        detail:
+          type: string
+          example: "Binary path: /opt/neo/neo-node was not found."
+        resolution:
+          type: string
+          description: Stable identifier of the surface that resolves this finding
+          example: runtime-manager
+        resolution_label:
+          type: string
+          example: Runtimes
+        resolution_action:
+          type: string
+          example: Open Runtimes
+        resolution_hint:
+          type: string
+          example: Install, verify, or apply node runtime binaries.
+        resolution_href:
+          type: string
+          description: Where the operator goes, ready to follow
+          example: /runtimes
+
+    ReadinessNode:
+      type: object
+      description: One node's verdict and the checks behind it
+      required:
+        - node_id
+        - node_name
+        - score
+        - status
+        - critical_count
+        - warning_count
+        - checks
+      properties:
+        node_id:
+          type: string
+          example: node-1a2b
+        node_name:
+          type: string
+          example: rpc-1
+        score:
           type: integer
           minimum: 0
-          description: Total event journal entries
-          example: 127
-    
+          maximum: 100
+          example: 40
+        status:
+          type: string
+          enum: [ready, review, blocked]
+          example: blocked
+        critical_count:
+          type: integer
+          minimum: 0
+          example: 1
+        warning_count:
+          type: integer
+          minimum: 0
+          example: 0
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReadinessCheck"
+
+    ReadinessCheck:
+      type: object
+      description: One check on one node
+      required:
+        - severity
+        - title
+        - detail
+        - resolution
+        - resolution_action
+        - resolution_hint
+      properties:
+        severity:
+          type: string
+          enum: [critical, warning, info, pass]
+          example: critical
+        title:
+          type: string
+          example: Runtime binary
+        detail:
+          type: string
+          example: "Binary path: /opt/neo/neo-node was not found."
+        resolution:
+          type: string
+          example: runtime-manager
+        resolution_action:
+          type: string
+          example: Open Runtimes
+        resolution_hint:
+          type: string
+          example: Install, verify, or apply node runtime binaries.
+
+    ReadinessProbe:
+      type: object
+      description: The public readiness probe — a verdict and counts, nothing that names a node
+      required:
+        - status
+        - score
+        - node_count
+        - ready_nodes
+        - warning_count
+        - critical_count
+      properties:
+        status:
+          type: string
+          enum: [ready, review, blocked]
+          example: ready
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 100
+        node_count:
+          type: integer
+          minimum: 0
+          example: 2
+        ready_nodes:
+          type: integer
+          minimum: 0
+          example: 2
+        warning_count:
+          type: integer
+          minimum: 0
+          example: 0
+        critical_count:
+          type: integer
+          minimum: 0
+          example: 0
+
+    JobListPayload:
+      type: object
+      description: Background jobs, newest first
+      required:
+        - jobs
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Job"
+
+    Job:
+      type: object
+      description: One background job
+      required:
+        - id
+        - lane
+        - description
+        - status
+        - detail
+        - started_at_unix
+      properties:
+        id:
+          type: string
+          example: 6f1c9a2b8d3e4f5a
+        lane:
+          type: string
+          description: What serialises this job against others
+          example: runtime
+        description:
+          type: string
+          example: install runtime neo-go/v0.104.0
+        status:
+          type: string
+          enum: [running, done, failed]
+          example: running
+        detail:
+          type: string
+          description: The result text — what was produced, or why it failed
+          example: ""
+        progress:
+          $ref: "#/components/schemas/JobProgress"
+        started_at_unix:
+          type: integer
+          format: int64
+          example: 1760000000
+        finished_at_unix:
+          type: integer
+          format: int64
+          nullable: true
+          example: null
+
+    JobProgress:
+      type: object
+      description: Where a running job has got to
+      required:
+        - stage
+        - summary
+      properties:
+        stage:
+          type: string
+          description: The step being executed, in the operator's words
+          example: downloading the package
+        completed:
+          type: integer
+          format: int64
+          nullable: true
+          description: Units finished, when the work can be counted
+          example: null
+        total:
+          type: integer
+          format: int64
+          nullable: true
+          description: Units in total, when the work can be counted
+          example: null
+        percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: How far along the work is, when both counts are known
+          example: null
+        summary:
+          type: string
+          example: downloading the package
+
     PluginListResponse:
       type: object
       description: Plugin inventory with version compatibility

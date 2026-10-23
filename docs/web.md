@@ -231,10 +231,12 @@ or not anyone remembers to write a test for it.
 | | `/nodes/{id}/delete` | Confirmation step before an irreversible removal |
 | | `/monitor` | Health: managed process CPU/memory/uptime, missing-process first |
 | | `/logs` | One node's supervised log tail with pattern diagnosis |
+| | `/logs/clear` | Confirmation step before every log file in the workspace is truncated |
 | Operations | `/operations` | Fleet readiness summary and launch blockers |
 | | `/events` | Searchable event journal with severity and row-limit filters |
 | | `/alerts` | Routing policy, delivery history (targets redacted) |
 | Network | `/federation` | Peer NeoNexus servers with their last probe |
+| | `/federation/{id}/edit` | Change one peer's name, address, description, or enabled state |
 | | `/federation/{id}/probes` | Probe history for one server |
 | | `/roles` | Private-network duty × client support matrix and node role plan |
 | Assets | `/runtimes` | Installed binaries and catalog profiles, with verification state |
@@ -253,13 +255,40 @@ Controls that change state, all plain form posts: `POST /nodes/new` and
 `POST /nodes/{id}/edit` register or update a node, `POST /nodes/{id}/delete`
 removes it; `POST /nodes/{id}/start`, `/stop`, `/restart` drive the lifecycle;
 `POST /plugins/{id}/toggle` and `POST /federation/{id}/toggle` flip a flag;
+`POST /federation/{id}` updates a peer's name, address, description, or enabled
+state (a rejected edit comes back on the same page with the typed values kept
+and the reason beside the field);
+`POST /signer/keys/{id}/policy` saves one key's boundary, and a boundary this
+console or the service refuses comes back on the same page with what was typed
+still in the form and the refusal beside the field it belongs to — a refusal
+that belongs to no single field, such as the service's own denial, is quoted
+above the form in the service's words;
 `POST /config/export` writes the workspace config set;
+`POST /runtimes/catalog` registers a catalogue source, and one this console or the
+workspace refuses comes back on the same page with all six fields as typed — the
+reason beside the size limit when that is the failing field, and in the domain's
+own words above the form when the refusal is about two controls given
+inconsistently;
+`POST /backup/import` and `POST /wallets/import` read a path on the server, and a
+path that cannot be read, or a wallet that will not validate, comes back on the
+same page with the typed values still in the form and the reason beside the path
+field — the restore panel says the workspace is untouched, because it is;
+`POST /snapshots/save` registers a fast-sync manifest, and one this console cannot
+read — a digest of the wrong shape, a size limit that is not a number — comes back
+on the same page with all nine fields as typed and the reason beside the control
+that caused it; a refusal from the workspace itself is quoted above the form,
+because by then every field the form can judge has already been judged;
 `POST /settings/watchdog`, `/settings/rpc-health`, `/settings/federation` and
-`POST /alerts/routing` save policies; `POST /runtimes/install` queues a runtime
-install as a background job; `POST /logout` ends the session.
+`POST /alerts/routing` save policies (a settings form that fails comes back the
+same way as the boundary above: the posted values stay in the form, the reason
+sits beside the field it is about, and a failure that belongs to no field is
+shown above the form rather than counted as one);
+`POST /runtimes/install` queues a runtime install as a background job;
+`POST /logout` ends the session.
 
-Authenticated API: `GET /api/fleet`, `GET /api/readiness`, and
-`GET /api/metrics-prometheus`. Public endpoints are only `/healthz` and the
+Authenticated API: `GET /api/fleet`, `GET /api/readiness`, `GET /api/jobs`, and
+`GET /api/metrics-prometheus`. Public endpoints are `/healthz` (liveness),
+`/ready` (readiness, `503` while the workspace is blocked) and the
 inventory-minimized `GET /api/public/status`; all other API routes require the
 session cookie or, for `/signer/api/v1/*`, their own signer caller proof.
 

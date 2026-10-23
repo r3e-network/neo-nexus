@@ -7,6 +7,221 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A refused snapshot manifest comes back with what you typed.** Registering a
+  fast-sync archive is nine fields — an id, a label, a network, a runtime, a
+  source path, an URL, a download file name, a size limit and a 64-character
+  digest — and a rejected save used to answer with a redirect, so one wrong
+  character in the digest cost all nine. The page now comes back with every field
+  as posted and the complaint beside the one that caused it; the fields whose
+  answer this console can be sure of are attributed one by one, and a manifest
+  the workspace refuses for a reason that belongs to no single field is quoted
+  above the form in its own words.
+- **A refused signer policy comes back with what you typed.** The key page's
+  policy boundary is twenty-nine fields wide, and it used to answer a rejected save
+  with a redirect and a flash line — leaving the operator to retype a boundary
+  they had just copied from a design document. A boundary this console cannot
+  read is now refused *before* the request is sent, and the page comes back with
+  the posted text still in the form and the sentence beside the field that
+  caused it: a rolling window with a ceiling and no length names the length, not
+  the ceiling. A refusal from the custody service itself keeps its own words and
+  is shown above the form, because it belongs to no single field. The one case
+  that still redirects is a page that cannot be drawn at all — if the service
+  stops answering between the save and the redraw, the redirect says so instead
+  of pretending the form came back.
+- **`GET /ready` — a readiness probe an orchestrator can act on.** `/healthz`
+  answers "is this process alive"; `/ready` answers "should traffic come
+  here". It is public, like `/healthz` and `/api/public/status`, and it
+  answers `503` while the workspace is blocked or cannot be judged, so a load
+  balancer or a Kubernetes service stops sending traffic to an instance that
+  cannot serve it, and starts again once the operator has cleared what was
+  blocking. Which node is blocked, and where its configuration lives, stay
+  behind the operator session and `/api/readiness`.
+- **`GET /api/jobs` — the background job list as JSON.** The pages already
+  render long installs, but a deployment pipeline waiting for a runtime to
+  land needs the list in a form it can poll. Every job carries its lane, its
+  status, the result text, and — while it runs — a progress report with the
+  stage, the completed and total counts and the percentage.
+- **A federation server can be edited again.** The route that updates a peer
+  existed from the start, but nothing on the page pointed at it — a peer could
+  be added and never changed. The list now links to an edit form that arrives
+  pre-filled, and a rejected save comes back on the same page with what you
+  typed still in place and the reason beside the field, instead of a redirect
+  to a blank form.
+- **Form fields now carry the constraints the domain already enforces.**
+  Ports, byte counts, hashes, and names are bounded in the browser as well as
+  on the server. The bounds follow what each field *means*: a field that is
+  allowed to be empty (leaving a port blank asks the workspace to pick one)
+  gets a range but is not marked required, and an amount is still typed as
+  text — `"1e6"` has to reach the custody service so that *it* can refuse it
+  in its own words, which a numeric input would silently prevent.
+- **Empty lists now say what to do next.** Nineteen pages showed a plain note
+  where nothing had been configured yet, and a list with no way forward is a
+  dead end rather than a state. Each one now carries the action that would
+  fill it.
+- **A failed form keeps what you typed.** The runtime upgrade policy form
+  returned a redirect on failure, so a single out-of-range value threw away
+  nine fields of work. It now redraws the form with the error next to the
+  field that caused it and the rest of the input intact.
+- **Long operations say they are running.** Exporting a support bundle,
+  writing a readiness report, checking integrity, and moving a backup all take
+  long enough that the page looks frozen. Each now shows a spinner when it is
+  submitted. The form still submits if the script cannot run — the marker is
+  a hint, never a gate.
+
+- **Two more regression tests for that rule, and a fixed injection case.**
+  The rule reads a literal after its escapes are resolved, so
+  `<button onchange=\"go()\">` is caught — but nothing proved it, because
+  the injection case that should have covered it was written with quotes that
+  did not survive the trip from the harness into Rust and failed to compile.
+  The harness was right to report it: a compile failure is not a rule
+  firing. The payload now uses a raw string, and two resident tests cover
+  the raw-string and the escaped-quote forms of a `format!` argument.
+- **A third CI contract rule: no inline event handlers.** The console serves
+  `script-src 'sha256-<hash of the bundled script>'` with no `'unsafe-inline'`,
+  so a browser never compiles an `onclick` or an `onchange` — the handler is
+  skipped and the control does nothing. Three of them had shipped. One guarded
+  the deletion of every log file in the workspace: the confirmation never
+  appeared and the form posted straight through. The other two left the
+  JSON-RPC toggle and the role-preset cards inert, with nothing on the page to
+  say why. The rule reads the syntax tree, so a comment that names an
+  attribute and a sentence of prose about one are not offences; only markup
+  carrying an actual event attribute is.
+- **`GET /logs/clear` — a confirmation page before the logs are cleared.**
+  Clearing the logs truncates every file in the workspace log directory, for
+  every instance. The button that started it carried its confirmation in an
+  inline handler the content security policy blocks, so the operator saw no
+  prompt at all. The confirmation is now a page of its own, reached by a GET
+  and completed by the POST that follows: it works with scripting disabled,
+  and it states what is about to be destroyed.
+- **Two CI contract rules that actually hold.** `tests/ci_policy/contract.rs`
+  now reads the syntax tree instead of the text, so a rule can no longer pass
+  because it failed to look at the code:
+  - *Platform-specific executables.* A literal handed to `Command::new` is
+    rejected unless a compile-time `#[cfg]` gate keeps it away from every
+    platform where the executable does not exist. `#[cfg(unix)]` around
+    `Command::new("sh")` is allowed; the same call without a gate is not. The
+    gate is evaluated against the CI matrix itself — ubuntu, macos and
+    windows, the last with two toolchains — and a gate that says nothing
+    about platforms, a feature flag for instance, never narrows the scope.
+  - *Documented endpoints.* Every endpoint `docs/openapi.yaml` and
+    `docs/AGENT_API.md` promise must be routed, with the method it promises.
+    The comparison reads the router's syntax tree, so a comment between the
+    path and the handler no longer hides a route, and a quoted string that is
+    not a path no longer invents one.
+
+### Fixed
+
+- **A runtime catalogue that was refused threw away six fields.** The catalogue
+  form carries an identifier, a label, a source, an optional signature source, an
+  optional ed25519 key and a size limit — and it sits at the bottom of a page
+  whose top half is the inventory you were reading. A rejected save answered with
+  a redirect, so a mistyped number cost everything above it. The form now comes
+  back as posted, with the reason beside the size limit when that is what is
+  wrong, and — when the refusal is a sentence about *two* controls, such as a
+  signature source without its key — the domain's own words above the form
+  rather than a field count that would name a control which is not wrong.
+- **A restore that could not read the archive threw the path away.** The restore
+  panel takes one value — the path to an archive on this host — and it answered a
+  bad one with a redirect, so an operator pasted a long path, read one sentence,
+  and pasted it again. The path now stays in the field with the reason beside it,
+  and the page says the workspace is untouched. Drawing the page again turns out
+  to be another read of the workspace; when that fails too, the redirect happens
+  and says both things rather than landing on a blank form with no explanation.
+- **A wallet that would not validate threw away all three fields.** The import
+  form carries a path, an optional id and an optional label, and the path is the
+  one that takes longest to type — and the one the failure is usually about. All
+  three now come back as typed, with the reason beside the path. A profile that
+  validated but could not be stored is a different failure: it belongs to no
+  single field, so it is quoted above the form instead.
+- **A settings save that failed said nothing on the page.** The restart budget
+  and the two interval monitors answered a rejected save with a redirect, so the
+  page came back with a flash line and an empty form — and when the failure
+  belonged to the policy as a whole rather than to one field, the message was
+  dropped entirely: the structure holding field errors was handed to the field
+  controls only, and a control recognises its own name and nothing else, so the
+  one key that belongs to no field was skipped in silence. All three forms now
+  come back with what you typed, the reason beside the field that caused it, and
+  — when no single field is at fault — the reason itself above the form. The
+  count of failing fields and that whole-form sentence are now one shared rule
+  instead of three implementations that disagreed.
+- **A failure and a success looked the same.** Every control reported its
+  outcome in a banner of one colour, so the only way to tell a failed start
+  from a successful one was to read the sentence. The severity now travels
+  with the message: a failure is rendered in red and announced assertively, a
+  success in green and announced politely. Fifty-six failure paths across the
+  console now say which they are.
+- **Long operations held a worker thread.** Exporting a support bundle,
+  writing a backup archive, clearing the logs and hashing a workspace all ran
+  straight inside an `async fn`, pinning a Tokio worker thread for the whole
+  operation — while the server serves every other request from a fixed pool of
+  those threads. They move to the blocking pool now, as the node lifecycle
+  controls already did.
+- **Creating an API key could land on a blank page.** Submitting the form with
+  no permission selected answered `400` with a bare sentence: the navigation,
+  the page and everything typed into the form were gone. The form comes back
+  with the problem stated on it and the name still in the field. The page that
+  shows the new secret is a full page too, so the copy button on it works.
+- **Disabling something looked like doing something.** Turning a plugin off, a
+  federation peer off, a signing key off or a caller off used the ordinary
+  control button. Turning them back on still uses the ordinary button, because
+  putting a capability back is not the act that can go wrong.
+- **The CI contract rules were green without looking.** The platform rule
+  only recognised raw string literals, so an ordinary
+  `Command::new("/bin/sleep")` passed the gate unnoticed; the endpoint rule
+  compared paths without their methods and matched every quoted string that
+  began with `/`, which both hid real drift and reported routes that were
+  never missing. Both rules now read the syntax tree, and each was verified
+  to fail on an injected violation and to pass on the legitimate forms.
+- **A missing CI workflow step no longer aborts the test process.**
+  `tests/ci_policy/workflow_shells.rs` turned a missing step into a `panic!`,
+  which the source-quality gate forbids and which killed the whole test
+  binary instead of failing one assertion. The step is now looked up as a
+  recoverable error, and the test fails with the step name in the message.
+- **Test ports no longer compete with the operating system.** The suites
+  hardcoded their ports at 33332, 43332, 52332 and a dozen others — inside the
+  range the operating system hands out for temporary source ports (49152 and up
+  on Windows, 32768 and up on Linux). Any unrelated outbound connection could
+  take one of those ports, and the readiness preflight then refused to start
+  the node with "RPC port 52332 is already listening" — a failure that has
+  nothing to do with the code under test, and one that struck the web suite
+  six runs out of six while a proxy held the port. Every test port now lives
+  below 32768, which is outside the ephemeral range of every platform the
+  matrix covers.
+- **A log-collection test no longer depends on a thread race.**
+  `engine_log_collection_bounds_reads_and_tolerates_missing_logs` wrote the
+  log file after the collector had started, but never woke it: the collector
+  samples first and parks for 30 seconds afterwards, so the event the test
+  waited for arrived only on the next round — and only if the write had
+  happened before the collector's first sample. Under load the collector won
+  the race and the test failed roughly one run in six. It now wakes the
+  collector explicitly, the way its sibling test does.
+- **Opening a workspace no longer fights a running server.** `Repository::open`
+  re-ran the full schema bootstrap on every call, including the write-locking
+  `journal_mode` pragma and DDL. A second handle — a CLI inspection command, or
+  a test harness — could therefore fail intermittently with `attempt to write a
+  readonly database` while the web server was writing. The schema version is now
+  recorded in `PRAGMA user_version`, and a current workspace answers one
+  read-only query and returns.
+- **The workspace journal mode is `TRUNCATE`, not WAL.** WAL removes its `-shm`
+  file when the last connection closes; with a connection per operation that
+  transition intermittently produced `SQLITE_READONLY` for the next writer on
+  Windows. The workload is a management console, so the reader/writer exclusion
+  costs nothing that matters and the attach is deterministic.
+- **Transient attach failures are retried.** `ReadOnly`, `Busy` and `Locked`
+  while opening a connection are retried with backoff instead of surfacing as a
+  failed write, and the connection is forced to attach its journal before the
+  caller starts an operation.
+- **Platform-neutral runtime fixtures.** The failed-launch, watchdog-crash and
+  restart tests now use compiled stand-in binaries instead of `sleep`, `/bin/sh`,
+  `cmd.exe` or `timeout`. The previous Windows "late crash" fixture exited
+  inside the launch settle window (`timeout` refuses redirected input), so the
+  watchdog path was never exercised and the test only passed by accident.
+- **`ci_policy` workflow parsing is line-ending agnostic.** The gate passed on
+  Linux and failed on a Windows checkout with `core.autocrlf=true` because step
+  markers were matched against LF only.
+
 ### Erratum for 1c4114c
 
 Commit 1c4114c ("mount the integration suite, and stop calling plaintext
