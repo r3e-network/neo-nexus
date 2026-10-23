@@ -354,6 +354,12 @@ pub fn build_router(state: WebState) -> Router {
 
     public
         .merge(protected)
+        // Outside the session layer on purpose: an address that does not exist
+        // does not exist for a signed-out operator either, so answering `404`
+        // discloses nothing that redirecting to `/login` would not. Inside the
+        // layer every mistyped URL would bounce to the sign-in page and look
+        // like a session problem.
+        .fallback(pages::not_found::not_found)
         .layer(middleware::from_fn_with_state(
             state.clone(),
             super::security_headers::apply,

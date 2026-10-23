@@ -6328,3 +6328,109 @@ fn both_densities_describe_an_undutied_node_the_same_way() {
     );
     assert_eq!(comfortable, "No duty assigned");
 }
+
+/// A mistyped address used to answer with axum's bare `404 Not Found` in plain
+/// text — no navigation, no way back, and a look that belongs to no part of this
+/// console. A stale bookmark is a normal thing to have; recovering from one
+/// should not require editing the address bar.
+#[test]
+fn an_address_that_does_not_exist_is_a_page_with_a_way_back() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+
+    let response = into_response(http.get(&format!("{base}/no-such-page")).call());
+    assert_eq!(response.status(), 404);
+    // The inline stylesheet is hashed into `style-src`, so a 404 that missed the
+    // header layer would be styled by nothing and render as the bare text this
+    // page exists to replace.
+    assert!(
+        response
+            .header("content-security-policy")
+            .is_some_and(|policy| policy.contains("style-src 'sha256-")),
+        "the error page needs the same header layer as every other page"
+    );
+    let markup = response.into_string().expect("page body");
+    assert!(
+        markup.contains("Page not found"),
+        "the answer must say what happened: {markup}"
+    );
+    assert!(
+        markup.contains("no-such-page"),
+        "the address is echoed so the typo is visible: {markup}"
+    );
+    assert!(
+        markup.contains(r#"href="/nodes""#),
+        "the page must offer a way back, not just the address bar: {markup}"
+    );
+    assert!(
+        markup.contains("aws-top-bar"),
+        "a 404 is still a page of this console, not bare text: {markup}"
+    );
+}
+
+/// A program parsing `/api/...` cannot do anything with an HTML error page: the
+/// failure reads as "the service is broken" instead of "the endpoint is wrong".
+#[test]
+fn an_api_address_that_does_not_exist_answers_in_json() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+
+    let response = into_response(http.get(&format!("{base}/api/no-such-endpoint")).call());
+    assert_eq!(response.status(), 404);
+    assert_eq!(
+        response.header("content-type"),
+        Some("application/json"),
+        "an API caller gets a body it can parse"
+    );
+    let body = json_body(response);
+    assert_eq!(body["error"], "not_found");
+    assert_eq!(body["path"], "/api/no-such-endpoint");
+}
+
+/// The page is outside the session layer, because an address that does not exist
+/// does not exist for a signed-out operator either. Signed in it must still be a
+/// 404, not a redirect that hides the difference between "gone" and "moved".
+#[test]
+fn the_not_found_page_answers_the_same_way_signed_in() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+
+    let response = into_response(
+        http.get(&format!("{base}/no-such-page"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(response.status(), 404);
+    let markup = response.into_string().expect("page body");
+    assert!(markup.contains("Page not found"), "{markup}");
+}
+
+/// The echoed path is caller-controlled. `empty_state` escapes its body, and the
+/// query string never reaches this page, so the address cannot become markup.
+#[test]
+fn the_echoed_address_cannot_become_markup() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+
+    let response = into_response(
+        http.get(&format!(
+            r#"{base}/x%22%3E%3Cscript%3Ealert(1)%3C/script%3E"#
+        ))
+        .call(),
+    );
+    assert_eq!(response.status(), 404);
+    let markup = response.into_string().expect("page body");
+    assert!(
+        !markup.contains("<script>alert(1)</script>"),
+        "the path must not be echoed as markup: {markup}"
+    );
+    assert!(
+        !markup.contains(r#"x"><script"#),
+        "the path must not break out of the surrounding text: {markup}"
+    );
+}

@@ -13,6 +13,7 @@ pub mod metrics_page;
 pub mod monitor;
 pub mod node_editor;
 pub mod nodes;
+pub mod not_found;
 pub mod operations;
 pub mod plugins;
 pub mod roles;
