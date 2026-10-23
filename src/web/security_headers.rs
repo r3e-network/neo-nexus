@@ -64,7 +64,7 @@ fn content_security_policy() -> &'static str {
         .get_or_init(|| {
             format!(
                 "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; connect-src 'self'; img-src 'self' data:; style-src 'sha256-{}'; script-src 'sha256-{}'",
-                sha256_base64(assets::CSS),
+                sha256_base64(assets::css()),
                 sha256_base64(assets::SCRIPT),
             )
         })

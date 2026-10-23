@@ -401,7 +401,7 @@ fn the_pending_marker_is_hidden_until_the_form_is_submitted() {
     assert!(marker.contains(r#"data-pending"#), "{marker}");
     assert!(marker.contains(r#"role="status""#), "{marker}");
     // The stylesheet keeps it out of the way until the script reveals it.
-    let styles = crate::web::assets::CSS;
+    let styles = crate::web::assets::css();
     assert!(
         styles.contains(".pending { display: none;"),
         "the pending marker must start hidden"

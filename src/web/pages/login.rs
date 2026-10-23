@@ -88,7 +88,7 @@ fn login_html(error: &str) -> String {
 </div>
 </body>
 </html>"#,
-        css = super::super::assets::CSS,
+        css = super::super::assets::css(),
         error = if error.is_empty() {
             String::new()
         } else {

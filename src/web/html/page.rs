@@ -123,7 +123,7 @@ pub fn layout_with_density(
 </body>
 </html>"##,
         title = escape(title),
-        css = crate::web::assets::CSS,
+        css = crate::web::assets::css(),
         script = crate::web::assets::SCRIPT,
         nav = crate::web::nav::render(active),
         service_menu = crate::web::nav::service_menu(),

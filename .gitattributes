@@ -1,0 +1,6 @@
+# The four slices of the console stylesheet. Their bytes *are* the stylesheet:
+# `security_headers` hashes the joined string for `style-src`, and the goal is
+# that one commit produces one sheet on every machine. `core.autocrlf=true`
+# would otherwise rewrite their line endings on checkout, because those endings
+# are inside string literals and git makes no distinction.
+src/web/assets/style/*.rs text eol=lf
