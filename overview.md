@@ -241,7 +241,10 @@ ci-policy 全绿。详见 `docs/ITERATION_2026-10-forms.md` 第十一至十四�
 - ~~本次迭代的文件变更应按主题拆成独立提交；发布前仍需 release build/package 验证~~
   → 已完成：93 个文件拆成 8 个提交推送到 `origin/main`（`3ab987e`）；
     release 构建 + `--package-release` + `--verify-release-package-integrity` 通过。
-- Web 层仍有多个 600+ 行文件（`web/assets/styles.rs` 924、`pages/nodes/detail_tabs.rs` 811、`web/api/hermes_mcp.rs` 788）待拆。
+- Web 层还剩一个 600+ 行文件：`web/api/hermes_mcp.rs`（788 行，主要是 `mcp_endpoint` 里
+  的 `tools/list` 与 `tools/call` 两个大分支）。`assets/styles.rs` 已改为
+  `include_str!("console.css")`，`pages/nodes/detail_tabs.rs` 已按标签页拆成
+  `summary` / `health` / `monitoring` / `configuration` / `access` 五个模块。
 - ~~建议给 `--source-quality` 增加"测试不得依赖平台专有可执行文件"的规则~~
   → 已以 `ci_policy` 契约门禁落地（`tests/ci_policy/platform.rs`）。
 - ~~建议把孤儿源文件检测固化进 `ci_policy`~~

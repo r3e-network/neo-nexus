@@ -1,9 +1,10 @@
 //! Browser assets embedded in the Rust binary.
 //!
 //! NeoNexus deliberately has no frontend build toolchain or static asset
-//! directory. Keeping the stylesheet and progressive enhancement script in
-//! focused Rust modules preserves that deployment property without leaving one
-//! oversized source file to own the whole interface.
+//! directory. The stylesheet is a `.css` file baked in with `include_str!`, and
+//! the progressive enhancement script is a Rust module because the security
+//! headers hash it as one string. Neither is a deployment artifact to copy
+//! alongside the binary, and neither is an oversized source file.
 
 mod script;
 mod styles;
