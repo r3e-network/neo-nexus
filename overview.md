@@ -134,7 +134,7 @@
 
 ## 第二轮：五项遗留全部落地
 
-上一轮记档的 5 项遗留（详见 `docs/ITERATION_2026-10.md` 第 7.11 节）本轮全部做掉。
+上一轮记档的 5 项遗留（详见 `docs/ITERATION_2026-10-audit.md` 第 7.11 节）本轮全部做掉。
 做法与上一轮不同：先派两个 Explore agent 并行取证（`note()` 的 59 处调用点精确分类、
 表单约束该加在哪、通用表单原语的设计边界），拿到带行号证据的结论再动手。
 
@@ -224,7 +224,7 @@
 这类**组合**判定交给域，原文进 `general`——指到三个控件里任一个都是猜。
 
 门禁：**1386** 项（上一轮 1365），fmt / clippy / source-quality / source-purity /
-ci-policy 全绿。详见 `docs/ITERATION_2026-10.md` 第十一至十三节。
+ci-policy 全绿。详见 `docs/ITERATION_2026-10-forms.md` 第十一至十三节。
 
 ## 仍需关注
 
@@ -235,7 +235,7 @@ ci-policy 全绿。详见 `docs/ITERATION_2026-10.md` 第十一至十三节。
   → 已以 `ci_policy` 契约门禁落地（`tests/ci_policy/platform.rs`）。
 - ~~建议把孤儿源文件检测固化进 `ci_policy`~~
   → 已落地（`tests/ci_policy/orphan_modules.rs`）。
-- 本轮审计出但未修的（详见 `docs/ITERATION_2026-10.md` 第 7.11 节）：
+- 本轮审计出但未修的（详见 `docs/ITERATION_2026-10-audit.md` 第 7.11 节）：
   13 个表单族仍是「失败即丢输入」（收益最大的是 signer 策略约 30 个字段）；
   `TextField`/`ChoiceField` 缺 `required`/`min`/`max`/`pattern` 浏览器端约束；
   20 余处空状态用 `note()` 而非 `empty_state()`，仍是死路；

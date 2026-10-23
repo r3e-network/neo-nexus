@@ -1,0 +1,566 @@
+# Schema definitions for docs/openapi.yaml.
+#
+# `components.schemas` in the root document points at these by JSON pointer,
+# so a reference written here is relative to this file: `#/Job`, not
+# `#/components/schemas/Job`. Keeping the shapes apart from the endpoints
+# leaves both files readable; together they had grown past the size this
+# repository keeps a single maintenance file at.
+FleetNode:
+  type: object
+  description: Individual node status record
+  required:
+    - id
+    - name
+    - status
+    - network
+    - rpc_port
+    - rpc_health
+  properties:
+    id:
+      type: string
+      description: Unique node identifier (URL-safe)
+      minLength: 1
+      maxLength: 64
+      example: mainnet-validator-01
+
+    name:
+      type: string
+      description: Human-readable node label
+      minLength: 1
+      maxLength: 128
+      example: Validator Alpha
+
+    status:
+      type: string
+      description: Current lifecycle state
+      enum:
+        - running
+        - stopped
+        - starting
+        - stopping
+        - error
+      example: running
+
+    network:
+      type: string
+      description: Network assignment
+      enum:
+        - mainnet
+        - testnet
+        - devnet
+        - custom
+      example: mainnet
+
+    rpc_port:
+      type: integer
+      description: RPC endpoint port number
+      minimum: 1024
+      maximum: 65535
+      example: 8545
+
+    rpc_health:
+      type: string
+      description: Health check result from RPC endpoint
+      enum:
+        - healthy
+        - degraded
+        - unreachable
+        - unknown
+      example: healthy
+
+FleetPayload:
+  type: object
+  description: Fleet-wide node inventory
+  required:
+    - nodes
+  properties:
+    nodes:
+      type: array
+      items:
+        $ref: "#/FleetNode"
+      description: List of all configured nodes
+      minItems: 0
+      example:
+        - id: mainnet-validator-01
+          name: Validator Alpha
+          status: running
+          network: mainnet
+          rpc_port: 8545
+          rpc_health: healthy
+
+NodeMetricsResponse:
+  type: object
+  description: Node-specific metrics payload
+  required:
+    - node_id
+    - node_name
+    - pid
+  properties:
+    node_id:
+      type: string
+      description: Unique node identifier
+      example: mainnet-validator-01
+
+    node_name:
+      type: string
+      description: Human-readable node name
+      example: Validator Alpha
+
+    pid:
+      type: integer
+      nullable: true
+      description: Operating system process ID (null if stopped)
+      example: 12345
+
+    metrics_endpoint:
+      type: string
+      nullable: true
+      format: uri
+      description: Metrics exporter URL (if adapter installed)
+      example: http://localhost:9090/metrics
+
+    sync_progress:
+      $ref: "#/SyncProgress"
+      description: Blockchain sync state (if available)
+
+SyncProgress:
+  type: object
+  description: Synchronization progress indicators
+  required:
+    - current_height
+    - target_height
+    - sync_percentage
+    - peers_connected
+  properties:
+    current_height:
+      type: integer
+      description: Current blockchain height
+      minimum: 0
+      example: 18456234
+
+    target_height:
+      type: integer
+      description: Target blockchain height
+      minimum: 0
+      example: 18456500
+
+    sync_percentage:
+      type: number
+      format: float
+      minimum: 0
+      maximum: 100
+      description: Synchronization percentage
+      example: 99.99
+
+    peers_connected:
+      type: integer
+      minimum: 0
+      description: Active peer connections
+      example: 47
+
+ReadinessPayload:
+  type: object
+  description: Workspace readiness diagnostics
+  required:
+    - status
+    - score
+    - node_count
+    - ready_nodes
+    - warning_count
+    - critical_count
+    - findings
+    - nodes
+  properties:
+    status:
+      type: string
+      enum: [ready, review, blocked]
+      description: The workspace verdict
+      example: blocked
+
+    score:
+      type: integer
+      minimum: 0
+      maximum: 100
+      description: Overall readiness score
+      example: 85
+
+    node_count:
+      type: integer
+      minimum: 0
+      description: Number of nodes in the workspace
+      example: 3
+
+    ready_nodes:
+      type: integer
+      minimum: 0
+      description: Number of fully-ready nodes
+      example: 3
+
+    warning_count:
+      type: integer
+      minimum: 0
+      description: Total warnings across fleet
+      example: 2
+
+    critical_count:
+      type: integer
+      minimum: 0
+      description: Critical issues requiring attention
+      example: 0
+
+    findings:
+      type: array
+      description: Everything that needs a person, and where to resolve it
+      items:
+        $ref: "#/ReadinessFinding"
+
+    nodes:
+      type: array
+      description: Per-node verdict and the checks behind it
+      items:
+        $ref: "#/ReadinessNode"
+
+ReadinessFinding:
+  type: object
+  description: One thing that needs a person
+  required:
+    - severity
+    - node_id
+    - node_name
+    - title
+    - detail
+    - resolution
+    - resolution_label
+    - resolution_action
+    - resolution_hint
+    - resolution_href
+  properties:
+    severity:
+      type: string
+      enum: [critical, warning]
+      example: critical
+    node_id:
+      type: string
+      example: node-1a2b
+    node_name:
+      type: string
+      example: rpc-1
+    title:
+      type: string
+      example: Runtime binary
+    detail:
+      type: string
+      example: "Binary path: /opt/neo/neo-node was not found."
+    resolution:
+      type: string
+      description: Stable identifier of the surface that resolves this finding
+      example: runtime-manager
+    resolution_label:
+      type: string
+      example: Runtimes
+    resolution_action:
+      type: string
+      example: Open Runtimes
+    resolution_hint:
+      type: string
+      example: Install, verify, or apply node runtime binaries.
+    resolution_href:
+      type: string
+      description: Where the operator goes, ready to follow
+      example: /runtimes
+
+ReadinessNode:
+  type: object
+  description: One node's verdict and the checks behind it
+  required:
+    - node_id
+    - node_name
+    - score
+    - status
+    - critical_count
+    - warning_count
+    - checks
+  properties:
+    node_id:
+      type: string
+      example: node-1a2b
+    node_name:
+      type: string
+      example: rpc-1
+    score:
+      type: integer
+      minimum: 0
+      maximum: 100
+      example: 40
+    status:
+      type: string
+      enum: [ready, review, blocked]
+      example: blocked
+    critical_count:
+      type: integer
+      minimum: 0
+      example: 1
+    warning_count:
+      type: integer
+      minimum: 0
+      example: 0
+    checks:
+      type: array
+      items:
+        $ref: "#/ReadinessCheck"
+
+ReadinessCheck:
+  type: object
+  description: One check on one node
+  required:
+    - severity
+    - title
+    - detail
+    - resolution
+    - resolution_action
+    - resolution_hint
+  properties:
+    severity:
+      type: string
+      enum: [critical, warning, info, pass]
+      example: critical
+    title:
+      type: string
+      example: Runtime binary
+    detail:
+      type: string
+      example: "Binary path: /opt/neo/neo-node was not found."
+    resolution:
+      type: string
+      example: runtime-manager
+    resolution_action:
+      type: string
+      example: Open Runtimes
+    resolution_hint:
+      type: string
+      example: Install, verify, or apply node runtime binaries.
+
+ReadinessProbe:
+  type: object
+  description: The public readiness probe — a verdict and counts, nothing that names a node
+  required:
+    - status
+    - score
+    - node_count
+    - ready_nodes
+    - warning_count
+    - critical_count
+  properties:
+    status:
+      type: string
+      enum: [ready, review, blocked]
+      example: ready
+    score:
+      type: integer
+      minimum: 0
+      maximum: 100
+      example: 100
+    node_count:
+      type: integer
+      minimum: 0
+      example: 2
+    ready_nodes:
+      type: integer
+      minimum: 0
+      example: 2
+    warning_count:
+      type: integer
+      minimum: 0
+      example: 0
+    critical_count:
+      type: integer
+      minimum: 0
+      example: 0
+
+JobListPayload:
+  type: object
+  description: Background jobs, newest first
+  required:
+    - jobs
+  properties:
+    jobs:
+      type: array
+      items:
+        $ref: "#/Job"
+
+Job:
+  type: object
+  description: One background job
+  required:
+    - id
+    - lane
+    - description
+    - status
+    - detail
+    - started_at_unix
+  properties:
+    id:
+      type: string
+      example: 6f1c9a2b8d3e4f5a
+    lane:
+      type: string
+      description: What serialises this job against others
+      example: runtime
+    description:
+      type: string
+      example: install runtime neo-go/v0.104.0
+    status:
+      type: string
+      enum: [running, done, failed]
+      example: running
+    detail:
+      type: string
+      description: The result text — what was produced, or why it failed
+      example: ""
+    progress:
+      $ref: "#/JobProgress"
+    started_at_unix:
+      type: integer
+      format: int64
+      example: 1760000000
+    finished_at_unix:
+      type: integer
+      format: int64
+      nullable: true
+      example: null
+
+JobProgress:
+  type: object
+  description: Where a running job has got to
+  required:
+    - stage
+    - summary
+  properties:
+    stage:
+      type: string
+      description: The step being executed, in the operator's words
+      example: downloading the package
+    completed:
+      type: integer
+      format: int64
+      nullable: true
+      description: Units finished, when the work can be counted
+      example: null
+    total:
+      type: integer
+      format: int64
+      nullable: true
+      description: Units in total, when the work can be counted
+      example: null
+    percent:
+      type: integer
+      minimum: 0
+      maximum: 100
+      nullable: true
+      description: How far along the work is, when both counts are known
+      example: null
+    summary:
+      type: string
+      example: downloading the package
+
+PluginListResponse:
+  type: object
+  description: Plugin inventory with version compatibility
+  properties:
+    node_type:
+      type: string
+      description: Filtered node type
+      example: neochain
+
+    plugins:
+      type: array
+      items:
+        $ref: "#/PluginInfo"
+
+    version_matrix:
+      $ref: "#/VersionCompatibilityMatrix"
+
+PluginInfo:
+  type: object
+  description: Single plugin record
+  required:
+    - name
+    - version
+    - status
+    - compatible_node_types
+  properties:
+    name:
+      type: string
+      example: prometheus-exporter
+
+    version:
+      type: string
+      format: semver
+      example: "1.2.3"
+
+    status:
+      type: string
+      enum:
+        - deployed
+        - unavailable
+        - incompatible
+      example: deployed
+
+    compatible_node_types:
+      type: array
+      items:
+        type: string
+      example:
+        - neochain
+        - ethereum
+
+VersionCompatibilityMatrix:
+  type: object
+  description: Node type to supported versions mapping
+  additionalProperties:
+    type: array
+    items:
+      type: string
+      format: semver
+    description: Supported plugin versions for each node type
+
+ErrorResponse:
+  type: object
+  description: Standardized error response structure
+  required:
+    - error
+  properties:
+    error:
+      $ref: "#/ErrorDetail"
+
+ErrorDetail:
+  type: object
+  description: Detailed error information
+  required:
+    - code
+    - message
+  properties:
+    code:
+      type: string
+      description: Machine-readable error code
+      pattern: "^[A-Z_]+$"
+      example: NODE_NOT_FOUND
+
+    message:
+      type: string
+      description: Human-readable error explanation
+      example: "Node 'test-node' not found in workspace"
+
+    details:
+      type: array
+      items:
+        type: string
+      description: Additional context array
+      example:
+        - "node_id must exist before lifecycle operations"
+
+    suggestion:
+      type: string
+      description: Recommended remediation action
+      example: "List available nodes first via GET /api/fleet"
+
