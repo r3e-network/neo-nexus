@@ -15,6 +15,7 @@ use serde::Serialize;
 use super::{fleet::Fleet, WebState};
 
 pub mod hermes_mcp;
+mod hermes_tools;
 pub mod iac;
 pub mod jobs;
 pub mod readiness;
