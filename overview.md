@@ -232,7 +232,7 @@ secret 只存哈希因而无法补发；peer 页说明探测历史一并删除�
 重新加入要重填名称与 URL。列表里的按钮从 `<form>` 换成 `<a>`，破坏性一步因此
 永远不是一次点击。
 
-门禁：**1391** 项（上一轮 1386），fmt / clippy / source-quality / source-purity /
+门禁：**1394** 项（上一轮 1391），fmt / clippy / source-quality / source-purity /
 ci-policy 全绿。详见 `docs/ITERATION_2026-10-forms.md` 第十一至十四节。
 
 ## 仍需关注
@@ -241,10 +241,19 @@ ci-policy 全绿。详见 `docs/ITERATION_2026-10-forms.md` 第十一至十四�
 - ~~本次迭代的文件变更应按主题拆成独立提交；发布前仍需 release build/package 验证~~
   → 已完成：93 个文件拆成 8 个提交推送到 `origin/main`（`3ab987e`）；
     release 构建 + `--package-release` + `--verify-release-package-integrity` 通过。
-- Web 层还剩一个 600+ 行文件：`web/api/hermes_mcp.rs`（788 行，主要是 `mcp_endpoint` 里
-  的 `tools/list` 与 `tools/call` 两个大分支）。`assets/styles.rs` 已改为
-  `include_str!("console.css")`，`pages/nodes/detail_tabs.rs` 已按标签页拆成
-  `summary` / `health` / `monitoring` / `configuration` / `access` 五个模块。
+- ~~Web 层还剩三个 600+ 行文件~~ → 已全部拆完：
+  `pages/nodes/detail_tabs.rs` 按标签页拆成 `summary` / `health` / `monitoring` /
+  `configuration` / `access`；`web/api/hermes_mcp.rs` 把 `tools/list` 与 `tools/call`
+  移到 `web/api/hermes_tools.rs`，信封部分留下认证、agent 开关与错误码；
+  `assets/styles.rs` 拆成 `assets/style/` 下四个 Rust 片段（341 / 241 / 276 / 108 行），
+  首次调用时拼成一张表。
+  样式这一步走过一次弯路：先把它抽成 `src/web/assets/console.css`，`--source-purity .`
+  立刻报 `frontend-source-file`——纯 Rust 边界不接受 `.css`，而这条规则没有豁免名单。
+  改成 Rust 片段后 purity 回到 0 findings。片段因此是 **LF**，并由 `.gitattributes`
+  的 `text eol=lf` 钉住：`cargo fmt` 会连字符串字面量里的行尾一起重写，
+  `core.autocrlf=true` 又会在 checkout 时把 LF 写成 CRLF，git 分不清字面量与源码。
+  `style-src` 的 SHA-256 是运行时从同一字符串算出来的，所以行尾变化不会让哈希失配；
+  钉住是为了可复现——同一个提交在哪台机器上都应该产出同一张表。
 - ~~建议给 `--source-quality` 增加"测试不得依赖平台专有可执行文件"的规则~~
   → 已以 `ci_policy` 契约门禁落地（`tests/ci_policy/platform.rs`）。
 - ~~建议把孤儿源文件检测固化进 `ci_policy`~~

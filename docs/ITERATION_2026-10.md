@@ -140,7 +140,8 @@ restart 用例另把固定 `sleep(3s)` 换成 `wait_until(20s, Running)`。
 ## 四、其他审计结论（本次未改动）
 
 - 无 TODO/FIXME/XXX/HACK；24 处 `unwrap/expect/panic` 全部位于测试或文档示例。
-- 925 个源文件，无文件超过 1000 行；最大 `web/assets/styles.rs` 924 行。
+- 925 个源文件，无文件超过 1000 行；当时最大 `web/assets/styles.rs` 924 行
+  （该文件此后已拆成 `assets/style/` 下四个 Rust 片段，见 `overview.md`）。
 - 孤儿源文件 0（`snapshots/import/paths/target_parts/*` 由 `#[path]` 挂载，非孤儿）。
 - lint 抑制仅 8 处（6 处 `dead_code`，均有注释说明）。
 - Web 层已无 `Repository` 直连逃生口。
