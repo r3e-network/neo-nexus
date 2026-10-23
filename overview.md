@@ -232,7 +232,25 @@ secret 只存哈希因而无法补发；peer 页说明探测历史一并删除�
 重新加入要重填名称与 URL。列表里的按钮从 `<form>` 换成 `<a>`，破坏性一步因此
 永远不是一次点击。
 
-门禁：**1394** 项（上一轮 1391），fmt / clippy / source-quality / source-purity /
+这一段还有两处顺手的修正。机群列表每渲染一行就开一次 SQLite 连接查职责——
+`?role=` 过滤、Consensus 计数、两种密度表格的行各查一遍，三十个节点就是
+六十多次连接去读一张表的一列，而同一个函数里的签名绑定和 Hermes 登记早就是
+批量读一次。`Repository::list_node_roles` 一次读全表，四处调用改成查 map，
+语义保持不变：没有职责的节点**不在** map 里（不是有个默认值），版本不再认识的
+职责键跳过而不是让整次读取失败。两处都补了测试。
+
+移动读取时发现一行有两种说法：comfortable 表格给无职责节点写
+`data-node-role="Node"`，compact 表格写 `"No duty assigned"`，而抽屉脚本读的
+正是这个属性——同一个节点会因为显示密度不同而描述不同。`"Node"` 还与紧邻的
+注释矛盾，那条注释说无职责是一个事实、不该被读成一种职责。两处与抽屉现在
+共用一个常量，测试切换密度比较属性。
+
+顶栏搜索框此前只有 placeholder 没有可访问名称：placeholder 在输入后消失，读屏
+只报一个空文本框，而它是每一页的第一个控件。加 `aria-label` 即可，视觉不变。
+表单原语本身就带 `<label for>`、`aria-invalid` 与 `aria-describedby`，权限复选框
+与告警页的多选也都包在 `<label>` 里——扫一遍原语之外的裸 `<input>`，只找到这一处。
+
+门禁：**1399** 项（上一轮 1394），fmt / clippy / source-quality / source-purity /
 ci-policy 全绿。详见 `docs/ITERATION_2026-10-forms.md` 第十一至十四节。
 
 ## 仍需关注
