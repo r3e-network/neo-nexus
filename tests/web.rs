@@ -17,6 +17,7 @@ use axum::serve;
 use neo_nexus::{
     core::operations::{EventSeverity, RuntimeEventFilter},
     repository::Repository,
+    roles::NodeRole,
     signer_client::{SignerClient, SignerConfig},
     types::{Network, NewNode, NodeStatus, NodeType, StorageEngine},
     wallet::TokenPermission,
@@ -6188,4 +6189,135 @@ fn a_rejected_federation_edit_keeps_what_the_operator_typed() {
         .expect("federation profiles");
     let unchanged = unchanged.first().expect("the peer is still there");
     assert_eq!(unchanged.name, "frankfurt");
+}
+
+/// The fleet list answers three questions from one read of `node_roles`: what
+/// each row's duty is, how many nodes are Consensus, and which rows a `?role=`
+/// filter keeps. They were three separate per-node queries before, so the tile
+/// could disagree with the row beside it. This pins that the three answers come
+/// from the same data and still agree with what was stored.
+#[test]
+fn the_fleet_list_reports_each_duty_in_the_row_the_tile_and_the_filter() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+
+    let validator = create_node(&server.db_path, "validator-1", 26952);
+    let oracle = create_node(&server.db_path, "oracle-1", 26962);
+    {
+        let repository = Repository::open(&server.db_path).expect("reopen workspace");
+        repository
+            .set_node_role(&validator, Some(NodeRole::Consensus))
+            .expect("assign Consensus");
+        repository
+            .set_node_role(&oracle, Some(NodeRole::Oracle))
+            .expect("assign Oracle");
+    }
+
+    let page = into_response(
+        http.get(&format!("{base}/nodes"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(page.status(), 200);
+    let markup = page.into_string().expect("nodes markup");
+    assert!(
+        markup.contains(r#"<div class="num">1</div><div class="lbl">Consensus Nodes</div>"#),
+        "the tile must count the duty the rows carry: {markup}"
+    );
+    assert!(
+        markup.contains(r#"data-node-role="Consensus""#),
+        "the Consensus row must carry its duty, not a default: {markup}"
+    );
+    assert!(
+        markup.contains(r#"data-node-role="Oracle""#),
+        "each row gets its own duty; a shared map must not smear one across the table: {markup}"
+    );
+
+    // `Consensus` persists as `validator`, which is also the slug the filter
+    // accepts — so this checks the filter against the stored key, not a label.
+    let filtered = into_response(
+        http.get(&format!("{base}/nodes?role=validator"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(filtered.status(), 200);
+    let markup = filtered.into_string().expect("filtered markup");
+    assert!(
+        markup.contains("validator-1"),
+        "the filtered page keeps the matching node: {markup}"
+    );
+    assert!(
+        !markup.contains("oracle-1"),
+        "the filter must drop the node whose duty does not match: {markup}"
+    );
+}
+
+#[test]
+fn a_node_with_no_duty_says_so_instead_of_borrowing_one() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+    create_node(&server.db_path, "unassigned-1", 26972);
+
+    let page = into_response(
+        http.get(&format!("{base}/nodes"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(page.status(), 200);
+    let markup = page.into_string().expect("nodes markup");
+    assert!(
+        markup.contains(r#"data-node-role="No duty assigned""#),
+        "a node with no stored duty must be described as such: {markup}"
+    );
+    assert!(
+        markup.contains(r#"<div class="num">0</div><div class="lbl">Consensus Nodes</div>"#),
+        "and it must not be counted as a Consensus node: {markup}"
+    );
+}
+
+/// Both density tables emit `data-node-role` for the same row, and the instance
+/// drawer reads that attribute. They disagreed on a node with no duty — "Node"
+/// at comfortable density, "No duty assigned" at compact — so the drawer
+/// described one node two ways depending on a display preference. Stored data is
+/// not a display preference.
+#[test]
+fn both_densities_describe_an_undutied_node_the_same_way() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+    create_node(&server.db_path, "unassigned-1", 26982);
+
+    let read_role = |density: &str| {
+        server
+            .state
+            .commands
+            .save_app_ui_density(density)
+            .expect("store density");
+        let page = into_response(
+            http.get(&format!("{base}/nodes"))
+                .set("cookie", &session)
+                .call(),
+        );
+        assert_eq!(page.status(), 200);
+        let markup = page.into_string().expect("nodes markup");
+        let start = markup
+            .find("data-node-role=\"")
+            .expect("the row carries a duty attribute");
+        let rest = &markup[start + "data-node-role=\"".len()..];
+        let end = rest.find('"').expect("the attribute is closed");
+        rest[..end].to_string()
+    };
+
+    let comfortable = read_role("comfortable");
+    let compact = read_role("compact");
+    assert_eq!(
+        comfortable, compact,
+        "the drawer must read one answer regardless of how dense the table is"
+    );
+    assert_eq!(comfortable, "No duty assigned");
 }

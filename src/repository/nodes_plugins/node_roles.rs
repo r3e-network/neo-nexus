@@ -73,6 +73,30 @@ impl Repository {
         let key: String = row.get(0)?;
         Ok(NodeRole::from_persist_key(&key))
     }
+
+    /// Every recorded duty, keyed by node.
+    ///
+    /// The fleet list needs one lookup per row and this product opens a SQLite
+    /// connection per operation, so asking [`Self::load_node_role`] inside a
+    /// render loop cost one connection per node — for a value that is one column
+    /// of one table. A node with no duty is absent from the map, and a stored
+    /// key this version no longer recognises is skipped for the same reason
+    /// `load_node_role` reads it as `None`.
+    pub fn list_node_roles(&self) -> Result<std::collections::HashMap<String, NodeRole>> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare("SELECT node_id, role FROM node_roles")?;
+        let rows = statement.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?;
+        let mut roles = std::collections::HashMap::new();
+        for row in rows {
+            let (node_id, key) = row?;
+            if let Some(role) = NodeRole::from_persist_key(&key) {
+                roles.insert(node_id, role);
+            }
+        }
+        Ok(roles)
+    }
 }
 
 fn ensure_role_change_is_safe(

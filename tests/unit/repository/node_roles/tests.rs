@@ -149,3 +149,87 @@ fn active_node_cannot_change_duty() {
         .expect_err("active node identity must remain stable");
     assert!(error.to_string().contains("stop node"));
 }
+
+/// The fleet list reads every duty in one query instead of one per row. The bulk
+/// read therefore has to answer exactly what the single read it replaced
+/// answered — including the case where the answer is "no duty assigned", which
+/// is an absent entry rather than a default.
+#[test]
+fn the_bulk_read_agrees_with_the_single_read() {
+    let (_dir, repository, assigned) = repo_with_node();
+    let unassigned = repository
+        .create_node(NewNode {
+            name: "rpc-1".to_string(),
+            node_type: NodeType::NeoGo,
+            network: Network::Testnet,
+            binary_path: PathBuf::from("/opt/neo/neo-go"),
+            args: Vec::new(),
+            runtime_version: "0.122".to_string(),
+            storage_engine: StorageEngine::LevelDb,
+            rpc_port: 20352,
+            p2p_port: 20353,
+            ws_port: None,
+        })
+        .unwrap()
+        .id;
+    repository
+        .set_node_role(&assigned, Some(NodeRole::Consensus))
+        .unwrap();
+
+    let roles = repository.list_node_roles().unwrap();
+    assert_eq!(roles.get(&assigned).copied(), Some(NodeRole::Consensus));
+    assert_eq!(
+        repository.load_node_role(&assigned).unwrap(),
+        Some(NodeRole::Consensus)
+    );
+    assert!(
+        !roles.contains_key(&unassigned),
+        "a node with no duty must be absent from the map, not present with a default"
+    );
+    assert_eq!(roles.len(), 1);
+}
+
+/// Same rule as `an_unrecognised_stored_role_reads_as_unassigned`, applied to the
+/// bulk read: a retired duty must not surface as a role, and must not abort the
+/// query for every other node either.
+#[test]
+fn the_bulk_read_skips_a_role_this_version_no_longer_knows() {
+    let (dir, repository, kept) = repo_with_node();
+    let retired = repository
+        .create_node(NewNode {
+            name: "rpc-1".to_string(),
+            node_type: NodeType::NeoGo,
+            network: Network::Testnet,
+            binary_path: PathBuf::from("/opt/neo/neo-go"),
+            args: Vec::new(),
+            runtime_version: "0.122".to_string(),
+            storage_engine: StorageEngine::LevelDb,
+            rpc_port: 20362,
+            p2p_port: 20363,
+            ws_port: None,
+        })
+        .unwrap()
+        .id;
+    repository
+        .set_node_role(&kept, Some(NodeRole::Oracle))
+        .unwrap();
+    repository
+        .set_node_role(&retired, Some(NodeRole::Consensus))
+        .unwrap();
+    let connection = rusqlite::Connection::open(dir.path().join("n.db")).unwrap();
+    connection
+        .execute(
+            "UPDATE node_roles SET role = 'retired-duty' WHERE node_id = ?1",
+            rusqlite::params![retired],
+        )
+        .unwrap();
+    drop(connection);
+
+    let roles = repository.list_node_roles().unwrap();
+    assert_eq!(roles.get(&kept).copied(), Some(NodeRole::Oracle));
+    assert!(
+        !roles.contains_key(&retired),
+        "a duty this version no longer knows must not appear as a role"
+    );
+    assert_eq!(roles.len(), 1);
+}

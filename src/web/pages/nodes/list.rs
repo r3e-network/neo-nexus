@@ -10,6 +10,15 @@ use crate::{
     web::{assets::DensityMode, chain_state_view as chain_view, fleet::Fleet, html, WebState},
 };
 
+/// What `data-node-role` says when a node has no recorded duty.
+///
+/// Both tables and the instance drawer emit this one value. They used to differ
+/// — the comfortable table said "Node", the compact table and the drawer said
+/// "No duty assigned" — so the drawer, which reads the attribute, described the
+/// same node differently depending on a display setting. "Node" also reads as a
+/// duty when the point is that there is none.
+const NO_DUTY_ATTRIBUTE: &str = "No duty assigned";
+
 #[derive(Default, serde::Deserialize)]
 pub struct NodeListQuery {
     #[serde(default)]
@@ -88,14 +97,16 @@ fn list_body(
     let visible = if role_query.is_empty() {
         visible
     } else {
+        // One read for the whole page. Asking per node cost a connection per
+        // row for a single column, and this filter runs before anything else
+        // has been loaded — so on a large fleet it was the most expensive way
+        // to answer the cheapest question.
+        let roles = state.workspace.list_node_roles().unwrap_or_default();
         visible
             .into_iter()
             .filter(|node| {
-                state
-                    .workspace
-                    .load_node_role(&node.id)
-                    .ok()
-                    .flatten()
+                roles
+                    .get(&node.id)
                     .is_some_and(|r| r.slug() == role_query || r.persist_key() == role_query)
             })
             .collect::<Vec<_>>()
@@ -168,7 +179,7 @@ fn ec2_instance_drawer(state: &WebState, visible: &[NodeConfig]) -> String {
     };
     let id = html::urlencoding_lite(&first.id);
     let role = state.workspace.load_node_role(&first.id).ok().flatten();
-    let role_label = role.map_or("No duty assigned", crate::roles::NodeRole::label);
+    let role_label = role.map_or(NO_DUTY_ATTRIBUTE, crate::roles::NodeRole::label);
     let state_badge = html::status_badge(first.status.label());
     let signer = state
         .workspace
@@ -236,13 +247,11 @@ fn status_tiles(state: &WebState, fleet: &Fleet) -> String {
         .unwrap_or_default()
         .as_secs() as i64;
     let hermes_active = all_hermes.iter().filter(|h| h.is_alive(now)).count();
+    let roles = state.workspace.list_node_roles().unwrap_or_default();
     let validators = fleet
         .rows
         .iter()
-        .filter(|r| {
-            state.workspace.load_node_role(&r.node.id).ok().flatten()
-                == Some(crate::roles::NodeRole::Consensus)
-        })
+        .filter(|r| roles.get(&r.node.id) == Some(&crate::roles::NodeRole::Consensus))
         .count();
 
     html::cards(&[
@@ -282,13 +291,14 @@ fn manager_table(state: &WebState, fleet: &Fleet, visible: &[NodeConfig]) -> Str
         .list_all_signer_bindings()
         .unwrap_or_default();
     let all_hermes = state.workspace.list_hermes_agents().unwrap_or_default();
+    let all_roles = state.workspace.list_node_roles().unwrap_or_default();
 
     let rows = visible
         .iter()
         .filter_map(|node| fleet.rows.iter().find(|row| row.node.id == node.id))
         .map(|row| {
             let id = html::urlencoding_lite(&row.node.id);
-            let role = state.workspace.load_node_role(&row.node.id).ok().flatten();
+            let role = all_roles.get(&row.node.id).copied();
             let signer = all_signers.iter().find(|(nid, _)| nid == &row.node.id).map(|(_, k)| k);
             let hermes = all_hermes.iter().find(|a| a.node_id == row.node.id);
 
@@ -378,7 +388,9 @@ fn manager_table(state: &WebState, fleet: &Fleet, visible: &[NodeConfig]) -> Str
                 || "none".to_string(),
                 |key| format!("{}/{}", key.backend_id, key.key_id),
             );
-            let role_str = role.map_or("Node", |r| r.label());
+            // Not "Node", which reads as a duty. A node with no duty assigned
+            // is a fact, and the fleet list is where an operator notices it.
+            let role_str = role.map_or(NO_DUTY_ATTRIBUTE, |r| r.label());
             format!(
                 r#"<tr data-node-id="{raw_id}" data-node-name="{name}" data-node-type="{node_type}" data-node-net="{net}" data-node-ver="{ver}" data-node-rpc-port="{rpc}" data-node-p2p-port="{p2p}" data-node-role="{role}" data-node-signer="{signer}" data-node-status="{status}">{}</tr>"#,
                 cells.join(""),
@@ -443,12 +455,14 @@ fn manager_table_compact(state: &WebState, fleet: &Fleet, visible: &[NodeConfig]
         .workspace
         .list_all_signer_bindings()
         .unwrap_or_default();
+    let all_roles = state.workspace.list_node_roles().unwrap_or_default();
 
     let rows = visible
         .iter()
         .filter_map(|node| fleet.rows.iter().find(|row| row.node.id == node.id))
         .map(|row| {
             let id = html::urlencoding_lite(&row.node.id);
+            let role = all_roles.get(&row.node.id).copied();
             let hermes = all_hermes.iter().find(|a| a.node_id == row.node.id);
             let hermes_badge = if hermes.is_some_and(|h| h.is_alive(now)) {
                 r#"<span class="badge running">🤖 Active</span>"#
@@ -497,14 +511,7 @@ fn manager_table_compact(state: &WebState, fleet: &Fleet, visible: &[NodeConfig]
                 ver = html::escape(&row.node.runtime_version),
                 rpc = row.node.rpc_port,
                 p2p = row.node.p2p_port,
-                role = html::escape(
-                    state
-                        .workspace
-                        .load_node_role(&row.node.id)
-                        .ok()
-                        .flatten()
-                        .map_or("No duty assigned", crate::roles::NodeRole::label)
-                ),
+                role = html::escape(role.map_or(NO_DUTY_ATTRIBUTE, crate::roles::NodeRole::label)),
                 signer = html::escape(
                     &all_signers
                         .iter()

@@ -42,6 +42,13 @@ impl WorkspaceQueries {
         self.repository.load_node_role(node_id)
     }
 
+    /// Every recorded duty in one read, for callers that need one per row.
+    pub fn list_node_roles(
+        &self,
+    ) -> Result<std::collections::HashMap<String, crate::roles::NodeRole>> {
+        self.repository.list_node_roles()
+    }
+
     /// Alias for [`Self::list_fast_sync_snapshots`].
     #[inline]
     pub fn list_snapshots(&self) -> Result<Vec<FastSyncSnapshot>> {
