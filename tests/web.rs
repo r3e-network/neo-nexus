@@ -730,6 +730,13 @@ fn node_and_fleet_iac_api_serves_cloud_manifests() {
     let list_html = list_page.into_string().unwrap();
     assert!(list_html.contains("aws-top-bar"));
     assert!(list_html.contains("global-resource-search"));
+    // The placeholder is not a name — it vanishes as soon as the operator types,
+    // and the search box sits in the top bar of every page, so it is the first
+    // control a screen reader meets.
+    assert!(
+        list_html.contains(r#"aria-label="Search nodes""#),
+        "the top-bar search needs an accessible name, not just a placeholder"
+    );
     assert!(list_html.contains("aws-action-bar"));
     assert!(list_html.contains("data-action=\"toggle-all-nodes\""));
 

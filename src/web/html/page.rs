@@ -88,7 +88,11 @@ pub fn layout_with_density(
   <div class="aws-top-bar-center">
     <form method="get" action="/nodes" class="aws-global-search" role="search">
       <span class="aws-search-icon" aria-hidden="true">🔍</span>
-      <input type="text" id="global-resource-search" name="q" placeholder="Search nodes by name, id, client or network (/ to focus)" autocomplete="off">
+      <!-- The placeholder is not a name: it disappears once the operator
+           types, and a screen reader announces an empty text box. The search
+           field is in the top bar of every page, so it is the one control an
+           operator meets before any other. -->
+      <input type="text" id="global-resource-search" name="q" aria-label="Search nodes" placeholder="Search nodes by name, id, client or network (/ to focus)" autocomplete="off">
       <span class="aws-search-kbd">/</span>
     </form>
   </div>
