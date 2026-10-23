@@ -160,7 +160,10 @@ pub fn build_router(state: WebState) -> Router {
         // The save route above existed with nothing pointing at it. This is
         // the page an operator reaches to change one field of a peer.
         .route("/federation/{id}/edit", get(pages::federation::edit))
-        .route("/federation/{id}/delete", post(pages::federation::delete))
+        .route(
+            "/federation/{id}/delete",
+            get(pages::federation::delete_form).post(pages::federation::delete),
+        )
         .route("/federation/{id}/toggle", post(pages::federation::toggle))
         .route("/federation/{id}/probes", get(pages::federation::probes))
         .route("/roles", get(pages::roles::roles))
@@ -254,7 +257,7 @@ pub fn build_router(state: WebState) -> Router {
         )
         .route(
             "/settings/api-tokens/{token_id}/delete",
-            post(pages::api_tokens::delete_token),
+            get(pages::api_tokens::delete_form).post(pages::api_tokens::delete_token),
         )
         .route("/settings/density", post(control::save_density))
         .route("/settings/watchdog", post(control::save_watchdog))

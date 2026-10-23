@@ -117,6 +117,92 @@ fn render_form(state: &WebState, form: &TokenCreateForm, reason: &str) -> Respon
     Html(html::layout("API Tokens", "settings", "", &body)).into_response()
 }
 
+/// The confirmation step before an access key is revoked.
+///
+/// Revoking takes effect immediately and has no undo: the secret is stored only
+/// as a hash, so this key cannot be reissued — a replacement is a new
+/// credential, and every caller holding the old one starts getting `401`. The
+/// table's button used `data-confirm`, which is behaviour of the bundled
+/// script; with scripting disabled the key was revoked on the first click, with
+/// nothing in between to read.
+pub async fn delete_form(State(state): State<WebState>, Path(token_id): Path<String>) -> Response {
+    let token = state.workspace.list_api_tokens().ok().and_then(|tokens| {
+        tokens
+            .into_iter()
+            .find(|token| token.id.to_string() == token_id)
+    });
+    let Some(token) = token else {
+        let flash = html::Flash::danger(format!("no access key with id {token_id}"));
+        return Redirect::to(&flash.redirect("/settings/api-tokens")).into_response();
+    };
+
+    let created = pretty_timestamp(token.created_at_unix);
+    let expires = token
+        .expires_at_unix
+        .map_or_else(|| "Never".to_string(), pretty_timestamp);
+    // What is being withdrawn matters more than the timestamps: an operator
+    // revoking a key they cannot identify is exactly how a deploy breaks.
+    let grants = if token.permissions.is_empty() {
+        "none — the key authenticates against nothing".to_string()
+    } else {
+        token
+            .permissions
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let detail = "Every program presenting this key starts receiving 401 as soon as it is revoked. \
+                  The secret is stored only as a hash, so the key cannot be reissued — a replacement \
+                  is a new credential with a new secret, and each caller has to be given it. \
+                  The audit trail keeps the creation and the revocation; nothing else is retained.";
+    let encoded = html::urlencoding_lite(&token.id.to_string());
+    let body = format!(
+        r#"{breadcrumb}
+{head}
+{detail}
+<dl class="token-meta" style="display: grid; grid-template-columns: 140px 1fr; gap: 8px; font-size: 13px;">
+    <dt class="muted">Access Key ID</dt>
+    <dd class="mono">{id}</dd>
+    <dt class="muted">Created</dt>
+    <dd class="mono">{created}</dd>
+    <dt class="muted">Expires</dt>
+    <dd class="mono">{expires}</dd>
+    <dt class="muted">Grants withdrawn</dt>
+    <dd>{grants}</dd>
+</dl>
+<form method="post" action="/settings/api-tokens/{encoded}/delete">
+<div class="form-actions">
+<button class="danger" type="submit">Revoke {name}</button>
+<a class="btn" href="/settings/api-tokens">Cancel</a>
+</div>
+</form>"#,
+        breadcrumb = html::breadcrumb(&[
+            ("Settings", "/settings"),
+            ("API Tokens", "/settings/api-tokens"),
+            ("Revoke", ""),
+        ]),
+        head = html::page_head(
+            &format!("Revoke {}?", token.name),
+            "This stops the key from authenticating. It cannot be undone.",
+            "",
+        ),
+        detail = html::notice("danger", detail),
+        id = html::escape(&token.display_id()),
+        created = html::escape(&created),
+        expires = html::escape(&expires),
+        grants = html::escape(&grants),
+        name = html::escape(&token.name),
+    );
+    Html(html::layout(
+        "Revoke access key",
+        "settings",
+        html::Flash::default(),
+        &body,
+    ))
+    .into_response()
+}
+
 /// POST handler for deleting a token
 pub async fn delete_token(State(state): State<WebState>, Path(token_id): Path<String>) -> Response {
     let outcome = (|| -> anyhow::Result<()> {
@@ -405,12 +491,12 @@ fn render_token_table(tokens: &[crate::wallet::ApiToken]) -> String {
                 html::cell(&expires),
                 html::raw_cell(&perms),
                 html::raw_cell(status_badge),
+                // The destructive step has a page of its own. A prompt drawn by
+                // the bundled script is not a guard: with scripting disabled
+                // there is nothing between the click and the revocation.
                 html::raw_cell(&format!(
-                    r#"<form method="POST" action="/settings/api-tokens/{token_id}/delete" class="inline-form" data-confirm="Are you sure you want to permanently revoke API access key &#39;{name}&#39;?">
-            <button type="submit" class="btn small danger">Revoke</button>
-        </form>"#,
-                    token_id = html::escape(&token.id.to_string()),
-                    name = html::escape(&token.name)
+                    r#"<a class="btn small danger" href="/settings/api-tokens/{}/delete">Revoke</a>"#,
+                    html::escape(&token.id.to_string())
                 )),
             ])
         })

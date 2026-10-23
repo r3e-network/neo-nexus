@@ -4005,6 +4005,102 @@ fn clear_logs_rejected_without_session() {
     assert_eq!(response.header("location"), Some("/login"));
 }
 
+/// The destructive action on the logs page is reached through a page that says
+/// what it destroys.
+///
+/// The confirmation used to be an `onclick="return confirm(...)"` on the button
+/// itself. The content security policy allows no inline script, so the browser
+/// never ran it: the prompt never appeared and the form posted straight
+/// through, deleting every log file in the workspace. This pins the
+/// replacement — a real GET that renders a real POST, with no script involved —
+/// and the two facts the operator needs before agreeing: that the deletion
+/// covers every instance, and that it cannot be undone.
+#[test]
+fn the_logs_confirmation_page_states_what_it_destroys() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+
+    let repository = Repository::open(&server.db_path).expect("open workspace");
+    let node = repository
+        .create_node(NewNode {
+            name: "confirm-node".to_string(),
+            node_type: NodeType::NeoCli,
+            network: Network::Testnet,
+            binary_path: PathBuf::from(r"C:/definitely/not/here/node.exe"),
+            args: Vec::new(),
+            runtime_version: "test".to_string(),
+            storage_engine: StorageEngine::LevelDb,
+            rpc_port: 26852,
+            p2p_port: 26853,
+            ws_port: None,
+        })
+        .expect("node creation");
+    drop(repository);
+
+    let page = into_response(
+        http.get(&format!("{base}/logs/clear?node={}", node.id))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(page.status(), 200);
+    let body = page.into_string().expect("confirmation body");
+
+    // The confirmation is a form the browser can submit on its own.
+    assert!(
+        body.contains(r#"<form method="post" action="/logs">"#),
+        "the confirmation does not post to the deletion route: {body}"
+    );
+    assert!(
+        body.contains(r#"<button class="danger" type="submit">Clear all log files</button>"#),
+        "the confirmation has no explicit submit control: {body}"
+    );
+    // The stream the operator came from travels with the POST, so they land
+    // back on it instead of on the first one.
+    assert!(
+        body.contains(&format!(
+            r#"<input type="hidden" name="node" value="{}">"#,
+            node.id
+        )),
+        "the confirmation loses the selected stream: {body}"
+    );
+    // The action clears the whole directory, and the page must not read as
+    // though it were about the one instance it mentions.
+    assert!(
+        body.contains("truncated, for all instances"),
+        "the confirmation does not say the deletion is workspace-wide: {body}"
+    );
+    assert!(
+        body.contains("This cannot be undone"),
+        "the confirmation does not say the deletion is permanent: {body}"
+    );
+    // And there is a way out that returns to the page they came from.
+    assert!(
+        body.contains(&format!(r#"href="/logs?node={}""#, node.id)),
+        "the confirmation offers no way back: {body}"
+    );
+    // Nothing about the confirmation depends on an inline handler.
+    assert!(
+        !body.contains("onclick="),
+        "the confirmation still depends on an inline handler: {body}"
+    );
+}
+
+/// The confirmation page is behind the same session as the deletion it leads
+/// to: an unauthenticated visitor is sent to the login page, not shown a page
+/// that names the endpoint and what it erases.
+#[test]
+fn the_logs_confirmation_page_is_behind_the_session() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+
+    let response = into_response(http.get(&format!("{base}/logs/clear")).call());
+    assert_eq!(response.status(), 303);
+    assert_eq!(response.header("location"), Some("/login"));
+}
+
 /// A manifest the form cannot build comes back as the form, not as a redirect.
 ///
 /// Nine fields, one of them a 64-character digest: a redirect meant retyping
@@ -5811,6 +5907,231 @@ fn a_federation_server_can_be_edited_from_the_console() {
     assert_eq!(updated.name, "paris");
     assert_eq!(updated.base_url, "https://paris.example.com");
     assert_eq!(updated.description, "secondary");
+}
+
+/// Removing a peer takes its probe history with it, so it is not a one-click
+/// row action: the row links to a page that says what goes and what stays.
+#[test]
+fn removing_a_federation_server_is_confirmed_on_its_own_page() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let login = post_form(&http, &format!("{base}/login"), &format!("token={TOKEN}"));
+    let session = cookie_value(&login).expect("session cookie set");
+
+    let created = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/federation/new"),
+        "name=frankfurt&base_url=https%3A%2F%2Fneonexus.example.com&description=primary&enabled=on",
+    );
+    assert_eq!(created.status(), 303);
+    let mut profiles = server
+        .state
+        .workspace
+        .list_remote_servers()
+        .expect("federation profiles");
+    let profile = profiles.remove(0);
+
+    // The row offers the confirmation page, and no longer posts the deletion.
+    let list = into_response(
+        http.get(&format!("{base}/federation"))
+            .set("cookie", &session)
+            .call(),
+    );
+    let list_body = list.into_string().expect("utf-8 list body");
+    assert!(
+        list_body.contains(&format!(r#"href="/federation/{}/delete""#, profile.id)),
+        "the row must link to the confirmation page: {list_body}"
+    );
+    assert!(
+        !list_body.contains(&format!(r#"action="/federation/{}/delete""#, profile.id)),
+        "the row still deletes on a single click: {list_body}"
+    );
+
+    let page = into_response(
+        http.get(&format!("{base}/federation/{}/delete", profile.id))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(page.status(), 200);
+    let body = page.into_string().expect("confirmation body");
+    assert!(
+        body.contains(&format!(
+            r#"<form method="post" action="/federation/{}/delete">"#,
+            profile.id
+        )),
+        "the confirmation does not post to the deletion route: {body}"
+    );
+    assert!(
+        body.contains("probe history"),
+        "the confirmation does not say the history goes too: {body}"
+    );
+    assert!(
+        body.contains("cannot be recovered"),
+        "the confirmation does not say the history is unrecoverable: {body}"
+    );
+    assert!(
+        body.contains("https://neonexus.example.com"),
+        "the confirmation does not identify the peer: {body}"
+    );
+    assert!(
+        body.contains(r#"href="/federation">Cancel"#),
+        "the confirmation offers no way back: {body}"
+    );
+
+    // Nothing is deleted until the POST.
+    assert_eq!(
+        server
+            .state
+            .workspace
+            .list_remote_servers()
+            .expect("profiles")
+            .len(),
+        1,
+        "reading the confirmation page removed the peer"
+    );
+
+    // An id that is no longer configured says so instead of failing.
+    let gone = into_response(
+        http.get(&format!("{base}/federation/no-such-peer/delete"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(gone.status(), 303);
+    let location = gone.header("location").expect("redirect location");
+    assert!(
+        location.contains("flash_kind=danger"),
+        "a missing peer was not reported as a failure: {location}"
+    );
+}
+
+/// Revoking an access key is immediate and cannot be undone, so the table links
+/// to a page that names the key and the grants about to be withdrawn.
+#[test]
+fn revoking_an_access_key_is_confirmed_on_its_own_page() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+
+    let (token, _secret) = server
+        .state
+        .commands
+        .create_api_token(
+            "ci-deployer",
+            vec![TokenPermission::ReadFleet, TokenPermission::ReadReadiness],
+            None,
+        )
+        .expect("create api token");
+
+    // The table links to the confirmation page instead of posting on one click.
+    let list = into_response(
+        http.get(&format!("{base}/settings/api-tokens"))
+            .set("cookie", &session)
+            .call(),
+    );
+    let list_body = list.into_string().expect("utf-8 token list");
+    assert!(
+        list_body.contains(&format!(
+            r#"href="/settings/api-tokens/{}/delete""#,
+            token.id
+        )),
+        "the table must link to the confirmation page: {list_body}"
+    );
+    assert!(
+        !list_body.contains(&format!(
+            r#"action="/settings/api-tokens/{}/delete""#,
+            token.id
+        )),
+        "the table still revokes on a single click: {list_body}"
+    );
+
+    let page = into_response(
+        http.get(&format!("{base}/settings/api-tokens/{}/delete", token.id))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(page.status(), 200);
+    let body = page.into_string().expect("confirmation body");
+    assert!(
+        body.contains("Revoke ci-deployer?"),
+        "the confirmation does not name the key: {body}"
+    );
+    assert!(
+        body.contains(&format!(
+            r#"<form method="post" action="/settings/api-tokens/{}/delete">"#,
+            token.id
+        )),
+        "the confirmation does not post to the revocation route: {body}"
+    );
+    assert!(
+        body.contains("read_fleet") && body.contains("read_readiness"),
+        "the confirmation does not say which grants are withdrawn: {body}"
+    );
+    assert!(
+        body.contains("starts receiving 401"),
+        "the confirmation does not say the effect is immediate: {body}"
+    );
+    assert!(
+        body.contains("cannot be reissued"),
+        "the confirmation does not say the key cannot be restored: {body}"
+    );
+    // The guard is a page, not a prompt drawn by the bundled script. (The
+    // script still implements `data-confirm`; no form here may rely on it.)
+    assert!(
+        !body.contains(r#"data-confirm=""#),
+        "the revoke form still depends on a script prompt: {body}"
+    );
+
+    // Nothing is revoked until the POST.
+    assert!(
+        server
+            .state
+            .workspace
+            .list_api_tokens()
+            .expect("tokens")
+            .iter()
+            .any(|existing| existing.id == token.id),
+        "reading the confirmation page revoked the key"
+    );
+
+    // An id that no longer exists says so instead of failing.
+    let gone = into_response(
+        http.get(&format!(
+            "{base}/settings/api-tokens/00000000-0000-0000-0000-000000000000/delete"
+        ))
+        .set("cookie", &session)
+        .call(),
+    );
+    assert_eq!(gone.status(), 303);
+    let location = gone.header("location").expect("redirect location");
+    assert!(
+        location.contains("flash_kind=danger"),
+        "a missing key was not reported as a failure: {location}"
+    );
+}
+
+/// Both confirmation pages are behind the same session as the action they
+/// lead to.
+#[test]
+fn the_destructive_confirmation_pages_are_behind_the_session() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+
+    for path in [
+        "/federation/any-peer/delete",
+        "/settings/api-tokens/00000000-0000-0000-0000-000000000000/delete",
+    ] {
+        let response = into_response(http.get(&format!("{base}{path}")).call());
+        assert_eq!(response.status(), 303, "{path} answered without a session");
+        assert_eq!(
+            response.header("location"),
+            Some("/login"),
+            "{path} did not send the visitor to the login page"
+        );
+    }
 }
 
 #[test]

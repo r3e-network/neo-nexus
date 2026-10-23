@@ -159,7 +159,7 @@ fn profile_table(state: &WebState, profiles: &[RemoteServerProfile]) -> anyhow::
             ),
             html::raw_cell(&toggle_form(profile)),
             html::raw_cell(&format!(
-                r#"<a class="btn small" href="/federation/{id}/edit">Edit</a> <a class="btn small" href="/federation/{id}/probes">History</a><form method="post" action="/federation/{id}/delete" style="display:inline; margin-left:4px;"><button type="submit" class="btn small danger" title="Remove this server and its probe history">Remove</button></form>"#,
+                r#"<a class="btn small" href="/federation/{id}/edit">Edit</a> <a class="btn small" href="/federation/{id}/probes">History</a> <a class="btn small danger" href="/federation/{id}/delete" title="Remove this server and its probe history">Remove</a>"#,
                 id = html::escape(&profile.id)
             )),
         ]));
@@ -515,6 +515,78 @@ fn edit_form_from_form(id: &str, form: &RemoteServerForm) -> String {
         description = html::escape(form.description.trim()),
         checked = if enabled { " checked" } else { "" },
     )
+}
+
+/// The confirmation step before a federation peer is removed.
+///
+/// This used to be a bare POST behind the row's "Remove" button: one click
+/// removed the peer and every probe recorded for it, with nothing in between.
+/// What is removed is a local record — the peer's own deployment is untouched —
+/// but the history cannot be recovered, and readding the peer means typing its
+/// name and base URL again.
+pub async fn delete_form(State(state): State<WebState>, Path(id): Path<String>) -> Response {
+    let profile = state
+        .workspace
+        .list_remote_servers()
+        .ok()
+        .and_then(|profiles| profiles.into_iter().find(|profile| profile.id == id));
+    let Some(profile) = profile else {
+        let flash = html::Flash::danger(format!("federation server {id} is no longer configured"));
+        return Redirect::to(&flash.redirect("/federation")).into_response();
+    };
+
+    let detail = "The probe history stored for this peer is deleted with it. The peer's own \
+                  deployment is not touched and nothing is sent to it, but the record of what it \
+                  reported cannot be recovered: adding it back means entering its name and base URL \
+                  again, and its history starts empty.";
+    let polling = if profile.enabled {
+        "Polled for its public status on the federation interval"
+    } else {
+        "Not polled — recorded, but disabled"
+    };
+    let description = if profile.description.trim().is_empty() {
+        "—".to_string()
+    } else {
+        profile.description.clone()
+    };
+    let encoded = html::urlencoding_lite(&profile.id);
+    let body = format!(
+        r#"{breadcrumb}
+{head}
+{detail}
+<dl class="token-meta" style="display: grid; grid-template-columns: 110px 1fr; gap: 8px; font-size: 13px;">
+    <dt class="muted">Base URL</dt>
+    <dd class="mono">{base_url}</dd>
+    <dt class="muted">Description</dt>
+    <dd>{description}</dd>
+    <dt class="muted">Polling</dt>
+    <dd>{polling}</dd>
+</dl>
+<form method="post" action="/federation/{encoded}/delete">
+<div class="form-actions">
+<button class="danger" type="submit">Remove {name}</button>
+<a class="btn" href="/federation">Cancel</a>
+</div>
+</form>"#,
+        breadcrumb = html::breadcrumb(&[("Federation", "/federation"), ("Remove", "")]),
+        head = html::page_head(
+            &format!("Remove {}?", profile.name),
+            "This removes the peer from this workspace, with its probe history.",
+            "",
+        ),
+        detail = html::notice("danger", detail),
+        base_url = html::escape(&profile.base_url),
+        description = html::escape(&description),
+        polling = polling,
+        name = html::escape(&profile.name),
+    );
+    Html(html::layout(
+        "Remove federation server",
+        "federation",
+        html::Flash::default(),
+        &body,
+    ))
+    .into_response()
 }
 
 pub async fn delete(

@@ -223,13 +223,24 @@
 （id/label/source 为空、字节数非整数）落到控件旁；「签名源与公钥必须同时给出」
 这类**组合**判定交给域，原文进 `general`——指到三个控件里任一个都是猜。
 
-门禁：**1386** 项（上一轮 1365），fmt / clippy / source-quality / source-purity /
-ci-policy 全绿。详见 `docs/ITERATION_2026-10-forms.md` 第十一至十三节。
+这一轮还补上了两处「只有 JavaScript 在拦」的破坏性操作。`/settings/api-tokens`
+的 Revoke 用的是 `data-confirm`——它是打包脚本的行为，脚本禁用时第一次点击就把
+密钥吊销了；`/federation` 的 Remove 连提示都没有，直接从表格 POST，连带删掉探测
+历史。两处都改成仓库已有的两段式：`GET …/delete` 渲染确认页，`POST` 才执行。
+确认页写清「失去什么、留下什么」——token 页列出即将被收回的授权，说明立即生效、
+secret 只存哈希因而无法补发；peer 页说明探测历史一并删除、对端本身不受影响、
+重新加入要重填名称与 URL。列表里的按钮从 `<form>` 换成 `<a>`，破坏性一步因此
+永远不是一次点击。
+
+门禁：**1391** 项（上一轮 1386），fmt / clippy / source-quality / source-purity /
+ci-policy 全绿。详见 `docs/ITERATION_2026-10-forms.md` 第十一至十四节。
 
 ## 仍需关注
 
 - `/public-metrics` 的认证契约已收敛：代码用 `ReadFleet` 强制关闭匿名（`src/web/router.rs`），`docs/AGENT_API.md` 已同步，`tests/web.rs` 有断言（匿名 401、`read_fleet` token 200）。
-- 本次迭代的文件变更应按主题拆成独立提交；发布前仍需 release build/package 验证。
+- ~~本次迭代的文件变更应按主题拆成独立提交；发布前仍需 release build/package 验证~~
+  → 已完成：93 个文件拆成 8 个提交推送到 `origin/main`（`3ab987e`）；
+    release 构建 + `--package-release` + `--verify-release-package-integrity` 通过。
 - Web 层仍有多个 600+ 行文件（`web/assets/styles.rs` 924、`pages/nodes/detail_tabs.rs` 811、`web/api/hermes_mcp.rs` 788）待拆。
 - ~~建议给 `--source-quality` 增加"测试不得依赖平台专有可执行文件"的规则~~
   → 已以 `ci_policy` 契约门禁落地（`tests/ci_policy/platform.rs`）。

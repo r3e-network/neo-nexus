@@ -238,6 +238,7 @@ or not anyone remembers to write a test for it.
 | Network | `/federation` | Peer NeoNexus servers with their last probe |
 | | `/federation/{id}/edit` | Change one peer's name, address, description, or enabled state |
 | | `/federation/{id}/probes` | Probe history for one server |
+| | `/federation/{id}/delete` | Confirmation step before a peer and its probe history are removed |
 | | `/roles` | Private-network duty × client support matrix and node role plan |
 | Assets | `/runtimes` | Installed binaries and catalog profiles, with verification state |
 | | `/snapshots` | Fast-sync archives and how far each has reached |
@@ -245,6 +246,7 @@ or not anyone remembers to write a test for it.
 | | `/config` | Per-node managed config path and whether it was written |
 | | `/wallets` | Validated wallet metadata — never keys, passwords, or wallet bytes |
 | Security | `/signer` | All loaded signer profiles, capabilities, and explicit route roles; service inventory/boundaries/callers/audit for the selected console profile, plus local-wallet public identity without secret or relay controls |
+| | `/settings/api-tokens/{token_id}/delete` | Confirmation step before a key stops authenticating |
 | Workspace | `/metrics` | Metrics snapshot text + Prometheus exposition |
 | | `/settings` | Watchdog and monitor policies; runtime upgrade facts |
 | Public | `/login` | Token sign-in |
@@ -258,6 +260,12 @@ removes it; `POST /nodes/{id}/start`, `/stop`, `/restart` drive the lifecycle;
 `POST /federation/{id}` updates a peer's name, address, description, or enabled
 state (a rejected edit comes back on the same page with the typed values kept
 and the reason beside the field);
+`POST /federation/{id}/delete` removes a peer together with its stored probe
+history, and `POST /settings/api-tokens/{token_id}/delete` revokes an access
+key. Both are reached through a GET confirmation page — a plain form post, so
+the destructive step is never one click away and does not depend on scripting;
+the page names what is lost and what survives, because neither can be undone
+from the console;
 `POST /signer/keys/{id}/policy` saves one key's boundary, and a boundary this
 console or the service refuses comes back on the same page with what was typed
 still in the form and the refusal beside the field it belongs to — a refusal

@@ -1,6 +1,7 @@
 # 迭代记录：2026-10-20（续三）
 
-本文件收录第十至第十三节：任务 #50 与 #48，把会丢输入的表单全部改成失败重渲染。
+本文件收录第十至第十四节：任务 #50 与 #48，把会丢输入的表单全部改成失败重渲染，
+以及两处只靠 JavaScript 拦截的破坏性操作。
 总目录见 [ITERATION_2026-10.md](ITERATION_2026-10.md)。
 
 ---
@@ -428,5 +429,78 @@ DEFAULT_CATALOG_MAX_BYTES 也搬到这里（页面占位符与 build 默认值�
 
 - `cargo run -- --source-quality src` —— findings: 0
 - `cargo run -- --source-quality tests` —— findings: 0
+- `cargo run -- --source-purity .` —— disallowed: 0
+- `cargo run -- --ci-policy .github/workflows/ci.yml` —— findings: 0
+
+## 十四、破坏性操作的确认页：两处「只有 JavaScript 在拦」
+
+### 14.1 问题
+
+发布前把「有 POST、无 GET 确认页」的路由过了一遍。`/nodes/{id}/delete`、
+`/wallets/{id}/delete`、`/signer/keys/{id}/delete`、`/signer/callers/{id}/delete`
+都是 `get(...).post(...)`，`/logs/clear` 上一轮刚补上。剩下两处：
+
+- `/settings/api-tokens/{token_id}/delete` 只有 POST，表格里的 Revoke 依赖
+  `data-confirm`。这个属性由打包脚本实现（`src/web/assets/script.rs`），
+  **脚本被禁用时页面照常提交**——密钥在第一次点击时就被吊销，中间没有任何可读的
+  东西。这与 `onclick="return confirm()"` 是同一种失效模式，只是绕开了 CSP；
+- `/federation/{id}/delete` 只有 POST，连提示都没有，直接从行内表单提交，
+  并连带删除该 peer 存下来的探测历史。
+
+两处都违反同一条已定的规矩：**破坏性操作走服务端两段式（GET 确认页 → POST 执行），
+与 JavaScript 无关。**
+
+### 14.2 做法
+
+沿用仓库已有的两段式，不引入新原语。
+
+- `GET /settings/api-tokens/{token_id}/delete` → `delete_form`：列出 key 名、
+  access key id、创建与过期时间，以及**即将被收回的授权**——吊销一个认不出的 key
+  正是把部署弄坏的方式。说明立即生效（每个持有该 key 的程序开始收到 401）、
+  secret 只存哈希因而无法补发（替换品是一份新凭据，得逐个交给调用方）。
+  id 已不存在时 303 回列表并给 danger flash，而不是 500。
+- `GET /federation/{id}/delete` → `delete_form`：说明探测历史一并删除、对端部署
+  不受影响也不会有请求发给它、重新加入要重填名称与 base URL、以及当前是否在轮询。
+- 两处列表按钮由 `<form>` 改成 `<a>`，`POST` 路由保持不变：破坏性一步因此永远不是
+  一次点击，且两页都是普通表单，脚本禁用时行为不变。
+- 脚本里的 `data-confirm` 处理器保留（通用原语），但已经没有页面依赖它。
+
+### 14.3 测试
+
+`tests/web.rs` 新增 5 条，总数 91 → 96：
+
+- `the_logs_confirmation_page_states_what_it_destroys`、`..._is_behind_the_session`
+  —— 上一轮补的确认页此前零覆盖，而它替换的正是被 CSP 静默吞掉的那种提示；
+- `removing_a_federation_server_is_confirmed_on_its_own_page` —— 同时断言列表页
+  **不再**出现 `action="/federation/{id}/delete"`，且读页面不会删除 peer；
+- `revoking_an_access_key_is_confirmed_on_its_own_page` —— 断言列表是链接不是表单、
+  确认页列出两个授权、且读页面不会吊销 key；
+- `the_destructive_confirmation_pages_are_behind_the_session` —— 两页匿名访问都 303 到 `/login`。
+
+注入验证两处，均逐字节还原：
+
+- 表格里的 `<a href="…/delete">` 改回断链 → 断言「the table must link to the
+  confirmation page」失败；
+- `/federation/{id}/delete` 改回只 `post(...)` → GET 得到 **405**，断言 200 失败。
+
+（第一次注入把 `format!` 的 `{}` 占位符一起删掉了，结果是**编译失败**而不是测试失败——
+验证脚本必须能区分这两者，否则会把编译错误当成「规则起作用」。）
+
+### 14.4 门禁
+
+- `cargo fmt --all -- --check` —— clean
+- `cargo clippy --all-targets -- -D warnings` —— clean
+- `cargo test --lib` — **1027** passed，1 ignored
+- `cargo test --test ci_policy` — 48 passed
+- `cargo test --test domain` — 147 passed
+- `cargo test --test repository` — 45 passed
+- `cargo test --test web` — **96** passed
+- `cargo test --test integration` — 17 passed
+- `cargo test --test ui_density_metrics` — 7 passed
+- `cargo test --test ui_operator_walkthrough` — 4 passed
+
+合计 **1391 项**（上一轮 1386）。
+
+- `cargo run -- --source-quality src` / `tests` / `.` —— findings: 0
 - `cargo run -- --source-purity .` —— disallowed: 0
 - `cargo run -- --ci-policy .github/workflows/ci.yml` —— findings: 0

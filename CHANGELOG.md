@@ -110,6 +110,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     The comparison reads the router's syntax tree, so a comment between the
     path and the handler no longer hides a route, and a quoted string that is
     not a path no longer invents one.
+- **Revoking an access key is a page, not a prompt.** The table's Revoke button
+  relied on `data-confirm`, which is behaviour of the bundled script: with
+  scripting disabled the key was revoked on the first click, with nothing in
+  between to read. `GET /settings/api-tokens/{token_id}/delete` now names the
+  key, its access key id, when it was created, when it expires, and exactly
+  which grants are about to be withdrawn, and says that every program
+  presenting the key starts receiving `401` immediately and that the key cannot
+  be reissued — the secret is stored only as a hash, so a replacement is a new
+  credential each caller has to be given.
+- **Removing a federation peer is a page, not a row button.** `Remove` posted
+  straight from the table and took the peer's stored probe history with it.
+  `GET /federation/{id}/delete` now states that the history goes too, that the
+  peer's own deployment is untouched, that readding it means entering its name
+  and base URL again, and whether the peer is currently polled. The list links
+  to it instead of posting; both pages are plain forms, so the destructive step
+  is never one click away and works with scripting disabled.
 
 ### Fixed
 
