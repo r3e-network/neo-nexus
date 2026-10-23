@@ -24,16 +24,11 @@ where
 }
 
 pub(crate) fn respond(path: &str, outcome: Result<String>) -> Response {
-    let message = match outcome {
-        Ok(message) => message,
-        Err(error) => format!("not saved: {error}"),
+    let flash = match outcome {
+        Ok(message) => html::Flash::ok(message),
+        Err(error) => html::Flash::danger(format!("not saved: {error}")),
     };
-    Redirect::to(&format!(
-        "{path}?flash={}",
-        html::urlencoding_lite(&message),
-        path = path
-    ))
-    .into_response()
+    Redirect::to(&flash.redirect(path)).into_response()
 }
 
 #[cfg(test)]

@@ -18,7 +18,7 @@ use neo_nexus::{
     core::operations::{EventSeverity, RuntimeEventFilter},
     repository::Repository,
     signer_client::{SignerClient, SignerConfig},
-    types::{Network, NewNode, NodeType, StorageEngine},
+    types::{Network, NewNode, NodeStatus, NodeType, StorageEngine},
     wallet::TokenPermission,
     watchdog::RestartPolicy,
     web::{
@@ -128,18 +128,12 @@ fn spawn_supervised_server() -> Server {
 
 /// A command that exits non-zero immediately — a runtime that cannot start at
 /// all, which the launch barrier is expected to catch and report synchronously.
+///
+/// A compiled stand-in rather than `cmd /c exit 3` or `sh -c exit 3`: both
+/// shells add a startup cost and a platform-specific failure mode to a test
+/// that is about our launch barrier, not about the shell.
 fn crashing_command() -> (PathBuf, Vec<String>) {
-    if cfg!(windows) {
-        (
-            PathBuf::from(r"C:\Windows\System32\cmd.exe"),
-            vec!["/c".to_string(), "exit 3".to_string()],
-        )
-    } else {
-        (
-            PathBuf::from("/bin/sh"),
-            vec!["-c".to_string(), "exit 3".to_string()],
-        )
-    }
+    (stub_runtime::crashing_runtime_binary(), Vec::new())
 }
 
 /// A command that starts cleanly, outlives the launch barrier, and only then
@@ -148,18 +142,14 @@ fn crashing_command() -> (PathBuf, Vec<String>) {
 /// This is a different failure from [`crashing_command`] and must stay that
 /// way: a runtime that dies inside the settle window is reported to whoever
 /// pressed Start, and never reaches the watchdog at all.
+///
+/// `cmd /c "timeout /t 2 & exit 3"` used to play this part on Windows, but
+/// `timeout` refuses redirected input and exits immediately when the child has
+/// no console — so the "late" crash happened inside the settle window and the
+/// watchdog was never exercised. A compiled stub sleeps without needing a
+/// console on any platform.
 fn crashing_after_startup_command() -> (PathBuf, Vec<String>) {
-    if cfg!(windows) {
-        (
-            PathBuf::from(r"C:\Windows\System32\cmd.exe"),
-            vec!["/c".to_string(), "timeout /t 2 >NUL & exit 3".to_string()],
-        )
-    } else {
-        (
-            PathBuf::from("/bin/sh"),
-            vec!["-c".to_string(), "sleep 2; exit 3".to_string()],
-        )
-    }
+    (stub_runtime::crashing_late_runtime_binary(), Vec::new())
 }
 
 /// Poll `check` until it says yes or the deadline passes.
@@ -936,13 +926,25 @@ fn settings_form_persists_a_policy_and_rejects_unparseable_input() {
         &format!("{base}/settings/watchdog"),
         "enabled=Enabled&max_restart_attempts=seven&base_delay_seconds=3&max_delay_seconds=90",
     );
-    assert_eq!(rejected.status(), 303);
-    let location = rejected
-        .header("location")
-        .expect("redirect back to settings");
+    // The page comes back rather than redirecting: the operator's other three
+    // values are still in the form and the reason is under the box to fix.
+    assert_eq!(
+        rejected.status(),
+        200,
+        "the form comes back, not a redirect"
+    );
+    let body = rejected.into_string().expect("utf-8 body");
     assert!(
-        location.contains("not%20saved"),
-        "a refused save must say so: {location}"
+        body.contains("max attempts must be a whole number"),
+        "a refused save must say why: {body}"
+    );
+    assert!(
+        body.contains(r#"id="f-max_restart_attempts-error""#),
+        "the reason must sit beside the field that caused it: {body}"
+    );
+    assert!(
+        body.contains(r#"name="base_delay_seconds" value="3""#),
+        "the values that were fine must survive the refusal: {body}"
     );
     let unchanged = repository.load_watchdog_policy().expect("watchdog policy");
     assert_eq!(
@@ -1015,13 +1017,31 @@ fn runtime_upgrade_form_persists_a_policy_and_rejects_out_of_range_input() {
 &maintenance_window_start_minute_utc=0&maintenance_window_end_minute_utc=360\
 &wave_delay_minutes=30",
     );
-    assert_eq!(rejected.status(), 303);
-    let location = rejected
-        .header("location")
-        .expect("redirect back to settings");
+    // The page comes back rather than redirecting: the operator's input is
+    // still on screen and the error is beside the field that caused it.
+    assert_eq!(
+        rejected.status(),
+        200,
+        "the form comes back, not a redirect"
+    );
+    let body = rejected.into_string().expect("utf-8 body");
     assert!(
-        location.contains("not%20saved"),
-        "a refused save must say so: {location}"
+        body.contains("interval_minutes"),
+        "the refused field must be named: {body}"
+    );
+    assert!(
+        body.contains("between 15 and 10080"),
+        "the reason must be on the page: {body}"
+    );
+    // Everything the operator typed is still there, including the parts that
+    // were fine.
+    assert!(
+        body.contains("mainnet-catalog"),
+        "the catalog profile must survive the refusal: {body}"
+    );
+    assert!(
+        body.contains("wave_delay_minutes"),
+        "the refused form must be redrawn: {body}"
     );
     let unchanged = repository
         .load_runtime_upgrade_policy()
@@ -1029,6 +1049,114 @@ fn runtime_upgrade_form_persists_a_policy_and_rejects_out_of_range_input() {
     assert_eq!(
         unchanged.interval_minutes, 720,
         "a rejected form must leave the stored policy alone"
+    );
+}
+
+/// A refusal that belongs to no single field still has to be read.
+///
+/// `FieldErrors` carries two kinds of failure: one that belongs beside a control,
+/// and one that belongs to the policy as a whole. The page counted only the
+/// first kind, so a whole-policy refusal came back as a 200 with the operator's
+/// input intact and **nothing on the page saying why** — the form looked as if
+/// the save had simply not happened.
+#[test]
+fn a_settings_refusal_that_belongs_to_no_field_is_still_shown() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let login = post_form(&http, &format!("{base}/login"), &format!("token={TOKEN}"));
+    let session = cookie_value(&login).expect("session cookie set");
+
+    let refused = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/settings/runtime-upgrade"),
+        "enabled=false&catalog_profile_id=&interval_minutes=720\
+&require_signed_catalog=false&max_nodes_per_run=abc\
+&maintenance_window_start_minute_utc=0&maintenance_window_end_minute_utc=360\
+&wave_delay_minutes=30",
+    );
+    assert_eq!(refused.status(), 200, "the form comes back, not a redirect");
+    let body = refused.into_string().expect("utf-8 body");
+    assert!(
+        body.contains("nodes per run must be a whole number"),
+        "a refusal with no field to sit beside was not shown at all: {body}"
+    );
+    // It is quoted as a policy-wide failure, not counted as a field: "one field
+    // needs attention" over a message about the policy would name a field that
+    // is not wrong.
+    assert!(
+        !body.contains("One field needs attention."),
+        "a whole-policy refusal must not be counted as one field: {body}"
+    );
+    // And everything the operator typed is still there.
+    assert!(
+        body.contains(r#"name="interval_minutes" value="720""#),
+        "the interval was thrown away: {body}"
+    );
+}
+
+/// The two monitor panels post the same field names, so a refusal must land in
+/// the panel that was refused and nowhere else.
+///
+/// `enabled` and `interval_seconds` each appear twice on this page. A single
+/// shared error map keyed on the input name would have put the RPC health
+/// refusal under the federation interval too — two controls blamed for one
+/// mistake, which is worse than no error at all.
+#[test]
+fn a_monitor_refusal_lands_in_its_own_panel() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+
+    let refused = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/settings/rpc-health"),
+        "enabled=Enabled&interval_seconds=often",
+    );
+    assert_eq!(refused.status(), 200, "the form comes back");
+    let body = refused.into_string().expect("utf-8 body");
+    assert!(
+        body.contains("interval must be a whole number"),
+        "the reason must be on the page: {body}"
+    );
+    assert_eq!(
+        body.matches(r#"id="rpc-health-interval-error""#).count(),
+        1,
+        "the refused panel must carry the reason once: {body}"
+    );
+    assert_eq!(
+        body.matches(r#"id="federation-interval-error""#).count(),
+        0,
+        "the federation panel was blamed for the RPC health mistake: {body}"
+    );
+    assert!(
+        body.contains(
+            r#"id="rpc-health-interval" type="text" name="interval_seconds" value="often""#
+        ),
+        "the refused panel must keep what was typed: {body}"
+    );
+
+    // The other panel is refused the same way, and the first one is left clean.
+    let refused = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/settings/federation"),
+        "enabled=Enabled&interval_seconds=often",
+    );
+    assert_eq!(refused.status(), 200);
+    let body = refused.into_string().expect("utf-8 body");
+    assert_eq!(
+        body.matches(r#"id="federation-interval-error""#).count(),
+        1,
+        "{body}"
+    );
+    assert_eq!(
+        body.matches(r#"id="rpc-health-interval-error""#).count(),
+        0,
+        "the RPC health panel was blamed for the federation mistake: {body}"
     );
 }
 
@@ -1176,7 +1304,16 @@ fn settings_watchdog_form_invalid_jitter_values_are_safe() {
                 value
             ),
         );
-        assert_eq!(response.status(), 303, "invalid value: {value}");
+        assert_eq!(
+            response.status(),
+            200,
+            "a refused jitter value must come back on the page: {value}"
+        );
+        let page = response.into_string().expect("utf-8 body");
+        assert!(
+            page.contains(r#"id="watchdog-jitter-error""#),
+            "the jitter checkbox must carry the reason: {page}"
+        );
         let policy = repository.load_watchdog_policy().expect("watchdog policy");
         assert_eq!(
             policy.jitter_enabled(),
@@ -1234,7 +1371,13 @@ fn settings_watchdog_form_origin_referer_csrf() {
     // Rejected posts still redirect; the handler silently ignores unknown values.
     let bad = "enabled=Enabled&max_restart_attempts=3&base_delay_seconds=2&max_delay_seconds=30&jitter_enabled=garbage";
     let rejected = post_form_as(&http, &session, &format!("{base}/settings/watchdog"), bad);
-    assert_eq!(rejected.status(), 303); // Always redirect; invalid jitter is safe
+    // An unknown jitter word is refused where it can be seen: the page comes
+    // back with the reason under the box, and the stored policy is untouched.
+    assert_eq!(
+        rejected.status(),
+        200,
+        "invalid jitter comes back on the page"
+    );
 }
 
 /// A control that cannot be honoured has to say so instead of half-applying it.
@@ -1479,7 +1622,7 @@ fn a_duplicate_name_is_refused_over_http() {
         &http,
         &session,
         &format!("{base}/nodes/new"),
-        &node_form("TAKEN-NAME", "neo-rs", "33332", "33333"),
+        &node_form("TAKEN-NAME", "neo-rs", "26032", "26033"),
     );
     let body = response.into_string().expect("form body");
     assert!(
@@ -1495,7 +1638,7 @@ fn editor_routes_require_a_session() {
     let server = spawn_server();
     let http = agent();
     let base = server.base_url.as_str();
-    let node_id = create_node(&server.db_path, "guarded", 34332);
+    let node_id = create_node(&server.db_path, "guarded", 26042);
 
     for path in [
         "/nodes/new".to_string(),
@@ -1513,7 +1656,7 @@ fn editor_routes_require_a_session() {
         let response = into_response(
             http.post(&format!("{base}{path}"))
                 .set("content-type", "application/x-www-form-urlencoded")
-                .send_string(&node_form("any", "neo-rs", "35332", "35333")),
+                .send_string(&node_form("any", "neo-rs", "26132", "26133")),
         );
         assert_eq!(
             response.status(),
@@ -1559,12 +1702,12 @@ fn a_runtime_that_dies_on_startup_is_reported_as_a_failed_launch() {
             network: Network::Testnet,
             // Rejects the `node` / `--config-file` arguments a NeoGo launch puts
             // on the command line, exactly as a mismatched real runtime would.
-            binary_path: PathBuf::from("/bin/sleep"),
-            args: vec!["120".to_string()],
+            binary_path: stub_runtime::rejecting_runtime_binary(),
+            args: Vec::new(),
             runtime_version: "test".to_string(),
             storage_engine: StorageEngine::LevelDb,
-            rpc_port: 43432,
-            p2p_port: 43433,
+            rpc_port: 26242,
+            p2p_port: 26243,
             ws_port: None,
         })
         .expect("node creation");
@@ -1587,7 +1730,7 @@ fn a_runtime_that_dies_on_startup_is_reported_as_a_failed_launch() {
         "the operator was not told the launch failed: {flash}"
     );
     assert!(
-        flash.contains("invalid time interval"),
+        flash.contains("stub runtime rejected its arguments"),
         "the runtime's own reason was not surfaced: {flash}"
     );
 
@@ -1635,8 +1778,8 @@ fn starting_a_node_leaves_a_live_process_that_stop_really_stops() {
             args,
             runtime_version: "test".to_string(),
             storage_engine: StorageEngine::LevelDb,
-            rpc_port: 43332,
-            p2p_port: 43333,
+            rpc_port: 26232,
+            p2p_port: 26233,
             ws_port: None,
         })
         .expect("node creation");
@@ -1710,8 +1853,8 @@ fn deleting_a_running_node_stops_it_before_removing_the_row() {
             args,
             runtime_version: "test".to_string(),
             storage_engine: StorageEngine::LevelDb,
-            rpc_port: 44332,
-            p2p_port: 44333,
+            rpc_port: 26332,
+            p2p_port: 26333,
             ws_port: None,
         })
         .expect("node creation");
@@ -1774,8 +1917,8 @@ fn cli_stop_is_a_durable_intent_that_the_web_watchdog_does_not_undo() {
             args,
             runtime_version: "test".to_string(),
             storage_engine: StorageEngine::LevelDb,
-            rpc_port: 45332,
-            p2p_port: 45333,
+            rpc_port: 26342,
+            p2p_port: 26343,
             ws_port: None,
         })
         .expect("node creation");
@@ -1867,8 +2010,8 @@ fn the_watchdog_notices_a_crash_and_restarts_the_node() {
             args,
             runtime_version: "test".to_string(),
             storage_engine: StorageEngine::RocksDb,
-            rpc_port: 46332,
-            p2p_port: 46333,
+            rpc_port: 26532,
+            p2p_port: 26533,
             ws_port: None,
         })
         .expect("node creation");
@@ -1936,8 +2079,8 @@ fn an_unmanaged_node_is_settled_once_its_process_disappears() {
             args,
             runtime_version: "test".to_string(),
             storage_engine: StorageEngine::RocksDb,
-            rpc_port: 47332,
-            p2p_port: 47333,
+            rpc_port: 26542,
+            p2p_port: 26543,
             ws_port: None,
         })
         .expect("node creation");
@@ -2083,8 +2226,8 @@ fn lifecycle_controls_are_journaled() {
             args,
             runtime_version: "test".to_string(),
             storage_engine: StorageEngine::LevelDb,
-            rpc_port: 52332,
-            p2p_port: 52333,
+            rpc_port: 26742,
+            p2p_port: 26743,
             ws_port: None,
         })
         .expect("node creation");
@@ -2097,6 +2240,19 @@ fn lifecycle_controls_are_journaled() {
                 .call(),
         );
         assert_eq!(response.status(), 303, "{verb} should be accepted");
+        let location = response
+            .header("location")
+            .expect("the control redirects back to the node");
+        let flash = neo_nexus::web::html::percent_decode(location);
+        let expected = if verb == "start" {
+            "launched with PID"
+        } else {
+            "stopped"
+        };
+        assert!(
+            flash.contains(expected),
+            "{verb} did not take effect: {flash}"
+        );
     }
 
     let journal = repository
@@ -3510,6 +3666,18 @@ fn the_boundary_reported_back_is_the_one_the_service_stored() {
         200,
         r#"{"allowed":true,"policy":{"allow_consensus":false,"allow_raw":true,"allow_transfer":false,"allow_contract_call":false,"allow_global_scope":false,"asset_whitelist":["0xef4073a0f2bacd0bc1d5de799e3b661d633eb9f9","typo"],"max_single_amount":"1e6"},"problems":[{"code":"transfers-without-recipients","message":"transfers are allowed and the recipient lists are empty"}]}"#,
     );
+    // What the key page is drawn from while a refused save is on its way back to
+    // the operator. It deliberately describes a boundary with nothing allowed:
+    // the cards above the form show what the service is enforcing, which is not
+    // what the operator just typed, and the two must not be confused.
+    let key_fields = &KEY_ROW[1..KEY_ROW.len() - 1];
+    stub.on(
+        &format!("GET /signer/api/v1/keys/{KEY_ID}/policy"),
+        200,
+        &format!(
+            r#"{{"allowed":true,{key_fields},"problems":[],"policy":{{"allow_consensus":false,"allow_raw":false,"allow_transfer":false,"allow_contract_call":false,"allow_global_scope":false}}}}"#
+        ),
+    );
     let server = spawn_custody_server(&stub);
     let http = agent();
     let session = signed_in(&http, &server.base_url);
@@ -3561,6 +3729,11 @@ fn the_boundary_reported_back_is_the_one_the_service_stored() {
     // a boundary with a hole in it, it is a boundary that does nothing, and the
     // operator learns which end was missing without the service being asked to
     // notice.
+    //
+    // This is the case that used to lose the input. The answer is not a redirect
+    // with an apology in the flash — it is the same page, with the text still in
+    // the form and the sentence beside the field that has to change. The service
+    // is never asked about a request this process already knows it cannot send.
     let half = post_form_as(
         &http,
         &session,
@@ -3568,13 +3741,168 @@ fn the_boundary_reported_back_is_the_one_the_service_stored() {
         "allow_consensus=disabled&allow_raw=disabled&allow_transfer=enabled&allow_contract_call=disabled\
          &allow_global_scope=disabled&window_seconds=3600",
     );
-    assert_eq!(half.status(), 303);
-    let location = half.header("location").expect("the flash redirect");
-    assert!(location.contains("not%20saved"), "{location}");
+    assert_eq!(
+        half.status(),
+        200,
+        "a boundary that did not save must come back as the page, not as a redirect"
+    );
+    let page = half.into_string().expect("utf-8 body");
+    assert!(
+        page.contains(r#"name="window_seconds" value="3600""#),
+        "the operator's own input was thrown away"
+    );
+    assert!(
+        page.contains(r#"id="f-window_max_amount-error""#),
+        "the missing half of the window was not named beside its own field"
+    );
+    assert!(
+        page.contains("the window needs a ceiling as well as a length in seconds"),
+        "the refusal lost its sentence"
+    );
+    assert!(
+        page.contains("One field needs attention."),
+        "the page did not say how much of it to look at"
+    );
+    assert!(
+        page.contains("Nothing was saved."),
+        "a page drawn after a refusal must not look like a saved one"
+    );
     assert_eq!(
         stub.asked(&policy_url),
         1,
         "a form this process could not finish still reached the vault"
+    );
+    assert_eq!(
+        stub.asked(&format!("GET /signer/api/v1/keys/{KEY_ID}/policy")),
+        1,
+        "the redraw did not read the boundary the cards above the form describe"
+    );
+}
+
+/// A refusal the page cannot be drawn around still reaches the operator.
+///
+/// Reading the operator's text back into the page takes a second conversation
+/// with the service — the key, its audit slice and the caller list. If the
+/// service is not answering, that conversation fails, and there is no page to
+/// put the text on. Losing the input is bad; silently losing the reason would be
+/// worse, so the redirect carries both the refusal and the fact that it could
+/// not be shown in place.
+#[test]
+fn a_refused_boundary_that_cannot_be_redrawn_still_says_why() {
+    let policy_url = format!("POST /signer/api/v1/keys/{KEY_ID}/policy");
+    let stub = StubService::start();
+    // No key-page routes at all: the service is up for the caller list and the
+    // audit slice, but the boundary itself cannot be read, so the page cannot be
+    // redrawn.
+    stub.on(
+        "GET /signer/api/v1/audit",
+        200,
+        r#"{"allowed":true,"entries":[]}"#,
+    )
+    .on(
+        "GET /signer/api/v1/callers",
+        200,
+        r#"{"allowed":true,"callers":[]}"#,
+    );
+    let server = spawn_custody_server(&stub);
+    let http = agent();
+    let session = signed_in(&http, &server.base_url);
+
+    let refused = post_form_as(
+        &http,
+        &session,
+        &format!("{}/signer/keys/{KEY_ID}/policy", server.base_url),
+        "allow_consensus=disabled&allow_raw=disabled&allow_transfer=enabled&allow_contract_call=disabled\
+         &allow_global_scope=disabled&window_seconds=3600",
+    );
+    assert_eq!(
+        refused.status(),
+        303,
+        "with no page to draw, the redirect is the only honest answer"
+    );
+    let location = refused.header("location").expect("the flash redirect");
+    assert!(location.contains("not%20saved"), "{location}");
+    assert!(
+        location.contains("ceiling"),
+        "the refusal itself was lost with the input: {location}"
+    );
+    assert!(
+        location.contains("could%20not%20be%20redrawn"),
+        "the page did not say why the input is gone: {location}"
+    );
+    assert_eq!(
+        stub.asked(&policy_url),
+        0,
+        "a form this process could not finish must not reach the vault"
+    );
+}
+
+/// A refusal the service worded itself is quoted, not counted.
+///
+/// The service knows things this console does not — that an entry is not a
+/// script hash, that an amount is not an amount. Its sentence belongs to the
+/// boundary as a whole rather than to one of twenty-nine controls, so it is
+/// quoted above the form in its own words. Counting it as "one field needs
+/// attention" would be a number nobody measured, and reducing it to "not saved"
+/// would throw away the only part the operator can act on.
+#[test]
+fn a_policy_the_service_refuses_is_quoted_above_the_form() {
+    let policy_url = format!("POST /signer/api/v1/keys/{KEY_ID}/policy");
+    let stub = StubService::start();
+    stub.with_inventory();
+    stub.on(
+        &policy_url,
+        422,
+        r#"{"allowed":false,"code":"signer-request-unreadable","message":"the asset whitelist entry \"typo\" is not a script hash"}"#,
+    );
+    let key_fields = &KEY_ROW[1..KEY_ROW.len() - 1];
+    stub.on(
+        &format!("GET /signer/api/v1/keys/{KEY_ID}/policy"),
+        200,
+        &format!(
+            r#"{{"allowed":true,{key_fields},"problems":[],"policy":{{"allow_consensus":false,"allow_raw":false,"allow_transfer":false,"allow_contract_call":false,"allow_global_scope":false}}}}"#
+        ),
+    );
+    let server = spawn_custody_server(&stub);
+    let http = agent();
+    let session = signed_in(&http, &server.base_url);
+
+    let refused = post_form_as(
+        &http,
+        &session,
+        &format!("{}/signer/keys/{KEY_ID}/policy", server.base_url),
+        "allow_consensus=disabled&allow_raw=disabled&allow_transfer=enabled&allow_contract_call=disabled\
+         &allow_global_scope=disabled&asset_whitelist=0xef4073a0f2bacd0bc1d5de799e3b661d633eb9f9,%20typo",
+    );
+    assert_eq!(
+        refused.status(),
+        200,
+        "a refusal from the service must come back as the page, not as a redirect"
+    );
+    let page = refused.into_string().expect("utf-8 body");
+    assert!(
+        page.contains("signer-request-unreadable"),
+        "the service's own code was reduced to a generic failure"
+    );
+    assert!(
+        page.contains("is not a script hash"),
+        "the service's own sentence was lost"
+    );
+    assert!(
+        !page.contains("One field needs attention."),
+        "a refusal that belongs to no field was counted as one"
+    );
+    assert!(
+        page.contains(r#"name="asset_whitelist" value=""#),
+        "the operator's pasted list was thrown away"
+    );
+    assert!(
+        page.contains("typo"),
+        "the entry the service refused did not come back in the form"
+    );
+    assert!(
+        page.contains("Nothing was saved."),
+        "the page did not say the boundary was left alone"
     );
 }
 
@@ -3675,6 +4003,282 @@ fn clear_logs_rejected_without_session() {
     // Should redirect to login instead of processing the request
     assert_eq!(response.status(), 303);
     assert_eq!(response.header("location"), Some("/login"));
+}
+
+/// A manifest the form cannot build comes back as the form, not as a redirect.
+///
+/// Nine fields, one of them a 64-character digest: a redirect meant retyping
+/// all nine to fix one. The test also pins the attribution — a digest of the
+/// wrong length names the digest, not the manifest as a whole.
+#[test]
+fn a_refused_snapshot_manifest_comes_back_with_what_was_typed() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+    let repository = Repository::open(&server.db_path).expect("open workspace");
+
+    let save = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/snapshots/save"),
+        "id=typo-snap&label=Typo+Snapshot&network=testnet&node_type=neo-rs\
+         &source_path=%2Farchive%2Fchain.acc&source_url=&download_file_name=\
+         &download_max_bytes=1024&expected_sha256=deadbeef",
+    );
+    assert_eq!(
+        save.status(),
+        200,
+        "a refused manifest should be redrawn, not redirected"
+    );
+    let body = save.into_string().expect("utf-8 response body");
+
+    assert!(
+        body.contains("SHA-256 must be 64 hexadecimal characters"),
+        "the reason should be on the page: {body}"
+    );
+    assert!(
+        body.contains(r#"id="f-expected_sha256-error""#),
+        "the reason should sit beside the digest field: {body}"
+    );
+    assert!(
+        body.contains(r#"name="expected_sha256" value="deadbeef""#),
+        "the field should still hold what was typed: {body}"
+    );
+    assert!(
+        body.contains(r#"name="label" value="Typo Snapshot""#),
+        "the rest of the form should survive the refusal: {body}"
+    );
+    assert!(
+        body.contains("Nothing was saved"),
+        "the page should say the manifest was not stored: {body}"
+    );
+    assert_eq!(
+        repository
+            .list_fast_sync_snapshots()
+            .expect("list snapshots")
+            .len(),
+        0,
+        "a refused manifest must not be persisted"
+    );
+}
+
+/// A restore that cannot read the archive comes back with the path still in the
+/// field.
+///
+/// The path is typed on a server, so it is long and it is different every time.
+/// Answering a bad one with a redirect made the operator paste it again to read
+/// one sentence — on the one control that can overwrite the whole workspace.
+#[test]
+fn a_restore_that_cannot_read_the_archive_keeps_the_path() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+    let path = "/nonexistent/neo-nexus-backup-2026.json";
+
+    let response = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/backup/import"),
+        &format!(
+            "archive_path={}&mode=validate",
+            html::urlencoding_lite(path)
+        ),
+    );
+    assert_eq!(
+        response.status(),
+        200,
+        "a refused restore should be redrawn, not redirected"
+    );
+    let body = response.into_string().expect("utf-8 response body");
+
+    assert!(
+        body.contains(&format!(r#"name="archive_path" value="{path}""#)),
+        "the path should still be in the field: {body}"
+    );
+    assert!(
+        body.contains(r#"id="f-archive_path-error""#),
+        "the reason should sit beside the path field: {body}"
+    );
+    assert!(
+        body.contains("Nothing was imported"),
+        "the page should say the workspace is untouched: {body}"
+    );
+}
+
+/// A wallet that will not validate comes back with all three fields.
+#[test]
+fn a_refused_wallet_import_comes_back_with_the_form() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+    let repository = Repository::open(&server.db_path).expect("open workspace");
+    let path = "/nonexistent/wallet.json";
+
+    let response = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/wallets/import"),
+        &format!(
+            "file_path={}&id=ops-wallet&label=Operations+wallet",
+            html::urlencoding_lite(path)
+        ),
+    );
+    assert_eq!(
+        response.status(),
+        200,
+        "a refused wallet should be redrawn, not redirected"
+    );
+    let body = response.into_string().expect("utf-8 response body");
+
+    assert!(
+        body.contains(&format!(r#"name="file_path" value="{path}""#)),
+        "the path should still be in the field: {body}"
+    );
+    assert!(
+        body.contains(r#"name="label" value="Operations wallet""#),
+        "the label should survive a refusal: {body}"
+    );
+    assert!(
+        body.contains(r#"id="f-file_path-error""#),
+        "the reason should sit beside the path field: {body}"
+    );
+    assert!(
+        body.contains("Nothing was imported"),
+        "the page should say nothing was stored: {body}"
+    );
+    assert_eq!(
+        repository
+            .list_neo_wallet_profiles()
+            .expect("list wallet profiles")
+            .len(),
+        0,
+        "a refused wallet must not be persisted"
+    );
+}
+
+/// A refusal that belongs to the form rather than to a field says so above it.
+#[test]
+fn a_wallet_import_with_no_path_keeps_what_was_typed() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+
+    let response = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/wallets/import"),
+        "file_path=&id=ops-wallet&label=Operations+wallet",
+    );
+    assert_eq!(response.status(), 200);
+    let body = response.into_string().expect("utf-8 response body");
+
+    assert!(
+        body.contains("Give the path of the wallet file to import."),
+        "the reason should be on the page: {body}"
+    );
+    assert!(
+        body.contains(r#"name="id" value="ops-wallet""#),
+        "the other fields should survive: {body}"
+    );
+}
+
+/// A catalogue the form cannot build comes back with all six fields.
+///
+/// The size limit sits at the bottom of the form and is the easiest thing to
+/// mistype; a redirect made the operator retype the identifier, the label, the
+/// source and the optional signature pair above it to fix it.
+#[test]
+fn a_refused_catalogue_comes_back_with_what_was_typed() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+    let repository = Repository::open(&server.db_path).expect("open workspace");
+    let source = "https://catalogs.example.test/neo.json";
+
+    let response = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/runtimes/catalog"),
+        &format!(
+            "id=neo-official&label=Neo+official+releases&source={}&signature_source=\
+             &ed25519_public_key=&max_bytes=four+megabytes",
+            html::urlencoding_lite(source)
+        ),
+    );
+    assert_eq!(
+        response.status(),
+        200,
+        "a refused catalogue should be redrawn, not redirected"
+    );
+    let body = response.into_string().expect("utf-8 response body");
+
+    assert!(
+        body.contains("size limit must be a whole number of bytes"),
+        "the reason should be on the page: {body}"
+    );
+    assert!(
+        body.contains(r#"id="f-max_bytes-error""#),
+        "the reason should sit beside the size limit: {body}"
+    );
+    assert!(
+        body.contains(r#"name="max_bytes" value="four megabytes""#),
+        "the field should still hold what was typed: {body}"
+    );
+    assert!(
+        body.contains(&format!(r#"name="source" value="{source}""#)),
+        "the rest of the form should survive the refusal: {body}"
+    );
+    assert!(
+        body.contains("Nothing was saved"),
+        "the page should say the catalogue was not stored: {body}"
+    );
+    assert_eq!(
+        repository
+            .list_runtime_catalog_profiles()
+            .expect("list catalog profiles")
+            .len(),
+        0,
+        "a refused catalogue must not be persisted"
+    );
+}
+
+/// A refusal about the *combination* of fields is quoted, not counted.
+///
+/// A signature source without a key is one sentence about two controls, and
+/// "One field needs attention" over it would name a control that is not wrong.
+#[test]
+fn a_catalogue_refusal_about_two_fields_is_quoted_above_the_form() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+
+    let response = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/runtimes/catalog"),
+        &format!(
+            "id=neo-official&label=Neo+official+releases&source={}&signature_source=\
+             https%3A%2F%2Fcatalogs.example.test%2Fneo.json.sig&ed25519_public_key=&max_bytes=",
+            html::urlencoding_lite("https://catalogs.example.test/neo.json")
+        ),
+    );
+    assert_eq!(response.status(), 200);
+    let body = response.into_string().expect("utf-8 response body");
+
+    assert!(
+        body.contains("must be provided together"),
+        "the domain's own sentence should be quoted: {body}"
+    );
+    assert!(
+        !body.contains("One field needs attention."),
+        "a refusal that names two controls must not be counted as one field: {body}"
+    );
 }
 
 /// The snapshot lifecycle web handlers each journal the stage they drive: the
@@ -3803,8 +4407,8 @@ fn apply_snapshot_records_snapshot_applied_event_now() {
             args: Vec::new(),
             runtime_version: "v0.1.0".to_string(),
             storage_engine: StorageEngine::RocksDb,
-            rpc_port: 53332,
-            p2p_port: 53333,
+            rpc_port: 26942,
+            p2p_port: 26943,
             ws_port: None,
         })
         .expect("create node");
@@ -3929,8 +4533,8 @@ fn smoke_test_triggers_and_records_runtime_smoke_tested_event() {
             args,
             runtime_version: "test".to_string(),
             storage_engine: StorageEngine::LevelDb,
-            rpc_port: 45532,
-            p2p_port: 45533,
+            rpc_port: 26432,
+            p2p_port: 26433,
             ws_port: None,
         })
         .expect("node creation");
@@ -3996,8 +4600,8 @@ fn smoke_test_triggers_and_records_runtime_smoke_tested_event() {
             args: crash_args,
             runtime_version: "test".to_string(),
             storage_engine: StorageEngine::LevelDb,
-            rpc_port: 45632,
-            p2p_port: 45633,
+            rpc_port: 26442,
+            p2p_port: 26443,
             ws_port: None,
         })
         .expect("failing node creation");
@@ -4286,22 +4890,42 @@ fn restarting_node_over_http_records_restarted_event_and_validates_state() {
             args: args.clone(),
             runtime_version: "test".to_string(),
             storage_engine: StorageEngine::LevelDb,
-            rpc_port: 52442,
-            p2p_port: 52443,
+            rpc_port: 26832,
+            p2p_port: 26833,
             ws_port: None,
         })
         .expect("node creation");
 
     // Start the node via HTTP
-    let _start = post_form_as(
+    let start = post_form_as(
         &http,
         &session,
         &format!("{base}/nodes/{}/start", node.id),
         "",
     );
+    assert_eq!(start.status(), 303);
+    let start_location = start.header("location").expect("redirect back to node");
+    let start_flash = neo_nexus::web::html::percent_decode(start_location);
+    assert!(
+        start_flash.contains("launched with PID"),
+        "the node never started, so restart has nothing to replace: {start_flash}"
+    );
 
-    // Wait for node to be running (basic health check)
-    thread::sleep(Duration::from_secs(3));
+    // Wait for the row to say Running instead of sleeping a fixed three
+    // seconds: under a loaded test runner the launch can take longer, and a
+    // restart of a node that is still `Starting` is refused — which read as a
+    // missing `node-restarted` event rather than the timing bug it was.
+    let is_running = wait_until(Duration::from_secs(20), || {
+        repository
+            .list_nodes()
+            .map(|nodes| {
+                nodes
+                    .iter()
+                    .any(|stored| stored.id == node.id && stored.status == NodeStatus::Running)
+            })
+            .unwrap_or(false)
+    });
+    assert!(is_running, "the node never reached Running before restart");
 
     // Restart the node via HTTP POST /nodes/{id}/restart
     let restart = post_form_as(
@@ -4311,6 +4935,12 @@ fn restarting_node_over_http_records_restarted_event_and_validates_state() {
         "",
     );
     assert_eq!(restart.status(), 303, "restart should redirect on success");
+    let location = restart.header("location").expect("redirect back to node");
+    let flash = neo_nexus::web::html::percent_decode(location);
+    assert!(
+        flash.contains("launched with PID"),
+        "restart did not actually relaunch the node: {flash}"
+    );
 
     // Verify node-restarted event in journal
     let repository = Repository::open(&server.db_path).expect("reopen workspace");
@@ -4343,8 +4973,8 @@ fn concurrent_start_attempts_are_serialized_and_second_rejected_if_still_initial
             args,
             runtime_version: "test".to_string(),
             storage_engine: StorageEngine::LevelDb,
-            rpc_port: 52542,
-            p2p_port: 52543,
+            rpc_port: 26842,
+            p2p_port: 26843,
             ws_port: None,
         })
         .expect("node creation");
@@ -4390,8 +5020,8 @@ fn node_start_failure_records_node_start_failed_event_when_binary_invalid() {
             args: vec![],
             runtime_version: "test".to_string(),
             storage_engine: StorageEngine::LevelDb,
-            rpc_port: 52642,
-            p2p_port: 52643,
+            rpc_port: 26932,
+            p2p_port: 26933,
             ws_port: None,
         })
         .expect("node creation");
@@ -4561,8 +5191,8 @@ fn two_instances_and_an_agent_token_for_the_first() -> (Server, String, String, 
                 args: Vec::new(),
                 runtime_version: "3.6.0".to_string(),
                 storage_engine: StorageEngine::LevelDb,
-                rpc_port: 49332 + (index as u16 * 2),
-                p2p_port: 49333 + (index as u16 * 2),
+                rpc_port: 26642 + (index as u16 * 2),
+                p2p_port: 26643 + (index as u16 * 2),
                 ws_port: None,
             })
             .expect("create node");
@@ -4651,8 +5281,8 @@ fn a_secret_on_a_node_command_line_is_not_served_back_by_the_read_surfaces() {
             args: vec!["--wallet-password".to_string(), SECRET.to_string()],
             runtime_version: "3.6.0".to_string(),
             storage_engine: StorageEngine::LevelDb,
-            rpc_port: 48332,
-            p2p_port: 48333,
+            rpc_port: 26632,
+            p2p_port: 26633,
             ws_port: None,
         })
         .expect("create node");
@@ -4907,4 +5537,334 @@ fn api_token_creation_and_deletion_record_journal_events_and_flash_redirect() {
             .any(|e| e.kind.to_string() == "api-token-deleted"),
         "api-token-deleted event must be recorded"
     );
+}
+
+// -- readiness and job progress ------------------------------------------------
+
+/// The readiness probe answers "should work come here".
+///
+/// Liveness (`/healthz`) says the process is alive. Readiness says the
+/// workspace can serve, and it has to be honest about it: a blocked workspace
+/// answers 503 so a load balancer stops sending traffic here.
+#[test]
+fn the_readiness_probe_is_public_and_answers_with_a_verdict() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+
+    // Public, like /healthz: an orchestrator has no session.
+    let response = into_response(http.get(&format!("{base}/ready")).call());
+    assert_eq!(response.status(), 200, "an empty workspace can serve");
+    let body = json_body(response);
+    assert_eq!(body["status"], "ready");
+    assert_eq!(body["node_count"], 0);
+    assert_eq!(body["critical_count"], 0);
+
+    // The public probe answers a routing question. It must not name a node,
+    // list findings, or hand out a path.
+    assert!(body.get("nodes").is_none(), "the probe leaked node detail");
+    assert!(body.get("findings").is_none(), "the probe leaked findings");
+    assert!(body.get("database").is_none(), "the probe leaked a path");
+}
+
+/// A workspace that cannot serve says so, with the status code that stops
+/// traffic rather than only in the body.
+#[test]
+fn a_blocked_workspace_answers_503_on_the_readiness_probe() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+
+    // A node whose runtime is not on this host is a critical finding.
+    let repository = Repository::open(&server.db_path).expect("open workspace");
+    repository
+        .create_node(NewNode {
+            name: "missing-runtime".to_string(),
+            node_type: NodeType::NeoCli,
+            network: Network::Testnet,
+            binary_path: PathBuf::from(r"C:/definitely/not/here/node.exe"),
+            args: Vec::new(),
+            runtime_version: "test".to_string(),
+            storage_engine: StorageEngine::LevelDb,
+            rpc_port: 27032,
+            p2p_port: 27033,
+            ws_port: None,
+        })
+        .expect("node creation");
+
+    let response = into_response(http.get(&format!("{base}/ready")).call());
+    assert_eq!(
+        response.status(),
+        503,
+        "a blocked workspace must not be routed traffic"
+    );
+    let body = json_body(response);
+    assert_eq!(body["status"], "blocked");
+    assert_eq!(body["node_count"], 1);
+    assert!(
+        body["critical_count"].as_u64().unwrap_or_default() >= 1,
+        "the blocked workspace reported no critical finding: {body}"
+    );
+}
+
+/// The authenticated readiness report says what is wrong **and where to go**,
+/// which is the difference between a score and an answer.
+#[test]
+fn the_readiness_api_carries_the_findings_and_their_resolutions() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+
+    let repository = Repository::open(&server.db_path).expect("open workspace");
+    let node = repository
+        .create_node(NewNode {
+            name: "unresolved-node".to_string(),
+            node_type: NodeType::NeoCli,
+            network: Network::Testnet,
+            binary_path: PathBuf::from(r"C:/definitely/not/here/node.exe"),
+            args: Vec::new(),
+            runtime_version: "test".to_string(),
+            storage_engine: StorageEngine::LevelDb,
+            rpc_port: 27042,
+            p2p_port: 27043,
+            ws_port: None,
+        })
+        .expect("node creation");
+
+    let response = into_response(
+        http.get(&format!("{base}/api/readiness"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(response.status(), 200);
+    let body = json_body(response);
+    assert_eq!(body["status"], "blocked");
+    assert_eq!(body["node_count"], 1);
+
+    let findings = body["findings"].as_array().expect("findings array");
+    assert!(!findings.is_empty(), "a blocked node produced no finding");
+    let finding = &findings[0];
+    assert_eq!(finding["node_id"], node.id.as_str());
+    assert!(
+        finding["resolution"]
+            .as_str()
+            .is_some_and(|key| !key.is_empty()),
+        "a finding did not say which surface resolves it: {finding}"
+    );
+    assert!(
+        finding["resolution_href"]
+            .as_str()
+            .is_some_and(|href| href.starts_with('/')),
+        "a finding did not say where to go: {finding}"
+    );
+
+    // The per-node view is what an operator reads next.
+    let nodes = body["nodes"].as_array().expect("nodes array");
+    assert_eq!(nodes.len(), 1);
+    assert_eq!(nodes[0]["node_id"], node.id.as_str());
+    assert_eq!(nodes[0]["status"], "blocked");
+}
+
+/// The job list is operational data, so it stays behind the session — and it
+/// has to say what a running job is doing, or it cannot be waited on.
+#[test]
+fn the_jobs_api_requires_a_session_and_lists_the_jobs() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+
+    let anonymous = into_response(http.get(&format!("{base}/api/jobs")).call());
+    assert_eq!(anonymous.status(), 401);
+
+    let session = signed_in(&http, base);
+    let response = into_response(
+        http.get(&format!("{base}/api/jobs"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(response.status(), 200);
+    let body = json_body(response);
+    let jobs = body["jobs"].as_array().expect("jobs array");
+    // A workspace that has done nothing has no jobs, and the shape is still
+    // the one a poller expects.
+    assert!(jobs.is_empty(), "unexpected jobs in a fresh workspace");
+}
+
+/// A long job is only observable if a caller can ask what it is doing.
+///
+/// This is the whole point of the progress channel: the page shows a stage
+/// instead of a spinner, and a script polling the API sees the same stage.
+#[test]
+fn a_running_job_publishes_its_stage_to_the_jobs_api() {
+    use std::sync::mpsc;
+
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+
+    let (began_tx, began_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    server
+        .state
+        .jobs
+        .submit("runtime", "install neo-go".to_string(), move |reporter| {
+            reporter.stage("downloading the package");
+            let _ = began_tx.send(());
+            let _ = release_rx.recv();
+            Ok("installed".to_string())
+        })
+        .expect("lane is free");
+    began_rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("job began");
+
+    let seen = wait_until(Duration::from_secs(10), || {
+        let response = into_response(
+            http.get(&format!("{base}/api/jobs"))
+                .set("cookie", &session)
+                .call(),
+        );
+        let body = json_body(response);
+        body["jobs"].as_array().is_some_and(|jobs| {
+            jobs.iter().any(|job| {
+                job["description"] == "install neo-go"
+                    && job["status"] == "running"
+                    && job["progress"]["stage"] == "downloading the package"
+            })
+        })
+    });
+    assert!(seen, "the running job never published its stage to the API");
+
+    release_tx.send(()).expect("release job");
+}
+
+#[test]
+fn a_federation_server_can_be_edited_from_the_console() {
+    // The save route existed with nothing pointing at it, so a peer could be
+    // added and never changed. The edit page is that pointer.
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let login = post_form(&http, &format!("{base}/login"), &format!("token={TOKEN}"));
+    let session = cookie_value(&login).expect("session cookie set");
+
+    let created = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/federation/new"),
+        "name=frankfurt&base_url=https%3A%2F%2Fneonexus.example.com&description=primary&enabled=on",
+    );
+    assert_eq!(created.status(), 303);
+
+    let profiles = server
+        .state
+        .workspace
+        .list_remote_servers()
+        .expect("federation profiles");
+    let profile = profiles.first().expect("the peer was created");
+
+    // The list offers the edit entry.
+    let list = into_response(
+        http.get(&format!("{base}/federation"))
+            .set("cookie", &session)
+            .call(),
+    );
+    let list_body = list.into_string().expect("utf-8 list body");
+    assert!(
+        list_body.contains(&format!("/federation/{}/edit", profile.id)),
+        "the list must link to the edit page of this peer: {list_body}"
+    );
+
+    // The edit page shows what is stored there.
+    let edit = into_response(
+        http.get(&format!("{base}/federation/{}/edit", profile.id))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(edit.status(), 200);
+    let edit_body = edit.into_string().expect("utf-8 edit body");
+    assert!(
+        edit_body.contains("frankfurt"),
+        "the edit page must carry the stored name: {edit_body}"
+    );
+    assert!(
+        edit_body.contains("neonexus.example.com"),
+        "the edit page must carry the stored base URL: {edit_body}"
+    );
+
+    // Saving a change stores it.
+    let saved = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/federation/{}", profile.id),
+        "name=paris&base_url=https%3A%2F%2Fparis.example.com&description=secondary",
+    );
+    assert_eq!(saved.status(), 303);
+    let updated = server
+        .state
+        .workspace
+        .list_remote_servers()
+        .expect("federation profiles");
+    let updated = updated.first().expect("the peer is still there");
+    assert_eq!(updated.name, "paris");
+    assert_eq!(updated.base_url, "https://paris.example.com");
+    assert_eq!(updated.description, "secondary");
+}
+
+#[test]
+fn a_rejected_federation_edit_keeps_what_the_operator_typed() {
+    // A base URL the domain will not take must not cost the operator the rest
+    // of the form. The page comes back with their input in it.
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let login = post_form(&http, &format!("{base}/login"), &format!("token={TOKEN}"));
+    let session = cookie_value(&login).expect("session cookie set");
+
+    let created = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/federation/new"),
+        "name=frankfurt&base_url=https%3A%2F%2Fneonexus.example.com&enabled=on",
+    );
+    assert_eq!(created.status(), 303);
+    let profiles = server
+        .state
+        .workspace
+        .list_remote_servers()
+        .expect("federation profiles");
+    let profile = profiles.first().expect("the peer was created");
+
+    // A URL with credentials in it is refused by the domain.
+    let refused = post_form_as(
+        &http,
+        &session,
+        &format!("{base}/federation/{}", profile.id),
+        "name=paris&base_url=https%3A%2F%2Fuser%3Apass%40example.com&description=typed+by+hand",
+    );
+    assert_eq!(refused.status(), 200, "the form comes back, not a redirect");
+    let body = refused.into_string().expect("utf-8 body");
+    assert!(
+        body.contains("paris"),
+        "the submitted name must survive the refusal: {body}"
+    );
+    assert!(
+        body.contains("typed by hand"),
+        "the submitted description must survive the refusal: {body}"
+    );
+    assert!(
+        body.contains("not saved"),
+        "the reason the save was refused must be on the page: {body}"
+    );
+
+    // And nothing was written.
+    let unchanged = server
+        .state
+        .workspace
+        .list_remote_servers()
+        .expect("federation profiles");
+    let unchanged = unchanged.first().expect("the peer is still there");
+    assert_eq!(unchanged.name, "frankfurt");
 }

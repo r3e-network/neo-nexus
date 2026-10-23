@@ -11,31 +11,27 @@
 //! [`tokio::task::spawn_blocking`] rather than holding the request thread. The
 //! others are quick local filesystem work and stay inline.
 
-use std::path::PathBuf;
-
 use axum::{
     extract::{Form, Path, State},
-    response::{IntoResponse, Redirect, Response},
+    response::{Html, IntoResponse, Redirect, Response},
 };
-use serde::Deserialize;
 
 use crate::{
     core::operations::format_bytes,
     events::{EventKind, EventSeverity, NewRuntimeEvent},
-    snapshots::{FastSyncSnapshot, FastSyncSnapshotManager, NewFastSyncSnapshot},
-    types::{Network, NodeType},
+    snapshots::{FastSyncSnapshot, FastSyncSnapshotManager},
 };
 
-use super::{html, WebState};
+use super::{
+    form_state::{FieldErrors, GENERAL},
+    html, pages, snapshot_form,
+    snapshot_form::SnapshotDraft,
+    WebState,
+};
 
 /// The workspace child the manager caches downloaded and copied archives into,
 /// mirroring the `runtime-downloads` convention the runtime installer uses.
 const CACHE_DIR: &str = "snapshot-cache";
-
-/// A blank size limit on the register form means "use a generous default"
-/// rather than refusing the save: the field guards runaway downloads, and 8 GiB
-/// comfortably covers a mainnet fast-sync archive.
-const DEFAULT_DOWNLOAD_MAX_BYTES: u64 = 8 * 1024 * 1024 * 1024;
 
 /// Hash-verify a snapshot's source archive and record the recomputed digest.
 ///
@@ -137,68 +133,65 @@ pub async fn cache_snapshot(
     respond(outcome)
 }
 
-/// The register form: every field as the text the browser posted. The domain's
-/// own `validate_snapshot_input` (inside `upsert_fast_sync_snapshot`) is the sole
-/// authority on what is acceptable, so this struct stays a plain carrier.
-#[derive(Deserialize)]
-pub struct SaveSnapshotForm {
-    #[serde(default)]
-    id: String,
-    #[serde(default)]
-    label: String,
-    #[serde(default)]
-    network: String,
-    #[serde(default)]
-    node_type: String,
-    #[serde(default)]
-    source_path: String,
-    #[serde(default)]
-    source_url: String,
-    #[serde(default)]
-    download_file_name: String,
-    #[serde(default)]
-    download_max_bytes: String,
-    #[serde(default)]
-    expected_sha256: String,
-}
-
 /// Register or update a snapshot manifest, then journal it as saved.
 ///
 /// This is the one genuine producer of [`EventKind::SnapshotSaved`]: the page's
 /// register form posts here, so the event is only ever recorded for a snapshot a
 /// real submission created.
+///
+/// A manifest this handler cannot turn into a snapshot — a digest of the wrong
+/// length, a size limit that is not a number — comes back as the form itself,
+/// with the posted text still in it and the sentence beside the control that
+/// caused it. The alternative was a redirect: nine fields, one typo, retype all
+/// nine.
 pub async fn save_snapshot(
     State(state): State<WebState>,
-    Form(input): Form<SaveSnapshotForm>,
+    Form(draft): Form<SnapshotDraft>,
 ) -> Response {
-    let outcome = (|| -> anyhow::Result<String> {
-        let network: Network = input
-            .network
-            .trim()
-            .parse()
-            .map_err(|_| anyhow::anyhow!("{} is not a network", input.network.trim()))?;
-        let node_type: NodeType =
-            input.node_type.trim().parse().map_err(|_| {
-                anyhow::anyhow!("{} is not a supported client", input.node_type.trim())
-            })?;
-        let snapshot = state
-            .commands
-            .upsert_fast_sync_snapshot(NewFastSyncSnapshot {
-                id: input.id.trim().to_string(),
-                label: input.label.trim().to_string(),
-                network,
-                node_type,
-                source_path: PathBuf::from(input.source_path.trim()),
-                source_url: optional(&input.source_url),
-                download_file_name: optional(&input.download_file_name),
-                download_max_bytes: parse_max_bytes(&input.download_max_bytes)?,
-                expected_sha256: input.expected_sha256.trim().to_string(),
-            })?;
-        let message = format!("snapshot '{}' saved", snapshot.label);
-        record(&state, EventKind::SnapshotSaved, message.clone());
-        Ok(message)
-    })();
-    respond(outcome)
+    let snapshot = match snapshot_form::build(&draft) {
+        Ok(snapshot) => snapshot,
+        Err(refusal) => return redraw(&state, &draft, refusal.field, &refusal.message),
+    };
+    let outcome = state
+        .commands
+        .upsert_fast_sync_snapshot(snapshot)
+        .map(|snapshot| {
+            let message = format!("snapshot '{}' saved", snapshot.label);
+            record(&state, EventKind::SnapshotSaved, message.clone());
+            message
+        });
+    match outcome {
+        Ok(message) => respond(Ok(message)),
+        // The workspace is the authority on what a manifest may be. Its own
+        // sentence goes above the form: the checks the form can pin to a control
+        // already ran, so whatever is left belongs to no single field.
+        Err(error) => redraw(&state, &draft, GENERAL, &format!("{error:#}")),
+    }
+}
+
+/// The form again, with what was posted and the reason it was refused.
+fn redraw(state: &WebState, draft: &SnapshotDraft, field: &'static str, message: &str) -> Response {
+    let mut errors = FieldErrors::new();
+    errors.insert(field, message.to_string());
+    match pages::snapshots::render_with_draft(&state.workspace, draft, &errors) {
+        Ok(body) => Html(html::layout(
+            "Snapshots",
+            "snapshots",
+            html::Flash::default(),
+            &body,
+        ))
+        .into_response(),
+        // Redrawing needs the inventory this page was built from, which is a
+        // second read of the workspace. If that read fails too, the input cannot
+        // be kept — say so, rather than landing on a blank form with no reason.
+        Err(error) => {
+            let flash = html::Flash::danger(format!(
+                "not saved: {message} — and the page could not be redrawn ({error}), so the form \
+                 was lost"
+            ));
+            Redirect::to(&flash.redirect("/snapshots")).into_response()
+        }
+    }
 }
 
 /// Resolve a snapshot by id, or say plainly that it is not registered.
@@ -209,24 +202,6 @@ fn load_snapshot(state: &WebState, snapshot_id: &str) -> anyhow::Result<FastSync
         .into_iter()
         .find(|snapshot| snapshot.id == snapshot_id)
         .ok_or_else(|| anyhow::anyhow!("snapshot {snapshot_id} was not found"))
-}
-
-/// Trim a form field to `None` when it is blank, `Some` otherwise.
-fn optional(value: &str) -> Option<String> {
-    let trimmed = value.trim();
-    (!trimmed.is_empty()).then(|| trimmed.to_string())
-}
-
-/// A blank size limit falls back to the default; anything else must be a whole
-/// number so a hand-edited post cannot silently save nonsense.
-fn parse_max_bytes(raw: &str) -> anyhow::Result<u64> {
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return Ok(DEFAULT_DOWNLOAD_MAX_BYTES);
-    }
-    trimmed
-        .parse::<u64>()
-        .map_err(|_| anyhow::anyhow!("download size limit must be a whole number of bytes"))
 }
 
 /// The first twelve characters of a digest, matching how the page abbreviates
@@ -250,13 +225,9 @@ fn record(state: &WebState, kind: EventKind, message: String) {
 /// The shared tail of every snapshot control: describe the outcome and send the
 /// browser back to the inventory page.
 fn respond(outcome: anyhow::Result<String>) -> Response {
-    let message = match outcome {
-        Ok(message) => message,
-        Err(error) => format!("failed: {error}"),
+    let flash = match outcome {
+        Ok(message) => html::Flash::ok(message),
+        Err(error) => html::Flash::danger(format!("failed: {error}")),
     };
-    Redirect::to(&format!(
-        "/snapshots?flash={}",
-        html::urlencoding_lite(&message)
-    ))
-    .into_response()
+    Redirect::to(&flash.redirect("/snapshots")).into_response()
 }

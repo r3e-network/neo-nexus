@@ -37,16 +37,121 @@ pub fn flash_query(message: &str) -> String {
     format!("?flash={}", urlencoding_lite(message))
 }
 
-pub fn flash_banner(message: &str) -> String {
-    if message.trim().is_empty() {
+/// How a flash banner reads.
+///
+/// A banner that looks the same whether the operation succeeded or failed is
+/// worse than no banner at all: the operator has to read the sentence to find
+/// out which one it was, and a sentence that begins "failed:" is easy to miss
+/// in a page of tables.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FlashKind {
+    /// The operation did what it was asked to do.
+    #[default]
+    Ok,
+    /// The operation did not complete, and the banner says why.
+    Danger,
+}
+
+/// The outcome of one control, carried in the query string of the redirect
+/// that follows it.
+///
+/// The message and its severity travel together: the redirect writes
+/// `?flash=<message>&flash_kind=danger`, and the page that reads it back
+/// reconstructs both. A page cannot accidentally render a failure in the
+/// success colour, because the severity is part of the value rather than
+/// something each caller has to remember to pass.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Flash {
+    pub message: String,
+    pub kind: FlashKind,
+}
+
+impl Flash {
+    pub fn ok(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            kind: FlashKind::Ok,
+        }
+    }
+
+    pub fn danger(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            kind: FlashKind::Danger,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.message.trim().is_empty()
+    }
+
+    /// The query-string fragment that carries this banner.
+    pub fn query(&self) -> String {
+        let mut query = format!("flash={}", urlencoding_lite(&self.message));
+        if self.kind == FlashKind::Danger {
+            query.push_str("&flash_kind=danger");
+        }
+        query
+    }
+
+    /// A redirect back to `path` carrying this banner.
+    ///
+    /// The separator is `?` or `&` depending on whether the path already
+    /// carries a query, so a caller does not have to know which one it is
+    /// building.
+    pub fn redirect(&self, path: &str) -> String {
+        let separator = if path.contains('?') { '&' } else { '?' };
+        format!("{path}{separator}{}", self.query())
+    }
+}
+
+/// A plain string is a successful outcome.
+///
+/// Every page that renders a layout has to pass *something* for the banner
+/// slot, and most of them pass the empty string. Making that the success
+/// case means the pages that have no outcome to report keep working without
+/// knowing this type exists.
+impl From<&str> for Flash {
+    fn from(message: &str) -> Self {
+        Flash::ok(message)
+    }
+}
+
+impl From<String> for Flash {
+    fn from(message: String) -> Self {
+        Flash::ok(message)
+    }
+}
+
+impl From<&String> for Flash {
+    fn from(message: &String) -> Self {
+        Flash::ok(message.clone())
+    }
+}
+
+impl From<&Flash> for Flash {
+    fn from(flash: &Flash) -> Self {
+        flash.clone()
+    }
+}
+
+pub fn flash_banner(flash: &Flash) -> String {
+    if flash.is_empty() {
         String::new()
     } else {
-        // `role="status"` so the outcome of a control is announced, not just
-        // painted where the operator happened to be looking.
-        format!(
-            r#"<div class="flash" role="status" aria-live="polite">{}</div>"#,
-            escape(message)
-        )
+        // A failure is announced assertively: the operator pressed a button and
+        // is waiting for an answer, so it should interrupt rather than queue
+        // politely behind whatever the screen reader is still reading.
+        match flash.kind {
+            FlashKind::Ok => format!(
+                r#"<div class="flash" role="status" aria-live="polite">{}</div>"#,
+                escape(&flash.message)
+            ),
+            FlashKind::Danger => format!(
+                r#"<div class="flash danger" role="alert" aria-live="assertive">{}</div>"#,
+                escape(&flash.message)
+            ),
+        }
     }
 }
 
@@ -102,10 +207,18 @@ pub fn query_value(query: Option<&str>, key: &str) -> Option<String> {
     })
 }
 
-/// The flash message a control handler left in the query string, or an empty
-/// string. This is how a start/stop/restart result reaches the operator.
-pub fn flash(query: Option<&str>) -> String {
-    query_value(query, "flash").unwrap_or_default()
+/// The flash message a control handler left in the query string.
+///
+/// The severity comes back with it: a handler that failed writes
+/// `flash_kind=danger` beside the message, and the page renders the banner in
+/// the failure colour rather than the success one.
+pub fn flash(query: Option<&str>) -> Flash {
+    let message = query_value(query, "flash").unwrap_or_default();
+    let kind = match query_value(query, "flash_kind").as_deref() {
+        Some("danger") | Some("error") => FlashKind::Danger,
+        _ => FlashKind::Ok,
+    };
+    Flash { message, kind }
 }
 
 /// A row of stat tiles — a value over its label.
@@ -185,11 +298,39 @@ pub fn loading_callout(message: &str) -> String {
     )
 }
 
+/// A pending marker for a form whose submission takes a while.
+///
+/// The mark starts hidden and is revealed by the bundled script the moment the
+/// form is submitted, so the operator sees that the click registered. Without
+/// scripting the form submits exactly as before — the marker simply never
+/// appears — which is why it is a marker rather than a disabled button.
+pub fn pending_marker(message: &str) -> String {
+    format!(
+        r#"<span class="pending" data-pending role="status" aria-live="polite">{}</span>"#,
+        escape(message)
+    )
+}
+
 /// What a page shows when there is nothing to show, with the action that would
 /// fix it. An empty list with no way forward is a dead end, not a state.
 pub fn empty_state(title: &str, body: &str, actions: &str) -> String {
+    empty_state_at(2, title, body, actions)
+}
+
+/// The same empty state, at a heading level that fits where it sits.
+///
+/// The default is `h2`, which is right for a section of a page. A block
+/// inside a panel that is itself titled `h3` needs `h3` too: a heading that
+/// jumps *up* a level is not a heading the screen reader can follow.
+pub fn empty_state_at(level: u8, title: &str, body: &str, actions: &str) -> String {
+    let heading = match level {
+        3 => "h3",
+        4 => "h4",
+        _ => "h2",
+    };
     format!(
-        r#"<div class="empty"><h2>{title}</h2><p>{body}</p><div class="actions">{actions}</div></div>"#,
+        r#"<div class="empty"><{heading}>{title}</{heading}><p>{body}</p><div class="actions">{actions}</div></div>"#,
+        heading = heading,
         title = escape(title),
         body = escape(body),
         actions = actions,

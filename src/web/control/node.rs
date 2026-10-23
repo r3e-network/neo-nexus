@@ -31,8 +31,8 @@ pub async fn node_stop(State(state): State<WebState>, Path(id): Path<String>) ->
         let outcome = load_node(&state.workspace, &id)
             .and_then(|node| supervision::stop_node(&state.engine_state(), &node));
         match outcome {
-            Ok(message) => back_to_node(&id, &message),
-            Err(error) => back_to_node(&id, &format!("stop failed: {error}")),
+            Ok(message) => back_to_node(&id, &html::Flash::ok(message)),
+            Err(error) => back_to_node(&id, &html::Flash::danger(format!("stop failed: {error}"))),
         }
     })
     .await
@@ -49,24 +49,19 @@ async fn blocking<F>(work: F) -> Response
 where
     F: FnOnce() -> Response + Send + 'static,
 {
-    match tokio::task::spawn_blocking(work).await {
-        Ok(response) => response,
-        // The only way to get here is a panic inside the operation. The node is
-        // in whatever state the panic left it, so say so rather than implying
-        // the request did nothing.
-        Err(error) => (
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-            format!("the lifecycle operation did not complete: {error}"),
-        )
-            .into_response(),
-    }
+    super::blocking(work).await
 }
 
 pub async fn smoke_test_node(State(state): State<WebState>, Path(id): Path<String>) -> Response {
     // First load the node synchronously
     let node = match load_node(&state.workspace, &id) {
         Ok(n) => n,
-        Err(error) => return back_to_node(&id, &format!("node not found: {error}")),
+        Err(error) => {
+            return back_to_node(
+                &id,
+                &html::Flash::danger(format!("node not found: {error}")),
+            );
+        }
     };
 
     // Run smoke test in a blocking thread since it spawns processes
@@ -79,7 +74,7 @@ pub async fn smoke_test_node(State(state): State<WebState>, Path(id): Path<Strin
     {
         Ok(r) => r,
         Err(e) => {
-            return back_to_node(&id, &format!("smoke test failed: {e}"));
+            return back_to_node(&id, &html::Flash::danger(format!("smoke test failed: {e}")));
         }
     };
 
@@ -106,16 +101,24 @@ pub async fn smoke_test_node(State(state): State<WebState>, Path(id): Path<Strin
         message: message.clone(),
     });
 
-    back_to_node(&id, &message)
+    // A failed smoke test is a failure of the runtime, not a neutral outcome.
+    let flash = if report.status.is_success() {
+        html::Flash::ok(message)
+    } else {
+        html::Flash::danger(message)
+    };
+    back_to_node(&id, &flash)
 }
 
 pub(crate) fn control_redirect(state: &WebState, id: &str, action: LaunchAction) -> Response {
     let node = match load_node(&state.workspace, id) {
         Ok(node) => node,
-        Err(error) => return back_to_node(id, &format!("failed: {error}")),
+        Err(error) => {
+            return back_to_node(id, &html::Flash::danger(format!("failed: {error}")));
+        }
     };
     match supervision::launch_node(&state.engine_state(), &node, action) {
-        Ok(message) => back_to_node(id, &message),
+        Ok(message) => back_to_node(id, &html::Flash::ok(message)),
         Err(error) => {
             let message = format!("failed: {error}");
             // A manual launch failure must leave a trail, not just a flash that
@@ -130,18 +133,13 @@ pub(crate) fn control_redirect(state: &WebState, id: &str, action: LaunchAction)
                 severity: EventSeverity::Warning,
                 message: message.clone(),
             });
-            back_to_node(id, &message)
+            back_to_node(id, &html::Flash::danger(message))
         }
     }
 }
 
-pub(crate) fn back_to_node(id: &str, message: &str) -> Response {
-    Redirect::to(&format!(
-        "/nodes/{}?flash={}",
-        html::urlencoding_lite(id),
-        html::urlencoding_lite(message),
-    ))
-    .into_response()
+pub(crate) fn back_to_node(id: &str, flash: &html::Flash) -> Response {
+    Redirect::to(&flash.redirect(&format!("/nodes/{}", html::urlencoding_lite(id)))).into_response()
 }
 
 pub(crate) fn load_node(
@@ -171,8 +169,11 @@ pub async fn batch_node_action(State(state): State<WebState>, RawForm(body): Raw
         }
     }
     if node_ids.is_empty() {
-        return Redirect::to("/nodes?flash=No%20instances%20selected%20for%20batch%20action")
-            .into_response();
+        return Redirect::to(
+            &html::Flash::danger("No instances were selected for the batch action.")
+                .redirect("/nodes"),
+        )
+        .into_response();
     }
     let mut successes = 0;
     let mut failures = 0;
@@ -231,10 +232,10 @@ pub async fn batch_node_action(State(state): State<WebState>, RawForm(body): Raw
                 }
             }
             other => {
-                return Redirect::to(&format!(
-                    "/nodes?flash={}",
-                    html::urlencoding_lite(&format!("Unknown batch action '{other}'"))
-                ))
+                return Redirect::to(
+                    &html::Flash::danger(format!("Unknown batch action '{other}'."))
+                        .redirect("/nodes"),
+                )
                 .into_response();
             }
         };
@@ -250,7 +251,14 @@ pub async fn batch_node_action(State(state): State<WebState>, RawForm(body): Raw
         "Batch action '{action_slug}' executed on {} instances: {successes} succeeded, {failures} failed",
         node_ids.len()
     );
-    Redirect::to(&format!("/nodes?flash={}", html::urlencoding_lite(&msg))).into_response()
+    // A batch that failed on any instance is a batch that partly failed, and
+    // that has to read differently from one that worked.
+    let flash = if failures == 0 {
+        html::Flash::ok(msg)
+    } else {
+        html::Flash::danger(msg)
+    };
+    Redirect::to(&flash.redirect("/nodes")).into_response()
 }
 
 /// Stop — or resume — automatic restart for one node.
@@ -295,11 +303,11 @@ pub async fn toggle_restart_hold(
             Ok(format!("{} will not be restarted automatically", node.name))
         }
     })();
-    let message = match outcome {
-        Ok(message) => message,
-        Err(error) => format!("restart hold not changed: {error:#}"),
+    let flash = match outcome {
+        Ok(message) => html::Flash::ok(message),
+        Err(error) => html::Flash::danger(format!("restart hold not changed: {error:#}")),
     };
-    back_to_node(&node_id, &message)
+    back_to_node(&node_id, &flash)
 }
 
 fn journal_hold(state: &WebState, node: &crate::types::NodeConfig, message: String) {

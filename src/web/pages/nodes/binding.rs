@@ -102,13 +102,12 @@ pub async fn save_signer_binding(
         });
         Ok(message)
     })();
-    let message = result.unwrap_or_else(|error| format!("signer binding not saved: {error}"));
-    Redirect::to(&format!(
-        "/nodes/{}?flash={}",
-        html::urlencoding_lite(&id),
-        html::urlencoding_lite(&message)
-    ))
-    .into_response()
+    let flash = result.map_or_else(
+        |error| html::Flash::danger(format!("signer binding not saved: {error}")),
+        html::Flash::ok,
+    );
+    Redirect::to(&flash.redirect(&format!("/nodes/{}", html::urlencoding_lite(&id))))
+        .into_response()
 }
 
 pub fn signer_binding(

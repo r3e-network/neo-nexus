@@ -115,7 +115,7 @@ pub fn role_presets_picker(draft: &NodeDraft) -> String {
                 .storage
                 .map_or_else(String::new, |s| format!(r#" data-storage="{s}""#));
             format!(
-                r#"<button type="button" class="role-preset-card{active}" data-role="{key}" data-rpc="{rpc_flag}" data-plugins="{plugins}"{storage_attr} onclick="selectNodeRolePreset(this)">
+                r#"<button type="button" class="role-preset-card{active}" data-role="{key}" data-rpc="{rpc_flag}" data-plugins="{plugins}"{storage_attr} data-role-preset="1">
                     <div class="role-card-top">
                         <span class="role-card-icon">{icon}</span>
                         <span class="role-card-badge">{badge}</span>

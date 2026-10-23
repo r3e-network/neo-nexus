@@ -4,19 +4,24 @@ use std::{str::FromStr, time::Duration};
 
 use axum::{
     extract::{Form, State},
-    response::{IntoResponse, Redirect, Response},
+    response::{Html, IntoResponse, Redirect, Response},
 };
 use serde::Deserialize;
 
-use crate::core::{
-    operations::{
-        AlertProvider, AlertRoutingPolicy, EventKind, EventSeverity, NewRuntimeEvent,
-        RemoteFederationMonitorPolicy, RpcHealthMonitorPolicy,
+use crate::{
+    core::{
+        operations::{
+            AlertProvider, AlertRoutingPolicy, EventKind, EventSeverity, NewRuntimeEvent,
+            RemoteFederationMonitorPolicy, RpcHealthMonitorPolicy,
+        },
+        runtime::{validate_runtime_upgrade_policy, RestartPolicy, RuntimeUpgradePolicy},
+        workspace_queries::WorkspaceQueries,
     },
-    runtime::{validate_runtime_upgrade_policy, RestartPolicy, RuntimeUpgradePolicy},
+    web::form_state::{FieldErrors, GENERAL},
 };
 
 use super::super::{assets::DensityMode, html, pages::settings, WebState};
+use settings::{MonitorDraft, RuntimeUpgradeDraft, WatchdogDraft};
 
 #[derive(Deserialize)]
 pub struct WatchdogForm {
@@ -68,6 +73,56 @@ pub struct RuntimeUpgradeForm {
     wave_delay_minutes: String,
 }
 
+/// The runtime upgrade policy form as the operator typed it.
+///
+/// The form used to be submitted, judged, and thrown away: a value the domain
+/// refused sent the operator back to a page that showed the *saved* policy
+/// and one sentence saying why the save failed. Everything they had typed —
+/// including the parts that were fine — was gone.
+///
+/// This keeps the posted text so the form can be rendered back with it. The
+/// values stay text because the point is to show what was typed, including
+/// the value that was wrong.
+impl RuntimeUpgradeDraft {
+    fn from_form(form: &RuntimeUpgradeForm) -> Self {
+        Self {
+            enabled: form.enabled.unwrap_or(false),
+            catalog_profile_id: form.catalog_profile_id.clone(),
+            interval_minutes: form.interval_minutes.clone(),
+            require_signed_catalog: form.require_signed_catalog.unwrap_or(false),
+            max_nodes_per_run: form.max_nodes_per_run.clone(),
+            maintenance_window_enabled: form.maintenance_window_enabled.unwrap_or(false),
+            maintenance_window_start_minute_utc: form.maintenance_window_start_minute_utc.clone(),
+            maintenance_window_end_minute_utc: form.maintenance_window_end_minute_utc.clone(),
+            wave_delay_minutes: form.wave_delay_minutes.clone(),
+        }
+    }
+}
+
+impl WatchdogDraft {
+    fn from_form(form: &WatchdogForm) -> Self {
+        Self {
+            enabled: settings::choice_is_enabled(&form.enabled),
+            max_restart_attempts: form.max_restart_attempts.clone(),
+            base_delay_seconds: form.base_delay_seconds.clone(),
+            max_delay_seconds: form.max_delay_seconds.clone(),
+            jitter_enabled: form
+                .jitter_enabled
+                .as_deref()
+                .is_some_and(|value| value.eq_ignore_ascii_case("true") || value == "on"),
+        }
+    }
+}
+
+impl MonitorDraft {
+    fn from_form(form: &MonitorForm) -> Self {
+        Self {
+            enabled: settings::choice_is_enabled(&form.enabled),
+            interval_seconds: form.interval_seconds.clone(),
+        }
+    }
+}
+
 #[derive(Deserialize)]
 pub struct AlertRoutingForm {
     #[serde(default)]
@@ -103,10 +158,14 @@ pub async fn save_density(
 }
 
 /// Save watchdog policy.
+///
+/// A refused save comes back as the settings page with the operator's own input
+/// still in it: four numeric fields are not worth retyping to correct one.
 pub async fn save_watchdog(
     State(state): State<WebState>,
     Form(input): Form<WatchdogForm>,
 ) -> Response {
+    let draft = WatchdogDraft::from_form(&input);
     let outcome = (|| -> anyhow::Result<String> {
         let attempts = whole_number(&input.max_restart_attempts, "max attempts")?;
         let base = whole_number(&input.base_delay_seconds, "base delay")?;
@@ -130,7 +189,9 @@ pub async fn save_watchdog(
         journal_policy(&state, EventKind::WatchdogPolicyUpdated, &message);
         Ok(message)
     })();
-    respond_to("/settings", outcome)
+    finish(&state, outcome, watchdog_field_for, |workspace, errors| {
+        settings::render_with_watchdog_draft(workspace, &draft, errors)
+    })
 }
 
 /// Save RPC health monitor policy.
@@ -138,6 +199,7 @@ pub async fn save_rpc_health_monitor(
     State(state): State<WebState>,
     Form(input): Form<MonitorForm>,
 ) -> Response {
+    let draft = MonitorDraft::from_form(&input);
     let outcome = (|| -> anyhow::Result<String> {
         let interval = whole_number(&input.interval_seconds, "interval")?;
         let policy = RpcHealthMonitorPolicy {
@@ -150,7 +212,9 @@ pub async fn save_rpc_health_monitor(
         journal_policy(&state, EventKind::RpcHealthMonitorPolicyUpdated, &message);
         Ok(message)
     })();
-    respond_to("/settings", outcome)
+    finish(&state, outcome, monitor_field_for, |workspace, errors| {
+        settings::render_with_rpc_health_draft(workspace, &draft, errors)
+    })
 }
 
 /// Save remote federation monitor policy.
@@ -158,6 +222,7 @@ pub async fn save_federation_monitor(
     State(state): State<WebState>,
     Form(input): Form<MonitorForm>,
 ) -> Response {
+    let draft = MonitorDraft::from_form(&input);
     let outcome = (|| -> anyhow::Result<String> {
         let interval = whole_number(&input.interval_seconds, "interval")?;
         let policy = RemoteFederationMonitorPolicy {
@@ -176,14 +241,21 @@ pub async fn save_federation_monitor(
         );
         Ok(message)
     })();
-    respond_to("/settings", outcome)
+    finish(&state, outcome, monitor_field_for, |workspace, errors| {
+        settings::render_with_federation_draft(workspace, &draft, errors)
+    })
 }
 
 /// Save runtime upgrade policy.
+///
+/// A refused save comes back as the settings page with the operator's own
+/// input in it and the error beside the field that caused it. It used to
+/// redirect with one sentence and the whole form gone.
 pub async fn save_runtime_upgrade_policy(
     State(state): State<WebState>,
     Form(input): Form<RuntimeUpgradeForm>,
 ) -> Response {
+    let draft = RuntimeUpgradeDraft::from_form(&input);
     let outcome = (|| -> anyhow::Result<String> {
         let current = state.workspace.load_runtime_upgrade_policy()?;
         let interval_minutes = whole_number(&input.interval_minutes, "interval")?;
@@ -222,7 +294,103 @@ pub async fn save_runtime_upgrade_policy(
         journal_policy(&state, EventKind::RuntimeUpgradePolicyUpdated, &message);
         Ok(message)
     })();
-    respond_to("/settings", outcome)
+    finish(&state, outcome, upgrade_field_for, |workspace, errors| {
+        settings::render_with_upgrade_draft(workspace, &draft, errors)
+    })
+}
+
+/// The tail every settings form shares.
+///
+/// A save that worked redirects: the page it lands on re-reads the policy from
+/// the workspace, so a 200 here would claim a state this handler has no reason
+/// to draw from memory. A save that was refused comes back on the page, with the
+/// operator's text still in the form and the message beside the field it belongs
+/// to — and if that page cannot be read back either, the redirect says both what
+/// was wrong and that the form could not be kept.
+fn finish(
+    state: &WebState,
+    outcome: anyhow::Result<String>,
+    blame: fn(&anyhow::Error) -> &'static str,
+    draw: impl FnOnce(&WorkspaceQueries, &FieldErrors) -> anyhow::Result<String>,
+) -> Response {
+    match outcome {
+        Ok(message) => {
+            let flash = html::Flash::ok(message);
+            Redirect::to(&flash.redirect("/settings")).into_response()
+        }
+        Err(error) => {
+            // The domain's message says what is wrong in its own words; the
+            // mapper says where. Together they turn "not saved: …" into an
+            // error under the control the operator has to change.
+            let mut errors = FieldErrors::new();
+            errors.insert(blame(&error), error.to_string());
+            match draw(&state.workspace, &errors) {
+                Ok(body) => Html(html::layout("Settings", "settings", "", &body)).into_response(),
+                Err(render_error) => {
+                    let flash = html::Flash::danger(format!(
+                        "not saved: {error} (the page could not be redrawn: {render_error})"
+                    ));
+                    Redirect::to(&flash.redirect("/settings")).into_response()
+                }
+            }
+        }
+    }
+}
+
+/// Which watchdog control a domain message is about.
+///
+/// The domain validates the restart budget as a whole, so its sentence is the
+/// only thing that says what was wrong. Mapping it back to a field is what turns
+/// that sentence into a message beside the box to retype.
+fn watchdog_field_for(error: &anyhow::Error) -> &'static str {
+    let message = error.to_string();
+    if message.contains("max attempts") {
+        "max_restart_attempts"
+    } else if message.contains("base delay") {
+        "base_delay_seconds"
+    } else if message.contains("max delay") {
+        "max_delay_seconds"
+    } else if message.contains("jitter") {
+        "jitter_enabled"
+    } else {
+        GENERAL
+    }
+}
+
+/// Which monitor control a domain message is about.
+///
+/// The two monitors share this form: one interval, one switch, and nothing else
+/// that can fail, so the interval is the only field a refusal can belong to.
+fn monitor_field_for(error: &anyhow::Error) -> &'static str {
+    if error.to_string().contains("interval") {
+        "interval_seconds"
+    } else {
+        GENERAL
+    }
+}
+
+/// Which field of the upgrade form a domain message is about.
+///
+/// The domain validates the policy as a whole, so its message is the only
+/// thing that says what was wrong. Mapping it back to a field is what turns
+/// "not saved: …" into an error under the control that caused it.
+fn upgrade_field_for(error: &anyhow::Error) -> &'static str {
+    let message = error.to_string();
+    if message.contains("catalog profile") {
+        "catalog_profile_id"
+    } else if message.contains("interval") {
+        "interval_minutes"
+    } else if message.contains("batch size") {
+        "max_nodes_per_run"
+    } else if message.contains("maintenance window minutes") {
+        "maintenance_window_start_minute_utc"
+    } else if message.contains("maintenance window") {
+        "maintenance_window_end_minute_utc"
+    } else if message.contains("wave delay") {
+        "wave_delay_minutes"
+    } else {
+        GENERAL
+    }
 }
 
 /// Save alert routing policy.
@@ -302,16 +470,11 @@ fn journal_policy(state: &WebState, kind: EventKind, message: &str) {
 }
 
 fn respond_to(path: &str, outcome: anyhow::Result<String>) -> Response {
-    let message = match outcome {
-        Ok(message) => message,
-        Err(error) => format!("not saved: {error}"),
+    let flash = match outcome {
+        Ok(message) => html::Flash::ok(message),
+        Err(error) => html::Flash::danger(format!("not saved: {error}")),
     };
-    Redirect::to(&format!(
-        "{path}?flash={}",
-        html::urlencoding_lite(&message),
-        path = path
-    ))
-    .into_response()
+    Redirect::to(&flash.redirect(path)).into_response()
 }
 
 /// Show what would actually be sent, without sending it.

@@ -50,8 +50,54 @@ pub struct Job {
     pub status: JobStatus,
     /// The result text: what was produced, or why it failed.
     pub detail: String,
+    /// What the job is doing right now, while it is still running.
+    pub progress: Option<JobProgress>,
     pub started_at_unix: u64,
     pub finished_at_unix: Option<u64>,
+}
+
+/// Where a running job has got to.
+///
+/// A job that takes minutes and reports only "running" is indistinguishable
+/// from one that has hung. The stage says which step is executing, and the
+/// counts say how far along it is whenever the work can be counted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct JobProgress {
+    /// The step being executed, in the operator's words.
+    pub stage: String,
+    /// Units finished, when the work can be counted.
+    pub completed: Option<u64>,
+    /// Units in total, when the work can be counted.
+    pub total: Option<u64>,
+}
+
+impl JobProgress {
+    /// How far along the work is, when both counts are known.
+    pub fn percent(&self) -> Option<u8> {
+        let total = self.total?;
+        if total == 0 {
+            return Some(100);
+        }
+        let completed = self.completed.unwrap_or(0).min(total);
+        let percent = completed.saturating_mul(100) / total;
+        Some(u8::try_from(percent).unwrap_or(100))
+    }
+
+    /// A one-line description for a page or an API caller.
+    pub fn summary(&self) -> String {
+        match (self.completed, self.total, self.percent()) {
+            (Some(completed), Some(total), Some(percent)) => {
+                format!(
+                    "{stage} ({completed}/{total}, {percent}%)",
+                    stage = self.stage
+                )
+            }
+            (Some(completed), None, _) => {
+                format!("{stage} ({completed} done)", stage = self.stage)
+            }
+            _ => self.stage.clone(),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -70,12 +116,60 @@ pub struct Busy {
     pub description: String,
 }
 
+/// The handle a running job uses to say what it is doing.
+///
+/// It is handed to the work closure and writes into the same registry the page
+/// reads, so a refresh shows the current step rather than a blank "running".
+/// A report that arrives after the job has already finished is ignored: the
+/// finished outcome is the truth, and a late stage message must not reopen it.
+pub struct JobReporter {
+    registry: Arc<Mutex<Registry>>,
+    id: String,
+}
+
+impl JobReporter {
+    /// Report the step the work has reached.
+    pub fn stage(&self, stage: impl Into<String>) {
+        self.publish(JobProgress {
+            stage: stage.into(),
+            completed: None,
+            total: None,
+        });
+    }
+
+    /// Report counted progress, for work whose steps can be numbered.
+    pub fn count(&self, completed: u64, total: Option<u64>, stage: impl Into<String>) {
+        self.publish(JobProgress {
+            stage: stage.into(),
+            completed: Some(completed),
+            total,
+        });
+    }
+
+    fn publish(&self, progress: JobProgress) {
+        let mut registry = self
+            .registry
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some(job) = registry
+            .jobs
+            .iter_mut()
+            .find(|job| job.id == self.id && job.status.is_open())
+        {
+            job.progress = Some(progress);
+        }
+    }
+}
+
 impl Jobs {
     /// Run `work` on its own thread. The job is recorded as running before this
     /// returns, so a page that reloads immediately still sees it.
+    ///
+    /// The work receives a reporter it can use to say which step it is on, so
+    /// a long install shows what it is doing instead of only that it started.
     pub fn submit<F>(&self, lane: &'static str, description: String, work: F) -> Result<Job, Busy>
     where
-        F: FnOnce() -> Result<String, String> + Send + 'static,
+        F: FnOnce(&JobReporter) -> Result<String, String> + Send + 'static,
     {
         let job = {
             let mut registry = self.lock();
@@ -94,6 +188,7 @@ impl Jobs {
                 description,
                 status: JobStatus::Running,
                 detail: String::new(),
+                progress: None,
                 started_at_unix: now_unix(),
                 finished_at_unix: None,
             };
@@ -109,7 +204,11 @@ impl Jobs {
         // job is already in the list, and leaving it "running" forever would be
         // a lie worse than an immediate failure.
         match std::thread::Builder::new().name(name).spawn(move || {
-            let (status, detail) = match work() {
+            let reporter = JobReporter {
+                registry: Arc::clone(&shared),
+                id: finished.id.clone(),
+            };
+            let (status, detail) = match work(&reporter) {
                 Ok(detail) => (JobStatus::Succeeded, detail),
                 Err(detail) => (JobStatus::Failed, detail),
             };
@@ -119,6 +218,7 @@ impl Jobs {
             if let Some(job) = registry.jobs.iter_mut().find(|job| job.id == finished.id) {
                 job.status = status;
                 job.detail = detail;
+                job.progress = None;
                 job.finished_at_unix = Some(now_unix());
             }
         }) {

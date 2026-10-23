@@ -29,7 +29,7 @@ use crate::{
     types::{node_workspace_path, NodeConfig},
 };
 
-use super::{html, WebState};
+use super::{html, jobs::JobReporter, WebState};
 
 /// One plugin install at a time: two concurrent unpacks into the same node's
 /// `Plugins` tree could interleave writes.
@@ -69,24 +69,36 @@ pub async fn install_plugin(State(state): State<WebState>, mut multipart: Multip
             Ok(None) => break,
             Err(error) => {
                 let _ = fs::remove_file(&temp_path);
-                return redirect_back(&node_id, &format!("failed: could not read upload: {error}"));
+                return redirect_back(
+                    &node_id,
+                    &html::Flash::danger(format!("failed: could not read upload: {error}")),
+                );
             }
         };
         match field.name() {
             Some("node_id") => {
                 if !node_id.is_empty() {
                     let _ = fs::remove_file(&temp_path);
-                    return redirect_back(&node_id, "failed: submit exactly one target node");
+                    return redirect_back(
+                        &node_id,
+                        &html::Flash::danger("failed: submit exactly one target node"),
+                    );
                 }
                 node_id = match field.text().await {
                     Ok(value) => value.trim().to_string(),
                     Err(error) => {
                         let _ = fs::remove_file(&temp_path);
-                        return redirect_back(&node_id, &format!("failed: {error}"));
+                        return redirect_back(
+                            &node_id,
+                            &html::Flash::danger(format!("failed: {error}")),
+                        );
                     }
                 };
                 if let Err(error) = load_install_node(&state, &node_id) {
-                    return redirect_back(&node_id, &format!("failed: {error}"));
+                    return redirect_back(
+                        &node_id,
+                        &html::Flash::danger(format!("failed: {error}")),
+                    );
                 }
             }
             Some("plugin_id") => {
@@ -94,7 +106,10 @@ pub async fn install_plugin(State(state): State<WebState>, mut multipart: Multip
                     Ok(value) => value.trim().to_string(),
                     Err(error) => {
                         let _ = fs::remove_file(&temp_path);
-                        return redirect_back(&node_id, &format!("failed: {error}"));
+                        return redirect_back(
+                            &node_id,
+                            &html::Flash::danger(format!("failed: {error}")),
+                        );
                     }
                 }
             }
@@ -103,7 +118,10 @@ pub async fn install_plugin(State(state): State<WebState>, mut multipart: Multip
                     Ok(value) => value.trim().to_string(),
                     Err(error) => {
                         let _ = fs::remove_file(&temp_path);
-                        return redirect_back(&node_id, &format!("failed: {error}"));
+                        return redirect_back(
+                            &node_id,
+                            &html::Flash::danger(format!("failed: {error}")),
+                        );
                     }
                 }
             }
@@ -112,28 +130,40 @@ pub async fn install_plugin(State(state): State<WebState>, mut multipart: Multip
                     Ok(value) => value.trim().to_string(),
                     Err(error) => {
                         let _ = fs::remove_file(&temp_path);
-                        return redirect_back(&node_id, &format!("failed: {error}"));
+                        return redirect_back(
+                            &node_id,
+                            &html::Flash::danger(format!("failed: {error}")),
+                        );
                     }
                 }
             }
             Some("package") => {
                 if received_package {
                     let _ = fs::remove_file(&temp_path);
-                    return redirect_back(&node_id, "failed: submit exactly one plugin package");
+                    return redirect_back(
+                        &node_id,
+                        &html::Flash::danger("failed: submit exactly one plugin package"),
+                    );
                 }
                 if let Err(error) = load_install_node(&state, &node_id) {
-                    return redirect_back(&node_id, &format!("failed: {error}"));
+                    return redirect_back(
+                        &node_id,
+                        &html::Flash::danger(format!("failed: {error}")),
+                    );
                 }
                 if let Err(error) = fs::create_dir_all(&upload_dir) {
                     return redirect_back(
                         &node_id,
-                        &format!("failed: could not prepare uploads: {error}"),
+                        &html::Flash::danger(format!("failed: could not prepare uploads: {error}")),
                     );
                 }
                 received_package = true;
                 if let Err(error) = stream_to_file(field, &temp_path).await {
                     let _ = fs::remove_file(&temp_path);
-                    return redirect_back(&node_id, &format!("failed: {error}"));
+                    return redirect_back(
+                        &node_id,
+                        &html::Flash::danger(format!("failed: {error}")),
+                    );
                 }
             }
             _ => {}
@@ -154,7 +184,7 @@ pub async fn install_plugin(State(state): State<WebState>, mut multipart: Multip
         Ok(prepared) => prepared,
         Err(error) => {
             let _ = fs::remove_file(&temp_path);
-            return redirect_back(&node_id, &format!("failed: {error}"));
+            return redirect_back(&node_id, &html::Flash::danger(format!("failed: {error}")));
         }
     };
 
@@ -162,7 +192,7 @@ pub async fn install_plugin(State(state): State<WebState>, mut multipart: Multip
         Ok(path) => path,
         Err(error) => {
             let _ = fs::remove_file(&temp_path);
-            return redirect_back(&node_id, &format!("failed: {error}"));
+            return redirect_back(&node_id, &html::Flash::danger(format!("failed: {error}")));
         }
     };
 
@@ -176,16 +206,29 @@ pub async fn install_plugin(State(state): State<WebState>, mut multipart: Multip
     // lane-busy path, where the job never runs and must be cleaned up here.
     let job_state = state.clone();
     let closure_temp = temp_path.clone();
-    match state.jobs.submit(LANE, description, move || {
-        install_plugin_job(&job_state, &manifest, &node, &node_work_dir, &closure_temp)
+    match state.jobs.submit(LANE, description, move |reporter| {
+        install_plugin_job(
+            &job_state,
+            &manifest,
+            &node,
+            &node_work_dir,
+            &closure_temp,
+            reporter,
+        )
     }) {
-        Ok(job) => redirect_back(&node_id, &format!("install started: {}", job.description)),
+        Ok(job) => redirect_back(
+            &node_id,
+            &html::Flash::ok(format!("install started: {}", job.description)),
+        ),
         Err(busy) => {
             // The job never ran, so its cleanup never fires: remove the upload here.
             let _ = fs::remove_file(&temp_path);
             redirect_back(
                 &node_id,
-                &format!("not started: {} is already running", busy.description),
+                &html::Flash::danger(format!(
+                    "not started: {} is already running",
+                    busy.description
+                )),
             )
         }
     }
@@ -270,11 +313,15 @@ fn install_plugin_job(
     node: &NodeConfig,
     node_work_dir: &Path,
     temp_path: &Path,
+    reporter: &JobReporter,
 ) -> Result<String, String> {
     let outcome = (|| -> anyhow::Result<String> {
+        reporter.stage("re-reading the node");
         let node = load_install_node(state, &node.id)?;
+        reporter.stage("writing the package into the node workspace");
         let installation = PluginPackageManager::install(manifest, &node, node_work_dir)
             .map_err(|error| anyhow::anyhow!("install failed: {error}"))?;
+        reporter.stage("recording the installation");
         state.commands.upsert_plugin_installation(&installation)?;
         let message = format!(
             "installed {} ({}) on {} — {} files; package written, not confirmed loaded. Save the required launch configuration and start the node to apply it.",
@@ -297,11 +344,10 @@ fn install_plugin_job(
 
 /// Send the browser back to the plugins page for the node it was working on,
 /// carrying the outcome as a flash message.
-fn redirect_back(node_id: &str, message: &str) -> Response {
-    Redirect::to(&format!(
-        "/plugins?node={}&flash={}",
-        html::urlencoding_lite(node_id),
-        html::urlencoding_lite(message)
-    ))
+fn redirect_back(node_id: &str, flash: &html::Flash) -> Response {
+    Redirect::to(&flash.redirect(&format!(
+        "/plugins?node={}",
+        html::urlencoding_lite(node_id)
+    )))
     .into_response()
 }

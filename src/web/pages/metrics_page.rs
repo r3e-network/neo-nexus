@@ -22,7 +22,7 @@ pub async fn metrics(State(state): State<WebState>) -> Response {
         Err(error) => Html(html::layout(
             "Metrics",
             "metrics",
-            &format!("failed to collect metrics: {error}"),
+            format!("failed to collect metrics: {error}"),
             "",
         ))
         .into_response(),

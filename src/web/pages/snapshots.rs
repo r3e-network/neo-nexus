@@ -15,7 +15,12 @@ use crate::core::{
 };
 use crate::types::{Network, NodeConfig, NodeType};
 
-use super::super::{html, WebState};
+use super::super::{
+    form_state::{self, FieldErrors, FormDraft},
+    html,
+    snapshot_form::{self, SnapshotDraft},
+    WebState,
+};
 
 #[derive(Default, Deserialize)]
 pub struct SnapshotQuery {
@@ -45,7 +50,7 @@ pub async fn snapshots(
             return Html(html::layout(
                 "Snapshots",
                 "snapshots",
-                &html::flash(flash.as_deref()),
+                html::flash(flash.as_deref()),
                 &html::note(&format!("failed to load snapshots: {error}")),
             ))
             .into_response()
@@ -54,7 +59,7 @@ pub async fn snapshots(
             return Html(html::layout(
                 "Snapshots",
                 "snapshots",
-                &html::flash(flash.as_deref()),
+                html::flash(flash.as_deref()),
                 &html::note(&format!("failed to load nodes: {error}")),
             ))
             .into_response()
@@ -62,15 +67,43 @@ pub async fn snapshots(
     };
 
     let visible = filter_snapshots(&snapshots, &snapshot_filter(&params));
-    let body = render_body(&snapshots, &visible, &nodes, &params);
+    let body = render_body(&snapshots, &visible, &nodes, &params, None);
 
     Html(html::layout(
         "Snapshots",
         "snapshots",
-        &html::flash(flash.as_deref()),
+        html::flash(flash.as_deref()),
         &body,
     ))
     .into_response()
+}
+
+/// The same page, drawn from what the operator posted instead of from blank
+/// fields.
+///
+/// A refused register form comes back here: the inventory above is still what
+/// the workspace holds, and the form below is what was typed, with each
+/// complaint beside the control it is about. That is the whole point of a
+/// redraw — the two are allowed to disagree, and the page says which is which.
+pub(crate) fn render_with_draft(
+    workspace: &crate::core::workspace_queries::WorkspaceQueries,
+    draft: &SnapshotDraft,
+    errors: &FieldErrors,
+) -> anyhow::Result<String> {
+    let snapshots = workspace.list_fast_sync_snapshots()?;
+    let nodes = workspace.list_nodes()?;
+    // A redraw has no query string, so the inventory is unfiltered. Narrowing is
+    // a view concern; losing it costs a click, while losing the form costs nine
+    // fields.
+    let params = SnapshotQuery::default();
+    let visible = filter_snapshots(&snapshots, &snapshot_filter(&params));
+    Ok(render_body(
+        &snapshots,
+        &visible,
+        &nodes,
+        &params,
+        Some((draft, errors)),
+    ))
 }
 
 /// An unparseable narrowing is simply no narrowing: the page should still show
@@ -98,6 +131,7 @@ fn render_body(
     visible: &[FastSyncSnapshot],
     nodes: &[NodeConfig],
     params: &SnapshotQuery,
+    refused: Option<(&SnapshotDraft, &FieldErrors)>,
 ) -> String {
     // "EBS Snapshots" named the wrong direction entirely: these are *inbound*
     // archives a node fast-syncs from, not a capture of this workspace's state.
@@ -129,7 +163,7 @@ fn render_body(
             ),
             ("Matching", visible.len().to_string()),
         ]),
-        register = register_form(),
+        register = register_form(refused),
         filters = html::typed_filter_form(
             "/snapshots",
             &[],
@@ -186,7 +220,12 @@ fn count(snapshots: &[FastSyncSnapshot], wanted: impl Fn(&FastSyncSnapshot) -> b
 
 fn snapshot_table(snapshots: &[FastSyncSnapshot], nodes: &[NodeConfig]) -> String {
     if snapshots.is_empty() {
-        return html::note("No fast-sync snapshots are registered in this workspace.");
+        return html::empty_state(
+            "No snapshots registered",
+            "No fast-sync snapshot is registered in this workspace. Register one to attach it to \
+             a compatible instance.",
+            "",
+        );
     }
     let rows = snapshots
         .iter()
@@ -320,10 +359,44 @@ fn lifecycle_button(snapshot_id: &str, action: &str, label: &str) -> String {
 /// The browser entry point for registering a snapshot manifest. It posts to
 /// `snapshot_ops::save_snapshot`, which stores the snapshot and journals it as
 /// saved. A source path or an HTTPS URL is required, along with the checksum.
-fn register_form() -> String {
+///
+/// Every control asks [`SnapshotDraft`] for its own value by the same field
+/// constant it hands the browser as `name`, so a value cannot be drawn under
+/// another field's label.
+fn register_form(refused: Option<(&SnapshotDraft, &FieldErrors)>) -> String {
+    let (values, errors) = match refused {
+        Some((values, errors)) => (Some(values), Some(errors)),
+        None => (None, None),
+    };
+    let value = |field: &str| values.map_or("", |draft| draft.value(field));
+    let error = |field: &str| errors.and_then(|errors| form_state::error_for(errors, field));
+    // A first visit shows the common answer rather than an empty select; a
+    // redraw shows what was posted, because that is what has to be corrected.
+    let network_default = Network::Mainnet.to_string();
+    let runtime_default = NodeType::ALL[0].to_string();
+    let network = match values {
+        Some(draft) => draft.value(snapshot_form::NETWORK),
+        None => network_default.as_str(),
+    };
+    let runtime = match values {
+        Some(draft) => draft.value(snapshot_form::NODE_TYPE),
+        None => runtime_default.as_str(),
+    };
+    let summary = match errors {
+        Some(errors) if !errors.is_empty() => format!(
+            "{}{}",
+            form_state::banner(errors),
+            html::note(
+                "Nothing was saved. The inventory above is still what this workspace holds; \
+                 what is in the form is what you typed and what it would not accept."
+            ),
+        ),
+        _ => String::new(),
+    };
     format!(
         r#"<h2>Register snapshot</h2>
 <p class="muted">Record a fast-sync archive so it can be downloaded, cached, hash-verified and applied. Give it a source path or an HTTPS URL, and the expected SHA-256.</p>
+{summary}
 <form class="filters" method="post" action="/snapshots/save">
 {id}
 {label}
@@ -336,63 +409,107 @@ fn register_form() -> String {
 {sha256}
 <button type="submit">Save snapshot</button>
 </form>"#,
-        id = html::text_field("Snapshot id", "id", ""),
-        label = html::text_field("Label", "label", ""),
+        summary = summary,
+        id = html::TextField {
+            label: "Snapshot id",
+            name: snapshot_form::ID,
+            value: value(snapshot_form::ID),
+            required: true,
+            error: error(snapshot_form::ID),
+            ..html::TextField::default()
+        }
+        .render(),
+        label = html::TextField {
+            label: "Label",
+            name: snapshot_form::LABEL,
+            value: value(snapshot_form::LABEL),
+            required: true,
+            error: error(snapshot_form::LABEL),
+            ..html::TextField::default()
+        }
+        .render(),
         // Both are closed sets the save handler parses and rejects on a typo,
         // so they are chosen rather than typed. The node editor has always
         // offered them this way; this form asked the operator to remember the
         // exact spelling and told them afterwards when it was wrong.
         network = html::ChoiceField {
             label: "Network",
-            name: "network",
+            name: snapshot_form::NETWORK,
             options: &Network::ALL
                 .iter()
                 .map(ToString::to_string)
                 .collect::<Vec<_>>(),
-            selected: &Network::Mainnet.to_string(),
+            selected: network,
+            error: error(snapshot_form::NETWORK),
             ..html::ChoiceField::default()
         }
         .render(),
         runtime = html::ChoiceField {
             label: "Runtime",
-            name: "node_type",
+            name: snapshot_form::NODE_TYPE,
             options: &NodeType::ALL
                 .iter()
                 .map(ToString::to_string)
                 .collect::<Vec<_>>(),
-            selected: &NodeType::ALL[0].to_string(),
+            selected: runtime,
+            error: error(snapshot_form::NODE_TYPE),
             ..html::ChoiceField::default()
         }
         .render(),
         source_path = html::TextField {
             label: "Source path",
-            name: "source_path",
+            name: snapshot_form::SOURCE_PATH,
+            value: value(snapshot_form::SOURCE_PATH),
             placeholder: Some("/path/to/snapshot.acc"),
             monospace: true,
+            error: error(snapshot_form::SOURCE_PATH),
             ..html::TextField::default()
         }
         .render(),
         source_url = html::TextField {
             label: "Source URL",
-            name: "source_url",
+            name: snapshot_form::SOURCE_URL,
+            value: value(snapshot_form::SOURCE_URL),
             placeholder: Some("https://…"),
             monospace: true,
+            error: error(snapshot_form::SOURCE_URL),
             ..html::TextField::default()
         }
         .render(),
-        file_name = html::text_field("Download file name", "download_file_name", ""),
+        file_name = html::TextField {
+            label: "Download file name",
+            name: snapshot_form::DOWNLOAD_FILE_NAME,
+            value: value(snapshot_form::DOWNLOAD_FILE_NAME),
+            error: error(snapshot_form::DOWNLOAD_FILE_NAME),
+            ..html::TextField::default()
+        }
+        .render(),
         max_bytes = html::TextField {
             label: "Download size limit (bytes)",
-            name: "download_max_bytes",
+            name: snapshot_form::DOWNLOAD_MAX_BYTES,
+            value: value(snapshot_form::DOWNLOAD_MAX_BYTES),
             placeholder: Some("optional"),
+            // A limit of zero would refuse every download, so the domain
+            // rejects it outright. The field stays optional: blank means the
+            // default limit.
+            input_type: html::TextInputType::Number,
+            min: Some("1"),
+            step: Some("1"),
+            error: error(snapshot_form::DOWNLOAD_MAX_BYTES),
             ..html::TextField::default()
         }
         .render(),
         sha256 = html::TextField {
             label: "Expected SHA-256",
-            name: "expected_sha256",
+            name: snapshot_form::EXPECTED_SHA256,
+            value: value(snapshot_form::EXPECTED_SHA256),
             monospace: true,
             full_width: true,
+            // Exactly 64 hexadecimal characters, lower or upper case. The
+            // domain lowercases before checking, so both are accepted.
+            pattern: Some("[0-9a-fA-F]{64}"),
+            maxlength: Some("64"),
+            error: error(snapshot_form::EXPECTED_SHA256),
             ..html::TextField::default()
         }
         .render(),

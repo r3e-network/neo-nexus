@@ -544,6 +544,13 @@ fieldset { border: 0; padding: 0; margin: 0; }
 .notice.warn { border-left-color: var(--amber); background: rgba(251, 191, 36, 0.05); }
 .notice.danger { border-left-color: var(--red); background: rgba(244, 63, 94, 0.05); }
 
+/* A flash is the outcome of the last control. Success reads in jade; failure
+   reads in red, so the two are distinguishable at a glance rather than by
+   reading the sentence. */
+.flash { border-left-color: var(--jade); background: rgba(59, 209, 132, 0.06); }
+.flash.danger { border-left-color: var(--red); background: rgba(244, 63, 94, 0.07); }
+.flash.danger strong { color: var(--red); }
+
 .empty {
   padding: 52px var(--s5); border: 1px dashed var(--line-strong); border-radius: var(--r2);
   background: var(--panel); text-align: center; color: var(--muted);
@@ -921,4 +928,22 @@ tbody tr[data-node-id]:hover { background: rgba(255, 255, 255, 0.04); }
 .breadcrumb .crumb-sep { color: rgba(255,255,255,0.25); font-size: 10px; margin: 0 2px; }
 table.dashboard-table thead th { position: sticky; top: 0; background: #0d1520; z-index: 2; }
 :focus-visible { outline: 2px solid #539fe5; outline-offset: 1px; }
+/* The pending marker sits next to the button of a form that takes a while.
+   It is hidden until the bundled script sees the form being submitted, so
+   the page is unchanged for an operator without scripting. */
+.pending { display: none; margin-left: 10px; font-size: 12px; color: var(--amber); }
+form[data-pending-state="running"] .pending { display: inline-flex; align-items: center; gap: 6px; }
+form[data-pending-state="running"] .pending::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: pending-spin 0.8s linear infinite;
+}
+@keyframes pending-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  form[data-pending-state="running"] .pending::before { animation: none; }
+}
 "#;

@@ -41,6 +41,30 @@ pub async fn logs(State(state): State<WebState>, Query(params): Query<LogQuery>)
     Html(html::layout("Logs", "logs", "", &body)).into_response()
 }
 
+/// The confirmation page for the one destructive action on this page.
+///
+/// Reaching it is a GET, so the operator arrives here by choosing to, and the
+/// deletion itself is the POST that follows. Nothing about the confirmation
+/// depends on scripting.
+pub async fn clear_logs_confirmation(
+    State(state): State<WebState>,
+    Query(params): Query<LogQuery>,
+) -> Response {
+    let nodes = match state.workspace.list_nodes() {
+        Ok(nodes) => nodes,
+        Err(error) => {
+            let body = html::notice("danger", &format!("failed to load nodes: {error}"));
+            return Html(html::layout("Clear logs", "logs", "", &body)).into_response();
+        }
+    };
+    // The node the operator was reading is remembered, so the page they land
+    // on is about the stream they were looking at. The deletion itself clears
+    // the whole directory either way, and the page says so.
+    let selected = pick_node(&nodes, &params.node);
+    let body = clear_logs_confirmation_page(selected);
+    Html(html::layout("Clear logs", "logs", "", &body)).into_response()
+}
+
 fn render_body(state: &WebState, nodes: &[NodeConfig], params: &LogQuery) -> String {
     let breadcrumb = html::breadcrumb(&[("NeoNexus", "/"), ("Logs", "")]);
     let head = html::page_head(
@@ -52,7 +76,11 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], params: &LogQuery) -> Str
     let Some(selected) = pick_node(nodes, &params.node) else {
         return format!(
             "{breadcrumb}\n{head}\n{}",
-            html::note("No instances are registered yet, so there are no log streams to read.")
+            html::empty_state(
+                "No instances registered",
+                "Register a node instance to give this workspace a log stream to read.",
+                r#"<a class="btn primary" href="/nodes/new">Launch an instance</a>"#,
+            )
         );
     };
 
@@ -80,7 +108,7 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], params: &LogQuery) -> Str
         breadcrumb = log_stream_breadcrumb,
         head = head,
         picker = node_picker(nodes, selected),
-        clear_button = clear_logs_button(&selected.id),
+        clear_button = clear_logs_link(),
         filters = html::typed_filter_form(
             "/logs",
             &[("node", &selected.id)],
@@ -187,12 +215,29 @@ fn render_log(
 
 fn log_body(node: &NodeConfig, lines: &[&LogLine], truncated: bool, params: &LogQuery) -> String {
     if lines.is_empty() {
-        let reason = if params.query.trim().is_empty() {
-            format!("{} has written nothing yet.", node.name)
+        // Two different empties: the instance has written nothing, or the
+        // search matched nothing. The second has a way out the first does not.
+        let (title, body, actions) = if params.query.trim().is_empty() {
+            (
+                "No log output yet",
+                format!("{} has not written anything to its log yet.", node.name),
+                String::new(),
+            )
         } else {
-            format!("No lines match {:?}.", params.query)
+            (
+                "No matching lines",
+                format!("No line in {}'s log matches {:?}.", node.name, params.query),
+                format!(
+                    r#"<a class="btn" href="/logs?node={}">Clear the search</a>"#,
+                    html::escape(&node.name)
+                ),
+            )
         };
-        return format!("{}\n{}", html::note(&reason), truncation_note(truncated));
+        return format!(
+            "{}\n{}",
+            html::empty_state(title, &body, &actions),
+            truncation_note(truncated)
+        );
     }
     // A node's log is its own output plus the launch header NeoNexus writes,
     // and either can carry a credential the runtime echoed. The support bundle
@@ -250,15 +295,83 @@ fn diagnosis_panel(diagnosis: &LogDiagnosis) -> String {
     )
 }
 
-/// Provide a destructive action button with inline confirmation form.
-/// The form POSTs to /logs and includes hidden inputs for node context,
-/// ensuring the redirect preserves the selected node after clearing.
-fn clear_logs_button(node_id: &str) -> String {
+/// A link to the confirmation page. A GET, so the destructive step is never
+/// one click away and the intermediate state is bookmarkable and shareable.
+///
+/// The target is a plain path. The node the operator was reading does not
+/// travel in the link: the confirmation page states which stream it refers to
+/// and carries the selection in its own form, which is where it belongs — a
+/// link whose destination is assembled from a placeholder is a link nothing
+/// that reads the source can recognise as pointing here.
+fn clear_logs_link() -> String {
+    r#"<a class="btn danger" href="/logs/clear">Clear Logs</a>"#.to_string()
+}
+
+/// The destructive action needs a confirmation step of its own.
+///
+/// This used to be a single button whose `onclick="return confirm(...)"` was
+/// the only thing standing between the operator and the deletion. The content
+/// security policy pins `script-src` to a hash of the one bundled script and
+/// allows no `'unsafe-inline'`, so the browser refused to run that inline
+/// handler outright — the prompt never appeared and the form posted straight
+/// through, deleting every log file in the workspace.
+///
+/// The confirmation is therefore a server-rendered page, reached by GET and
+/// completed by POST. It works with scripting disabled, and it can state what
+/// exactly is about to be destroyed.
+fn clear_logs_confirmation_page(selected: Option<&NodeConfig>) -> String {
+    let breadcrumb = html::breadcrumb(&[("NeoNexus", "/"), ("Logs", "/logs"), ("Clear", "")]);
+    let head = html::page_head(
+        "Clear all logs?",
+        "This permanently deletes every log file in the workspace logs directory.",
+        "",
+    );
+    // The action clears the whole directory, so the page must not read as
+    // though it were about the stream of a single instance.
+    let scope = match selected {
+        Some(node) => format!(
+            "Every log file under the workspace logs directory is truncated, for all instances — not \
+             just {name}. The running nodes keep their file handles, so the next write may recreate \
+             an empty file. This cannot be undone, and there is no archive of the deleted output.",
+            name = html::escape(&node.name)
+        ),
+        None => "Every log file under the workspace logs directory is truncated, for every instance. \
+                  No instance is registered, so nothing is writing to it right now, but any file \
+                  left there is deleted. This cannot be undone."
+            .to_string(),
+    };
+    let cancel = match selected {
+        Some(node) => format!("/logs?node={}", html::urlencoding_lite(&node.id)),
+        None => "/logs".to_string(),
+    };
+    // The node travels with the POST, so the operator lands back on the
+    // stream they were reading rather than on the first one.
+    let carried = match selected {
+        Some(node) => format!(
+            r#"<input type="hidden" name="node" value="{}">"#,
+            html::escape(&node.id)
+        ),
+        None => String::new(),
+    };
     format!(
-        r#"<form method="POST" action="/logs" style="display:inline; margin-left:8px;">
-  <button type="submit" class="btn danger" onclick="return confirm('This will permanently delete all .log files in the workspace logs directory. Are you sure you want to continue?');">Clear Logs</button>
-  <input type="hidden" name="node" value="{}">
+        r#"{breadcrumb}
+{head}
+{detail}
+<form method="post" action="/logs">
+<div class="form-actions">
+<button class="danger" type="submit">Clear all log files</button>
+<a class="btn" href="{cancel}">Cancel</a>
+{pending}
+</div>
+{carried}
 </form>"#,
-        html::urlencoding_lite(node_id)
+        breadcrumb = breadcrumb,
+        head = head,
+        detail = html::notice("danger", &scope),
+        cancel = cancel,
+        carried = carried,
+        // Truncating every log file in the workspace is not instant, and the
+        // operator must not click twice wondering whether the first landed.
+        pending = html::pending_marker("Clearing…"),
     )
 }

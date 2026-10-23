@@ -2,7 +2,7 @@
 
 use axum::{
     extract::{Path, State},
-    response::{IntoResponse, Redirect, Response},
+    response::{Html, IntoResponse, Redirect, Response},
 };
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
 };
 
 use super::{
-    super::{html, WebState},
+    super::{form_state::FieldErrors, html, pages::backup, WebState},
     node::{back_to_node, load_node},
 };
 
@@ -74,80 +74,104 @@ pub async fn apply_snapshot(
     })();
 
     match outcome {
-        Ok(message) => back_to_node(&node_id, &message),
-        Err(error) => back_to_node(&node_id, &format!("failed: {error}")),
+        Ok(message) => back_to_node(&node_id, &html::Flash::ok(message)),
+        Err(error) => back_to_node(&node_id, &html::Flash::danger(format!("failed: {error}"))),
     }
 }
 
 pub async fn handle_backup_export(State(state): State<WebState>) -> Response {
-    let outcome = (|| -> anyhow::Result<String> {
-        let output = state.workspace_child_dir("export").join("backup");
-        let export = state
-            .workspace
-            .export_backup(&output, env!("CARGO_PKG_VERSION"))?;
+    let state_for_task = state.clone();
+    super::blocking(move || {
+        let outcome = (|| -> anyhow::Result<String> {
+            let output = state_for_task.workspace_child_dir("export").join("backup");
+            let export = state_for_task
+                .workspace
+                .export_backup(&output, env!("CARGO_PKG_VERSION"))?;
 
-        // Calculate total profile count
-        let total_profiles = export.remote_server_count
-            + export.runtime_catalog_profile_count
-            + export.runtime_signer_profile_count
-            + export.neo_wallet_profile_count;
+            // Calculate total profile count
+            let total_profiles = export.remote_server_count
+                + export.runtime_catalog_profile_count
+                + export.runtime_signer_profile_count
+                + export.neo_wallet_profile_count;
 
-        let message = format!(
-            "workspace backup exported — {} nodes, {} profiles, {} snapshots, {} events → {}",
-            export.node_count,
-            total_profiles,
-            export.fast_sync_snapshot_count,
-            export.event_count,
-            export.path.display(),
-        );
-        let _ = state.commands.record_event(NewRuntimeEvent {
-            node_id: None,
-            node_name: None,
-            kind: EventKind::BackupExported,
-            severity: EventSeverity::Info,
-            message: message.clone(),
-        });
-        Ok(message)
-    })();
+            let message = format!(
+                "workspace backup exported — {} nodes, {} profiles, {} snapshots, {} events → {}",
+                export.node_count,
+                total_profiles,
+                export.fast_sync_snapshot_count,
+                export.event_count,
+                export.path.display(),
+            );
+            let _ = state_for_task.commands.record_event(NewRuntimeEvent {
+                node_id: None,
+                node_name: None,
+                kind: EventKind::BackupExported,
+                severity: EventSeverity::Info,
+                message: message.clone(),
+            });
+            Ok(message)
+        })();
 
-    let message = match outcome {
-        Ok(message) => message,
-        Err(error) => format!("backup export failed: {error}"),
-    };
-    Redirect::to(&format!(
-        "/backup?flash={}",
-        html::urlencoding_lite(&message),
-    ))
-    .into_response()
+        let flash = match outcome {
+            Ok(message) => html::Flash::ok(message),
+            Err(error) => html::Flash::danger(format!("backup export failed: {error}")),
+        };
+        Redirect::to(&flash.redirect("/backup")).into_response()
+    })
+    .await
 }
 
-pub async fn clear_logs(State(state): State<WebState>) -> Response {
-    let outcome = (|| -> anyhow::Result<String> {
-        // Get the logs directory
-        let logs_dir = state.workspace_child_dir("logs");
+/// Clear every log file in the workspace logs directory.
+///
+/// The node the operator was reading is carried through the redirect: the
+/// action clears the whole directory, but the page they land back on should
+/// still show the stream they were looking at.
+pub async fn clear_logs(
+    State(state): State<WebState>,
+    axum::Form(form): axum::Form<ClearLogsForm>,
+) -> Response {
+    let node = form.node.trim().to_string();
+    let state_for_task = state.clone();
+    super::blocking(move || {
+        let outcome = (|| -> anyhow::Result<String> {
+            // Get the logs directory
+            let logs_dir = state_for_task.workspace_child_dir("logs");
 
-        // Clear all log files
-        let cleared_count = crate::logs::clear_all_logs(&logs_dir)?;
+            // Clear all log files
+            let cleared_count = crate::logs::clear_all_logs(&logs_dir)?;
 
-        // Record audit event
-        let message = format!("cleared {} log file(s)", cleared_count);
-        let _ = state.commands.record_event(NewRuntimeEvent {
-            node_id: None,
-            node_name: None,
-            kind: EventKind::LogCleared,
-            severity: EventSeverity::Info,
-            message: message.clone(),
-        });
+            // Record audit event
+            let message = format!("cleared {} log file(s)", cleared_count);
+            let _ = state_for_task.commands.record_event(NewRuntimeEvent {
+                node_id: None,
+                node_name: None,
+                kind: EventKind::LogCleared,
+                severity: EventSeverity::Info,
+                message: message.clone(),
+            });
 
-        Ok(message)
-    })();
+            Ok(message)
+        })();
 
-    let message = match outcome {
-        Ok(message) => message,
-        Err(error) => format!("failed to clear logs: {error}"),
-    };
+        let flash = match outcome {
+            Ok(message) => html::Flash::ok(message),
+            Err(error) => html::Flash::danger(format!("failed to clear logs: {error}")),
+        };
 
-    Redirect::to(&format!("/logs?flash={}", html::urlencoding_lite(&message))).into_response()
+        let mut target = flash.redirect("/logs");
+        if !node.is_empty() {
+            target.push_str(&format!("&node={}", html::urlencoding_lite(&node)));
+        }
+        Redirect::to(&target).into_response()
+    })
+    .await
+}
+
+/// The node whose stream the operator was reading when they cleared the logs.
+#[derive(serde::Deserialize)]
+pub struct ClearLogsForm {
+    #[serde(default)]
+    pub node: String,
 }
 
 /// Bring a workspace archive in, from a path on this server.
@@ -170,65 +194,96 @@ pub async fn handle_backup_import(
     State(state): State<WebState>,
     axum::Form(form): axum::Form<BackupImportForm>,
 ) -> Response {
-    let outcome = (|| -> anyhow::Result<String> {
-        let path = form.archive_path.trim();
-        if path.is_empty() {
-            anyhow::bail!("no archive path was given");
-        }
-        let validation = crate::backup::WorkspaceBackupImporter::validate_path(path)?;
-        if form.validate_only() {
-            // Validation is the one step that changes nothing, and it is
-            // exactly the step worth recording: it says what an operator was
-            // about to restore over.
-            let _ = state.commands.record_event(NewRuntimeEvent {
+    let state_for_task = state.clone();
+    super::blocking(move || {
+        let path = form.archive_path.trim().to_string();
+        let outcome = (|| -> anyhow::Result<String> {
+            if path.is_empty() {
+                anyhow::bail!("no archive path was given");
+            }
+            let validation = crate::backup::WorkspaceBackupImporter::validate_path(&path)?;
+            if form.validate_only() {
+                // Validation is the one step that changes nothing, and it is
+                // exactly the step worth recording: it says what an operator was
+                // about to restore over.
+                let _ = state_for_task.commands.record_event(NewRuntimeEvent {
+                    node_id: None,
+                    node_name: None,
+                    kind: EventKind::BackupValidated,
+                    severity: EventSeverity::Info,
+                    message: format!(
+                        "archive at {path} checked — schema v{}, {} nodes, {} events",
+                        validation.schema_version, validation.node_count, validation.event_count,
+                    ),
+                });
+                return Ok(format!(
+                    "archive is readable — schema v{}, written by {}, holding {} nodes, {} signer bindings, {} events",
+                    validation.schema_version,
+                    validation.application_version,
+                    validation.node_count,
+                    validation.signer_binding_count,
+                    validation.event_count,
+                ));
+            }
+            let imported = state_for_task.commands.import_backup(&path)?;
+            let message = format!(
+                "workspace backup imported — {} nodes created, {} updated, {} duties, {} signer bindings, {} events",
+                imported.created_nodes,
+                imported.updated_nodes,
+                imported.role_count,
+                imported.signer_binding_count,
+                imported.event_count,
+            );
+            // `--import-backup` mutated the workspace with no audit entry at all,
+            // which made the one operation most worth recording invisible.
+            let _ = state_for_task.commands.record_event(NewRuntimeEvent {
                 node_id: None,
                 node_name: None,
-                kind: EventKind::BackupValidated,
-                severity: EventSeverity::Info,
-                message: format!(
-                    "archive at {path} checked — schema v{}, {} nodes, {} events",
-                    validation.schema_version, validation.node_count, validation.event_count,
-                ),
+                kind: EventKind::BackupImported,
+                severity: EventSeverity::Warning,
+                message: message.clone(),
             });
-            return Ok(format!(
-                "archive is readable — schema v{}, written by {}, holding {} nodes, {} signer bindings, {} events",
-                validation.schema_version,
-                validation.application_version,
-                validation.node_count,
-                validation.signer_binding_count,
-                validation.event_count,
-            ));
-        }
-        let imported = state.commands.import_backup(path)?;
-        let message = format!(
-            "workspace backup imported — {} nodes created, {} updated, {} duties, {} signer bindings, {} events",
-            imported.created_nodes,
-            imported.updated_nodes,
-            imported.role_count,
-            imported.signer_binding_count,
-            imported.event_count,
-        );
-        // `--import-backup` mutated the workspace with no audit entry at all,
-        // which made the one operation most worth recording invisible.
-        let _ = state.commands.record_event(NewRuntimeEvent {
-            node_id: None,
-            node_name: None,
-            kind: EventKind::BackupImported,
-            severity: EventSeverity::Warning,
-            message: message.clone(),
-        });
-        Ok(message)
-    })();
+            Ok(message)
+        })();
 
-    let message = match outcome {
-        Ok(message) => message,
-        Err(error) => format!("backup import failed: {error:#}"),
-    };
-    Redirect::to(&format!(
-        "/backup?flash={}",
-        html::urlencoding_lite(&message),
-    ))
-    .into_response()
+        match outcome {
+            Ok(message) => {
+                let flash = html::Flash::ok(message);
+                Redirect::to(&flash.redirect("/backup")).into_response()
+            }
+            // A path typed on a server is long, and the one control on this
+            // panel is the path: refusing a restore by throwing it away and
+            // redirecting is how an operator pastes the wrong archive the second
+            // time.
+            Err(error) => redraw_restore(&state_for_task, &path, &format!("{error:#}")),
+        }
+    })
+    .await
+}
+
+/// The backup page again, with the archive path and the reason the restore
+/// refused it.
+fn redraw_restore(state: &WebState, path: &str, message: &str) -> Response {
+    let mut errors = FieldErrors::new();
+    errors.insert(backup::ARCHIVE_PATH, message.to_string());
+    match backup::render_with_restore_draft(state, path, &errors) {
+        Ok(body) => Html(html::layout(
+            "Backup",
+            "backup",
+            html::Flash::default(),
+            &body,
+        ))
+        .into_response(),
+        // Drawing the page again reads the workspace for its counters. If that
+        // read fails too the path cannot be kept, so say both things at once.
+        Err(error) => {
+            let flash = html::Flash::danger(format!(
+                "backup import failed: {message} — and the page could not be redrawn \
+                 ({error}), so the path was lost"
+            ));
+            Redirect::to(&flash.redirect("/backup")).into_response()
+        }
+    }
 }
 
 #[derive(serde::Deserialize)]

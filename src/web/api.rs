@@ -16,8 +16,12 @@ use super::{fleet::Fleet, WebState};
 
 pub mod hermes_mcp;
 pub mod iac;
+pub mod jobs;
+pub mod readiness;
 
 pub use iac::{fleet_iac, node_iac};
+
+use self::jobs as api_jobs;
 
 /// Collect Prometheus-formatted metrics from all nodes.
 /// Shared by both authenticated (/api/metrics-prometheus) and public (/public-metrics) routes.
@@ -157,31 +161,44 @@ pub async fn fleet(State(state): State<WebState>) -> Response {
     }
 }
 
-pub async fn readiness(State(state): State<WebState>) -> Response {
+/// The fleet's current verdict.
+///
+/// Every readiness surface — the authenticated report, the public probe, the
+/// readiness report export — reads the same diagnostics, so they cannot drift
+/// into disagreeing about whether a workspace is ready.
+pub fn fleet_diagnostics(state: &WebState) -> anyhow::Result<crate::diagnostics::FleetDiagnostics> {
     let repository = &state.workspace;
-    let payload = (|| -> anyhow::Result<serde_json::Value> {
-        let nodes = repository.list_nodes()?;
-        let plugin_states = nodes
-            .iter()
-            .map(|node| {
-                repository
-                    .list_plugin_states(&node.id)
-                    .map(|states| (node.id.clone(), states))
-            })
-            .collect::<anyhow::Result<std::collections::BTreeMap<_, _>>>()?;
-        let diagnostics = crate::core::operations::evaluate_fleet(&nodes, &plugin_states);
-        Ok(serde_json::json!({
-            "score": diagnostics.score,
-            "ready_nodes": diagnostics.ready_nodes,
-            "warning_count": diagnostics.warning_count,
-            "critical_count": diagnostics.critical_count,
-            "events": repository.count_events(
-                &crate::events::RuntimeEventFilter::new(None, "", 1),
-            )?,
-        }))
-    })();
-    match payload {
-        Ok(value) => Json(value).into_response(),
+    let nodes = repository.list_nodes()?;
+    let plugin_states = nodes
+        .iter()
+        .map(|node| {
+            repository
+                .list_plugin_states(&node.id)
+                .map(|states| (node.id.clone(), states))
+        })
+        .collect::<anyhow::Result<std::collections::BTreeMap<_, _>>>()?;
+    Ok(crate::core::operations::evaluate_fleet(
+        &nodes,
+        &plugin_states,
+    ))
+}
+
+/// The background jobs, newest first, with the progress of the running ones.
+///
+/// A long install is only observable if a caller can ask what it is doing.
+/// The pages render the same list server-side; this is the form a script polls.
+pub async fn jobs(State(state): State<WebState>) -> Response {
+    let list = api_jobs::JobListPayload::from_jobs(&state.jobs.recent());
+    Json(list).into_response()
+}
+
+/// The readiness report for a caller that is allowed to see the fleet.
+///
+/// The findings carry the surface that resolves them, so a scripted operator
+/// is told where to go and not only what is wrong.
+pub async fn readiness(State(state): State<WebState>) -> Response {
+    match fleet_diagnostics(&state) {
+        Ok(diagnostics) => Json(readiness::payload(&diagnostics)).into_response(),
         Err(error) => error_response(&error),
     }
 }

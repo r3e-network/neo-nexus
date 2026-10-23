@@ -188,7 +188,12 @@ fn render_body(
 
 fn process_table(rows: &[ProcessRow]) -> String {
     if rows.is_empty() {
-        return html::note("No managed processes match this filter.");
+        return html::empty_state(
+            "No matching processes",
+            "No managed process matches the current filter. Widen the state filter or clear \
+             the search.",
+            r#"<a class="btn" href="/monitor">Clear the filters</a>"#,
+        );
     }
     let rendered = rows
         .iter()

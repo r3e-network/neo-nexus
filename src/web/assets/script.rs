@@ -130,8 +130,15 @@ pub const SCRIPT: &str = r#"
     });
   }
 
-  // Role presets and conditional RPC service controls
-  window.toggleNodeRpcService = function (enabled) {
+  // Role presets and conditional RPC service controls.
+  //
+  // These are reached through delegated `data-*` listeners rather than inline
+  // `onchange` / `onclick` attributes. The content security policy pins
+  // `script-src` to a hash of this very file and allows no `'unsafe-inline'`,
+  // so the browser refuses to run an inline handler outright: the RPC toggle
+  // would stop revealing its panel and the preset cards would stop filling the
+  // form, with nothing on the page to say why.
+  function applyRpcServiceState(enabled) {
     var configPanel = document.getElementById("rpc-config-panel");
     var disabledNotice = document.getElementById("rpc-disabled-notice");
     var statusTag = document.getElementById("rpc-status-tag");
@@ -158,10 +165,22 @@ pub const SCRIPT: &str = r#"
         rpcServerCheckbox.title = "";
       }
     }
-  };
+  }
 
-  window.selectNodeRolePreset = function (button) {
+  // The RPC service toggle. Delegated so the page needs no inline script.
+  document.addEventListener("change", function (event) {
+    var el = event.target;
+    if (!el || !el.matches) return;
+    if (!el.matches('[data-rpc-toggle]')) return;
+    applyRpcServiceState(el.checked);
+  });
+
+  // The role preset cards. They only write into the form; they never submit it,
+  // so an operator can pick a preset and still adjust the fields before saving.
+  document.addEventListener("click", function (event) {
+    var button = event.target && event.target.closest ? event.target.closest("[data-role-preset]") : null;
     if (!button) return;
+    event.preventDefault();
     var role = button.getAttribute("data-role");
     var rpcFlag = button.getAttribute("data-rpc") === "1";
     var pluginsStr = button.getAttribute("data-plugins") || "";
@@ -181,7 +200,7 @@ pub const SCRIPT: &str = r#"
     var rpcCheckbox = document.getElementById("f-enable_rpc");
     if (rpcCheckbox) {
       rpcCheckbox.checked = rpcFlag;
-      window.toggleNodeRpcService(rpcFlag);
+      applyRpcServiceState(rpcFlag);
     }
 
     // Update recommended storage engine if selectable
@@ -201,13 +220,7 @@ pub const SCRIPT: &str = r#"
       var pluginId = cb.getAttribute("data-plugin");
       cb.checked = targetPlugins.indexOf(pluginId) !== -1;
     });
-  };
-
-  window.toggleSelectAllNodes = function (master) {
-    document.querySelectorAll('input[name="node_ids"]').forEach(function (cb) {
-      cb.checked = master.checked;
-    });
-  };
+  });
 
   // Progressive AWS tabs switching
   document.addEventListener("click", function (event) {
@@ -346,6 +359,19 @@ pub const SCRIPT: &str = r#"
         statusEl.textContent = status;
       }
     }
+  });
+
+  // A form that takes a while leaves the operator staring at a page that has
+  // not changed. The marker beside the button says the click registered.
+  //
+  // The listener never calls `preventDefault`, so the form submits exactly as
+  // it would without this script — the marker is an addition, not a gate. A
+  // browser with scripting disabled sees a page that behaves identically.
+  document.addEventListener("submit", function (event) {
+    var form = event.target;
+    if (!form || !form.querySelector) return;
+    if (!form.querySelector("[data-pending]")) return;
+    form.setAttribute("data-pending-state", "running");
   });
 
 })();

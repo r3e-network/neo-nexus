@@ -42,7 +42,7 @@ pub async fn alerts(
     Html(html::layout(
         "Alerts",
         "alerts",
-        &html::flash(flash.as_deref()),
+        html::flash(flash.as_deref()),
         &body,
     ))
     .into_response()
@@ -282,7 +282,12 @@ fn masked_target(policy: &AlertRoutingPolicy) -> String {
 
 fn delivery_table(deliveries: &[AlertDelivery]) -> String {
     if deliveries.is_empty() {
-        return html::note("No alerts have been routed from this workspace yet.");
+        return html::empty_state(
+            "No deliveries yet",
+            "Nothing has been routed from this workspace yet. A delivery appears here once the \
+             routing policy sends an event.",
+            "",
+        );
     }
     let rows = deliveries
         .iter()

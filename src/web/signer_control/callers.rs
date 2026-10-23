@@ -7,7 +7,7 @@ use axum::{
 
 use crate::{
     signer_client::WorkloadCallerRequest,
-    web::{pages::signer, WebState},
+    web::{html, pages::signer, WebState},
 };
 
 use super::{
@@ -40,12 +40,19 @@ pub async fn create_caller(
         Ok(created) => {
             signer::render(
                 &state,
-                &format!("caller {} created", created.caller.label),
+                &html::Flash::ok(format!("caller {} created", created.caller.label)),
                 Some(&created.token),
             )
             .await
         }
-        Err(error) => signer::render(&state, &format!("not saved: {error}"), None).await,
+        Err(error) => {
+            signer::render(
+                &state,
+                &html::Flash::danger(format!("not saved: {error}")),
+                None,
+            )
+            .await
+        }
     }
 }
 
@@ -97,15 +104,22 @@ pub async fn rotate_caller(State(state): State<WebState>, Path(id): Path<String>
         Ok(rotated) => {
             signer::render(
                 &state,
-                &format!(
+                &html::Flash::ok(format!(
                     "caller {} rotated — its previous token no longer works",
                     rotated.caller_id
-                ),
+                )),
                 Some(&rotated.token),
             )
             .await
         }
-        Err(error) => signer::render(&state, &format!("not rotated: {error}"), None).await,
+        Err(error) => {
+            signer::render(
+                &state,
+                &html::Flash::danger(format!("not rotated: {error}")),
+                None,
+            )
+            .await
+        }
     }
 }
 

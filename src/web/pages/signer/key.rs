@@ -1,9 +1,13 @@
 use axum::response::{Html, IntoResponse, Response};
-use log::error;
 
-use crate::signer_client::{AuditRow, Caller, KeyBoundary, Policy};
+use crate::signer_client::{AuditRow, Caller, KeyBoundary};
 
-use super::super::super::{html, WebState};
+use super::super::super::{
+    form_state::{self, FieldErrors, FormDraft},
+    html,
+    signer_form::{self, PolicyForm},
+    WebState,
+};
 use super::{overview, tabs, SignerTab};
 
 const AUDIT_ROWS: usize = 50;
@@ -14,27 +18,97 @@ struct KeyPage {
     callers: Vec<Caller>,
 }
 
+/// What the policy form shows: the text to draw and what to complain about.
+///
+/// A plain page load draws the boundary the service stored and complains about
+/// nothing. A refused save draws the text the operator posted and puts each
+/// message beside the control that caused it. The form itself is the same
+/// either way, which is what makes the second case a *redraw* rather than a
+/// second, parallel form.
+struct PolicyDraft<'a> {
+    form: &'a PolicyForm,
+    errors: &'a FieldErrors,
+}
+
 pub(super) async fn render(
     state: &WebState,
     id: &str,
-    flash: &str,
+    flash: &html::Flash,
     notice: Option<&str>,
 ) -> Response {
     let banner = overview::custody_notice(state.custody());
     let asked = id.to_string();
     let body = match state.custody().ask(move |admin| load(admin, &asked)).await {
-        Ok(page) => body(&banner, &page, notice),
-        Err(error) => format!(
-            "{}{}{}{}",
-            html::page_head("Signer key", "Custody policy boundary", ""),
-            tabs(SignerTab::Keys),
-            banner,
-            html::note(&format!(
-                "No custody key is shown because none could be read: {error}"
-            ))
-        ),
+        Ok(page) => {
+            let stored = PolicyForm::from_policy(&page.boundary.policy);
+            let errors = FieldErrors::new();
+            body(
+                &banner,
+                &page,
+                notice,
+                &PolicyDraft {
+                    form: &stored,
+                    errors: &errors,
+                },
+            )
+        }
+        Err(error) => unreadable(&banner, &error),
     };
     Html(html::layout("Signer key", "signer", flash, &body)).into_response()
+}
+
+/// Draw the key page with the boundary the operator typed still in the form.
+///
+/// This is the same page [`render`] produces, with two differences: the form is
+/// fed the posted text rather than the stored boundary, and every field the
+/// console could not accept carries its message. Nothing was saved, so the page
+/// must not look like it was: the cards above the form keep describing what the
+/// service is enforcing, and the form says which of its values it would not take.
+///
+/// Failure to read the key is returned rather than rendered, because the caller
+/// is the only one who still has the operator's text and can decide what to say
+/// when even this page cannot be drawn.
+pub(super) async fn render_with_policy_draft(
+    state: &WebState,
+    id: &str,
+    draft: &PolicyForm,
+    errors: &FieldErrors,
+) -> anyhow::Result<Response> {
+    let banner = overview::custody_notice(state.custody());
+    let asked = id.to_string();
+    let page = state
+        .custody()
+        .ask(move |admin| load(admin, &asked))
+        .await?;
+    let body = body(
+        &banner,
+        &page,
+        None,
+        &PolicyDraft {
+            form: draft,
+            errors,
+        },
+    );
+    Ok(Html(html::layout(
+        "Signer key",
+        "signer",
+        html::Flash::default(),
+        &body,
+    ))
+    .into_response())
+}
+
+/// The page with no key on it, and the reason.
+fn unreadable(banner: &str, error: &anyhow::Error) -> String {
+    format!(
+        "{}{}{}{}",
+        html::page_head("Signer key", "Custody policy boundary", ""),
+        tabs(SignerTab::Keys),
+        banner,
+        html::note(&format!(
+            "No custody key is shown because none could be read: {error}"
+        ))
+    )
 }
 
 fn load(admin: &crate::web::Admin, id: &str) -> anyhow::Result<KeyPage> {
@@ -49,7 +123,7 @@ fn load(admin: &crate::web::Admin, id: &str) -> anyhow::Result<KeyPage> {
     })
 }
 
-fn body(banner: &str, page: &KeyPage, notice: Option<&str>) -> String {
+fn body(banner: &str, page: &KeyPage, notice: Option<&str>, draft: &PolicyDraft<'_>) -> String {
     let key = &page.boundary.key;
     let policy = &page.boundary.policy;
     let path = html::urlencoding_lite(&key.key_id);
@@ -71,7 +145,7 @@ fn body(banner: &str, page: &KeyPage, notice: Option<&str>) -> String {
     format!(
         r#"{crumb}{head}{tabs}{banner}{stats}{notice}{warnings}
 <div class="section-head"><h2>Policy boundary</h2><span class="muted">The signer service enforces every field below.</span></div>
-{policy}
+{summary}{policy}
 <div class="section-head"><h2>Key audit</h2><a href="/signer?tab=audit">Whole-vault audit</a></div>
 {audit}"#,
         crumb = html::breadcrumb(&[("Signer", "/signer?tab=keys"), (&key.label, "")]),
@@ -99,7 +173,8 @@ fn body(banner: &str, page: &KeyPage, notice: Option<&str>) -> String {
             ("Global scope", on_off(policy.allow_global_scope)),
         ]),
         notice = notice.map_or_else(String::new, |text| html::notice("warn", text)),
-        policy = policy_form(&path, policy),
+        summary = policy_summary(draft),
+        policy = policy_form(&path, draft),
         audit = overview::audit_table(&page.audit, std::slice::from_ref(key), &page.callers),
     )
 }
@@ -112,189 +187,153 @@ fn hex_prefix(encoded: &str) -> String {
     format!("{}…", encoded.chars().take(16).collect::<String>())
 }
 
-fn policy_form(path: &str, policy: &Policy) -> String {
+/// How much of the form to look at, and what did not save.
+fn policy_summary(draft: &PolicyDraft<'_>) -> String {
+    if draft.errors.is_empty() {
+        return String::new();
+    }
+    // A refused form has to look refused. The cards above it describe the
+    // boundary the service is still enforcing while the form holds the text it
+    // would not take: both are right, they disagree, and an operator who is not
+    // told so concludes the save half-worked.
+    format!(
+        "{}{}",
+        form_state::banner(draft.errors),
+        html::note(
+            "Nothing was saved. The cards above still describe the boundary the service is \
+             enforcing; what is in the form is what you typed and what it would not accept."
+        )
+    )
+}
+
+fn policy_form(path: &str, draft: &PolicyDraft<'_>) -> String {
+    let form = draft.form;
     let enabled = vec!["enabled".to_string(), "disabled".to_string()];
     let families = vec![String::new(), "neo-n3".to_string(), "neox".to_string()];
-    let (window_seconds, window_amount) = policy.window_limit.as_ref().map_or_else(
-        || (String::new(), String::new()),
-        |limit| (limit.seconds.to_string(), limit.max_amount.clone()),
-    );
-    let (signature_seconds, signature_count) = policy.max_signatures.as_ref().map_or_else(
-        || (String::new(), String::new()),
-        |limit| (limit.seconds.to_string(), limit.count.to_string()),
-    );
     let mut fields = String::new();
     fields.push_str(
         &html::ChoiceField {
             label: "Chain family",
-            name: "chain_family",
+            name: signer_form::CHAIN_FAMILY,
             options: &families,
-            selected: policy.chain_family.as_deref().unwrap_or_default(),
+            selected: form.value(signer_form::CHAIN_FAMILY),
             help: Some("Blank keeps the legacy Neo N3-compatible boundary."),
+            error: form_state::error_for(draft.errors, signer_form::CHAIN_FAMILY),
             ..Default::default()
         }
         .render(),
     );
-    for (label, name, value) in [
-        (
-            "Consensus payloads",
-            "allow_consensus",
-            policy.allow_consensus,
-        ),
-        ("Raw signing", "allow_raw", policy.allow_raw),
-        ("Transfers", "allow_transfer", policy.allow_transfer),
-        (
-            "Contract calls",
-            "allow_contract_call",
-            policy.allow_contract_call,
-        ),
-        (
-            "Global scope",
-            "allow_global_scope",
-            policy.allow_global_scope,
-        ),
+    for (label, name) in [
+        ("Consensus payloads", signer_form::ALLOW_CONSENSUS),
+        ("Raw signing", signer_form::ALLOW_RAW),
+        ("Transfers", signer_form::ALLOW_TRANSFER),
+        ("Contract calls", signer_form::ALLOW_CONTRACT_CALL),
+        ("Global scope", signer_form::ALLOW_GLOBAL_SCOPE),
     ] {
         fields.push_str(
             &html::ChoiceField {
                 label,
                 name,
                 options: &enabled,
-                selected: if value { "enabled" } else { "disabled" },
+                selected: form.value(name),
+                error: form_state::error_for(draft.errors, name),
                 ..Default::default()
             }
             .render(),
         );
     }
-    for (label, name, values) in [
-        (
-            "Contract whitelist",
-            "contract_whitelist",
-            &policy.contract_whitelist,
-        ),
-        (
-            "Contract blacklist",
-            "contract_blacklist",
-            &policy.contract_blacklist,
-        ),
-        (
-            "Asset whitelist",
-            "asset_whitelist",
-            &policy.asset_whitelist,
-        ),
-        (
-            "Asset blacklist",
-            "asset_blacklist",
-            &policy.asset_blacklist,
-        ),
-        (
-            "Transfer-to whitelist",
-            "transfer_to_whitelist",
-            &policy.transfer_to_whitelist,
-        ),
-        (
-            "Transfer-to blacklist",
-            "transfer_to_blacklist",
-            &policy.transfer_to_blacklist,
-        ),
-        (
-            "EVM method whitelist",
-            "evm_method_whitelist",
-            &policy.evm_method_whitelist,
-        ),
-        (
-            "EVM method blacklist",
-            "evm_method_blacklist",
-            &policy.evm_method_blacklist,
-        ),
+    for (label, name) in [
+        ("Contract whitelist", signer_form::CONTRACT_WHITELIST),
+        ("Contract blacklist", signer_form::CONTRACT_BLACKLIST),
+        ("Asset whitelist", signer_form::ASSET_WHITELIST),
+        ("Asset blacklist", signer_form::ASSET_BLACKLIST),
+        ("Transfer-to whitelist", signer_form::TRANSFER_TO_WHITELIST),
+        ("Transfer-to blacklist", signer_form::TRANSFER_TO_BLACKLIST),
+        ("EVM method whitelist", signer_form::EVM_METHOD_WHITELIST),
+        ("EVM method blacklist", signer_form::EVM_METHOD_BLACKLIST),
     ] {
-        fields.push_str(&text_field(
-            label,
-            name,
-            &values.join(", "),
-            true,
-            true,
-            None,
-        ));
+        fields.push_str(&text_field(label, name, form, draft, true, true, None));
     }
-    for (label, name, value, help) in [
+    for (label, name, help) in [
         (
             "Contract method whitelist (JSON)",
-            "contract_method_whitelist",
-            json(&policy.contract_method_whitelist),
+            signer_form::CONTRACT_METHOD_WHITELIST,
             Some("Exact contract/method entries."),
         ),
         (
             "Contract method blacklist (JSON)",
-            "contract_method_blacklist",
-            json(&policy.contract_method_blacklist),
+            signer_form::CONTRACT_METHOD_BLACKLIST,
             Some("Exact contract/method denials."),
         ),
         (
             "Per-asset limits (JSON)",
-            "asset_limits",
-            json(&policy.asset_limits),
+            signer_form::ASSET_LIMITS,
             Some("Per-asset single and window limits."),
         ),
         (
             "Additional signer policy fields (JSON)",
-            "additional_fields",
-            json(&policy.additional_fields),
+            signer_form::ADDITIONAL_FIELDS,
             Some("Unknown fields are round-tripped so this console cannot erase newer policy."),
         ),
     ] {
-        fields.push_str(&text_field(label, name, &value, true, true, help));
+        fields.push_str(&text_field(label, name, form, draft, true, true, help));
     }
-    let numbers = [
-        (
-            "Maximum single amount",
-            "max_single_amount",
-            policy.max_single_amount.clone().unwrap_or_default(),
-        ),
-        ("Window seconds", "window_seconds", window_seconds),
-        ("Window maximum amount", "window_max_amount", window_amount),
+    // The amounts are decimal *text* on purpose: the custody service decides
+    // what a ceiling may look like, and it must be the one to say "1e6" is not
+    // a number. A numeric input would quietly reject that before the request
+    // left, taking the domain's word away from it.
+    for (label, name) in [
+        ("Maximum single amount", signer_form::MAX_SINGLE_AMOUNT),
+        ("Window maximum amount", signer_form::WINDOW_MAX_AMOUNT),
+        ("Maximum system fee", signer_form::MAX_SYSTEM_FEE),
+        ("Maximum network fee", signer_form::MAX_NETWORK_FEE),
+        ("EVM maximum gas price", signer_form::EVM_MAX_GAS_PRICE),
+    ] {
+        fields.push_str(&text_field(label, name, form, draft, false, true, None));
+    }
+    // These are whole numbers the domain parses, so the browser can say so
+    // before the request is sent. The upper bound is per field: `max_signers`
+    // is a u16, the rest are u64 and have no ceiling the domain enforces.
+    for (label, name, max) in [
+        ("Window seconds", signer_form::WINDOW_SECONDS, None),
         (
             "Maximum transaction signers",
-            "max_signers",
-            optional(policy.max_signers),
-        ),
-        (
-            "Maximum system fee",
-            "max_system_fee",
-            policy.max_system_fee.clone().unwrap_or_default(),
-        ),
-        (
-            "Maximum network fee",
-            "max_network_fee",
-            policy.max_network_fee.clone().unwrap_or_default(),
+            signer_form::MAX_SIGNERS,
+            Some("65535"),
         ),
         (
             "Signature window seconds",
-            "signature_window_seconds",
-            signature_seconds,
+            signer_form::SIGNATURE_WINDOW_SECONDS,
+            None,
         ),
         (
             "Maximum signatures in window",
-            "signature_window_count",
-            signature_count,
-        ),
-        (
-            "EVM maximum gas price",
-            "evm_max_gas_price",
-            policy.evm_max_gas_price.clone().unwrap_or_default(),
+            signer_form::SIGNATURE_WINDOW_COUNT,
+            None,
         ),
         (
             "EVM maximum gas limit",
-            "evm_max_gas_limit",
-            optional(policy.evm_max_gas_limit),
+            signer_form::EVM_MAX_GAS_LIMIT,
+            None,
         ),
-        (
-            "EVM chain id",
-            "evm_chain_id",
-            optional(policy.evm_chain_id),
-        ),
-    ];
-    for (label, name, value) in numbers {
-        fields.push_str(&text_field(label, name, &value, false, true, None));
+        ("EVM chain id", signer_form::EVM_CHAIN_ID, None),
+    ] {
+        fields.push_str(
+            &html::TextField {
+                label,
+                name,
+                value: form.value(name),
+                error: form_state::error_for(draft.errors, name),
+                full_width: false,
+                monospace: true,
+                input_type: html::TextInputType::Number,
+                min: Some("0"),
+                max,
+                step: Some("1"),
+                ..Default::default()
+            }
+            .render(),
+        );
     }
     format!(
         r#"<form method="post" action="/signer/keys/{path}/policy" class="panel"><div class="grid">{fields}</div><div class="form-actions"><button class="primary" type="submit">Save boundary</button></div><p class="muted">An empty list means no restriction, not none permitted. A key with no policy signs nothing.</p></form>"#
@@ -303,8 +342,9 @@ fn policy_form(path: &str, policy: &Policy) -> String {
 
 fn text_field(
     label: &str,
-    name: &str,
-    value: &str,
+    name: &'static str,
+    form: &PolicyForm,
+    draft: &PolicyDraft<'_>,
     full_width: bool,
     monospace: bool,
     help: Option<&str>,
@@ -312,27 +352,14 @@ fn text_field(
     html::TextField {
         label,
         name,
-        value,
+        value: form.value(name),
         help,
+        error: form_state::error_for(draft.errors, name),
         full_width,
         monospace,
         ..Default::default()
     }
     .render()
-}
-
-fn json(value: &impl serde::Serialize) -> String {
-    match serde_json::to_string(value) {
-        Ok(serialized) => serialized,
-        Err(error) => {
-            error!("NeoNexus could not render a signer policy field: {error}");
-            String::new()
-        }
-    }
-}
-
-fn optional(value: Option<impl ToString>) -> String {
-    value.map(|value| value.to_string()).unwrap_or_default()
 }
 
 pub(super) async fn delete_form(state: &WebState, id: &str) -> Response {

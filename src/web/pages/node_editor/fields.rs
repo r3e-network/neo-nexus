@@ -4,6 +4,7 @@ use crate::{
     catalog::{PluginCatalog, PluginId},
     core::node::{Network, NodeType, StorageEngine},
     runtime::RuntimeInstallation,
+    types::{MAX_NODE_PORT, MIN_NODE_PORT},
     web::{
         html,
         node_form::{FieldErrors, NodeDraft},
@@ -26,6 +27,8 @@ pub fn name_field(draft: &NodeDraft, errors: &FieldErrors) -> String {
         error: error_for(errors, "name"),
         help: Some("Shows in the fleet list and names the node's log and config files."),
         full_width: true,
+        // A node cannot exist without one.
+        required: true,
         ..html::TextField::default()
     }
     .render()
@@ -110,6 +113,7 @@ pub fn binary_field(
         monospace: true,
         full_width: true,
         placeholder: Some("/opt/neo/neo-go or C:\\runtimes\\neo-node.exe"),
+        ..html::TextField::default()
     }
     .render();
 
@@ -191,6 +195,13 @@ pub fn p2p_field(draft: &NodeDraft, errors: &FieldErrors) -> String {
         name: "p2p_port",
         value: &draft.p2p_port,
         error: error_for(errors, "p2p_port"),
+        help: Some("Leave blank to let the workspace assign one."),
+        // The bounds are the domain's own. The field stays optional: an empty
+        // port means "assign one", not "the operator forgot".
+        input_type: html::TextInputType::Number,
+        min: Some(&MIN_NODE_PORT.to_string()),
+        max: Some(&MAX_NODE_PORT.to_string()),
+        step: Some("1"),
         ..html::TextField::default()
     }
     .render()
@@ -212,7 +223,13 @@ pub fn rpc_section(draft: &NodeDraft, errors: &FieldErrors) -> String {
         name: "rpc_port",
         value: &draft.rpc_port,
         error: error_for(errors, "rpc_port"),
-        help: Some("Main JSON-RPC HTTP port (e.g. 10332)."),
+        help: Some(
+            "Main JSON-RPC HTTP port (e.g. 10332). Leave blank to let the workspace assign one.",
+        ),
+        input_type: html::TextInputType::Number,
+        min: Some(&MIN_NODE_PORT.to_string()),
+        max: Some(&MAX_NODE_PORT.to_string()),
+        step: Some("1"),
         ..html::TextField::default()
     }
     .render();
@@ -223,6 +240,10 @@ pub fn rpc_section(draft: &NodeDraft, errors: &FieldErrors) -> String {
         value: &draft.ws_port,
         error: error_for(errors, "ws_port"),
         help: Some("Optional WebSocket port for block/event subscriptions."),
+        input_type: html::TextInputType::Number,
+        min: Some(&MIN_NODE_PORT.to_string()),
+        max: Some(&MAX_NODE_PORT.to_string()),
+        step: Some("1"),
         ..html::TextField::default()
     }
     .render();
@@ -232,7 +253,7 @@ pub fn rpc_section(draft: &NodeDraft, errors: &FieldErrors) -> String {
             <input type="hidden" name="rpc_configured" value="1">
             <div class="rpc-toggle-header">
                 <label class="toggle-control">
-                    <input type="checkbox" id="f-enable_rpc" name="enable_rpc" value="1" {checked_attr} onchange="toggleNodeRpcService(this.checked)">
+                    <input type="checkbox" id="f-enable_rpc" name="enable_rpc" value="1" {checked_attr} data-rpc-toggle="1">
                     <span class="toggle-slider"></span>
                     <span class="toggle-label-text"><strong>Enable JSON-RPC 2.0 API Service</strong> (Expose endpoints for wallets, dApps & explorer probes)</span>
                 </label>
@@ -442,6 +463,11 @@ pub fn signer_section(
         help: Some(&key_help),
         monospace: true,
         placeholder: known_key.map(String::as_str).or(Some("e.g. 02...")),
+        // The domain accepts 1..=128 ASCII alphanumerics, `-` and `_`. The
+        // field stays optional: a blank value means "use the backend's only
+        // key", and an empty value is exempt from the pattern anyway.
+        pattern: Some("[A-Za-z0-9_-]{1,128}"),
+        maxlength: Some("128"),
         ..html::TextField::default()
     }
     .render();

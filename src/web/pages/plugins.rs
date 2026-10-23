@@ -38,7 +38,7 @@ pub async fn plugins(
     Html(html::layout(
         "Plugins",
         "plugins",
-        &html::flash(raw.as_deref()),
+        html::flash(raw.as_deref()),
         &body,
     ))
     .into_response()
@@ -48,7 +48,11 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], wanted: &str) -> String {
     let Some(node) = pick_node(nodes, wanted) else {
         return format!(
             "<h1>Plugins</h1>\n{}",
-            html::note("No nodes are registered yet, so there is nothing to enable.")
+            html::empty_state(
+                "No instances registered",
+                "Register a node instance to enable the plugins its runtime supports.",
+                r#"<a class="btn primary" href="/nodes/new">Launch an instance</a>"#,
+            )
         );
     };
 
@@ -129,7 +133,12 @@ fn render_body(state: &WebState, nodes: &[NodeConfig], wanted: &str) -> String {
             )
         },
         table = if rows.is_empty() {
-            html::note("No plugin configuration controls are available for this runtime in the managed catalog.")
+            html::empty_state(
+                "No configurable plugins",
+                "This runtime has no plugin entries in the managed catalog, so there is nothing \
+                 to enable here.",
+                "",
+            )
         } else {
             html::table(
                 &[
@@ -259,11 +268,16 @@ fn toggle_form(node: &NodeConfig, plugin_id: PluginId, enabled: bool) -> String 
             html::escape(label),
         );
     }
-    html::control_form(
-        &format!("/plugins/{}/toggle", node.id),
-        &[("plugin", &plugin_id.to_string())],
-        label,
-    )
+    // Turning a plugin off removes a capability from the instance; turning it
+    // on restores one. Only the first is a thing that can go wrong.
+    let action = format!("/plugins/{}/toggle", node.id);
+    let plugin = plugin_id.to_string();
+    let fields = [("plugin", plugin.as_str())];
+    if enabled {
+        html::danger_control_form(&action, &fields, label)
+    } else {
+        html::control_form(&action, &fields, label)
+    }
 }
 
 fn node_picker(nodes: &[NodeConfig], selected: &NodeConfig) -> String {
@@ -347,14 +361,10 @@ pub async fn toggle(
         });
         Ok(message)
     })();
-    let message = match outcome {
-        Ok(message) => message,
-        Err(error) => format!("not changed: {error}"),
+    let flash = match outcome {
+        Ok(message) => html::Flash::ok(message),
+        Err(error) => html::Flash::danger(format!("not changed: {error}")),
     };
-    Redirect::to(&format!(
-        "/plugins?node={}&flash={}",
-        html::urlencoding_lite(&id),
-        html::urlencoding_lite(&message)
-    ))
-    .into_response()
+    Redirect::to(&flash.redirect(&format!("/plugins?node={}", html::urlencoding_lite(&id))))
+        .into_response()
 }

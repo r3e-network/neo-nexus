@@ -185,3 +185,256 @@ fn progressive_script_submits_the_named_intent_without_reloading_jobs() {
     assert!(script.contains("flag.name = intent"));
     assert!(!script.contains("window.location.reload"));
 }
+
+/// A failure and a success used to render through the same banner with the
+/// same colour and the same `role="status"`, so the only way to tell them
+/// apart was to read the sentence. The severity now travels with the message.
+#[test]
+fn a_failed_control_is_not_rendered_like_a_successful_one() {
+    let failure = html::flash_banner(&html::Flash::danger("failed: port 26032 is in use"));
+    let success = html::flash_banner(&html::Flash::ok("node launched with PID 4210"));
+
+    assert!(failure.contains(r#"class="flash danger""#), "{failure}");
+    assert!(success.contains(r#"class="flash""#), "{success}");
+    assert!(!success.contains("danger"), "{success}");
+
+    // A failure interrupts; a success queues politely behind whatever the
+    // screen reader is still reading.
+    assert!(failure.contains(r#"role="alert""#), "{failure}");
+    assert!(failure.contains(r#"aria-live="assertive""#), "{failure}");
+    assert!(success.contains(r#"role="status""#), "{success}");
+    assert!(success.contains(r#"aria-live="polite""#), "{success}");
+}
+
+/// The severity has to survive the redirect, not just the render: the page that
+/// reads the query back is a different request from the one that wrote it.
+#[test]
+fn flash_severity_survives_the_redirect_round_trip() {
+    let danger = html::Flash::danger("failed: config path is not writable");
+    let target = danger.redirect("/nodes");
+    assert!(target.starts_with("/nodes?flash="), "{target}");
+    assert!(target.contains("flash_kind=danger"), "{target}");
+
+    let query = target
+        .split_once('?')
+        .expect("the redirect carries a query")
+        .1;
+    let recovered = html::flash(Some(query));
+    assert_eq!(recovered.message, "failed: config path is not writable");
+    assert_eq!(recovered.kind, html::FlashKind::Danger);
+
+    // A success must not pick up the failure marker by accident.
+    let ok = html::Flash::ok("node launched with PID 4210");
+    let target = ok.redirect("/nodes");
+    assert!(!target.contains("flash_kind"), "{target}");
+    let query = target
+        .split_once('?')
+        .expect("the redirect carries a query")
+        .1;
+    assert_eq!(html::flash(Some(query)).kind, html::FlashKind::Ok);
+}
+
+/// A path that already carries a query keeps it; the banner joins with `&`.
+#[test]
+fn flash_redirect_keeps_the_query_a_path_already_carries() {
+    let flash = html::Flash::ok("done");
+    assert_eq!(
+        flash.redirect("/plugins?node=seed-1"),
+        "/plugins?node=seed-1&flash=done"
+    );
+    assert_eq!(flash.redirect("/plugins"), "/plugins?flash=done");
+}
+
+/// The severity has to be a decision the *caller* makes, not one the renderer
+/// guesses from the wording of the message.
+#[test]
+fn a_plain_string_is_a_successful_outcome() {
+    let flash: html::Flash = "node launched".into();
+    assert_eq!(flash.kind, html::FlashKind::Ok);
+    assert_eq!(flash.message, "node launched");
+    assert!(!flash.is_empty());
+    assert!(html::Flash::default().is_empty());
+}
+
+/// The content security policy pins `script-src` to a hash of the bundled
+/// script and allows no `'unsafe-inline'`, so an inline `onclick` is never
+/// executed by the browser.
+///
+/// The rule that keeps the console clear of them lives in the CI contract
+/// suite, where it reads the syntax tree. This test only pins that the
+/// delegated listeners the console relies on are present in the script — a
+/// page that marks an element with `data-*` and a script that never listens
+/// for it is the same dead control by another route.
+#[test]
+fn the_delegated_listeners_the_pages_mark_elements_with_are_present() {
+    let script = crate::web::assets::SCRIPT;
+    assert!(
+        script.contains("[data-rpc-toggle]"),
+        "the RPC service toggle is marked with data-rpc-toggle but nothing listens for it"
+    );
+    assert!(
+        script.contains("[data-role-preset]"),
+        "the role preset cards are marked with data-role-preset but nothing listens for them"
+    );
+    assert!(
+        script.contains("[data-confirm]") || script.contains("data-confirm"),
+        "the confirmation prompt is missing from the bundled script"
+    );
+    // The delegated handlers replace the inline ones; none may come back.
+    assert!(
+        !script.contains("window.toggleNodeRpcService"),
+        "the RPC toggle is still exposed on window for an inline handler to call"
+    );
+    assert!(
+        !script.contains("window.selectNodeRolePreset"),
+        "the role preset handler is still exposed on window for an inline handler to call"
+    );
+}
+
+#[test]
+fn a_text_field_carries_the_constraints_the_domain_enforces() {
+    let markup = crate::web::html::TextField {
+        label: "RPC port",
+        name: "rpc_port",
+        value: "10332",
+        required: true,
+        min: Some("1"),
+        max: Some("65535"),
+        step: Some("1"),
+        input_type: crate::web::html::TextInputType::Number,
+        ..Default::default()
+    }
+    .render();
+    assert!(markup.contains(r#"type="number""#), "{markup}");
+    assert!(markup.contains(r#" min="1""#), "{markup}");
+    assert!(markup.contains(r#" max="65535""#), "{markup}");
+    assert!(markup.contains(r#" step="1""#), "{markup}");
+    assert!(markup.contains(" required"), "{markup}");
+}
+
+#[test]
+fn a_text_field_without_constraints_stays_a_plain_text_input() {
+    let markup = crate::web::html::TextField {
+        label: "Name",
+        name: "name",
+        value: "seed-1",
+        ..Default::default()
+    }
+    .render();
+    assert!(markup.contains(r#"type="text""#), "{markup}");
+    assert!(!markup.contains(" required"), "{markup}");
+    assert!(!markup.contains(" min="), "{markup}");
+    assert!(!markup.contains(" pattern="), "{markup}");
+}
+
+#[test]
+fn a_text_field_pattern_is_escaped_like_every_other_attribute() {
+    let markup = crate::web::html::TextField {
+        label: "Expected SHA-256",
+        name: "expected_sha256",
+        value: "",
+        pattern: Some("[0-9a-fA-F]{64}"),
+        maxlength: Some("64"),
+        ..Default::default()
+    }
+    .render();
+    assert!(markup.contains(r#"pattern="[0-9a-fA-F]{64}""#), "{markup}");
+    assert!(markup.contains(r#"maxlength="64""#), "{markup}");
+}
+
+#[test]
+fn a_choice_field_can_be_required() {
+    let options = vec!["a".to_string(), "b".to_string()];
+    let markup = crate::web::html::ChoiceField {
+        label: "Client",
+        name: "node_type",
+        options: &options,
+        selected: "a",
+        required: true,
+        ..Default::default()
+    }
+    .render();
+    assert!(markup.contains(" required"), "{markup}");
+}
+
+#[test]
+fn an_empty_state_uses_the_heading_level_it_is_given() {
+    let heading_two = crate::web::html::empty_state("Nothing here", "Not yet.", "");
+    assert!(
+        heading_two.contains("<h2>Nothing here</h2>"),
+        "{heading_two}"
+    );
+    let heading_three = crate::web::html::empty_state_at(3, "Nothing here", "Not yet.", "");
+    assert!(
+        heading_three.contains("<h3>Nothing here</h3>"),
+        "{heading_three}"
+    );
+    // A heading that jumps up a level is not one a screen reader can follow.
+    assert!(!heading_three.contains("<h2>"), "{heading_three}");
+}
+
+#[test]
+fn an_empty_state_escapes_the_title_and_body_but_not_the_actions() {
+    let markup = crate::web::html::empty_state(
+        "<script>alert(1)</script>",
+        "Quotes \" and & ampersands",
+        r#"<a class="btn" href="/nodes">Go</a>"#,
+    );
+    // The title and body are operator-facing text, so they are escaped:
+    // the markup never reaches the page as markup.
+    assert!(!markup.contains("<script>alert(1)</script>"), "{markup}");
+    assert!(
+        markup.contains("&lt;script&gt;alert(1)&lt;/script&gt;"),
+        "{markup}"
+    );
+    assert!(markup.contains("&quot; and &amp; ampersands"), "{markup}");
+    // The action is markup the page built itself.
+    assert!(
+        markup.contains(r#"<a class="btn" href="/nodes">Go</a>"#),
+        "{markup}"
+    );
+}
+
+#[test]
+fn the_pending_marker_is_hidden_until_the_form_is_submitted() {
+    let marker = crate::web::html::pending_marker("Collecting…");
+    assert!(marker.contains(r#"data-pending"#), "{marker}");
+    assert!(marker.contains(r#"role="status""#), "{marker}");
+    // The stylesheet keeps it out of the way until the script reveals it.
+    let styles = crate::web::assets::CSS;
+    assert!(
+        styles.contains(".pending { display: none;"),
+        "the pending marker must start hidden"
+    );
+    assert!(
+        styles.contains(r#"form[data-pending-state="running"] .pending"#),
+        "nothing reveals the pending marker"
+    );
+}
+
+#[test]
+fn the_bundled_script_reveals_the_pending_marker_without_blocking_the_submit() {
+    let script = crate::web::assets::SCRIPT;
+    assert!(
+        script.contains("[data-pending]"),
+        "the pending marker is rendered but nothing looks for it"
+    );
+    assert!(
+        script.contains(r#"data-pending-state"#),
+        "the script never marks the form as running"
+    );
+    // The listener must not call `preventDefault`: a form that takes a while
+    // still has to submit when the operator clicks it.
+    //
+    // The script has more than one submit listener, so the pending one is
+    // found by what it looks for rather than by being the first.
+    let listener = script
+        .split("addEventListener(\"submit\"")
+        .find(|section| section.contains("[data-pending]"))
+        .expect("a submit listener that looks for the pending marker");
+    let handler = &listener[..listener.len().min(600)];
+    assert!(
+        !handler.contains("preventDefault"),
+        "the pending listener blocks the submission: {handler}"
+    );
+}

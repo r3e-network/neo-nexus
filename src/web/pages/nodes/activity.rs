@@ -38,7 +38,15 @@ pub fn instance_activity_card(state: &WebState, node: &NodeConfig) -> String {
         .collect::<Vec<_>>();
 
     let content = if rows.is_empty() {
-        html::note("No lifecycle audit events recorded for this instance yet.")
+        // The panel's own title is an `h3`, so the empty state's heading has to
+        // be an `h3` too: a heading that jumps up a level is not one a screen
+        // reader can follow.
+        html::empty_state_at(
+            3,
+            "No activity recorded",
+            "This workspace has not recorded any lifecycle change for this instance yet.",
+            "",
+        )
     } else {
         html::table(&["Time", "Severity", "Action", "Audit Details"], &rows)
     };

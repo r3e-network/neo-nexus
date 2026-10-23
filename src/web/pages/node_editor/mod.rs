@@ -374,11 +374,14 @@ fn apply_node_settings(state: &WebState, draft: &NodeDraft, node: &NodeConfig) -
 }
 
 /// The flash an operator sees: what happened, plus anything that did not.
-fn outcome_message(saved: &str, unapplied: &[String]) -> String {
+fn outcome_message(saved: &str, unapplied: &[String]) -> html::Flash {
     if unapplied.is_empty() {
-        return saved.to_string();
+        return html::Flash::ok(saved);
     }
-    format!("{saved} But {}.", unapplied.join("; "))
+    // The node was written, but some of the settings beside it were not. That
+    // is a partial success, and it has to read differently from a clean one:
+    // the operator is looking at a node that is not what they asked for.
+    html::Flash::danger(format!("{saved} But {}.", unapplied.join("; ")))
 }
 
 fn render(
@@ -503,7 +506,7 @@ fn render(
             "Provision a blockchain virtual machine instance with automated networking, isolated IAM identity, and guest agent copilot.",
             "",
         ),
-        summary = summary(errors),
+        summary = crate::web::form_state::banner(errors),
         target = mode.post_target(),
         cancel = mode.cancel_target(),
         save = mode.submit_label(),
@@ -524,22 +527,6 @@ fn render(
     Html(html::layout("Node", "nodes", "", &body)).into_response()
 }
 
-fn summary(errors: &FieldErrors) -> String {
-    let general = errors
-        .get("general")
-        .map(|message| html::notice("danger", message))
-        .unwrap_or_default();
-    let count = errors
-        .len()
-        .saturating_sub(usize::from(errors.contains_key("general")));
-    let header = match count {
-        0 => String::new(),
-        1 => html::notice("danger", "One field needs attention."),
-        count => html::notice("danger", &format!("{count} fields need attention.")),
-    };
-    format!("{header}{general}")
-}
-
 fn load_nodes(state: &WebState) -> Vec<NodeConfig> {
     state.workspace.list_nodes().unwrap_or_default()
 }
@@ -548,12 +535,8 @@ fn find_node(state: &WebState, id: &str) -> Option<NodeConfig> {
     load_nodes(state).into_iter().find(|node| node.id == id)
 }
 
-fn redirect_to(id: &str, message: &str) -> String {
-    format!(
-        "/nodes/{}?flash={}",
-        html::urlencoding_lite(id),
-        html::urlencoding_lite(message)
-    )
+fn redirect_to(id: &str, flash: &html::Flash) -> String {
+    flash.redirect(&format!("/nodes/{}", html::urlencoding_lite(id)))
 }
 
 /// The journal is an audit trail, not a precondition: a failed write must not

@@ -40,7 +40,7 @@ pub async fn home(State(state): State<WebState>) -> Response {
         Err(error) => Html(html::layout(
             "Console Home",
             "home",
-            &format!("failed to load the fleet overview: {error}"),
+            format!("failed to load the fleet overview: {error}"),
             "",
         ))
         .into_response(),

@@ -2,7 +2,7 @@
 
 use crate::web::assets::DensityMode;
 
-use super::primitives::{escape, flash_banner};
+use super::primitives::{escape, flash_banner, Flash};
 
 /// Title, one line of context, and the actions that apply to the page.
 pub fn page_head(title: &str, subtitle: &str, actions: &str) -> String {
@@ -49,7 +49,7 @@ pub fn breadcrumb(items: &[(&str, &str)]) -> String {
 ///
 /// Renders at the comfortable density. Pages that resolve the stored density
 /// preference call [`layout_with_density`] instead.
-pub fn layout(title: &str, active: &str, flash: &str, body: &str) -> String {
+pub fn layout(title: &str, active: &str, flash: impl Into<Flash>, body: &str) -> String {
     layout_with_density(title, active, flash, body, DensityMode::DEFAULT)
 }
 
@@ -59,7 +59,7 @@ pub fn layout(title: &str, active: &str, flash: &str, body: &str) -> String {
 pub fn layout_with_density(
     title: &str,
     active: &str,
-    flash: &str,
+    flash: impl Into<Flash>,
     body: &str,
     density: DensityMode,
 ) -> String {
@@ -128,7 +128,7 @@ pub fn layout_with_density(
         nav = crate::web::nav::render(active),
         service_menu = crate::web::nav::service_menu(),
         mobile_nav = crate::web::nav::render(active),
-        flash_banner = flash_banner(flash),
+        flash_banner = flash_banner(&flash.into()),
         body = body,
         density_class = density.body_class(),
     )

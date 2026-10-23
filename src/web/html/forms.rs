@@ -217,22 +217,35 @@ pub fn danger_control_form(action: &str, fields: &[(&str, &str)], label: &str) -
     control_form_with_class(action, fields, label, "danger")
 }
 
+/// A control for an action that takes a while, with a marker that says so once
+/// the form is submitted.
+///
+/// The marker is invisible until the bundled script sees the submission, so a
+/// browser without scripting sees exactly the control it always saw. It sits
+/// inside the form, because that is what the styling keys off.
+pub fn pending_control_form(
+    action: &str,
+    fields: &[(&str, &str)],
+    label: &str,
+    message: &str,
+) -> String {
+    let hidden = hidden_fields(fields);
+    format!(
+        r#"<form method="post" action="{action}">{hidden}<button type="submit">{label}</button>{marker}</form>"#,
+        action = escape(action),
+        hidden = hidden,
+        label = escape(label),
+        marker = super::primitives::pending_marker(message),
+    )
+}
+
 fn control_form_with_class(
     action: &str,
     fields: &[(&str, &str)],
     label: &str,
     class: &str,
 ) -> String {
-    let hidden = fields
-        .iter()
-        .map(|(name, value)| {
-            format!(
-                r#"<input type="hidden" name="{}" value="{}">"#,
-                escape(name),
-                escape(value)
-            )
-        })
-        .collect::<String>();
+    let hidden = hidden_fields(fields);
     let class = if class.is_empty() {
         String::new()
     } else {
@@ -243,6 +256,19 @@ fn control_form_with_class(
         action = escape(action),
         label = escape(label)
     )
+}
+
+fn hidden_fields(fields: &[(&str, &str)]) -> String {
+    fields
+        .iter()
+        .map(|(name, value)| {
+            format!(
+                r#"<input type="hidden" name="{}" value="{}">"#,
+                escape(name),
+                escape(value)
+            )
+        })
+        .collect::<String>()
 }
 
 /// A dropdown whose options are values the server produced, so an operator can
@@ -280,6 +306,46 @@ pub struct TextField<'a> {
     /// Take the whole grid row instead of one column.
     pub full_width: bool,
     pub placeholder: Option<&'a str>,
+    /// Refuse an empty value.
+    ///
+    /// Only for fields the domain genuinely cannot do without. A field whose
+    /// empty value means "assign one for me" — a port, a runtime version —
+    /// must not be marked required, or the browser blocks a submission the
+    /// server would have accepted.
+    pub required: bool,
+    /// The lower bound of a numeric value.
+    pub min: Option<&'a str>,
+    /// The upper bound of a numeric value.
+    pub max: Option<&'a str>,
+    /// The granularity a numeric value steps by.
+    pub step: Option<&'a str>,
+    /// The shape a value must match, as a regular expression.
+    ///
+    /// The pattern is matched against the whole value, so it needs the
+    /// anchors the domain expects rather than a loose fragment.
+    pub pattern: Option<&'a str>,
+    /// The longest value the domain will accept.
+    pub maxlength: Option<&'a str>,
+    /// The input type. A numeric field gets `type="number"`, which gives the
+    /// browser a spinner and rejects stray letters before submission.
+    pub input_type: TextInputType,
+}
+
+/// The kind of control a [`TextField`] renders.
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
+pub enum TextInputType {
+    #[default]
+    Text,
+    Number,
+}
+
+impl TextInputType {
+    fn attribute(self) -> &'static str {
+        match self {
+            TextInputType::Text => "text",
+            TextInputType::Number => "number",
+        }
+    }
 }
 
 /// A labelled dropdown over server-provided options.
@@ -298,6 +364,8 @@ pub struct ChoiceField<'a> {
     /// only: an explicit submit button with the same value works without scripting.
     pub auto_submit: Option<&'a str>,
     pub full_width: bool,
+    /// Refuse an empty value.
+    pub required: bool,
 }
 
 impl TextField<'_> {
@@ -317,14 +385,17 @@ impl TextField<'_> {
             .map(|text| format!(r#" placeholder="{}""#, escape(text)))
             .unwrap_or_default();
         format!(
-            r#"<label class="field{classes}" for="{id}"><span>{label}</span><input id="{id}" name="{name}" value="{value}"{control_class}{placeholder}{invalid}{described}>{messages}</label>"#,
+            r#"<label class="field{classes}" for="{id}"><span>{label}</span><input id="{id}" type="{input_type}" name="{name}" value="{value}"{control_class}{placeholder}{required}{bounds}{invalid}{described}>{messages}</label>"#,
             classes = field_classes(self.error, self.full_width),
             id = id,
             label = escape(self.label),
             name = escape(self.name),
             value = escape(self.value),
+            input_type = self.input_type.attribute(),
             control_class = control_class,
             placeholder = placeholder,
+            required = if self.required { " required" } else { "" },
+            bounds = self.bounds(),
             invalid = if self.error.is_some() {
                 r#" aria-invalid="true""#
             } else {
@@ -333,6 +404,28 @@ impl TextField<'_> {
             described = describe(&id, self.help, self.error),
             messages = field_messages(&id, self.help, self.error),
         )
+    }
+
+    /// The constraint attributes, in a fixed order so a rendered page is
+    /// stable between renders.
+    fn bounds(&self) -> String {
+        let mut bounds = String::new();
+        if let Some(min) = self.min {
+            bounds.push_str(&format!(r#" min="{}""#, escape(min)));
+        }
+        if let Some(max) = self.max {
+            bounds.push_str(&format!(r#" max="{}""#, escape(max)));
+        }
+        if let Some(step) = self.step {
+            bounds.push_str(&format!(r#" step="{}""#, escape(step)));
+        }
+        if let Some(pattern) = self.pattern {
+            bounds.push_str(&format!(r#" pattern="{}""#, escape(pattern)));
+        }
+        if let Some(maxlength) = self.maxlength {
+            bounds.push_str(&format!(r#" maxlength="{}""#, escape(maxlength)));
+        }
+        bounds
     }
 }
 
@@ -360,11 +453,12 @@ impl ChoiceField<'_> {
             })
             .collect::<String>();
         format!(
-            r#"<label class="field{classes}" for="{id}"><span>{label}</span><select id="{id}" name="{name}"{auto}{invalid}{described}>{options}</select>{messages}</label>"#,
+            r#"<label class="field{classes}" for="{id}"><span>{label}</span><select id="{id}" name="{name}"{required}{auto}{invalid}{described}>{options}</select>{messages}</label>"#,
             classes = field_classes(self.error, self.full_width),
             id = id,
             label = escape(self.label),
             name = escape(self.name),
+            required = if self.required { " required" } else { "" },
             auto = match self.auto_submit {
                 Some(action) => format!(r#" data-autosubmit="{}""#, escape(action)),
                 None => String::new(),
@@ -432,6 +526,30 @@ pub fn text_field(label: &str, name: &str, value: &str) -> String {
         label,
         name,
         value,
+        ..TextField::default()
+    }
+    .render()
+}
+
+/// A bounded number input.
+///
+/// The bounds belong to the domain, not to the browser: this is the same
+/// range the server enforces, so the browser catches a mistake before the
+/// round trip rather than after it.
+pub fn number_field(
+    label: &str,
+    name: &str,
+    value: &str,
+    min: Option<&str>,
+    max: Option<&str>,
+) -> String {
+    TextField {
+        label,
+        name,
+        value,
+        min,
+        max,
+        input_type: TextInputType::Number,
         ..TextField::default()
     }
     .render()

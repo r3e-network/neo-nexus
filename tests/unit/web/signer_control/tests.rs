@@ -348,6 +348,45 @@ fn a_grant_names_keys_rather_than_labels() {
 }
 
 #[test]
+fn a_refused_boundary_names_the_field_the_operator_has_to_change() {
+    // Attribution is the whole point of the redraw. An error beside the wrong
+    // control is worse than no error at all: the operator "fixes" a field that
+    // was never wrong, resubmits, and is refused again by the field they never
+    // looked at. These are the pair rules — the half of a limit that is missing
+    // is where the typing has to happen, not the half that is already right.
+    let cases: [(&[(&str, &str)], &str); 6] = [
+        (&[("window_max_amount", "500")], "window_seconds"),
+        (&[("window_seconds", "3600")], "window_max_amount"),
+        (
+            &[("window_seconds", "soon"), ("window_max_amount", "500")],
+            "window_seconds",
+        ),
+        (
+            &[("signature_window_seconds", "60")],
+            "signature_window_count",
+        ),
+        (
+            &[("signature_window_count", "5")],
+            "signature_window_seconds",
+        ),
+        (&[("asset_limits", "not-json")], "asset_limits"),
+    ];
+    for (overrides, expected) in cases {
+        let refusal = build_policy(&policy_form(overrides))
+            .err()
+            .unwrap_or_else(|| unreachable!("{overrides:?} is not a valid boundary"));
+        assert_eq!(
+            refusal.field, expected,
+            "{overrides:?} landed beside the wrong control"
+        );
+        assert!(
+            !refusal.message.is_empty(),
+            "{overrides:?} was blamed with nothing to say"
+        );
+    }
+}
+
+#[test]
 fn a_workload_form_keeps_every_selected_key_and_rejects_ambiguous_scalars() {
     let form = workload_caller_form(
         b"label=validator&grant=only&keys=key-1&keys=key-2&capability=sign&origins=https%3A%2F%2Fconsole.example&workload_public_key=d75a&workload_subject=validator-01",

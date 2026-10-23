@@ -15,8 +15,8 @@ use tower_http::timeout::TimeoutLayer;
 
 use super::api_tokens::{api_permissions::RequiredPermission, require_permission, AuthIdentity};
 use super::{
-    api, api_tokens, control, health, pages, plugin_ops, public_api, signer_api, signer_control,
-    snapshot_ops, wallet_ops, WebState,
+    api, api_tokens, control, health, pages, plugin_ops, public_api, ready, signer_api,
+    signer_control, snapshot_ops, wallet_ops, WebState,
 };
 use crate::signer_client::MAX_REQUEST_BODY_BYTES;
 
@@ -67,6 +67,10 @@ pub fn build_router(state: WebState) -> Router {
             get(pages::login::login_page).post(pages::login::login_submit),
         )
         .route("/healthz", get(health::healthz))
+        // Liveness says the process is alive; readiness says the workspace can
+        // serve. An orchestrator needs the second one, and it needs it to be
+        // honest, so a blocked workspace answers 503 here.
+        .route("/ready", get(ready::ready))
         .route("/api/public/status", get(public_api::status))
         // The signing API is deliberately outside the session layer, which is
         // not the same as outside authentication: a caller is a program holding
@@ -117,6 +121,10 @@ pub fn build_router(state: WebState) -> Router {
         )
         .route("/monitor", get(pages::monitor::monitor))
         .route("/logs", get(pages::logs::logs).post(control::clear_logs))
+        // The destructive log reset gets its own confirmation page. A GET, so
+        // the operator has to go through it deliberately, and the deletion
+        // itself is the POST that follows.
+        .route("/logs/clear", get(pages::logs::clear_logs_confirmation))
         .route("/operations", get(pages::operations::operations))
         .route(
             "/operations/support-bundle",
@@ -149,6 +157,9 @@ pub fn build_router(state: WebState) -> Router {
         .route("/federation", get(pages::federation::federation))
         .route("/federation/new", post(pages::federation::create))
         .route("/federation/{id}", post(pages::federation::update))
+        // The save route above existed with nothing pointing at it. This is
+        // the page an operator reaches to change one field of a peer.
+        .route("/federation/{id}/edit", get(pages::federation::edit))
         .route("/federation/{id}/delete", post(pages::federation::delete))
         .route("/federation/{id}/toggle", post(pages::federation::toggle))
         .route("/federation/{id}/probes", get(pages::federation::probes))
@@ -270,6 +281,12 @@ pub fn build_router(state: WebState) -> Router {
             "/api/readiness",
             get(api::readiness).route_layer(middleware::from_fn(|req: Request, next: Next| {
                 require_permission(req, next, RequiredPermission::ReadReadiness)
+            })),
+        )
+        .route(
+            "/api/jobs",
+            get(api::jobs).route_layer(middleware::from_fn(|req: Request, next: Next| {
+                require_permission(req, next, RequiredPermission::ReadFleet)
             })),
         )
         .route(

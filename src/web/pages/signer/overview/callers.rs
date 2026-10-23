@@ -35,11 +35,21 @@ pub fn caller_table(callers: &[Caller]) -> String {
                 html::raw_cell(&state_badge(!caller.disabled)),
                 html::raw_cell(&format!(
                     r#"<div class="row-actions">{}{}<a class="btn small danger" href="/signer/callers/{path}/delete">Delete</a></div>"#,
-                    html::control_form(
-                        &format!("/signer/callers/{path}/state"),
-                        &[("disabled", if caller.disabled { "false" } else { "true" })],
-                        if caller.disabled { "Enable" } else { "Disable" }
-                    ),
+                    // Disabling a caller withdraws its authority; enabling it
+                    // grants it back. Only the first is the destructive one.
+                    if caller.disabled {
+                        html::control_form(
+                            &format!("/signer/callers/{path}/state"),
+                            &[("disabled", "false")],
+                            "Enable",
+                        )
+                    } else {
+                        html::danger_control_form(
+                            &format!("/signer/callers/{path}/state"),
+                            &[("disabled", "true")],
+                            "Disable",
+                        )
+                    },
                     rotate,
                 )),
             ])
@@ -121,12 +131,19 @@ pub fn new_workload_caller_form(keys: &[KeyPublic]) -> String {
 <button type="submit">Register workload</button></form></div>"#,
         label = field_with_id("workload-caller-label", "Label", "label", "", None),
         options = key_options(keys),
-        public_key = field_input(
-            "Ed25519 public key",
-            "workload_public_key",
-            "",
-            Some("Exactly 32 bytes as 64 hexadecimal characters.")
-        ),
+        public_key = html::TextField {
+            label: "Ed25519 public key",
+            name: "workload_public_key",
+            value: "",
+            help: Some("Exactly 32 bytes as 64 hexadecimal characters."),
+            // The custody service checks the length and the alphabet; saying
+            // so in the markup lets the browser catch a mistyped key before
+            // the request leaves.
+            pattern: Some("[0-9a-fA-F]{64}"),
+            maxlength: Some("64"),
+            ..Default::default()
+        }
+        .render(),
         subject = field_input(
             "Workload subject",
             "workload_subject",

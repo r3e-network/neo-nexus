@@ -10,7 +10,7 @@ use axum::{
     response::{Html, IntoResponse, Response},
 };
 
-use super::super::{html, WebState};
+use super::super::{form_state::FieldErrors, html, signer_form::PolicyForm, WebState};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum SignerTab {
@@ -71,13 +71,33 @@ pub async fn key_detail(
 /// Render the caller-management surface after minting or rotating a token.
 /// The signature is retained for `signer_control`; direct control responses
 /// land on Callers, where the one-time value belongs.
-pub(crate) async fn render(state: &WebState, flash: &str, secret: Option<&str>) -> Response {
+pub(crate) async fn render(
+    state: &WebState,
+    flash: &html::Flash,
+    secret: Option<&str>,
+) -> Response {
     render_tab(state, flash, secret, SignerTab::Callers).await
+}
+
+/// Render the key page with the boundary an operator posted still in its form.
+///
+/// The signature is retained for `signer_control`. Unlike the other control
+/// responses this one does not redirect: a boundary that did not save *is* the
+/// page, with the text still on it and the refusal beside the field it belongs
+/// to. The caller gets the read failure back rather than a rendered apology,
+/// because the caller is the one still holding the operator's text.
+pub(crate) async fn render_with_policy_draft(
+    state: &WebState,
+    id: &str,
+    draft: &PolicyForm,
+    errors: &FieldErrors,
+) -> anyhow::Result<Response> {
+    key::render_with_policy_draft(state, id, draft, errors).await
 }
 
 async fn render_tab(
     state: &WebState,
-    flash: &str,
+    flash: &html::Flash,
     secret: Option<&str>,
     tab: SignerTab,
 ) -> Response {

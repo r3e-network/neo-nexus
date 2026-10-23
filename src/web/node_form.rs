@@ -7,8 +7,6 @@
 //! `NodeType::supports_storage_engine`, `parse_argv_text` — so the form cannot
 //! drift from what `Repository::create_node` will accept.
 
-use std::collections::BTreeMap;
-
 use crate::{
     argv::{format_argv, parse_argv_text},
     core::node::{
@@ -36,7 +34,12 @@ fn is_default_or_generic_binary(path: &str) -> bool {
 }
 
 /// Field name → the message to show under that field.
-pub type FieldErrors = BTreeMap<&'static str, String>;
+///
+/// The type lives in [`crate::web::form_state`] so the other forms in this
+/// console can report a rejected submission the same way: the error lands
+/// beside the control that caused it. Re-exported here because the node
+/// editor is where the convention was established.
+pub use crate::web::form_state::FieldErrors;
 
 /// Every node field as posted text. This doubles as the form model, so the
 /// field names appear in exactly one place.

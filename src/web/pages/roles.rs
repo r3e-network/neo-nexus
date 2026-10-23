@@ -39,7 +39,7 @@ pub async fn roles(
     Html(html::layout(
         "Private network",
         "roles",
-        &html::flash(raw.as_deref()),
+        html::flash(raw.as_deref()),
         &body,
     ))
     .into_response()
@@ -119,7 +119,11 @@ fn short_reason(reason: &str) -> &str {
 
 fn role_planner(nodes: &[NodeConfig], params: &RoleQuery) -> String {
     let Some(node) = pick_node(nodes, &params.node) else {
-        return html::note("No nodes are registered yet, so there is no node to plan a role for.");
+        return html::empty_state(
+            "No instances registered",
+            "Register a node instance to plan what adopting a duty would change.",
+            r#"<a class="btn primary" href="/nodes/new">Launch an instance</a>"#,
+        );
     };
     let filters = planner_form(nodes, node, &params.role);
     let Some(role) = pick_role(&params.role) else {
@@ -196,7 +200,11 @@ fn role_planner(nodes: &[NodeConfig], params: &RoleQuery) -> String {
             .unwrap_or_default(),
         filters = filters,
         changes = if changes.is_empty() {
-            html::note("Adopting this duty changes no plugins on this runtime.")
+            html::empty_state(
+                "No plugin changes",
+                "Adopting this duty changes no plugins on this runtime.",
+                "",
+            )
         } else {
             html::table(&["Plugin", "Change", "Why"], &changes)
         },
@@ -264,12 +272,15 @@ pub async fn apply_role(
         });
         Ok(message)
     })();
-    let message = result.unwrap_or_else(|error| format!("duty not applied: {error}"));
+    let flash = result.map_or_else(
+        |error| crate::web::html::Flash::danger(format!("duty not applied: {error}")),
+        crate::web::html::Flash::ok,
+    );
     Redirect::to(&format!(
-        "/roles?node={}&role={}&flash={}",
+        "/roles?node={}&role={}&{}",
         crate::web::html::urlencoding_lite(&id),
         crate::web::html::urlencoding_lite(input.role.trim()),
-        crate::web::html::urlencoding_lite(&message),
+        flash.query(),
     ))
     .into_response()
 }

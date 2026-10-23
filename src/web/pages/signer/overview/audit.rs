@@ -5,7 +5,12 @@ use crate::{
 
 pub fn audit_table(rows: &[AuditRow], keys: &[KeyPublic], callers: &[Caller]) -> String {
     if rows.is_empty() {
-        return html::note("Nothing has been asked of this service yet.");
+        return html::empty_state(
+            "No audit entries yet",
+            "Nothing has been asked of the signer service yet, so there is no decision history \
+             to show.",
+            "",
+        );
     }
     let body = rows
         .iter()

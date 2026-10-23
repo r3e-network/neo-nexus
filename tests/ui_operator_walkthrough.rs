@@ -203,7 +203,7 @@ fn density_comfortable_rendering() {
     let http = agent();
     let base = &server.base_url;
     let session = signed_in(&http, base);
-    create_node(&server.db_path, "comfortable-node", 41332);
+    create_node(&server.db_path, "comfortable-node", 27132);
 
     // Density is unset, so the shell falls back to the comfortable default.
     let nodes = get_page(&http, &session, &format!("{base}/nodes"));
@@ -244,7 +244,7 @@ fn density_compact_rendering() {
     let http = agent();
     let base = &server.base_url;
     let session = signed_in(&http, base);
-    create_node(&server.db_path, "compact-node", 42332);
+    create_node(&server.db_path, "compact-node", 27232);
 
     set_density(&http, &session, base, "compact");
 
@@ -269,7 +269,7 @@ fn density_compact_rendering() {
         "the compact row keeps a named link to the node"
     );
     assert!(
-        nodes.contains("RPC 42332"),
+        nodes.contains("RPC 27232"),
         "the compact row still shows the RPC port"
     );
 }
@@ -280,7 +280,7 @@ fn chrome_invariance_across_modes() {
     let http = agent();
     let base = &server.base_url;
     let session = signed_in(&http, base);
-    create_node(&server.db_path, "chrome-node", 43332);
+    create_node(&server.db_path, "chrome-node", 26232);
 
     // Comfortable first, then compact through the same settings path.
     let comfortable = get_page(&http, &session, &format!("{base}/nodes"));
@@ -315,7 +315,7 @@ fn density_preference_persists_across_page_loads() {
     let http = agent();
     let base = &server.base_url;
     let session = signed_in(&http, base);
-    create_node(&server.db_path, "persist-node", 44332);
+    create_node(&server.db_path, "persist-node", 26332);
 
     // Starts comfortable.
     let before = get_page(&http, &session, &format!("{base}/nodes"));

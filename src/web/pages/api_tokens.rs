@@ -27,17 +27,23 @@ pub async fn api_tokens_page(
 }
 
 /// Form POST handler for creating new API tokens
+///
+/// A rejected form comes back as the form again, with the problem marked on
+/// the field that caused it. The alternative — a bare `400` with a sentence on
+/// a blank page — threw away everything the operator had typed and took the
+/// navigation with it.
 pub async fn create_token(
     State(state): State<WebState>,
     Form(form_data): Form<TokenCreateForm>,
-) -> Result<Response, (StatusCode, String)> {
+) -> Response {
     let name = form_data.name.trim();
 
     if name.is_empty() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "Token name is required".to_string(),
-        ));
+        return render_form(
+            &state,
+            &form_data,
+            "Give the access key a name, so it can be told apart in the audit trail.",
+        );
     }
 
     // Build permissions from form data
@@ -55,10 +61,12 @@ pub async fn create_token(
 
     // Require at least one permission
     if permissions.is_empty() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "Select at least one permission".to_string(),
-        ));
+        return render_form(
+            &state,
+            &form_data,
+            "Select at least one permission. A key with no grants can authenticate \
+             against nothing.",
+        );
     }
 
     // Create the token (no expiration for now)
@@ -71,14 +79,42 @@ pub async fn create_token(
                 severity: crate::events::EventSeverity::Info,
                 message: format!("created API token '{}' ({})", token.name, token.id),
             });
+            // The secret is shown on a full page, not a bare fragment: the copy
+            // button that reads it is driven by the bundled script, and the
+            // script only exists on a rendered page.
             let body = render_with_created_token(&state.workspace, &token, &secret);
-            Ok(Html(body).into_response())
+            Html(html::layout("API Tokens", "settings", "", &body)).into_response()
         }
-        Err(e) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Error creating token: {}", e),
-        )),
+        Err(e) => render_form(
+            &state,
+            &form_data,
+            &format!("The access key could not be created: {e}"),
+        ),
     }
+}
+
+/// The form again, with the reason it was rejected.
+///
+/// The reason is a page-level notice rather than a field-level one for the
+/// permission case: no single checkbox is at fault, the set is.
+fn render_form(state: &WebState, form: &TokenCreateForm, reason: &str) -> Response {
+    let body = match render_body_with_form(state, form) {
+        Ok(body) => body,
+        Err(error) => {
+            let body = html::notice(
+                "danger",
+                &format!("failed to load the access key inventory: {error}"),
+            );
+            return Html(html::layout("API Tokens", "settings", "", &body)).into_response();
+        }
+    };
+    let notice = html::notice("danger", reason);
+    let body = body.replacen(
+        "<h2 style=\"margin-top: 0; font-size: 16px;\">Create Access Key</h2>",
+        &format!("<h2 style=\"margin-top: 0; font-size: 16px;\">Create Access Key</h2>{notice}"),
+        1,
+    );
+    Html(html::layout("API Tokens", "settings", "", &body)).into_response()
 }
 
 /// POST handler for deleting a token
@@ -96,15 +132,11 @@ pub async fn delete_token(State(state): State<WebState>, Path(token_id): Path<St
     })();
 
     let flash = match outcome {
-        Ok(()) => format!("API token {token_id} deleted"),
-        Err(e) => format!("failed to delete token: {e}"),
+        Ok(()) => html::Flash::ok(format!("API token {token_id} deleted")),
+        Err(e) => html::Flash::danger(format!("failed to delete token: {e}")),
     };
 
-    Redirect::to(&format!(
-        "/settings/api-tokens?flash={}",
-        html::urlencoding_lite(&flash)
-    ))
-    .into_response()
+    Redirect::to(&flash.redirect("/settings/api-tokens")).into_response()
 }
 
 fn is_checked(val: Option<&str>) -> bool {
@@ -131,6 +163,32 @@ pub struct TokenCreateForm {
 
 fn render_body(
     workspace: &crate::core::workspace_queries::WorkspaceQueries,
+) -> anyhow::Result<String> {
+    render_body_with_form_values(workspace, None)
+}
+
+/// The same page, with the form filled in from what the operator had typed.
+///
+/// A rejected form comes back with the name they entered still in the field,
+/// so the fix is one checkbox away rather than a page of retyping.
+fn render_body_with_form(state: &WebState, form: &TokenCreateForm) -> anyhow::Result<String> {
+    let name = form.name.trim().to_string();
+    render_body_with_form_values(
+        &state.workspace,
+        Some((
+            name,
+            is_checked(form.read_fleet.as_deref()),
+            is_checked(form.read_readiness.as_deref()),
+            is_checked(form.admin_all.as_deref()),
+        )),
+    )
+}
+
+type FormValues = (String, bool, bool, bool);
+
+fn render_body_with_form_values(
+    workspace: &crate::core::workspace_queries::WorkspaceQueries,
+    values: Option<FormValues>,
 ) -> anyhow::Result<String> {
     let tokens = workspace.list_api_tokens()?;
     let token_table = render_token_table(&tokens);
@@ -162,7 +220,7 @@ fn render_body(
     </section>
 </div>"#,
         tokens.iter().filter(|t| !t.is_expired()).count(),
-        creation_form = create_token_form(),
+        creation_form = create_token_form(values),
         token_table = token_table
     ))
 }
@@ -269,45 +327,59 @@ fn render_token_details(token: &crate::wallet::ApiToken) -> String {
     )
 }
 
-fn create_token_form() -> String {
-    r#"<form method="post" action="/settings/api-tokens/create" class="filters" style="display: flex; flex-direction: column; gap: 14px;">
+fn create_token_form(values: Option<FormValues>) -> String {
+    let (name, read_fleet, read_readiness, admin_all) =
+        values.unwrap_or_else(|| (String::new(), false, false, false));
+    let checked = |value: bool| if value { " checked" } else { "" };
+    format!(
+        r#"<form method="post" action="/settings/api-tokens/create" class="filters" style="display: flex; flex-direction: column; gap: 14px;">
     <div class="form-group">
         <label for="token-name" style="font-weight: 600; font-size: 13px; display: block; margin-bottom: 4px;">Access Key Name</label>
-        <input type="text" id="token-name" name="name" placeholder="e.g. CI-CD-Deployer or Hermes-Autonomic" required style="width: 100%;">
+        <input type="text" id="token-name" name="name" value="{name}" placeholder="e.g. CI-CD-Deployer or Hermes-Autonomic" required style="width: 100%;">
         <div class="muted" style="font-size: 11px; margin-top: 4px;">Descriptive identifier for IAM audit tracking in CloudTrail.</div>
     </div>
-    
+
     <div class="form-group">
-        <label style="font-weight: 600; font-size: 13px; display: block; margin-bottom: 6px;">IAM Permission Boundary Policies</label>
-        <div style="display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; border: 1px solid var(--line);">
+        <fieldset style="border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px;">
+        <legend style="font-weight: 600; font-size: 13px; padding: 0 6px;">IAM Permission Boundary Policies</legend>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
             <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
-                <input type="checkbox" name="read_fleet" value="true"> <code>read_fleet</code> — every node's configuration and state, read only
+                <input type="checkbox" name="read_fleet" value="true"{read_fleet}> <code>read_fleet</code> — every node's configuration and state, read only
             </label>
             <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
-                <input type="checkbox" name="read_readiness" value="true"> <code>read_readiness</code> — the readiness report, read only
+                <input type="checkbox" name="read_readiness" value="true"{read_readiness}> <code>read_readiness</code> — the readiness report, read only
             </label>
             <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
-                <input type="checkbox" name="admin_all" value="true"> <code>admin_all</code> — everything, including starting and stopping nodes
+                <input type="checkbox" name="admin_all" value="true"{admin_all}> <code>admin_all</code> — everything, including starting and stopping nodes
             </label>
         </div>
         <div class="muted" style="font-size: 11px; margin-top: 4px;">Assign least-privilege permission grants required for programmatic caller.</div>
+        </fieldset>
     </div>
-    
+
     <button type="submit" class="btn primary" style="align-self: flex-start; margin-top: 4px;">+ Create Access Key</button>
-</form>"#
-        .to_string()
+</form>"#,
+        name = html::escape(&name),
+        read_fleet = checked(read_fleet),
+        read_readiness = checked(read_readiness),
+        admin_all = checked(admin_all),
+    )
 }
 
 fn render_token_table(tokens: &[crate::wallet::ApiToken]) -> String {
     if tokens.is_empty() {
-        return "<p class='muted' style='padding: 12px 0;'>No IAM access key credentials have been generated yet.</p>".to_string();
+        return html::empty_state(
+            "No access keys yet",
+            "No IAM access key credentials have been generated yet. Create one above to \
+             let a program authenticate against this workspace.",
+            r##"<a class="btn primary" href="#token-name">Create an access key</a>"##,
+        );
     }
 
     let rows: Vec<String> = tokens
         .iter()
         .map(|token| {
             let id_display = token.display_id();
-            let name = escape_html(&token.name);
             let created_at = pretty_timestamp(token.created_at_unix);
             let expires = token.expires_at_unix.map_or_else(
                 || "Never".to_string(),
@@ -321,53 +393,40 @@ fn render_token_table(tokens: &[crate::wallet::ApiToken]) -> String {
                 r#"<span class="badge running">Active</span>"#
             };
 
-            format!(
-                r#"<tr>
-    <td><strong>{name}</strong></td>
-    <td><code class="mono" style="color: var(--cyan);">{id_display}</code></td>
-    <td class="mono muted" style="font-size: 11px;">{created_at}</td>
-    <td class="mono muted" style="font-size: 11px;">{expires}</td>
-    <td>{perms}</td>
-    <td>{status_badge}</td>
-    <td>
-        <form method="POST" action="/settings/api-tokens/{token_id}/delete" class="inline-form" data-confirm="Are you sure you want to permanently revoke API access key &#39;{name}&#39;?">
+            html::row(&[
+                // The name is operator-supplied, so it is escaped here; the
+                // surrounding markup is the page's own.
+                html::raw_cell(&format!("<strong>{}</strong>", html::escape(&token.name))),
+                html::raw_cell(&format!(
+                    r#"<code class="mono" style="color: var(--cyan);">{}</code>"#,
+                    html::escape(&id_display)
+                )),
+                html::cell(&created_at),
+                html::cell(&expires),
+                html::raw_cell(&perms),
+                html::raw_cell(status_badge),
+                html::raw_cell(&format!(
+                    r#"<form method="POST" action="/settings/api-tokens/{token_id}/delete" class="inline-form" data-confirm="Are you sure you want to permanently revoke API access key &#39;{name}&#39;?">
             <button type="submit" class="btn small danger">Revoke</button>
-        </form>
-    </td>
-</tr>"#,
-                name = name,
-                id_display = id_display,
-                created_at = created_at,
-                expires = expires,
-                perms = perms,
-                status_badge = status_badge,
-                token_id = token.id
-            )
+        </form>"#,
+                    token_id = html::escape(&token.id.to_string()),
+                    name = html::escape(&token.name)
+                )),
+            ])
         })
         .collect();
 
-    let rows_html = rows.join("\n");
-
-    format!(
-        r#"<div class="table-container">
-<table class="dashboard-table">
-    <thead>
-        <tr>
-            <th>Key Name</th>
-            <th>Access Key ID</th>
-            <th>Created</th>
-            <th>Expires</th>
-            <th>Policy Grants</th>
-            <th>Status</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {rows}
-    </tbody>
-</table>
-</div>"#,
-        rows = rows_html
+    html::table(
+        &[
+            "Key Name",
+            "Access Key ID",
+            "Created",
+            "Expires",
+            "Policy Grants",
+            "Status",
+            "Actions",
+        ],
+        &rows,
     )
 }
 

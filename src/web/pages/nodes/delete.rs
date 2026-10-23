@@ -74,7 +74,7 @@ pub async fn delete(State(state): State<WebState>, Path(id): Path<String>) -> Re
         state.commands.delete_node(&id)
     })();
 
-    let message = match outcome {
+    let flash = match outcome {
         Ok(()) => match state.commands.record_event(NewRuntimeEvent {
             node_id: Some(id.clone()),
             node_name: Some(name.clone()),
@@ -82,14 +82,14 @@ pub async fn delete(State(state): State<WebState>, Path(id): Path<String>) -> Re
             severity: EventSeverity::Warning,
             message: format!("{name} deleted"),
         }) {
-            Ok(_) => format!("{name} deleted."),
-            Err(error) => format!("{name} deleted, but its audit event failed: {error}"),
+            Ok(_) => html::Flash::ok(format!("{name} deleted.")),
+            // The node is gone, but the audit trail did not record it. That is
+            // a partial success and the operator has to be told so.
+            Err(error) => html::Flash::danger(format!(
+                "{name} deleted, but its audit event failed: {error}"
+            )),
         },
-        Err(error) => format!("delete failed: {error}"),
+        Err(error) => html::Flash::danger(format!("delete failed: {error}")),
     };
-    Redirect::to(&format!(
-        "/nodes?flash={}",
-        html::urlencoding_lite(&message)
-    ))
-    .into_response()
+    Redirect::to(&flash.redirect("/nodes")).into_response()
 }

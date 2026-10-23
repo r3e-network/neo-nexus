@@ -265,7 +265,7 @@ fn a_port_already_held_by_another_node_is_refused_and_named() {
         "rpc-front",
         NodeType::NeoGo,
         30332,
-        40333,
+        27142,
         None,
     )];
     let case = accepted(draft("probe", "neo-rs").validate(&fleet, None));
@@ -284,7 +284,7 @@ fn a_port_already_held_by_another_node_is_refused_and_named() {
         message.contains("are free"),
         "the refusal should offer ports that are actually free: {message}"
     );
-    for taken in ["30332 (", "40333 ("] {
+    for taken in ["30332 (", "27142 ("] {
         assert!(
             !message.contains(taken),
             "a port the fleet already holds was offered as free: {message}"
@@ -301,7 +301,7 @@ fn a_port_colliding_only_across_nodes_is_still_caught() {
         "rpc-front",
         NodeType::NeoGo,
         30333,
-        41333,
+        27143,
         None,
     )];
     let mut form = draft("probe", "neo-rs");

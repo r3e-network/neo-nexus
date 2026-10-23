@@ -20,7 +20,7 @@ pub async fn operations(
         Err(error) => Html(html::layout(
             "Operations",
             "operations",
-            &format!("failed to load operations data: {error}"),
+            format!("failed to load operations data: {error}"),
             "",
         ))
         .into_response(),
@@ -50,17 +50,21 @@ fn render(workspace: &WorkspaceQueries) -> anyhow::Result<String> {
     // Every artifact below was implemented, tested and reachable only from the
     // CLI — including the support bundle, whose whole purpose is to be handed
     // to someone else by the operator who is least likely to have a shell.
-    let ssm_bar = r#"<div class="aws-action-bar" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding: 10px 14px; flex-wrap: wrap; gap: 8px;">
+    let ssm_bar = format!(
+        r#"<div class="aws-action-bar" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding: 10px 14px; flex-wrap: wrap; gap: 8px;">
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted);">Produce:</span>
             <form method="post" action="/operations/support-bundle" style="display: inline; margin: 0;">
                 <button class="btn small primary" type="submit" title="Readiness, integrity, metrics and a redacted log diagnosis, checksummed — the thing to attach to a ticket">Support bundle</button>
+                {support_bundle_pending}
             </form>
             <form method="post" action="/operations/readiness-report" style="display: inline; margin: 0;">
                 <button class="btn small" type="submit" title="Write the readiness findings below to a file, as text and JSON">Readiness report</button>
+                {readiness_report_pending}
             </form>
             <form method="post" action="/operations/integrity-check" style="display: inline; margin: 0;">
                 <button class="btn small" type="submit" title="Check the workspace database itself: schema, indexes, foreign keys">Check the workspace database</button>
+                {integrity_check_pending}
             </form>
             <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted); margin-left: 6px;">Fleet:</span>
             <form method="post" action="/nodes/batch-action" style="display: inline; margin: 0;">
@@ -72,7 +76,13 @@ fn render(workspace: &WorkspaceQueries) -> anyhow::Result<String> {
         <div class="muted" style="font-size: 11px;">
             Artifacts are written beside the workspace and recorded in the journal.
         </div>
-    </div>"#;
+    </div>"#,
+        // Each of these reads the whole workspace, writes a file and checksums
+        // it. The operator used to click and watch nothing happen.
+        support_bundle_pending = html::pending_marker("Collecting…"),
+        readiness_report_pending = html::pending_marker("Writing…"),
+        integrity_check_pending = html::pending_marker("Checking…"),
+    );
 
     let opsitems_table = render_opsitems_table(&diagnostics);
 

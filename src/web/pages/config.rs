@@ -27,7 +27,7 @@ pub async fn config(State(state): State<WebState>, RawQuery(query): RawQuery) ->
     Html(html::layout(
         "Configuration",
         "config",
-        &html::flash(query.as_deref()),
+        html::flash(query.as_deref()),
         &body,
     ))
     .into_response()
@@ -121,8 +121,10 @@ fn render_body(state: &WebState, nodes: &[NodeConfig]) -> String {
     if nodes.is_empty() {
         return format!(
             "{breadcrumb}\n{head}\n{}",
-            html::note(
-                "No instances are registered yet, so there is no runtime configuration to manage."
+            html::empty_state(
+                "No instances registered",
+                "Register a node instance to give this workspace a runtime configuration to manage.",
+                r#"<a class="btn primary" href="/nodes/new">Launch an instance</a>"#,
             )
         );
     }
@@ -192,7 +194,12 @@ fn render_body(state: &WebState, nodes: &[NodeConfig]) -> String {
         export_note = html::note(
             "Export writes every node runtime config plus report files — the same artifact --export-node-configs produces.",
         ),
-        export_form = html::control_form("/config/export", &[], "Export workspace configs"),
+        export_form = html::pending_control_form(
+            "/config/export",
+            &[],
+            "Export workspace configs",
+            "Writing every config…",
+        ),
     )
 }
 
@@ -214,8 +221,10 @@ fn config_row(row: &ConfigRow) -> String {
         .is_ok_and(|report| report.status == ConfigDriftStatus::Drifted)
     {
         format!(
-            r#"<form method="post" action="/nodes/{id}/config/reconcile" style="display:inline;"><button type="submit" class="btn small" title="Rewrite this file from what NeoNexus would generate, keeping a copy of the current one">Put it back</button></form>"#,
+            r#"<form method="post" action="/nodes/{id}/config/reconcile" style="display:inline;"><button type="submit" class="btn small" title="Rewrite this file from what NeoNexus would generate, keeping a copy of the current one">Put it back</button>{pending}</form>"#,
             id = html::urlencoding_lite(&row.node.id),
+            // The reconciler writes the file and checksums what it replaced.
+            pending = html::pending_marker("Rewriting…"),
         )
     } else {
         String::new()
@@ -283,15 +292,11 @@ pub async fn export_all(State(state): State<WebState>) -> Response {
         });
         Ok(message)
     })();
-    let message = match outcome {
-        Ok(message) => message,
-        Err(error) => format!("export failed: {error}"),
+    let flash = match outcome {
+        Ok(message) => html::Flash::ok(message),
+        Err(error) => html::Flash::danger(format!("export failed: {error}")),
     };
-    Redirect::to(&format!(
-        "/config?flash={}",
-        html::urlencoding_lite(&message)
-    ))
-    .into_response()
+    Redirect::to(&flash.redirect("/config")).into_response()
 }
 
 fn database_path(state: &WebState) -> PathBuf {

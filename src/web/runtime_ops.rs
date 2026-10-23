@@ -19,7 +19,7 @@ use crate::{
     events::{EventKind, EventSeverity, NewRuntimeEvent},
 };
 
-use super::WebState;
+use super::{jobs::JobReporter, WebState};
 
 /// One runtime job at a time, across fetch and install together: two concurrent
 /// installs could interleave writes into the same tree.
@@ -68,8 +68,9 @@ pub fn stage(state: &WebState, profile_id: &str, release_id: &str) -> anyhow::Re
 
 /// Download, verify and install a staged release. Returns the sentence the page
 /// shows; every failure leaves the install root untouched.
-fn apply(state: &WebState, staged: &Staged) -> anyhow::Result<String> {
+fn apply(state: &WebState, staged: &Staged, reporter: &JobReporter) -> anyhow::Result<String> {
     let release = &staged.release;
+    reporter.stage("checking that the release fits this host");
     if !staged.fits_this_host() {
         anyhow::bail!(
             "{} is built for {package}, this host is {host}",
@@ -87,11 +88,13 @@ fn apply(state: &WebState, staged: &Staged) -> anyhow::Result<String> {
         );
     }
 
+    reporter.stage("downloading the package");
     let download = RuntimePackageManager::download_https(
         &release.download_request(),
         state.workspace_child_dir("runtime-downloads"),
     )
     .map_err(|error| anyhow::anyhow!("download failed: {error}"))?;
+    reporter.stage("verifying the checksum and signature");
     let manifest = release.manifest_for_source(&download.path);
     let verification = RuntimePackageManager::verify(&manifest)
         .map_err(|error| anyhow::anyhow!("verification failed: {error}"))?;
@@ -106,9 +109,11 @@ fn apply(state: &WebState, staged: &Staged) -> anyhow::Result<String> {
         anyhow::bail!("signature verification failed; nothing was installed");
     }
 
+    reporter.stage("installing into the runtime root");
     let installation =
         RuntimePackageManager::install(&manifest, state.workspace_child_dir("runtimes"))
             .map_err(|error| anyhow::anyhow!("install failed: {error}"))?;
+    reporter.stage("recording the installation");
     state.commands.upsert_runtime_installation(&installation)?;
     record(
         state,
@@ -155,13 +160,15 @@ pub fn install_job(
     state: WebState,
     profile_id: String,
     release_id: String,
+    reporter: &JobReporter,
 ) -> Result<String, String> {
+    reporter.stage("reading the release catalogue");
     let staged = stage(&state, &profile_id, &release_id).map_err(|error| error.to_string())?;
     let label = format!(
         "{} {} ({})",
         staged.release.node_type, staged.release.version, staged.release.platform
     );
-    apply(&state, &staged)
+    apply(&state, &staged, reporter)
         .map(|message| format!("{label}: {message}"))
         .map_err(|error| error.to_string())
 }

@@ -18,6 +18,8 @@ use crate::core::{
 };
 
 use super::super::{
+    catalog_form::{self, CatalogDraft, DEFAULT_CATALOG_MAX_BYTES},
+    form_state::{self, FieldErrors, FormDraft, GENERAL},
     html,
     jobs::{Job, JobStatus},
     runtime_ops::{self, LANE},
@@ -45,17 +47,27 @@ pub async fn runtimes(
     RawQuery(flash): RawQuery,
     Query(params): Query<RuntimeQuery>,
 ) -> Response {
-    let body = match render_body(&state, &params) {
+    let body = match render_body(&state, &params, None) {
         Ok(body) => body,
         Err(error) => html::note(&format!("failed to load runtime inventory: {error}")),
     };
     Html(html::layout(
         "Runtimes",
         "runtimes",
-        &html::flash(flash.as_deref()),
+        html::flash(flash.as_deref()),
         &body,
     ))
     .into_response()
+}
+
+/// The page again, with the catalogue form holding what was posted and the
+/// reason it was refused.
+pub(crate) fn render_with_catalog_draft(
+    state: &WebState,
+    draft: &CatalogDraft,
+    errors: &FieldErrors,
+) -> anyhow::Result<String> {
+    render_body(state, &RuntimeQuery::default(), Some((draft, errors)))
 }
 
 /// Ask for an install. The work goes to a job thread and this returns at once,
@@ -64,23 +76,22 @@ pub async fn install(State(state): State<WebState>, Form(form): Form<InstallForm
     let engine = state.clone();
     let profile = form.profile.clone();
     let release = form.release.clone();
-    let message = match state.jobs.submit(
+    let flash = match state.jobs.submit(
         LANE,
         format!(
             "install runtime {}/{}",
             or_unknown(&profile),
             or_unknown(&release)
         ),
-        move || runtime_ops::install_job(engine, profile, release),
+        move |reporter| runtime_ops::install_job(engine, profile, release, reporter),
     ) {
-        Ok(job) => format!("install started: {}", job.description),
-        Err(busy) => format!("not started: {} is already running", busy.description),
+        Ok(job) => html::Flash::ok(format!("install started: {}", job.description)),
+        Err(busy) => html::Flash::danger(format!(
+            "not started: {} is already running",
+            busy.description
+        )),
     };
-    Redirect::to(&format!(
-        "/runtimes?flash={}",
-        html::urlencoding_lite(&message)
-    ))
-    .into_response()
+    Redirect::to(&flash.redirect("/runtimes")).into_response()
 }
 
 fn or_unknown(value: &str) -> &str {
@@ -91,27 +102,6 @@ fn or_unknown(value: &str) -> &str {
     }
 }
 
-/// A catalogue source the operator registers.
-#[derive(Default, Deserialize)]
-pub struct CatalogForm {
-    #[serde(default)]
-    id: String,
-    #[serde(default)]
-    label: String,
-    #[serde(default)]
-    source: String,
-    #[serde(default)]
-    signature_source: String,
-    #[serde(default)]
-    ed25519_public_key: String,
-    #[serde(default)]
-    max_bytes: String,
-}
-
-/// How large a catalogue document may be. A catalogue is a manifest, not a
-/// payload, so this is generous rather than tuned.
-const DEFAULT_CATALOG_MAX_BYTES: u64 = 4 * 1024 * 1024;
-
 /// Register a runtime catalogue.
 ///
 /// This is the path that did not exist. `upsert_runtime_catalog_profile` had
@@ -119,50 +109,83 @@ const DEFAULT_CATALOG_MAX_BYTES: u64 = 4 * 1024 * 1024;
 /// restored a backup, `/runtimes` could only ever say "No runtime catalog
 /// profiles are configured", and there was no supported way to install a first
 /// node runtime through the product.
+///
+/// A catalogue the form cannot build comes back as the form, with every field
+/// still holding what was typed. Six fields, one of them a number at the bottom:
+/// a redirect meant retyping the identifier, the label and the source to fix it.
 pub async fn save_catalog(
     State(state): State<WebState>,
-    Form(form): Form<CatalogForm>,
+    Form(draft): Form<CatalogDraft>,
 ) -> Response {
-    let optional = |value: &str| {
-        let trimmed = value.trim();
-        (!trimmed.is_empty()).then(|| trimmed.to_string())
+    let profile = match catalog_form::build(&draft) {
+        Ok(profile) => profile,
+        Err(refusal) => return redraw_catalog(&state, &draft, refusal.field, &refusal.message),
     };
-    let result = (|| -> anyhow::Result<String> {
-        let max_bytes = match form.max_bytes.trim() {
-            "" => DEFAULT_CATALOG_MAX_BYTES,
-            raw => raw
-                .parse::<u64>()
-                .map_err(|_| anyhow::anyhow!("size limit must be a whole number of bytes"))?,
-        };
-        let profile = RuntimeCatalogProfile {
-            id: form.id.trim().to_string(),
-            label: form.label.trim().to_string(),
-            source: form.source.trim().to_string(),
-            signature_source: optional(&form.signature_source),
-            ed25519_public_key: optional(&form.ed25519_public_key),
-            max_bytes,
-            enabled: true,
-            last_loaded_at_unix: None,
-            last_signature_verified: None,
-            last_bytes: None,
-        };
-        // The domain already states what a usable catalogue is — id, label, and
-        // a load request it will accept. Borrow that rather than restate it.
-        state.commands.upsert_runtime_catalog_profile(&profile)?;
-        Ok(format!("catalog \"{}\" saved", profile.label))
-    })();
-    let message = result.unwrap_or_else(|error| format!("catalog not saved: {error}"));
-    Redirect::to(&format!(
-        "/runtimes?flash={}",
-        html::urlencoding_lite(&message)
-    ))
-    .into_response()
+    match state.commands.upsert_runtime_catalog_profile(&profile) {
+        Ok(()) => {
+            let flash = html::Flash::ok(format!("catalog \"{}\" saved", profile.label));
+            Redirect::to(&flash.redirect("/runtimes")).into_response()
+        }
+        // The domain states what a usable catalogue is — a source it can read, a
+        // signature pair given together, a key of exactly 32 bytes. Those are
+        // sentences about the combination, so they go above the form rather than
+        // being guessed onto one of three controls.
+        Err(error) => redraw_catalog(&state, &draft, GENERAL, &format!("{error:#}")),
+    }
 }
 
-fn catalog_form() -> String {
+/// The page again, with the catalogue form as posted and the reason it was
+/// refused.
+fn redraw_catalog(
+    state: &WebState,
+    draft: &CatalogDraft,
+    field: &'static str,
+    message: &str,
+) -> Response {
+    let mut errors = FieldErrors::new();
+    errors.insert(field, message.to_string());
+    match render_with_catalog_draft(state, draft, &errors) {
+        Ok(body) => Html(html::layout(
+            "Runtimes",
+            "runtimes",
+            html::Flash::default(),
+            &body,
+        ))
+        .into_response(),
+        // Redrawing reads the inventory and the job list again. If that read
+        // fails too the input cannot be kept, so say both things at once.
+        Err(error) => {
+            let flash = html::Flash::danger(format!(
+                "catalog not saved: {message} — and the page could not be redrawn ({error}), so \
+                 the form was lost"
+            ));
+            Redirect::to(&flash.redirect("/runtimes")).into_response()
+        }
+    }
+}
+
+fn catalog_form(refused: Option<(&CatalogDraft, &FieldErrors)>) -> String {
+    let (values, errors) = match refused {
+        Some((values, errors)) => (Some(values), Some(errors)),
+        None => (None, None),
+    };
+    let value = |field: &str| values.map_or("", |draft| draft.value(field));
+    let error = |field: &str| errors.and_then(|errors| form_state::error_for(errors, field));
+    let summary = match errors {
+        Some(errors) if !errors.is_empty() => format!(
+            "{}{}",
+            form_state::banner(errors),
+            html::note(
+                "Nothing was saved. The catalogues above are unchanged; the form holds what you \
+                 typed and what it would not accept."
+            ),
+        ),
+        _ => String::new(),
+    };
     format!(
         r#"<h2>Add a runtime catalogue</h2>
 <p class="muted">A catalogue lists the releases this workspace may install. Point it at a manifest you trust; supply a signature source and its ed25519 public key to have releases verified before install.</p>
+{summary}
 <form class="filters" method="post" action="/runtimes/catalog">
 {id}
 {label}
@@ -172,52 +195,81 @@ fn catalog_form() -> String {
 {max_bytes}
 <button type="submit">Save catalogue</button>
 </form>"#,
+        summary = summary,
         id = html::TextField {
             label: "Identifier",
-            name: "id",
+            name: catalog_form::CATALOG_ID,
+            value: value(catalog_form::CATALOG_ID),
             placeholder: Some("neo-official"),
             monospace: true,
+            required: true,
+            error: error(catalog_form::CATALOG_ID),
             ..html::TextField::default()
         }
         .render(),
-        label = html::text_field("Label", "label", ""),
+        label = html::TextField {
+            label: "Label",
+            name: catalog_form::CATALOG_LABEL,
+            value: value(catalog_form::CATALOG_LABEL),
+            required: true,
+            error: error(catalog_form::CATALOG_LABEL),
+            ..html::TextField::default()
+        }
+        .render(),
         source = html::TextField {
             label: "Catalogue source",
-            name: "source",
+            name: catalog_form::CATALOG_SOURCE,
+            value: value(catalog_form::CATALOG_SOURCE),
             placeholder: Some("https://… or a path in this workspace"),
             monospace: true,
             full_width: true,
+            error: error(catalog_form::CATALOG_SOURCE),
             ..html::TextField::default()
         }
         .render(),
         signature = html::TextField {
             label: "Signature source",
-            name: "signature_source",
+            name: catalog_form::CATALOG_SIGNATURE_SOURCE,
+            value: value(catalog_form::CATALOG_SIGNATURE_SOURCE),
             help: Some("Optional. Without it, releases install unverified."),
             monospace: true,
+            error: error(catalog_form::CATALOG_SIGNATURE_SOURCE),
             ..html::TextField::default()
         }
         .render(),
         key = html::TextField {
             label: "Ed25519 public key",
-            name: "ed25519_public_key",
+            name: catalog_form::CATALOG_PUBLIC_KEY,
+            value: value(catalog_form::CATALOG_PUBLIC_KEY),
             help: Some("Optional. Required to check the signature."),
             monospace: true,
+            error: error(catalog_form::CATALOG_PUBLIC_KEY),
             ..html::TextField::default()
         }
         .render(),
         max_bytes = html::TextField {
             label: "Size limit (bytes)",
-            name: "max_bytes",
+            name: catalog_form::CATALOG_MAX_BYTES,
+            value: value(catalog_form::CATALOG_MAX_BYTES),
             placeholder: Some(&DEFAULT_CATALOG_MAX_BYTES.to_string()),
             help: Some("Leave blank for the default."),
+            // A limit of zero would refuse every catalogue; the domain
+            // rejects it. Blank means the default limit.
+            input_type: html::TextInputType::Number,
+            min: Some("1"),
+            step: Some("1"),
+            error: error(catalog_form::CATALOG_MAX_BYTES),
             ..html::TextField::default()
         }
         .render(),
     )
 }
 
-fn render_body(state: &WebState, params: &RuntimeQuery) -> anyhow::Result<String> {
+fn render_body(
+    state: &WebState,
+    params: &RuntimeQuery,
+    refused: Option<(&CatalogDraft, &FieldErrors)>,
+) -> anyhow::Result<String> {
     let installations = state.workspace.list_runtime_installations()?;
     let profiles = state.workspace.list_runtime_catalog_profiles()?;
     let verified = installations
@@ -277,9 +329,22 @@ fn render_body(state: &WebState, params: &RuntimeQuery) -> anyhow::Result<String
         jobs = job_panel(state),
         installations = installation_table(&installations),
         profiles = profile_table(&profiles),
-        catalog_form = catalog_form(),
+        catalog_form = catalog_form(refused),
         staged = catalogue_section(state, params, busy_job.is_some())?,
     ))
+}
+
+/// What the job is doing right now, or where it ended up.
+///
+/// A running job with a stage is doing something the operator can watch; a
+/// finished one has a result. A running job with no stage is a job that has
+/// not reported yet, and saying so is better than an empty cell.
+fn progress_text(job: &Job) -> String {
+    match (&job.progress, &job.status) {
+        (Some(progress), _) => progress.summary(),
+        (None, JobStatus::Running) => "starting".to_string(),
+        _ => String::new(),
+    }
 }
 
 /// The runtime-lane job that is running right now, if any. Its description is
@@ -310,6 +375,7 @@ fn job_panel(state: &WebState) -> String {
             html::row(&[
                 html::raw_cell(&status_badge(&job.status)),
                 html::cell(&job.description),
+                html::cell(&progress_text(job)),
                 html::cell(&job.detail),
                 html::raw_cell(&time::time_cell(Some(job.started_at_unix))),
             ])
@@ -325,7 +391,7 @@ fn job_panel(state: &WebState) -> String {
     } else {
         String::new()
     };
-    let table = html::table(&["State", "Work", "Result", "Started"], &rows);
+    let table = html::table(&["State", "Work", "Progress", "Result", "Started"], &rows);
     let refresh = if running > 0 {
         r#"<a class="btn small" href="/runtimes">Refresh status</a>"#
     } else {
@@ -384,9 +450,14 @@ fn catalogue_section(
     if compatible.is_empty() {
         return Ok(format!(
             "{header}\n{}",
-            html::note(&format!(
-                "No release in this catalogue is built for {platform}."
-            ))
+            html::empty_state(
+                "No compatible releases",
+                &format!(
+                    "No release in this catalogue is built for {platform}. Choose a catalogue that \
+                     publishes {platform} builds."
+                ),
+                r#"<a class="btn" href="/runtimes">Choose another catalogue</a>"#,
+            )
         ));
     }
     let rows = compatible
@@ -492,7 +563,12 @@ fn review_panel(staged: &runtime_ops::Staged, profile_id: &str, busy: bool) -> S
 
 fn installation_table(installations: &[RuntimeInstallation]) -> String {
     if installations.is_empty() {
-        return html::note("No runtime binaries have been installed into this workspace.");
+        return html::empty_state(
+            "No runtimes installed",
+            "No runtime binary has been installed into this workspace yet. Install one from a \
+             catalogue below.",
+            "",
+        );
     }
     let rows = installations
         .iter()
@@ -528,7 +604,12 @@ fn installation_table(installations: &[RuntimeInstallation]) -> String {
 
 fn profile_table(profiles: &[RuntimeCatalogProfile]) -> String {
     if profiles.is_empty() {
-        return html::note("No runtime catalog profiles are configured.");
+        return html::empty_state(
+            "No runtime catalogues configured",
+            "Register a runtime catalogue to give this workspace somewhere to install runtimes \
+             from.",
+            "",
+        );
     }
     let rows = profiles
         .iter()

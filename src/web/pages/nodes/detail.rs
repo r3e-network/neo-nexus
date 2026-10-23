@@ -27,17 +27,16 @@ pub async fn node_detail(
         Ok(body) => body,
         Err(err) => {
             eprintln!("Error rendering node detail for '{id}': {err:?}");
-            return Redirect::to(&format!(
-                "/nodes?flash={}",
-                html::urlencoding_lite(&format!("Node error: {err}"))
-            ))
+            return Redirect::to(
+                &html::Flash::danger(format!("Node error: {err}")).redirect("/nodes"),
+            )
             .into_response();
         }
     };
     Html(html::layout_with_density(
         "Node",
         "nodes",
-        &html::flash(query.as_deref()),
+        html::flash(query.as_deref()),
         &body,
         density,
     ))
@@ -51,13 +50,12 @@ pub async fn toggle_hermes_healing(
     // Toggling this on an instance with no agent used to enrol it as a side
     // effect, which is not what the control says it does.
     let Some(mut assoc) = state.workspace.load_hermes_agent(&id).ok().flatten() else {
-        return Redirect::to(&format!(
-            "/nodes/{}?flash={}",
-            html::urlencoding_lite(&id),
-            html::urlencoding_lite(
-                "Enable the guest agent for this instance before granting it autonomous healing."
-            ),
-        ))
+        return Redirect::to(
+            &html::Flash::danger(
+                "Enable the guest agent for this instance before granting it autonomous healing.",
+            )
+            .redirect(&format!("/nodes/{}", html::urlencoding_lite(&id))),
+        )
         .into_response();
     };
     assoc.autonomous_healing = !assoc.autonomous_healing;
@@ -77,18 +75,16 @@ pub async fn toggle_hermes_healing(
                     severity: crate::core::operations::EventSeverity::Info,
                     message: format!("Hermes autonomous healing {label} for node {id}"),
                 });
-            Redirect::to(&format!(
-                "/nodes/{}?flash=Autonomous%20self-healing%20{}",
-                html::urlencoding_lite(&id),
-                html::urlencoding_lite(label),
-            ))
+            Redirect::to(
+                &html::Flash::ok(format!("Autonomous self-healing {label}"))
+                    .redirect(&format!("/nodes/{}", html::urlencoding_lite(&id))),
+            )
             .into_response()
         }
-        Err(e) => Redirect::to(&format!(
-            "/nodes/{}?flash=Failed%20to%20update%20healing%20state%3A%20{}",
-            html::urlencoding_lite(&id),
-            html::urlencoding_lite(&e.to_string()),
-        ))
+        Err(e) => Redirect::to(
+            &html::Flash::danger(format!("Failed to update healing state: {e}"))
+                .redirect(&format!("/nodes/{}", html::urlencoding_lite(&id))),
+        )
         .into_response(),
     }
 }
@@ -98,27 +94,25 @@ pub async fn test_hermes_ping(State(state): State<WebState>, Path(id): Path<Stri
         .commands
         .record_hermes_heartbeat(&id, Some("0.5.0-copilot"))
     {
-        Ok(true) => Redirect::to(&format!(
-            "/nodes/{}?flash=Hermes%20guest%20heartbeat%20ping%20recorded",
-            html::urlencoding_lite(&id),
-        ))
+        Ok(true) => Redirect::to(
+            &html::Flash::ok("Hermes guest heartbeat ping recorded")
+                .redirect(&format!("/nodes/{}", html::urlencoding_lite(&id))),
+        )
         .into_response(),
         // The button is only shown for an enrolled instance, so reaching here
         // means the association was removed or disabled since the page loaded.
         // Say that rather than reporting a ping that was not recorded.
-        Ok(false) => Redirect::to(&format!(
-            "/nodes/{}?flash={}",
-            html::urlencoding_lite(&id),
-            html::urlencoding_lite(
-                "No heartbeat recorded: the guest agent is not enabled for this instance."
-            ),
-        ))
+        Ok(false) => Redirect::to(
+            &html::Flash::danger(
+                "No heartbeat recorded: the guest agent is not enabled for this instance.",
+            )
+            .redirect(&format!("/nodes/{}", html::urlencoding_lite(&id))),
+        )
         .into_response(),
-        Err(e) => Redirect::to(&format!(
-            "/nodes/{}?flash=Failed%20to%20record%20heartbeat%3A%20{}",
-            html::urlencoding_lite(&id),
-            html::urlencoding_lite(&e.to_string()),
-        ))
+        Err(e) => Redirect::to(
+            &html::Flash::danger(format!("Failed to record heartbeat: {e}"))
+                .redirect(&format!("/nodes/{}", html::urlencoding_lite(&id))),
+        )
         .into_response(),
     }
 }
@@ -177,28 +171,26 @@ pub async fn provision_hermes_token(
                 Ok(body) => Html(html::layout_with_density(
                     "Node",
                     "nodes",
-                    &html::flash(Some("flash=Hermes%20Agent%20scoped%20token%20provisioned")),
+                    html::flash(Some("flash=Hermes%20Agent%20scoped%20token%20provisioned")),
                     &body,
                     density,
                 ))
                 .into_response(),
                 // The credential exists and cannot be shown again, so send the
                 // operator somewhere that says so rather than a blank failure.
-                Err(error) => Redirect::to(&format!(
-                    "/nodes/{}?flash={}",
-                    html::urlencoding_lite(&id),
-                    html::urlencoding_lite(&format!(
+                Err(error) => Redirect::to(
+                    &html::Flash::danger(format!(
                         "Token provisioned, but the page could not be rendered to show it ({error}). Revoke it under API tokens and provision again."
-                    )),
-                ))
+                    ))
+                    .redirect(&format!("/nodes/{}", html::urlencoding_lite(&id))),
+                )
                 .into_response(),
             }
         }
-        Err(e) => Redirect::to(&format!(
-            "/nodes/{}?flash=Failed%20to%20provision%20token%3A%20{}",
-            html::urlencoding_lite(&id),
-            html::urlencoding_lite(&e.to_string()),
-        ))
+        Err(e) => Redirect::to(
+            &html::Flash::danger(format!("Failed to provision token: {e}"))
+                .redirect(&format!("/nodes/{}", html::urlencoding_lite(&id))),
+        )
         .into_response(),
     }
 }

@@ -33,7 +33,7 @@ pub async fn node_list(
     Html(html::layout_with_density(
         "Nodes",
         "nodes",
-        &html::flash(flash.as_deref()),
+        html::flash(flash.as_deref()),
         &body,
         density,
     ))
@@ -138,7 +138,11 @@ fn list_body(
         ],
     );
     let table = if visible.is_empty() {
-        html::note("No node matches this filter.")
+        html::empty_state(
+            "No matching instances",
+            "No instance matches the current status, role or search filter.",
+            r#"<a class="btn" href="/nodes">Clear the filters</a>"#,
+        )
     } else if density == DensityMode::Compact {
         manager_table_compact(state, fleet, &visible)
     } else {

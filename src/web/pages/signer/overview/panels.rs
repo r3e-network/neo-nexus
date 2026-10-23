@@ -155,11 +155,15 @@ pub fn key_actions(key: &KeyPublic) -> String {
     } else {
         ("Enable", "false")
     };
-    html::control_form(
-        &format!("/signer/keys/{path}/state"),
-        &[("disabled", disabled)],
-        label,
-    )
+    // Switching a signing key off takes it out of service; switching it on
+    // puts it back. Only the first is the one that can go wrong.
+    let action = format!("/signer/keys/{path}/state");
+    let fields = [("disabled", disabled)];
+    if key.signing_enabled {
+        html::danger_control_form(&action, &fields, label)
+    } else {
+        html::control_form(&action, &fields, label)
+    }
 }
 
 pub fn new_key_form() -> String {
@@ -191,30 +195,31 @@ pub fn new_key_form() -> String {
             ..Default::default()
         }
         .render(),
-        chain_id = field(
-            "Chain ID",
-            "chain_id",
-            "",
-            Some("NeoX only; blank uses the canonical public-network id.")
-        ),
-        magic = field(
-            "Network magic",
-            "network_magic",
-            "",
-            Some("Required only to bind a private Neo network.")
-        ),
+        chain_id = html::TextField {
+            label: "Chain ID",
+            name: "chain_id",
+            value: "",
+            help: Some("NeoX only; blank uses the canonical public-network id."),
+            // A chain id is a whole number, and the domain parses it as one.
+            input_type: html::TextInputType::Number,
+            min: Some("0"),
+            step: Some("1"),
+            ..Default::default()
+        }
+        .render(),
+        magic = html::TextField {
+            label: "Network magic",
+            name: "network_magic",
+            value: "",
+            help: Some("Required only to bind a private Neo network."),
+            input_type: html::TextInputType::Number,
+            min: Some("0"),
+            max: Some("4294967295"),
+            step: Some("1"),
+            ..Default::default()
+        }
+        .render(),
     )
-}
-
-fn field(label: &str, name: &str, value: &str, help: Option<&str>) -> String {
-    html::TextField {
-        label,
-        name,
-        value,
-        help,
-        ..Default::default()
-    }
-    .render()
 }
 
 pub fn field_with_id(id: &str, label: &str, name: &str, value: &str, help: Option<&str>) -> String {

@@ -38,7 +38,7 @@ pub async fn federation(
     Html(html::layout(
         "Federation",
         "federation",
-        &html::flash(flash.as_deref()),
+        html::flash(flash.as_deref()),
         &body,
     ))
     .into_response()
@@ -159,7 +159,7 @@ fn profile_table(state: &WebState, profiles: &[RemoteServerProfile]) -> anyhow::
             ),
             html::raw_cell(&toggle_form(profile)),
             html::raw_cell(&format!(
-                r#"<a class="btn small" href="/federation/{id}/probes">History</a><form method="post" action="/federation/{id}/delete" style="display:inline; margin-left:4px;"><button type="submit" class="btn small danger" title="Remove this server and its probe history">Remove</button></form>"#,
+                r#"<a class="btn small" href="/federation/{id}/edit">Edit</a> <a class="btn small" href="/federation/{id}/probes">History</a><form method="post" action="/federation/{id}/delete" style="display:inline; margin-left:4px;"><button type="submit" class="btn small danger" title="Remove this server and its probe history">Remove</button></form>"#,
                 id = html::escape(&profile.id)
             )),
         ]));
@@ -204,9 +204,69 @@ fn add_form() -> String {
     .to_string()
 }
 
+/// The edit form for one federation server.
+///
+/// The route that saves it — `POST /federation/{id}` — existed and was
+/// complete, but nothing in this console ever pointed at it: an operator
+/// could add a peer and then not change a single thing about it. The form
+/// reuses the same fields as the add form so the two cannot drift apart.
+fn edit_form(profile: &RemoteServerProfile) -> String {
+    format!(
+        r#"<div class="panel" style="margin-top: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 8px;">
+  <h3 style="margin-top: 0;">Edit {name}</h3>
+  <form method="post" action="/federation/{id}" class="filters">
+    <label class="field"><span>Name</span><input name="name" value="{name}" required></label>
+    <label class="field"><span>Base URL</span><input name="base_url" value="{base_url}" required></label>
+    <label class="field"><span>Description</span><input name="description" value="{description}"></label>
+    <label class="field"><span>Poll it</span><input type="checkbox" name="enabled" value="on"{checked}></label>
+    <button type="submit">Save</button>
+    <a class="btn" href="/federation">Cancel</a>
+  </form>
+</div>"#,
+        name = html::escape(&profile.name),
+        id = html::escape(&profile.id),
+        base_url = html::escape(&profile.base_url),
+        description = html::escape(&profile.description),
+        checked = if profile.enabled { " checked" } else { "" },
+    )
+}
+
+/// The edit page for one federation server.
+///
+/// A GET, so the operator can reach it from the list, read what is stored
+/// there, and change one thing without retyping the rest.
+pub async fn edit(State(state): State<WebState>, Path(id): Path<String>) -> Response {
+    let body = (|| -> anyhow::Result<String> {
+        let profile = state
+            .workspace
+            .list_remote_servers()?
+            .into_iter()
+            .find(|profile| profile.id == id)
+            .ok_or_else(|| anyhow::anyhow!("federation server {id} was not found"))?;
+        Ok(format!(
+            r#"<h1>Edit federation server</h1>
+{back}
+{form}"#,
+            back = html::breadcrumb(&[("Federation", "/federation"), ("Edit", "")]),
+            form = edit_form(&profile),
+        ))
+    })();
+    let body = match body {
+        Ok(body) => body,
+        Err(error) => html::notice("danger", &format!("{error}")),
+    };
+    Html(html::layout("Federation", "federation", "", &body)).into_response()
+}
+
 fn toggle_form(profile: &RemoteServerProfile) -> String {
     let label = if profile.enabled { "Disable" } else { "Enable" };
-    html::control_form(&format!("/federation/{}/toggle", profile.id), &[], label)
+    // Turning a peer off takes it out of the federation; turning it back on
+    // puts it back. The two are not the same act and must not look the same.
+    if profile.enabled {
+        html::danger_control_form(&format!("/federation/{}/toggle", profile.id), &[], label)
+    } else {
+        html::control_form(&format!("/federation/{}/toggle", profile.id), &[], label)
+    }
 }
 
 pub async fn toggle(State(state): State<WebState>, Path(id): Path<String>) -> Response {
@@ -230,15 +290,11 @@ pub async fn toggle(State(state): State<WebState>, Path(id): Path<String>) -> Re
             }
         ))
     })();
-    let message = match outcome {
-        Ok(message) => message,
-        Err(error) => format!("not changed: {error}"),
+    let flash = match outcome {
+        Ok(message) => html::Flash::ok(message),
+        Err(error) => html::Flash::danger(format!("not changed: {error}")),
     };
-    Redirect::to(&format!(
-        "/federation?flash={}",
-        html::urlencoding_lite(&message)
-    ))
-    .into_response()
+    Redirect::to(&flash.redirect("/federation")).into_response()
 }
 
 /// The recorded probe trail for one server, newest first.
@@ -280,7 +336,12 @@ pub async fn probes(State(state): State<WebState>, Path(id): Path<String>) -> Re
             name = html::escape(&profile.name),
             back = html::breadcrumb(&[("Federation", "/federation"), ("Probe history", "")]),
             table = if rows.is_empty() {
-                html::note("No probes have been recorded for this server yet.")
+                html::empty_state(
+                    "No probes recorded yet",
+                    "This federation server has not been polled yet. Probe history appears here \
+                     once the federation monitor checks it.",
+                    "",
+                )
             } else {
                 html::table(
                     &[
@@ -403,7 +464,57 @@ pub async fn update(
         );
         Ok(format!("updated {}", profile.name))
     })();
-    redirect(outcome)
+    match outcome {
+        Ok(message) => {
+            let flash = html::Flash::ok(message);
+            Redirect::to(&flash.redirect("/federation")).into_response()
+        }
+        Err(error) => {
+            // The operator typed a base URL the domain would not take. Send
+            // them back to the form with what they wrote still in it, so the
+            // fix is one edit rather than a retype.
+            let body = format!(
+                r#"<h1>Edit federation server</h1>
+{back}
+{danger}
+{form}"#,
+                back = html::breadcrumb(&[("Federation", "/federation"), ("Edit", "")]),
+                danger = html::notice("danger", &format!("not saved: {error}")),
+                form = edit_form_from_form(&id, &form),
+            );
+            Html(html::layout("Federation", "federation", "", &body)).into_response()
+        }
+    }
+}
+
+/// The edit form filled with what the operator submitted, rather than with
+/// what is stored.
+///
+/// The two differ exactly when the save failed, which is the only time this
+/// form is rendered.
+fn edit_form_from_form(id: &str, form: &RemoteServerForm) -> String {
+    let enabled = matches!(
+        form.enabled.trim().to_ascii_lowercase().as_str(),
+        "on" | "1" | "true" | "yes"
+    );
+    format!(
+        r#"<div class="panel" style="margin-top: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 8px;">
+  <h3 style="margin-top: 0;">Edit federation server</h3>
+  <form method="post" action="/federation/{id}" class="filters">
+    <label class="field"><span>Name</span><input name="name" value="{name}" required></label>
+    <label class="field"><span>Base URL</span><input name="base_url" value="{base_url}" required></label>
+    <label class="field"><span>Description</span><input name="description" value="{description}"></label>
+    <label class="field"><span>Poll it</span><input type="checkbox" name="enabled" value="on"{checked}></label>
+    <button type="submit">Save</button>
+    <a class="btn" href="/federation">Cancel</a>
+  </form>
+</div>"#,
+        id = html::escape(id),
+        name = html::escape(form.name.trim()),
+        base_url = html::escape(form.base_url.trim()),
+        description = html::escape(form.description.trim()),
+        checked = if enabled { " checked" } else { "" },
+    )
 }
 
 pub async fn delete(
@@ -439,13 +550,9 @@ fn journal(state: &WebState, kind: crate::events::EventKind, message: String) {
 }
 
 fn redirect(outcome: anyhow::Result<String>) -> Response {
-    let message = match outcome {
-        Ok(message) => message,
-        Err(error) => format!("federation change failed: {error:#}"),
+    let flash = match outcome {
+        Ok(message) => html::Flash::ok(message),
+        Err(error) => html::Flash::danger(format!("federation change failed: {error:#}")),
     };
-    axum::response::Redirect::to(&format!(
-        "/federation?flash={}",
-        html::urlencoding_lite(&message)
-    ))
-    .into_response()
+    axum::response::Redirect::to(&flash.redirect("/federation")).into_response()
 }
