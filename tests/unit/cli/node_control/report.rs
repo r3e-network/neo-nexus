@@ -21,8 +21,8 @@ fn node_list_cli_prints_fleet_table() -> Result<()> {
         args: Vec::new(),
         runtime_version: "v0.8.0".to_string(),
         storage_engine: StorageEngine::RocksDb,
-        rpc_port: 40332,
-        p2p_port: 40333,
+        rpc_port: 26142,
+        p2p_port: 26143,
         ws_port: None,
     })?;
     drop(repository);
@@ -80,9 +80,9 @@ fn node_status_cli_prints_detailed_report() -> Result<()> {
         args: Vec::new(),
         runtime_version: "v0.8.0".to_string(),
         storage_engine: StorageEngine::RocksDb,
-        rpc_port: 50332,
-        p2p_port: 50333,
-        ws_port: Some(50334),
+        rpc_port: 26732,
+        p2p_port: 26733,
+        ws_port: Some(26734),
     })?;
     drop(repository);
 
@@ -97,11 +97,11 @@ fn node_status_cli_prints_detailed_report() -> Result<()> {
                 "report should name the node"
             );
             assert!(
-                text.contains("RPC:     50332"),
+                text.contains("RPC:     26732"),
                 "report should show the RPC port"
             );
             assert!(
-                text.contains("WS:      50334"),
+                text.contains("WS:      26734"),
                 "report should show the WS port"
             );
             assert!(
@@ -127,8 +127,8 @@ fn node_list_json_cli_prints_json_array() -> Result<()> {
         args: Vec::new(),
         runtime_version: "v0.8.0".to_string(),
         storage_engine: StorageEngine::RocksDb,
-        rpc_port: 40332,
-        p2p_port: 40333,
+        rpc_port: 26142,
+        p2p_port: 26143,
         ws_port: None,
     })?;
     drop(repository);
@@ -143,7 +143,7 @@ fn node_list_json_cli_prints_json_array() -> Result<()> {
             let arr = val.as_array().expect("array");
             assert_eq!(arr.len(), 1);
             assert_eq!(arr[0]["name"], "json-alpha");
-            assert_eq!(arr[0]["rpc_port"], 40332);
+            assert_eq!(arr[0]["rpc_port"], 26142);
         }
         other => anyhow::bail!("expected PrintWithExitCode, got {other:?}"),
     }
@@ -163,9 +163,9 @@ fn node_status_json_cli_prints_json_object() -> Result<()> {
         args: Vec::new(),
         runtime_version: "v0.8.0".to_string(),
         storage_engine: StorageEngine::RocksDb,
-        rpc_port: 50332,
-        p2p_port: 50333,
-        ws_port: Some(50334),
+        rpc_port: 26732,
+        p2p_port: 26733,
+        ws_port: Some(26734),
     })?;
     drop(repository);
 
@@ -177,8 +177,8 @@ fn node_status_json_cli_prints_json_object() -> Result<()> {
             assert_eq!(exit_code, 0);
             let val: serde_json::Value = serde_json::from_str(&text)?;
             assert_eq!(val["name"], "json-beta");
-            assert_eq!(val["rpc_port"], 50332);
-            assert_eq!(val["ws_port"], 50334);
+            assert_eq!(val["rpc_port"], 26732);
+            assert_eq!(val["ws_port"], 26734);
         }
         other => anyhow::bail!("expected PrintWithExitCode, got {other:?}"),
     }

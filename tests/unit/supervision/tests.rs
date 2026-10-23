@@ -149,6 +149,11 @@ fn engine_log_collection_bounds_reads_and_tolerates_missing_logs() {
     content.push_str(&"old line\n".repeat(10_000));
     content.push_str("height 37 of 100\n");
     std::fs::write(&log_path, content).unwrap();
+    // The collector samples first and parks for 30 seconds afterwards, so
+    // without this wake it would only see the file on its next round - and
+    // whether that round happens before or after the write above is a race.
+    // Waking it makes the round happen now, deterministically.
+    wake_collector(&engine);
 
     wait_for_log_event(
         &state.repository,

@@ -181,8 +181,8 @@ fn node_restart_cli_quiesces_the_recorded_process_before_spawning() -> Result<()
         args,
         runtime_version: "test".to_string(),
         storage_engine: StorageEngine::LevelDb,
-        rpc_port: 34332,
-        p2p_port: 34333,
+        rpc_port: 26042,
+        p2p_port: 26043,
         ws_port: None,
     })?;
     repository.update_node_status(&node.id, NodeStatus::Running, Some(original_pid))?;

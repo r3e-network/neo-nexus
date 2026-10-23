@@ -121,6 +121,9 @@ struct ExportFacts {
 struct MeasuredExport {
     file_name: String,
     bytes: Vec<u8>,
+    /// Only read by the unix mode claim; the Windows path documents owner-only
+    /// intent without measuring a mode.
+    #[cfg_attr(not(unix), allow(dead_code))]
     owner_mode: Option<u32>,
 }
 
