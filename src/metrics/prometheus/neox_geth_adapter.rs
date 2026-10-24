@@ -3,14 +3,11 @@
 //! Neo X Geth inherits Ethereum geth's built-in Prometheus metrics.
 //! This adapter preserves EVM-compatible metric names while adding Neo X labels.
 
-use crate::config::GenerationContext;
 use crate::supervisor::model::{
-    FatalError, LogEntry, LogParserAdapter, MetricsExporterAdapter as Adapter, PluginMetadata,
-    PluginSystemAdapter, SyncProgress,
+    FatalError, LogEntry, LogParserAdapter, MetricsExporterAdapter as Adapter, SyncProgress,
 };
 use crate::types::NodeConfig;
 use anyhow::Result;
-use std::path::Path;
 
 /// Neo X Geth metrics adapter - extends geth Prometheus endpoint
 #[derive(Debug, Clone)]
@@ -254,83 +251,6 @@ impl LogParserAdapter for NeoXGethMetricsAdapter {
         }
 
         None
-    }
-}
-
-impl PluginSystemAdapter for NeoXGethMetricsAdapter {
-    fn discover_plugins(&self, node_dir: &Path) -> Result<Vec<PluginMetadata>> {
-        // Geth uses plugin system via external go plugins
-        let plugin_dir = node_dir.join("plugins");
-        if !plugin_dir.exists() {
-            return Ok(Vec::new());
-        }
-
-        let mut plugins = Vec::new();
-
-        if let Ok(entries) = std::fs::read_dir(&plugin_dir) {
-            for entry in entries.flatten() {
-                if let Some(ext) = entry.path().extension() {
-                    if ext.to_string_lossy().starts_with("so")
-                        || ext.to_string_lossy().starts_with("dll")
-                    {
-                        let name = entry
-                            .path()
-                            .file_stem()
-                            .and_then(|s| s.to_str())
-                            .unwrap_or("unknown")
-                            .to_string();
-
-                        plugins.push(PluginMetadata {
-                            id: name.clone(),
-                            name: name.clone(),
-                            version: "N/A".to_string(),
-                            enabled: true,
-                        });
-                    }
-                }
-            }
-        }
-
-        Ok(plugins)
-    }
-
-    fn install_plugin(&self, plugin_id: &str, target_dir: &Path) -> Result<()> {
-        // Copy plugin to geth's plugins directory
-        let plugin_dir = target_dir.join("plugins");
-        std::fs::create_dir_all(&plugin_dir)?;
-
-        // In real usage, would download plugin binary and verify signature
-        let manifest = plugin_dir.join(format!("{}.manifest.json", plugin_id));
-        std::fs::write(
-            &manifest,
-            serde_json::to_string_pretty(&serde_json::json!({
-                "id": plugin_id,
-                "version": "1.0.0",
-                "enabled": true,
-                "type": "go-plugin"
-            }))?,
-        )?;
-
-        Ok(())
-    }
-
-    fn toggle_plugin(&self, plugin_id: &str, enabled: bool, ctx: &GenerationContext) -> Result<()> {
-        // Update plugin manifest
-        let plugin_dir = super::node_dir_from_context(ctx)?.join("plugins");
-        let manifest = plugin_dir.join(format!("{}.manifest.json", plugin_id));
-
-        if manifest.exists() {
-            let mut data: serde_json::Value =
-                serde_json::from_str(&std::fs::read_to_string(&manifest)?)?;
-
-            if let Some(obj) = data.as_object_mut() {
-                obj.insert("enabled".to_string(), serde_json::json!(enabled));
-            }
-
-            std::fs::write(&manifest, serde_json::to_string_pretty(&data)?)?;
-        }
-
-        Ok(())
     }
 }
 

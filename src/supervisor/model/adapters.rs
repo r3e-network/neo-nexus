@@ -1,5 +1,5 @@
-//! The adapter registry: which metrics, log-parsing and plugin implementations
-//! apply to which node type.
+//! The adapter registry: which metrics and log-parsing implementations apply to
+//! which node type. Plugins are not in here — see `super::process` for why.
 
 use std::collections::HashMap;
 
@@ -14,7 +14,7 @@ use super::{
         MetricsExporterAdapter, NeoCliMetricsAdapter, NeoGoMetricsAdapter, NeoRsMetricsAdapter,
         NeoXGethMetricsAdapter, NeoXRethMetricsAdapter,
     },
-    process::{LifecycleAdapter, NoOpLifecycleAdapter, PluginSystemAdapter},
+    process::{LifecycleAdapter, NoOpLifecycleAdapter},
 };
 
 #[derive(Debug, Clone)]
@@ -27,9 +27,6 @@ pub struct NodeAdapters {
 
     /// Type-specific log parsers
     pub log_parser: HashMap<NodeType, std::sync::Arc<dyn LogParserAdapter>>,
-
-    /// Type-specific plugin management
-    pub plugins: HashMap<NodeType, std::sync::Arc<dyn PluginSystemAdapter>>,
 }
 
 impl NodeAdapters {
@@ -39,7 +36,6 @@ impl NodeAdapters {
             lifecycle: std::sync::Arc::<NoOpLifecycleAdapter>::default(),
             metrics: HashMap::new(),
             log_parser: HashMap::new(),
-            plugins: HashMap::new(),
         }
     }
 
@@ -101,7 +97,6 @@ impl NodeAdapters {
             ]
             .into_iter()
             .collect(),
-            plugins: HashMap::new(),
         }
     }
 
@@ -136,16 +131,6 @@ impl NodeAdapters {
         self
     }
 
-    /// Register a plugin system adapter for a specific node type.
-    pub fn with_plugins<A: PluginSystemAdapter + 'static>(
-        mut self,
-        node_type: NodeType,
-        adapter: A,
-    ) -> Self {
-        self.plugins.insert(node_type, std::sync::Arc::new(adapter));
-        self
-    }
-
     /// Replace the default lifecycle adapter.
     pub fn with_lifecycle<A: LifecycleAdapter + 'static>(mut self, adapter: A) -> Self {
         self.lifecycle = std::sync::Arc::new(adapter);
@@ -160,11 +145,6 @@ impl NodeAdapters {
     /// Check if a log parser is registered for this node type.
     pub fn has_log_parser(&self, node_type: &NodeType) -> bool {
         self.log_parser.contains_key(node_type)
-    }
-
-    /// Check if a plugin adapter is registered for this node type.
-    pub fn has_plugins(&self, node_type: &NodeType) -> bool {
-        self.plugins.contains_key(node_type)
     }
 }
 

@@ -129,12 +129,13 @@ This document provides a factual overview of plugin and configuration capabiliti
 
 ## Plugin code paths
 
-There is no adapter between the plugin pages and the installer. The trait and the
-registry entry still exist — `PluginSystemAdapter` with `discover_plugins` /
-`install_plugin` / `toggle_plugin`, and `NodeAdapters::plugins` — but nothing in
-this crate resolves an adapter through them, and there is no no-op
-implementation to fall back on: a node type with no entry simply has none.
-Installing a package is a direct call into `PluginPackageManager`.
+There is no adapter layer. A `PluginSystemAdapter` trait and a `plugins` map on
+`NodeAdapters` used to sit here with five implementations, none of which any code
+path resolved; three of the five wrote a placeholder `*.manifest.json` into the
+node's plugin directory and returned `Ok(())`. That is a claimed install with
+nothing installed behind it, so the trait, the map and the implementations are
+gone rather than left for a future wiring to step on. Installing a package is a
+direct call into `PluginPackageManager`.
 
 ### Install precondition
 

@@ -302,8 +302,29 @@ no-op 实现；安装是直接调 `PluginPackageManager`。前置条件按代码
 `ARCHITECTURE_GOVERNANCE_2026.md`、`signer-service-*.md` 是定日期的记录，那些路径
 当时是真实的。
 
-门禁：**1407** 项（上一轮 1406），fmt / clippy / source-quality / source-purity /
-ci-policy 全绿。详见 `docs/ITERATION_2026-10-forms.md` 第十一至十四节。
+上一轮记下的那处「死重」查到最后不是死重，是**会说谎的死代码**。
+`NodeAdapters` 里有一张 `plugins` 表，五个 metrics 适配器实现了 `PluginSystemAdapter`，
+但从没有任何代码路径解析过它们——所以不生效，也就一直没人发现其中三个
+（neo-cli / neo-x-geth / neo-x-reth）的 `install_plugin` **只往插件目录写一个占位
+`*.manifest.json` 就返回 `Ok(())`**，注释里自己写着「In real usage, would download…
+/ would verify signature」。这不是「没写完的功能」，而是「接上去就会报成功」的
+路径：谁把注册表接进 UI，操作员就会收到「已安装」，而插件目录里只有一个 JSON。
+neo-go 那一份相反，三个方法都老老实实 `bail!`。
+
+处理是删，不是补。trait、`PluginMetadata`、那张表、`with_plugins` / `has_plugins`、
+五个实现，以及只被它们使用的 `node_dir_from_context` 一并移除，共 399 行删除、
+30 行改动；安装只剩 `PluginPackageManager` 一条真路径（校验摘要、解包到暂存目录、
+成功后才替换已装副本）。`GenerationContext::node_dir` 与它的 builder 留着——那只是
+一个可选字段，不冒充任何结果，删它要动更广的构造点，收益不成比例。`docs/PLUGIN_SUPPORT_MATRIX.md`
+里那段「trait 与注册表仍在」也跟着改成「都不在了」。
+
+删之前确认过：兄弟仓库 `neo-os` 没有引用这个 trait，本仓 web/cli/catalog 也没有，
+`NODE_MANAGER_ARCHITECTURE.md` 开头就是 **HISTORICAL SNAPSHOT** 的横幅；只有它和
+`PHASE1_COMPLETE_REPORT.md` 还提到这些名字，两份都是冻结的历史记录，不动。
+
+门禁：**1407** 项（与上一轮相同——这轮删的是代码，没有新增测试），fmt / clippy /
+source-quality / source-purity / ci-policy 全绿。详见 `docs/ITERATION_2026-10-forms.md`
+第十一至十四节。
 
 ## 仍需关注
 

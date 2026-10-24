@@ -3,14 +3,11 @@
 //! Neo X Reth uses reth's native Rust-based metrics system.
 //! This adapter bridges Reth metrics to Prometheus format.
 
-use crate::config::GenerationContext;
 use crate::supervisor::model::{
-    FatalError, LogEntry, LogParserAdapter, MetricsExporterAdapter as Adapter, PluginMetadata,
-    PluginSystemAdapter, SyncProgress,
+    FatalError, LogEntry, LogParserAdapter, MetricsExporterAdapter as Adapter, SyncProgress,
 };
 use crate::types::NodeConfig;
 use anyhow::Result;
-use std::path::Path;
 
 /// Neo X Reth metrics adapter - extends Reth's native metrics
 #[derive(Debug, Clone)]
@@ -222,75 +219,6 @@ impl LogParserAdapter for NeoXRethMetricsAdapter {
         }
 
         None
-    }
-}
-
-impl PluginSystemAdapter for NeoXRethMetricsAdapter {
-    fn discover_plugins(&self, node_dir: &Path) -> Result<Vec<PluginMetadata>> {
-        // Reth uses extensions via Cargo features and dynamic loading
-        let ext_dir = node_dir.join("extensions");
-        if !ext_dir.exists() {
-            return Ok(Vec::new());
-        }
-
-        let mut plugins = Vec::new();
-
-        if let Ok(entries) = std::fs::read_dir(&ext_dir) {
-            for entry in entries.flatten() {
-                if let Some(name) = entry.file_name().to_str() {
-                    if name.starts_with("lib") || name.ends_with(".dll") {
-                        plugins.push(PluginMetadata {
-                            id: name.to_string(),
-                            name: name.to_string(),
-                            version: "N/A".to_string(),
-                            enabled: true,
-                        });
-                    }
-                }
-            }
-        }
-
-        Ok(plugins)
-    }
-
-    fn install_plugin(&self, plugin_id: &str, target_dir: &Path) -> Result<()> {
-        // For Reth, this means adding an extension to build
-        let ext_dir = target_dir.join("extensions");
-        std::fs::create_dir_all(&ext_dir)?;
-
-        // Create placeholder manifest
-        let manifest = ext_dir.join(format!("{}.manifest.json", plugin_id));
-        std::fs::write(
-            &manifest,
-            serde_json::to_string_pretty(&serde_json::json!({
-                "id": plugin_id,
-                "version": "1.0.0",
-                "type": "reth-extension",
-                "enabled": true,
-                "requires_build": true
-            }))?,
-        )?;
-
-        Ok(())
-    }
-
-    fn toggle_plugin(&self, plugin_id: &str, enabled: bool, ctx: &GenerationContext) -> Result<()> {
-        // Update extension manifest
-        let ext_dir = super::node_dir_from_context(ctx)?.join("extensions");
-        let manifest = ext_dir.join(format!("{}.manifest.json", plugin_id));
-
-        if manifest.exists() {
-            let mut data: serde_json::Value =
-                serde_json::from_str(&std::fs::read_to_string(&manifest)?)?;
-
-            if let Some(obj) = data.as_object_mut() {
-                obj.insert("enabled".to_string(), serde_json::json!(enabled));
-            }
-
-            std::fs::write(&manifest, serde_json::to_string_pretty(&data)?)?;
-        }
-
-        Ok(())
     }
 }
 

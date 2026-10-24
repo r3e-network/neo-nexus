@@ -3,14 +3,11 @@
 //! neo-rs uses tokio-console and native tracing-subscriber output.
 //! This adapter bridges between tokio-metrics and Prometheus format.
 
-use crate::config::GenerationContext;
 use crate::supervisor::model::{
-    FatalError, LogEntry, LogParserAdapter, MetricsExporterAdapter as Adapter, PluginMetadata,
-    PluginSystemAdapter, SyncProgress,
+    FatalError, LogEntry, LogParserAdapter, MetricsExporterAdapter as Adapter, SyncProgress,
 };
 use crate::types::NodeConfig;
 use anyhow::Result;
-use std::path::Path;
 
 /// Neo-rs metrics adapter - bridges tokio console metrics to Prometheus
 #[derive(Debug, Clone)]
@@ -273,55 +270,6 @@ impl LogParserAdapter for NeoRsMetricsAdapter {
         }
 
         None
-    }
-}
-
-impl PluginSystemAdapter for NeoRsMetricsAdapter {
-    fn discover_plugins(&self, _node_dir: &Path) -> Result<Vec<PluginMetadata>> {
-        // neo-rs doesn't have runtime plugins - uses Cargo features
-        Ok(vec![PluginMetadata {
-            id: "features".to_string(),
-            name: "Cargo Feature Flags".to_string(),
-            version: "N/A".to_string(),
-            enabled: false,
-        }])
-    }
-
-    fn install_plugin(&self, plugin_id: &str, _target_dir: &Path) -> Result<()> {
-        // For neo-rs, this means adding a Cargo feature
-        anyhow::bail!(
-            "neo-rs does not support dynamic plugins; '{}' requires Cargo.toml modification and rebuild",
-            plugin_id
-        )
-    }
-
-    fn toggle_plugin(&self, feature: &str, enabled: bool, ctx: &GenerationContext) -> Result<()> {
-        // Modify Cargo.toml to enable/disable feature
-        let cargo_toml = super::node_dir_from_context(ctx)?.join("Cargo.toml");
-
-        if cargo_toml.exists() {
-            let mut content = std::fs::read_to_string(&cargo_toml)?;
-
-            // Simple text manipulation - would ideally parse TOML properly
-            let _feature_line = format!("{} = [\"{}\"];", "default", feature);
-
-            if enabled && !content.contains(feature) {
-                // Add feature to default list
-                content = content.replace(
-                    r#"default = ["std"]"#,
-                    &format!(r#"default = ["std", "{}"]"#, feature),
-                );
-            } else if !enabled {
-                // Remove feature from default list
-                content = content.replace(&format!(r#"["std", "{}"]"#, feature), r#"["std"]"#);
-            }
-
-            std::fs::write(&cargo_toml, &content)?;
-
-            return Ok(());
-        }
-
-        anyhow::bail!("Cargo.toml not found at {:?}", cargo_toml)
     }
 }
 

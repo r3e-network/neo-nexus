@@ -3,10 +3,8 @@
 //! neo-cli uses external prometheus-net-adapter library to expose metrics.
 //! This adapter manages the sidecar process and normalizes metrics output.
 
-use crate::config::GenerationContext;
 use crate::supervisor::model::{
-    FatalError, LogEntry, LogParserAdapter, MetricsExporterAdapter, PluginMetadata,
-    PluginSystemAdapter, SyncProgress,
+    FatalError, LogEntry, LogParserAdapter, MetricsExporterAdapter, SyncProgress,
 };
 use crate::types::NodeConfig;
 use anyhow::{Context, Result};
@@ -203,78 +201,6 @@ impl LogParserAdapter for NeoCliMetricsExporter {
         }
 
         None
-    }
-}
-
-impl PluginSystemAdapter for NeoCliMetricsExporter {
-    fn discover_plugins(&self, node_dir: &Path) -> Result<Vec<PluginMetadata>> {
-        let plugin_dir = node_dir.join("Plugins");
-        if !plugin_dir.exists() {
-            return Ok(Vec::new());
-        }
-
-        let mut plugins = Vec::new();
-
-        if let Ok(entries) = std::fs::read_dir(&plugin_dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.extension().and_then(|s| s.to_str()) == Some("dll") {
-                    let name = path
-                        .file_stem()
-                        .and_then(|s| s.to_str())
-                        .unwrap_or("unknown")
-                        .to_string();
-
-                    plugins.push(PluginMetadata {
-                        id: name.clone(),
-                        name: name.clone(),
-                        version: "unknown".to_string(),
-                        enabled: true, // Would check manifest in real usage
-                    });
-                }
-            }
-        }
-
-        Ok(plugins)
-    }
-
-    fn install_plugin(&self, plugin_id: &str, target_dir: &Path) -> Result<()> {
-        // Copy DLL to Plugins directory
-        let plugin_dir = target_dir.join("Plugins");
-        std::fs::create_dir_all(&plugin_dir)?;
-
-        // In real usage, would download from catalog and copy binary
-        // For now, just create placeholder manifest
-        let manifest = plugin_dir.join(format!("{}.manifest.json", plugin_id));
-        std::fs::write(
-            &manifest,
-            serde_json::to_string_pretty(&serde_json::json!({
-                "id": plugin_id,
-                "version": "1.0.0",
-                "enabled": true
-            }))?,
-        )?;
-
-        Ok(())
-    }
-
-    fn toggle_plugin(&self, plugin_id: &str, enabled: bool, ctx: &GenerationContext) -> Result<()> {
-        // Update the manifest file to change enabled state
-        let plugin_dir = super::node_dir_from_context(ctx)?.join("Plugins");
-        let manifest = plugin_dir.join(format!("{}.manifest.json", plugin_id));
-
-        if manifest.exists() {
-            let mut manifest_data: serde_json::Value =
-                serde_json::from_str(&std::fs::read_to_string(&manifest)?)?;
-
-            if let Some(obj) = manifest_data.as_object_mut() {
-                obj.insert("enabled".to_string(), serde_json::json!(enabled));
-            }
-
-            std::fs::write(&manifest, serde_json::to_string_pretty(&manifest_data)?)?;
-        }
-
-        Ok(())
     }
 }
 

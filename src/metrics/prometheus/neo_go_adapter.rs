@@ -3,14 +3,11 @@
 //! neo-go has built-in Prometheus metrics endpoint at `/metrics` path.
 //! This adapter exposes and normalizes those metrics with Neo-specific labels.
 
-use crate::config::GenerationContext;
 use crate::supervisor::model::{
-    FatalError, LogEntry, LogParserAdapter, MetricsExporterAdapter as Adapter, PluginMetadata,
-    PluginSystemAdapter, SyncProgress,
+    FatalError, LogEntry, LogParserAdapter, MetricsExporterAdapter as Adapter, SyncProgress,
 };
 use crate::types::NodeConfig;
 use anyhow::Result;
-use std::path::Path;
 
 /// Neo-go metrics adapter - uses built-in prometheus endpoint
 #[derive(Debug, Clone)]
@@ -232,40 +229,6 @@ impl LogParserAdapter for NeoGoMetricsAdapter {
         }
 
         None
-    }
-}
-
-impl PluginSystemAdapter for NeoGoMetricsAdapter {
-    fn discover_plugins(&self, _node_dir: &Path) -> Result<Vec<PluginMetadata>> {
-        // neo-go doesn't use traditional plugins - uses Go modules
-        // Return empty list but indicate this is module-based
-        Ok(vec![PluginMetadata {
-            id: "modules".to_string(),
-            name: "Go Modules".to_string(),
-            version: "N/A".to_string(),
-            enabled: false,
-        }])
-    }
-
-    fn install_plugin(&self, plugin_id: &str, _target_dir: &Path) -> Result<()> {
-        // For neo-go, "installing" means adding go.mod dependency
-        // This requires recompilation - not hot-loading
-        anyhow::bail!(
-            "neo-go does not support hot-plugin loading; '{}' requires go.mod update and rebuild",
-            plugin_id
-        )
-    }
-
-    fn toggle_plugin(
-        &self,
-        plugin_id: &str,
-        _enabled: bool,
-        _ctx: &GenerationContext,
-    ) -> Result<()> {
-        anyhow::bail!(
-            "neo-go module '{}' cannot be toggled dynamically; requires code change and rebuild",
-            plugin_id
-        )
     }
 }
 

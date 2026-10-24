@@ -1,6 +1,15 @@
 //! The process model the supervisor records: what a managed process is, what a
-//! start/stop/exit looks like, and the plugin and lifecycle traits a node type
-//! can specialise.
+//! start/stop/exit looks like, and the lifecycle trait a node type can
+//! specialise.
+//!
+//! There is no plugin trait here. One used to be — `PluginSystemAdapter`, with
+//! three `impl`s that wrote a placeholder manifest into the plugin directory and
+//! returned `Ok(())`, plus two that refused. Nothing ever resolved an adapter,
+//! so the fakes were unreachable; a caller that wired the registry would have
+//! been told a plugin was installed when only a JSON file had been written.
+//! Installing a package is `plugins::PluginPackageManager`, which verifies the
+//! source digest, unpacks into a staging directory and only then replaces the
+//! installed copy.
 
 use std::{
     fmt,
@@ -8,31 +17,9 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use anyhow::Result;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-use crate::{config::GenerationContext, launch::LaunchPlan, roles::NodeRole, types::NodeConfig};
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PluginMetadata {
-    pub id: String,
-    pub name: String,
-    pub version: String,
-    pub enabled: bool,
-}
-
-/// Trait for managing plugins/extensions across heterogeneous node types.
-/// Neo-cli uses C# DLLs, neo-go uses Go modules, neo-rs uses Cargo features.
-pub trait PluginSystemAdapter: std::fmt::Debug + Send + Sync {
-    /// Discover available plugins in the node's plugin directory.
-    fn discover_plugins(&self, node_dir: &Path) -> Result<Vec<PluginMetadata>>;
-
-    /// Install a plugin binary/dynamic library to the plugin directory.
-    fn install_plugin(&self, plugin_id: &str, target_dir: &Path) -> Result<()>;
-
-    /// Toggle plugin enabled state by modifying loader configuration.
-    fn toggle_plugin(&self, plugin_id: &str, enabled: bool, ctx: &GenerationContext) -> Result<()>;
-}
+use crate::{launch::LaunchPlan, roles::NodeRole, types::NodeConfig};
 
 /// Trait for type-specific lifecycle operations (start/stop/restart).
 pub trait LifecycleAdapter: std::fmt::Debug + Send + Sync {
