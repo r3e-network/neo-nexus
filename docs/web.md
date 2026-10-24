@@ -13,8 +13,20 @@ host, or the same cloud server the node fleet lives on.
   constants in `src/web/assets.rs`, compiled into the binary. There is no
   static directory to deploy and no Node toolchain anywhere.
 - **Server-side rendering.** Pages are assembled from Rust functions in
-  `src/web/pages/`. Every interpolated value passes through the HTML escaper
-  in `src/web/html.rs`.
+  `src/web/pages/`. Every interpolated value passes through `html::escape`
+  (`src/web/html/primitives.rs`); the primitives that take user text escape it
+  themselves, and the ones that take markup say so in the name
+  (`raw_cell`).
+- **A refusal is a page, not a status line.** An address the console does not
+  have answers `404` with the full shell, the address echoed back so the typo is
+  visible, and three ways out. An address it does have, but not for the method
+  used, answers `405` the same way and names the method — every form posts to an
+  address of its own, so an operator who types one into the address bar would
+  otherwise get axum's empty body and no way back. The `405` keeps the `Allow`
+  header axum attaches, so a tool still learns which methods work. Under `/api/`
+  and `/signer/api/` both answer JSON instead: a program parses the body, and an
+  HTML error page reads as a broken service rather than a wrong request. Both
+  shapes live in one place, `src/web/pages/unserved.rs`, so they cannot drift.
 - **One core pipeline.** Node launch and stop live in `src/supervision.rs`;
   browser controls and the watchdog both call it, so a manual start and an
   automatic restart are the same code path against the same supervisor. There is

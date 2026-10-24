@@ -6434,3 +6434,90 @@ fn the_echoed_address_cannot_become_markup() {
         "the path must not break out of the surrounding text: {markup}"
     );
 }
+
+/// The address is real and the method is wrong. axum answers that with an empty
+/// `405`, so an operator who typed a form's address into the address bar sees a
+/// blank page and cannot tell it from a broken console.
+#[test]
+fn a_form_address_asked_for_as_a_page_says_the_method_is_wrong() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+    let session = signed_in(&http, base);
+
+    // `/settings/density` is posted by the density control and is not a page.
+    let response = into_response(
+        http.get(&format!("{base}/settings/density"))
+            .set("cookie", &session)
+            .call(),
+    );
+    assert_eq!(response.status(), 405);
+    // Same header layer as every other page: without it the page renders as
+    // unstyled text, which is the answer this replaces.
+    assert!(
+        response
+            .header("content-security-policy")
+            .is_some_and(|policy| policy.contains("style-src 'sha256-")),
+        "the method answer needs the same header layer as every other page"
+    );
+    let markup = response.into_string().expect("page body");
+    assert!(
+        markup.contains("Nothing here answers GET"),
+        "the answer must name the method that was used: {markup}"
+    );
+    assert!(
+        markup.contains("aws-top-bar"),
+        "a 405 is still a page of this console, not bare text: {markup}"
+    );
+    assert!(
+        markup.contains(r#"href="/nodes""#),
+        "the page must offer a way back, not just the address bar: {markup}"
+    );
+}
+
+/// The reverse direction: a page that only reads, posted to. And the `Allow`
+/// header has to survive the replaced body — a tool that adjusts to a `405`
+/// reads it, and the custom handler never sets it.
+#[test]
+fn a_post_to_a_read_only_address_keeps_the_allow_header() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+
+    let response = into_response(http.post(&format!("{base}/healthz")).call());
+    assert_eq!(response.status(), 405);
+    let allow = response
+        .header("allow")
+        .expect("a 405 must say which methods would have worked");
+    assert!(
+        allow.contains("GET"),
+        "the allowed methods belong on the response: {allow}"
+    );
+    let markup = response.into_string().expect("page body");
+    assert!(
+        markup.contains("Nothing here answers POST"),
+        "the answer must name the method that was used: {markup}"
+    );
+}
+
+/// A program that posts to an endpoint which only reads gets the same treatment
+/// as one that asks for an address that does not exist: a body it can parse,
+/// with the method in it, instead of a status it has to guess about.
+#[test]
+fn an_api_address_that_exists_but_not_for_this_method_answers_in_json() {
+    let server = spawn_server();
+    let http = agent();
+    let base = &server.base_url;
+
+    let response = into_response(http.post(&format!("{base}/api/public/status")).call());
+    assert_eq!(response.status(), 405);
+    assert_eq!(
+        response.header("content-type"),
+        Some("application/json"),
+        "an API caller gets a body it can parse"
+    );
+    let body = json_body(response);
+    assert_eq!(body["error"], "method_not_allowed");
+    assert_eq!(body["method"], "POST");
+    assert_eq!(body["path"], "/api/public/status");
+}

@@ -360,6 +360,13 @@ pub fn build_router(state: WebState) -> Router {
         // layer every mistyped URL would bounce to the sign-in page and look
         // like a session problem.
         .fallback(pages::not_found::not_found)
+        // Set after every route is registered, because axum installs it onto the
+        // method routers that already exist. axum's default `405` has an empty
+        // body: an operator who typed a form's address into the address bar gets
+        // a blank page, with nothing to say the address was real and only the
+        // method was wrong. The `Allow` header is still attached by axum around
+        // this handler, so a tool loses nothing.
+        .method_not_allowed_fallback(pages::method_not_allowed::method_not_allowed)
         .layer(middleware::from_fn_with_state(
             state.clone(),
             super::security_headers::apply,

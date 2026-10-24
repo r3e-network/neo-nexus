@@ -9,6 +9,7 @@ pub mod federation;
 pub mod home;
 pub mod login;
 pub mod logs;
+pub mod method_not_allowed;
 pub mod metrics_page;
 pub mod monitor;
 pub mod node_editor;
@@ -21,6 +22,11 @@ pub mod runtimes;
 pub mod settings;
 pub mod signer;
 pub mod snapshots;
+
+/// The shape of the `404` and `405` answers, shared by the two handlers so the
+/// JSON keys and the ways out cannot drift apart.
+mod unserved;
+
 pub mod wallets;
 
 #[cfg(test)]
