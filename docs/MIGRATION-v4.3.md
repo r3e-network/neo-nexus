@@ -829,8 +829,8 @@ curl -T incident-report.tar.gz https://support.neo-nexus.io/upload
 
 - [Node Manager Architecture](../NODE_MANAGER_IMPLEMENTATION_PLAN.md)
 - [Troubleshooting Guide](TROUBLESHOOTING.md)
-- [API Token Authentication Setup](README.md#api-token-authentication)
-- [Private Network Configuration](docs/web.md#private-networks)
+- [API Token Authentication Setup](../README.md#6-headless-api-token-administration-rbac)
+- [Private Network Configuration](native-rust.md#private-networks)
 
 ---
 

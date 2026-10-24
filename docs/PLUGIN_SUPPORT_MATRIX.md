@@ -127,29 +127,41 @@ This document provides a factual overview of plugin and configuration capabiliti
 
 ---
 
-## Adapter Behavior
+## Plugin code paths
 
-### NoOpPluginSystemAdapter
+There is no adapter between the plugin pages and the installer. The trait and the
+registry entry still exist — `PluginSystemAdapter` with `discover_plugins` /
+`install_plugin` / `toggle_plugin`, and `NodeAdapters::plugins` — but nothing in
+this crate resolves an adapter through them, and there is no no-op
+implementation to fall back on: a node type with no entry simply has none.
+Installing a package is a direct call into `PluginPackageManager`.
 
-All three public methods fail using the crate-shared error helper `plugin_adapter_unavailable`:
+### Install precondition
 
-- `discover_plugins`: returns an error saying no adapter was registered and supplies operator guidance.
-- `install_plugin`: returns the same error; no discovery is implied.
-- `toggle_plugin`: returns the same error; no default context is assumed.
+`plugins::ensure_plugin_installable` is the one gate the page, the upload handler
+and the installer share, and it refuses in this order:
+
+- A runtime that does not take C# DLL packages is refused first, naming the
+  runtime and what it needs instead of a package — build-time Cargo features for
+  NeoRs, source integration for NeoGo, built-in extensions for Neo X.
+- A capable runtime that is not stopped is refused next. A package change applies
+  on the next launch, not by hot reload, so the error names the node and says to
+  stop it first.
 
 **Location:**
-- [`src/supervisor/model.rs`](../src/supervisor/model.rs#L1060-L1080)
+- [`src/plugins.rs`](../src/plugins.rs) (`ensure_plugin_installable`)
+- [`src/supervisor/model/adapters.rs`](../src/supervisor/model/adapters.rs) (`NodeAdapters`)
 
-### NodeManager Facade
+### Plugin package manager
 
-The facade separates capability rejection from adapter lookup:
-
-- Unsupported package capability fails first.
-- If capable but the registry lacks an adapter, a separate error names the runtime and refuses the operation.
-- Installation and toggle include node ID and name in errors.
+`PluginPackageManager::install` runs the precondition, validates the manifest,
+verifies the source path and its SHA-256 against the expected digest, enforces
+the package size limit, and unpacks into a staging directory before replacing the
+plugin directory — so a package that fails to unpack never reaches the copy that
+is already installed.
 
 **Location:**
-- [`src/node_manager.rs`](../src/node_manager.rs)
+- [`src/plugins/manager.rs`](../src/plugins/manager.rs)
 
 ### Repository `set_plugin_enabled`
 
@@ -207,8 +219,9 @@ These tests confirm **no go.mod edits**, **no existing file byte changes**, and 
 
 ### Additional regression requirements
 
-- **NoOp failures:** `supervisor/model.rs` NoOpPluginSystemAdapter methods reject with actionable text and do not return empty success.
-- **Facade rejection:** `node_manager.rs` returns capability-first errors and includes node context.
+- **Install precondition:** `ensure_plugin_installable` refuses an unsupported
+  runtime before it touches a file, and refuses a running node before it changes
+  one; both errors name the node or the runtime.
 - **Catalog placeholders:** `neo_go_modules.rs` and `neo_rs_features.rs` fail without side effects.
 - **Repository gating:** direct calls to `set_plugin_enabled` reject active nodes and invalid plugin ids.
 - **Upload validation:** POST handlers reject duplicate fields, missing targets, and active nodes before tempfile creation.
@@ -222,7 +235,9 @@ These tests confirm **no go.mod edits**, **no existing file byte changes**, and 
 **Behavior changes from prior drafts:**
 
 - Operations that previously returned generic success or warnings now fail with explicit errors.
-- The NoOp adapter no longer implies inventory by returning an empty list; it fails.
+- The no-op plugin adapter that once reported "nothing installed" as an empty
+  list has since been removed; a node type without an entry has no plugin
+  adapter, and installation never goes through one.
 - Package uploads require `node_id` before `package` bytes; duplicate fields are rejected.
 - Temporary directories are created after validation, reducing stray artifacts on bad input.
 - Configuration toggles validate against the managed catalog; entries that do not apply are refused.
@@ -254,7 +269,6 @@ These tests confirm **no go.mod edits**, **no existing file byte changes**, and 
 
 ## See Also
 
-- [Task #122 continuation summary](../../cache/plans/节点管理_优化_收尾_f334068d.md) — session history and implementation continuity
 - [`src/plugins.rs`](../src/plugins.rs) — public helpers for capability, guidance, and constants
 - [`src/web/pages/plugins.rs`](../src/web/pages/plugins.rs) — UI rendering and handlers
 - [`src/web/plugin_ops.rs`](../src/web/plugin_ops.rs) — upload endpoint and background job

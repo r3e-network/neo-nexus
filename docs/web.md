@@ -27,7 +27,7 @@ host, or the same cloud server the node fleet lives on.
   and `/signer/api/` both answer JSON instead: a program parses the body, and an
   HTML error page reads as a broken service rather than a wrong request. Both
   shapes live in one place, `src/web/pages/unserved.rs`, so they cannot drift.
-- **One core pipeline.** Node launch and stop live in `src/supervision.rs`;
+- **One core pipeline.** Node launch and stop live in `src/supervision/`;
   browser controls and the watchdog both call it, so a manual start and an
   automatic restart are the same code path against the same supervisor. There is
   no web-only control path.

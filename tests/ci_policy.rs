@@ -3,6 +3,8 @@ use neo_nexus::ci_policy::CiPolicyChecker;
 mod acceptance;
 #[path = "ci_policy/contract.rs"]
 mod contract;
+#[path = "ci_policy/doc_links.rs"]
+mod doc_links;
 #[path = "ci_policy/orphan_modules.rs"]
 mod orphan_modules;
 #[path = "ci_policy/rejections.rs"]

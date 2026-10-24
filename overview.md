@@ -282,7 +282,27 @@ axum 对此的默认答复是一个 **空 body 的 405**——没有文字、没
 注入验证时三条同时变红，且第一次跑出的失败信息是空 body——正好证明了默认 405 的
 问题本身。
 
-门禁：**1406** 项（上一轮 1403），fmt / clippy / source-quality / source-purity /
+顺带审了一遍文档里的引用，两类问题。**死链四处**：一处源码链接点进去 404
+（`src/node_manager.rs` 已不存在）、一处把 `docs/web.md` 从 `docs/` 里当作根路径去写
+（解析成 `docs/docs/web.md`）、一处锚点写错文件（私有网络那一节在 `native-rust.md`）、
+一处指向仓库外的会话计划文件。**更严重的是 `docs/PLUGIN_SUPPORT_MATRIX.md` 有一整节
+在描述已经不存在的代码**：`NoOpPluginSystemAdapter` 只出现在文档里，`NodeManager`
+facade 与 `src/node_manager.rs` 也都不在了。那份文档开头写着「describes implemented
+behavior」，所以这不是措辞陈旧，是事实错误。改法是照着真实实现重写这一节：`PluginSystemAdapter`
+trait 与 `NodeAdapters::plugins` 仍在，但本 crate 没有任何地方经它们解析适配器，也没有
+no-op 实现；安装是直接调 `PluginPackageManager`。前置条件按代码的真实顺序写（先拒
+不支持的运行时、再拒不处于停止状态的节点），已逐条对着 `ensure_plugin_installable` 与
+`install` 核过。
+
+为了不让这一类腐烂再无声发生，加了常驻规则 `tests/ci_policy/doc_links.rs`：扫根目录与
+`docs/` 的 Markdown 相对链接，断言目标存在，并先断言至少扫到 20 份文档——规则扫空也
+应该红，否则移走文档就等于关掉它。注入验证把一处链接改回旧值，测试立刻报
+`docs/MIGRATION-v4.3.md: docs/web.md`。**故意不查锚点**：各渲染器的 slug 规则不一致，
+误报会让人把整条规则关掉，那是最坏的结果。历史报告里指向旧路径的引用也没动——
+`ARCHITECTURE_GOVERNANCE_2026.md`、`signer-service-*.md` 是定日期的记录，那些路径
+当时是真实的。
+
+门禁：**1407** 项（上一轮 1406），fmt / clippy / source-quality / source-purity /
 ci-policy 全绿。详见 `docs/ITERATION_2026-10-forms.md` 第十一至十四节。
 
 ## 仍需关注
