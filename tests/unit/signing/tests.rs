@@ -166,6 +166,7 @@ fn registry_holds_all_three_backend_families_without_key_collisions() {
                     app_id: "app".to_string(),
                     module_id: "module".to_string(),
                     operation: "resolve".to_string(),
+                    payload_hex: "0x".to_string(),
                     success: true,
                     error: String::new(),
                 },

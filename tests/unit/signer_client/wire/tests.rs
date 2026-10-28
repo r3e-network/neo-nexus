@@ -1,9 +1,9 @@
 use serde_json::Value;
 
 use super::{
-    AssetLimit, Caller, ContractMethod, CreatedCaller, Eip191FulfillmentSignature,
-    GenerateKeyRequest, Grant, KeyBoundary, KeyPublic, Outcome, Policy, RawSignature, Refusal,
-    SavedBoundary, SignRequest, Signature, SignatureRateLimit, WindowLimit,
+    AssetLimit, Caller, ContractMethod, CreatedCaller, Eip191FulfillmentRequest,
+    Eip191FulfillmentSignature, GenerateKeyRequest, Grant, KeyBoundary, KeyPublic, Outcome, Policy,
+    RawSignature, Refusal, SavedBoundary, SignRequest, Signature, SignatureRateLimit, WindowLimit,
 };
 
 #[test]
@@ -237,6 +237,50 @@ fn a_neox_signature_keeps_its_fields_and_additive_response_data() {
     assert_eq!(relayed["future_receipt"]["type"], 2);
     assert!(relayed.get("invocation_script").is_none());
     assert!(relayed.get("verification_script").is_none());
+}
+
+#[test]
+fn an_eip191_fulfillment_request_preserves_the_original_payload_bytes() {
+    let body = serde_json::json!({
+        "key_id": "key-x",
+        "request_id": "relay:7",
+        "chain_id": 47_763,
+        "oracle_contract": "0x2222222222222222222222222222222222222222",
+        "fulfillment": {
+            "request_id": "7",
+            "app_id": "app:1",
+            "module_id": "oracle.fetch",
+            "operation": "privacy_oracle",
+            "payload_hex": "0x7b2261223a317d",
+            "success": true,
+            "error": ""
+        },
+        "result_bytes_hex": "0x68656c6c6f"
+    });
+    let request: Eip191FulfillmentRequest =
+        serde_json::from_value(body.clone()).expect("the complete service request parses");
+    assert_eq!(serde_json::to_value(request).unwrap(), body);
+
+    let mut empty = body.clone();
+    empty["fulfillment"]["payload_hex"] = "0x".into();
+    let request: Eip191FulfillmentRequest = serde_json::from_value(empty.clone())
+        .expect("explicit empty payload bytes remain explicit");
+    assert_eq!(serde_json::to_value(request).unwrap(), empty);
+
+    let mut missing = body.clone();
+    missing["fulfillment"]
+        .as_object_mut()
+        .unwrap()
+        .remove("payload_hex");
+    assert!(serde_json::from_value::<Eip191FulfillmentRequest>(missing).is_err());
+
+    let mut substituted = body;
+    substituted["fulfillment"]
+        .as_object_mut()
+        .unwrap()
+        .remove("payload_hex");
+    substituted["fulfillment"]["digest"] = "0x1234".into();
+    assert!(serde_json::from_value::<Eip191FulfillmentRequest>(substituted).is_err());
 }
 
 #[test]

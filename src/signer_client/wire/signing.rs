@@ -60,6 +60,8 @@ pub struct Eip191Fulfillment {
     pub app_id: String,
     pub module_id: String,
     pub operation: String,
+    /// Exact original request payload bytes, with an optional `0x` prefix.
+    pub payload_hex: String,
     pub success: bool,
     #[serde(default)]
     pub error: String,

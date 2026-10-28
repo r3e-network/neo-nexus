@@ -316,6 +316,7 @@ fn the_eip191_lane_forwards_only_structured_contract_bound_fields() {
             app_id: "app:1".to_string(),
             module_id: "oracle.fetch".to_string(),
             operation: "privacy_oracle".to_string(),
+            payload_hex: "7b7d".to_string(),
             success: true,
             error: String::new(),
         },
@@ -339,6 +340,7 @@ fn the_eip191_lane_forwards_only_structured_contract_bound_fields() {
     assert!(request.contains(r#""request_id":"relayer:neox:7""#));
     assert!(request.contains(r#""result_bytes_hex":"0x68656c6c6f""#));
     assert!(request.contains(r#""module_id":"oracle.fetch""#));
+    assert!(request.contains(r#""payload_hex":"7b7d""#));
     assert!(!request.contains(r#""digest""#), "{request}");
     assert!(!request.contains(r#""message_hash""#), "{request}");
 }
@@ -1068,6 +1070,7 @@ fn a_real_service_and_this_client_agree_on_every_supported_route() -> Result<()>
                     app_id: "app:1".to_string(),
                     module_id: "oracle.fetch".to_string(),
                     operation: "privacy_oracle".to_string(),
+                    payload_hex: "7b7d".to_string(),
                     success: true,
                     error: String::new(),
                 },
