@@ -78,7 +78,10 @@ pub(super) fn validate_archive_entries(
         let entry = archive
             .by_index(index)
             .with_context(|| format!("failed to inspect release archive entry {index}"))?;
-        let name = entry.name().to_string();
+        let name = entry
+            .name()
+            .context("release package entry name is invalid")?
+            .into_owned();
         safe_file_name(&name, "archive entry")?;
         if !names.insert(name.clone()) {
             anyhow::bail!("release archive contains duplicate entry {name}");

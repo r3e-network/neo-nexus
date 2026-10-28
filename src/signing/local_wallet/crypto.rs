@@ -124,7 +124,7 @@ pub(super) fn sign_message(private_key: &[u8; 32], message: &[u8]) -> Result<[u8
         anyhow::anyhow!("the decrypted local wallet key is not a valid P-256 scalar")
     })?;
     let signature: P256Signature = signing_key.sign(message);
-    let signature = signature.normalize_s().unwrap_or(signature);
+    let signature = signature.normalize_s();
     signing_key
         .verifying_key()
         .verify(message, &signature)
@@ -202,7 +202,7 @@ fn identity_parts(private_key: &[u8; 32]) -> Result<IdentityParts> {
     let signing_key = SigningKey::from_slice(private_key).map_err(|_| {
         anyhow::anyhow!("the decrypted local wallet key is not a valid P-256 scalar")
     })?;
-    let encoded = signing_key.verifying_key().to_encoded_point(true);
+    let encoded = signing_key.verifying_key().to_sec1_point(true);
     let public_bytes = encoded.as_bytes();
     if public_bytes.len() != 33 {
         bail!("the local wallet P-256 public key is not compressed to 33 bytes");

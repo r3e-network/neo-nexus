@@ -9,7 +9,7 @@
 use std::env;
 
 use anyhow::{bail, Context, Result};
-use p256::elliptic_curve::sec1::ToEncodedPoint as _;
+use p256::elliptic_curve::sec1::ToSec1Point as _;
 use url::{Host, Url};
 
 pub const LOCAL_SIGNER_ENDPOINT_ENV: &str = "NEONEXUS_LOCAL_SIGNER_ENDPOINT";
@@ -125,7 +125,7 @@ fn normalize_public_key(raw: &str) -> Result<String> {
     }
     let key = p256::PublicKey::from_sec1_bytes(&bytes)
         .context("local signer public key is not a valid P-256 point")?;
-    Ok(encode_hex(key.to_encoded_point(true).as_bytes()))
+    Ok(encode_hex(key.to_sec1_point(true).as_bytes()))
 }
 
 fn decode_hex(value: &str) -> Result<Vec<u8>> {

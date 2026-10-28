@@ -170,6 +170,36 @@ fn raw_digest_matches_the_service_contract_and_unicode_hex_is_rejected() {
         .is_err());
 }
 
+#[test]
+fn p256_upgrade_preserves_low_s_and_network_bound_signatures() {
+    let private_key = [7_u8; 32];
+    let unsigned = [0_u8, 1, 2, 3];
+    let encoded = crypto::sign_transaction(&private_key, &unsigned, MAGIC)
+        .expect("fixed private transaction signs");
+    let signature = P256Signature::from_slice(&encoded).expect("fixed-width signature");
+    let verifying_key = VerifyingKey::from_sec1_bytes(&hex_decode(FIXED_PUBLIC_KEY))
+        .expect("independent compressed public key");
+    let sign_data = |magic: u32| {
+        let mut bytes = magic.to_le_bytes().to_vec();
+        bytes.extend_from_slice(&Sha256::digest(unsigned));
+        bytes
+    };
+    verifying_key
+        .verify(&sign_data(MAGIC), &signature)
+        .expect("original network and unsigned transaction verify");
+    assert!(verifying_key
+        .verify(&sign_data(MAGIC + 1), &signature)
+        .is_err());
+    let half_order = hex_decode("7fffffff800000007fffffffffffffffde737d56d38bcf4279dce5617e3192a8");
+    assert!(
+        encoded[32..] <= half_order[..],
+        "Neo requires canonical low-S"
+    );
+    let mut changed = sign_data(MAGIC);
+    changed[4] ^= 1;
+    assert!(verifying_key.verify(&changed, &signature).is_err());
+}
+
 struct Fixture {
     _home: tempfile::TempDir,
     wallet_path: std::path::PathBuf,

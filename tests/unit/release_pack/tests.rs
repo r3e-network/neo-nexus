@@ -55,7 +55,12 @@ fn release_packager_writes_zip_manifest_and_checksum() -> Result<()> {
         let entry = archive
             .by_index(index)
             .with_context(|| format!("missing zip entry {index}"))?;
-        names.push(entry.name().to_string());
+        names.push(
+            entry
+                .name()
+                .context("invalid packaged entry name")?
+                .into_owned(),
+        );
     }
     assert!(names.iter().any(|name| name == "neo-nexus"));
     assert!(names.iter().any(|name| name == "release-manifest.json"));
