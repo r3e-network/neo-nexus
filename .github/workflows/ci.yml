@@ -41,9 +41,9 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
 
       - name: RustSec advisory audit
-        uses: rustsec/audit-check@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cargo install cargo-audit --version 0.22.2 --locked
+          cargo audit --deny unsound
 
       - name: Cargo deny (licenses, bans, sources)
         uses: EmbarkStudios/cargo-deny-action@v2

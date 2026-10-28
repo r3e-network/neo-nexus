@@ -65,3 +65,41 @@ fn platform_specific_workflow_steps_pin_their_shell() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn advisory_audit_uses_cli_exit_status_without_check_run_permissions() -> anyhow::Result<()> {
+    let ci = read_workflow(&workflow_root(), "ci.yml")?;
+    let workflow: serde_yaml::Value = serde_yaml::from_str(&ci)?;
+    let verify = &workflow["jobs"]["verify"];
+    let steps = verify["steps"]
+        .as_sequence()
+        .expect("verify job must contain steps");
+    let audit = steps
+        .iter()
+        .find(|step| step["name"].as_str() == Some("RustSec advisory audit"))
+        .expect("the advisory audit must remain in the verify job");
+    assert!(
+        audit["uses"].is_null(),
+        "audit must use the CLI exit status"
+    );
+    assert!(
+        audit["with"].is_null(),
+        "audit must not receive a GitHub token"
+    );
+    assert!(
+        audit["continue-on-error"].is_null(),
+        "audit failures must fail the job"
+    );
+    let commands = audit["run"].as_str().expect("audit commands are required");
+    assert_eq!(
+        commands.lines().collect::<Vec<_>>(),
+        [
+            "cargo install cargo-audit --version 0.22.2 --locked",
+            "cargo audit --deny unsound",
+        ],
+        "audit must install the pinned tool and propagate vulnerability/unsound failures"
+    );
+    assert!(verify["permissions"]["checks"].is_null());
+    assert!(verify["permissions"]["issues"].is_null());
+    Ok(())
+}
