@@ -58,7 +58,11 @@ fn a_pid_line_the_child_beat_onto_the_log_is_not_quoted_as_the_childs_words() {
     )
     .expect("write the log");
 
-    let quoted = read_startup_output(&log_path, "== NeoNexus launch 0 ==\npid: 7\n".len() as u64);
+    let quoted = read_startup_output(
+        &log_path,
+        "== NeoNexus launch 0 ==\npid: 7\n".len() as u64,
+        42,
+    );
     assert_eq!(quoted, "stub runtime rejected its arguments");
 }
 
@@ -73,6 +77,29 @@ fn a_pid_line_written_before_the_child_is_not_quoted_as_the_childs_output() {
     )
     .expect("write the log");
 
-    let quoted = read_startup_output(&log_path, "== NeoNexus launch 0 ==\npid: 7\n".len() as u64);
+    let quoted = read_startup_output(
+        &log_path,
+        "== NeoNexus launch 0 ==\npid: 7\n".len() as u64,
+        42,
+    );
     assert_eq!(quoted, "stub runtime rejected its arguments");
+}
+
+#[test]
+fn a_pid_prefixed_child_diagnostic_is_preserved() {
+    let temp_dir = tempfile::tempdir().expect("temporary log directory");
+    let log_path = temp_dir.path().join("child-pid-diagnostic.log");
+    std::fs::write(&log_path, "pid: 42\npid: 9001 failed to bind port\n").expect("write log");
+    assert_eq!(
+        read_startup_output(&log_path, 0, 42),
+        "pid: 9001 failed to bind port"
+    );
+}
+
+#[test]
+fn an_unrelated_numeric_pid_line_is_child_output() {
+    let temp_dir = tempfile::tempdir().expect("temporary log directory");
+    let log_path = temp_dir.path().join("child-numeric-pid.log");
+    std::fs::write(&log_path, "pid: 42\npid: 9001\n").expect("write log");
+    assert_eq!(read_startup_output(&log_path, 0, 42), "pid: 9001");
 }
