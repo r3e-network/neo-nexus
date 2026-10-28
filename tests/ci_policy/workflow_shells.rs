@@ -105,6 +105,45 @@ fn advisory_audit_uses_cli_exit_status_without_check_run_permissions() -> anyhow
 }
 
 #[test]
+fn cargo_deny_runs_the_pinned_cli_on_every_platform_without_a_container_action(
+) -> anyhow::Result<()> {
+    let ci = read_workflow(&workflow_root(), "ci.yml")?;
+    let workflow: serde_yaml::Value = serde_yaml::from_str(&ci)?;
+    let verify = &workflow["jobs"]["verify"];
+    let steps = verify["steps"]
+        .as_sequence()
+        .expect("verify job must contain steps");
+    let deny = steps
+        .iter()
+        .find(|step| step["name"].as_str() == Some("Cargo deny (licenses, bans, sources)"))
+        .expect("the cargo deny check must remain in the verify job");
+    assert!(
+        deny["uses"].is_null(),
+        "the deny action is a container action, which GitHub refuses to run on \
+         Windows and macOS runners; it must use the CLI so the gate holds on \
+         every platform in the matrix"
+    );
+    assert!(
+        deny["with"].is_null(),
+        "a CLI step does not take action inputs"
+    );
+    assert!(
+        deny["continue-on-error"].is_null(),
+        "deny failures must fail the job"
+    );
+    let commands = deny["run"].as_str().expect("deny commands are required");
+    assert_eq!(
+        commands.lines().collect::<Vec<_>>(),
+        [
+            "cargo install cargo-deny --version 0.20.2 --locked",
+            "cargo deny --all-features check",
+        ],
+        "deny must install the pinned tool and check the full feature graph"
+    );
+    Ok(())
+}
+
+#[test]
 fn yaml_parser_dependency_is_maintained_without_advisory_exemptions() -> anyhow::Result<()> {
     let root = workflow_root();
     let manifest: toml::Value = toml::from_str(&fs::read_to_string(root.join("Cargo.toml"))?)?;
