@@ -45,3 +45,34 @@ fn start_and_restart_refuse_an_unbound_imported_runtime_before_spawn() {
     assert!(restart.to_string().contains("no trusted local runtime"));
     assert!(!log_path.exists());
 }
+
+#[test]
+fn a_pid_line_the_child_beat_onto_the_log_is_not_quoted_as_the_childs_words() {
+    // The losing order: the child printed its reason before the supervisor
+    // could append the pid, so the pid line trails the child's own output.
+    let temp_dir = tempfile::tempdir().expect("temporary log directory");
+    let log_path = temp_dir.path().join("child-first.log");
+    std::fs::write(
+        &log_path,
+        "== NeoNexus launch 0 ==\npid: 7\nstub runtime rejected its arguments\npid: 42\n",
+    )
+    .expect("write the log");
+
+    let quoted = read_startup_output(&log_path, "== NeoNexus launch 0 ==\npid: 7\n".len() as u64);
+    assert_eq!(quoted, "stub runtime rejected its arguments");
+}
+
+#[test]
+fn a_pid_line_written_before_the_child_is_not_quoted_as_the_childs_output() {
+    // The common order: the pid line lands first, the child's reason after.
+    let temp_dir = tempfile::tempdir().expect("temporary log directory");
+    let log_path = temp_dir.path().join("pid-first.log");
+    std::fs::write(
+        &log_path,
+        "== NeoNexus launch 0 ==\npid: 7\npid: 42\nstub runtime rejected its arguments\n",
+    )
+    .expect("write the log");
+
+    let quoted = read_startup_output(&log_path, "== NeoNexus launch 0 ==\npid: 7\n".len() as u64);
+    assert_eq!(quoted, "stub runtime rejected its arguments");
+}

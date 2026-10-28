@@ -33,16 +33,18 @@ pub(super) fn spawn_managed_child(
         .stdout(Stdio::from(stdout_log))
         .stderr(Stdio::from(stderr_log));
     scrub_control_plane_environment(&mut command);
+    // The boundary between NeoNexus's launch header and the child's own output
+    // has to be measured while the child cannot have written yet. Measuring
+    // after the spawn loses the race against a child that dies instantly: by
+    // the time the length is taken, the child's first line is already in the
+    // file, the boundary lands past it, and the failure report would claim a
+    // process that did print its reason "wrote nothing to its log".
+    let output_offset = log_file.metadata().map(|meta| meta.len()).unwrap_or(0);
     let child = command
         .spawn()
         .with_context(|| format!("failed to start {}", spec.binary_path.display()))?;
     let pid = child.id();
     append_pid(&mut log_file, &log_path, pid)?;
-    // Everything past this point in the file is the child's own stdout/stderr.
-    // A failure report quotes from here rather than guessing which lines were
-    // the header. A file we just wrote to and cannot measure is not worth
-    // failing a launch over; 0 degrades to "quote the whole file".
-    let output_offset = log_file.metadata().map(|meta| meta.len()).unwrap_or(0);
 
     Ok((
         ManagedChild::new(

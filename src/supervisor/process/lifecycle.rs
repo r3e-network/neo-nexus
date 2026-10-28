@@ -185,6 +185,11 @@ impl ProcessSupervisor {
 /// Best effort by design: this runs while reporting a failure that has already
 /// happened, so an unreadable log degrades to an empty quote rather than
 /// replacing the real reason with an IO error.
+///
+/// The launch header ends before the child exists, but the `pid:` line is
+/// appended after the spawn — so it lands inside the quoted region, either
+/// ahead of the child's output or behind it depending on who won the race.
+/// It is NeoNexus's own bookkeeping, never the child's words, and is dropped.
 fn read_startup_output(log_path: &Path, offset: u64) -> String {
     let Ok(mut file) = std::fs::File::open(log_path) else {
         return String::new();
@@ -204,7 +209,7 @@ fn read_startup_output(log_path: &Path, offset: u64) -> String {
     let lines: Vec<&str> = text
         .lines()
         .map(str::trim_end)
-        .filter(|line| !line.trim().is_empty())
+        .filter(|line| !line.trim().is_empty() && !line.starts_with("pid: "))
         .collect();
     let tail = lines.len().saturating_sub(STARTUP_OUTPUT_LINES);
     lines[tail..].join("; ")
