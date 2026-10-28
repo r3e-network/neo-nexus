@@ -309,11 +309,11 @@ impl ProcessSupervisor {
                 }
             }
 
-            // Extract and publish sync progress - always run for both baseline and append
+            // Extract and queue sync progress - always run for both baseline and append
             let mut lines: Vec<&str> = content.lines().rev().take(20).collect();
             lines.reverse();
-            if let Some(sync) = parser.extract_sync_progress(&lines) {
-                Self::publish_sync_if_changed(
+            let pending_sync = parser.extract_sync_progress(&lines).and_then(|sync| {
+                Self::queue_sync_if_changed(
                     observations,
                     node,
                     &mut observations_to_record,
@@ -321,17 +321,25 @@ impl ProcessSupervisor {
                     sync.target_height,
                     sync.sync_percentage,
                     sync.peers_connected as i32,
-                );
-            }
+                )
+            });
 
             // Batch insert ensures all-or-nothing for retries. If the DB write fails we
             // return before advancing the cursor, so the same region is retried next round.
             if !observations_to_record.is_empty() {
                 if let Err(error) = repository.record_event_batch(&observations_to_record) {
-                    // Release the reserved budget and leave the offset untouched.
+                    // Release the reserved budget and leave the offset untouched. The
+                    // dedup state stayed untouched too, so the retrying round queues
+                    // the same progress again instead of believing it was shown.
                     cursors.release_budget(allowed_bytes, allowed_lines);
                     return Err(error);
                 }
+            }
+            // Only now, with the batch durably in the database, may the progress
+            // count as published. Marking it earlier would let one failed write
+            // suppress this progress forever.
+            if let Some((progress, epoch)) = pending_sync {
+                observations.publish(node, epoch, Some(Arc::new(progress)));
             }
 
             // Advance cursor and bind identity AFTER DB success.
@@ -373,8 +381,14 @@ impl ProcessSupervisor {
         Ok(String::from_utf8_lossy(&buffer[..bytes_read]).to_string())
     }
 
-    /// Deduplicate sync progress updates and publish after DB success
-    fn publish_sync_if_changed(
+    /// Queue a sync-progress event when it differs from what was last committed.
+    ///
+    /// Returns the progress together with the epoch it was read under, so the
+    /// caller can move the dedup state only once the batch it rode in reached
+    /// the database. Marking the state at queue time would let a single failed
+    /// write suppress this progress forever: the retrying round would compare
+    /// against a sample the operator never saw and decide there is no news.
+    fn queue_sync_if_changed(
         observations: &Arc<LogObservations>,
         node: &crate::types::NodeConfig,
         observations_to_record: &mut Vec<NewRuntimeEvent>,
@@ -382,7 +396,7 @@ impl ProcessSupervisor {
         target_height: u64,
         sync_percentage: f32,
         peers_connected: i32,
-    ) {
+    ) -> Option<(crate::supervisor::model::SyncProgress, u64)> {
         let existing = observations.sync_progress(node);
         let new_progress = crate::supervisor::model::SyncProgress {
             current_height,
@@ -416,9 +430,14 @@ impl ProcessSupervisor {
                 message,
             });
 
-            // Update local observations state immediately
             let epoch = observations.epoch(&node.id);
-            observations.publish(node, epoch, Some(Arc::new(new_progress)));
+            Some((new_progress, epoch))
+        } else {
+            None
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/supervisor/process/tests.rs"]
+mod tests;

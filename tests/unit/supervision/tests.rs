@@ -64,9 +64,21 @@ fn log_collection_state(directory: &std::path::Path) -> (EngineState, NodeConfig
     )
 }
 
-fn wait_for_log_event(repository: &Repository, kind: EventKind, text: &str) {
+/// Wait for an event, waking the collector on every poll.
+///
+/// One unpark is one sampling round, and a round whose database write lost a
+/// momentary race is a round whose event never appears. Waking on every poll
+/// gives the collector another chance instead of making it wait out the
+/// 30-second interval — which is longer than the whole deadline below.
+fn wait_for_log_event_while_waking(
+    repository: &Repository,
+    kind: EventKind,
+    text: &str,
+    wake: impl Fn(),
+) {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
+        wake();
         let events = repository
             .list_events(RuntimeEventFilter::default())
             .unwrap();
@@ -80,7 +92,7 @@ fn wait_for_log_event(repository: &Repository, kind: EventKind, text: &str) {
             Instant::now() < deadline,
             "missing {kind}: {text}; events: {events:?}"
         );
-        thread::sleep(Duration::from_millis(10));
+        thread::sleep(Duration::from_millis(50));
     }
 }
 
@@ -100,10 +112,11 @@ fn engine_collects_workspace_logs_and_joins_collector_without_tokio() {
 
     let engine = Engine::start(state.clone()).unwrap();
     // Baseline sync event should be recorded immediately.
-    wait_for_log_event(
+    wait_for_log_event_while_waking(
         &state.repository,
         EventKind::SyncProgressRecorded,
         "50/80 blocks (62.5%)",
+        || wake_collector(&engine),
     );
     // Baseline suppresses historical fatals - no fatal events yet.
 
@@ -119,10 +132,11 @@ fn engine_collects_workspace_logs_and_joins_collector_without_tokio() {
     thread::sleep(Duration::from_millis(300)); // Give round time to process
 
     // Confirm a fatal event was now emitted (append only)
-    wait_for_log_event(
+    wait_for_log_event_while_waking(
         &state.repository,
         EventKind::LogFatalErrorDetected,
         "FATAL/PANIC",
+        || wake_collector(&engine),
     );
 
     let stop = Arc::clone(&engine.stop);
@@ -150,15 +164,15 @@ fn engine_log_collection_bounds_reads_and_tolerates_missing_logs() {
     content.push_str("height 37 of 100\n");
     std::fs::write(&log_path, content).unwrap();
     // The collector samples first and parks for 30 seconds afterwards, so
-    // without this wake it would only see the file on its next round - and
-    // whether that round happens before or after the write above is a race.
-    // Waking it makes the round happen now, deterministically.
-    wake_collector(&engine);
-
-    wait_for_log_event(
+    // without waking it, whether it sees the file at all depends on whether
+    // its first round landed before or after the write above. The wait below
+    // keeps waking it, so a round that lost a momentary race is retried
+    // instead of waiting out the interval past the deadline.
+    wait_for_log_event_while_waking(
         &state.repository,
         EventKind::SyncProgressRecorded,
         "37/100 blocks (37.0%)",
+        || wake_collector(&engine),
     );
 
     // Baseline suppresses historical fatals - confirm none recorded
