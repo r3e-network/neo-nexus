@@ -1,16 +1,7 @@
 [advisories]
 # Fail the build on any advisory the project has not explicitly vouched for.
 yanked = "deny"
-ignore = [
-    # RUSTSEC-2024-0449: unsafe-libyaml is unmaintained (archived 2024-03), reached
-    # only via `serde_yaml` 0.9, which is itself deprecated. The advisory carries no
-    # known vulnerability — it is a maintenance warning. The parser only reads
-    # repo-controlled CI workflow files and operator-provided local config files,
-    # never remote input. The real fix is migrating to a maintained parser
-    # (e.g. serde-saphyr); that touches ~26 files including the YAML generators and
-    # is its own change. Until then this advisory is explicitly vouched for.
-    "RUSTSEC-2024-0449",
-]
+ignore = []
 
 [licenses]
 version = 2

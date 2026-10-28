@@ -103,3 +103,34 @@ fn advisory_audit_uses_cli_exit_status_without_check_run_permissions() -> anyhow
     assert!(verify["permissions"]["issues"].is_null());
     Ok(())
 }
+
+#[test]
+fn yaml_parser_dependency_is_maintained_without_advisory_exemptions() -> anyhow::Result<()> {
+    let root = workflow_root();
+    let manifest: toml::Value = toml::from_str(&fs::read_to_string(root.join("Cargo.toml"))?)?;
+    let parser = &manifest["dependencies"]["serde_yaml"];
+    assert_eq!(
+        parser.get("package").and_then(toml::Value::as_str),
+        Some("yaml_serde")
+    );
+    assert_eq!(
+        parser.get("version").and_then(toml::Value::as_str),
+        Some("0.10.7")
+    );
+    let lock: toml::Value = toml::from_str(&fs::read_to_string(root.join("Cargo.lock"))?)?;
+    for package in lock["package"].as_array().expect("lock packages") {
+        assert!(
+            !matches!(
+                package["name"].as_str(),
+                Some("unsafe-libyaml" | "serde_yaml")
+            ),
+            "retired YAML implementations must not remain in the resolved graph"
+        );
+    }
+    let policy: toml::Value = toml::from_str(&fs::read_to_string(root.join("deny.toml"))?)?;
+    assert!(policy["advisories"]["ignore"]
+        .as_array()
+        .expect("advisory policy")
+        .is_empty());
+    Ok(())
+}
