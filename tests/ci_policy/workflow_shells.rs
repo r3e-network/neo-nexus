@@ -173,3 +173,53 @@ fn yaml_parser_dependency_is_maintained_without_advisory_exemptions() -> anyhow:
         .is_empty());
     Ok(())
 }
+
+#[test]
+fn profiling_installs_the_crate_and_keeps_outputs_as_artifacts() -> anyhow::Result<()> {
+    let text = read_workflow(&workflow_root(), "benchmarks.yml")?;
+    let workflow: serde_yaml::Value = serde_yaml::from_str(&text)?;
+    assert_eq!(workflow["permissions"]["contents"].as_str(), Some("read"));
+    let steps = workflow["jobs"]["benchmark-flamegraph"]["steps"]
+        .as_sequence()
+        .unwrap();
+    let install = steps
+        .iter()
+        .find(|s| s["name"].as_str() == Some("Install flamegraph tool"))
+        .unwrap();
+    assert_eq!(
+        install["run"].as_str(),
+        Some("cargo install flamegraph --version 0.6.14 --locked")
+    );
+    let profile = steps
+        .iter()
+        .find(|s| s["name"].as_str() == Some("Run benchmark with flamegraph"))
+        .unwrap();
+    assert!(profile["run"]
+        .as_str()
+        .unwrap()
+        .contains("cargo flamegraph --bench node_manager_bench"));
+    assert!(steps
+        .iter()
+        .any(|s| s["uses"].as_str() == Some("actions/upload-artifact@v4")
+            && s["with"]["path"].as_str() == Some("flamegraph.svg")));
+    assert!(
+        !text.contains("git-auto-commit-action"),
+        "profiling must not commit generated outputs to the source branch"
+    );
+    assert!(!text.contains("FLAMEGRAPH.md"));
+    Ok(())
+}
+
+#[test]
+fn profiling_workflow_changes_trigger_the_push_check() -> anyhow::Result<()> {
+    let text = read_workflow(&workflow_root(), "benchmarks.yml")?;
+    let workflow: serde_yaml::Value = serde_yaml::from_str(&text)?;
+    let paths = workflow["on"]["push"]["paths"].as_sequence().unwrap();
+    assert!(
+        paths
+            .iter()
+            .any(|p| p.as_str() == Some(".github/workflows/benchmarks.yml")),
+        "a profiler workflow repair must be checked on its own push"
+    );
+    Ok(())
+}
